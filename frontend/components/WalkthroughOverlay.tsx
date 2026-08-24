@@ -1,5 +1,7 @@
 "use client";
 
+// First-Person Walkthrough HUD Overlay — crosshair, room badge, controls cheat sheet, minimap radar toggle.
+
 import React from "react";
 import { SolvedRoom } from "@/lib/solve";
 import { ROOM_COLORS, ROOM_LABELS, RoomName } from "@/lib/rooms";
@@ -14,156 +16,95 @@ interface WalkthroughOverlayProps {
   player?: PlayerTransform;
   lightsOn?: boolean;
   onExit: () => void;
-  onTeleportToRoom: (index: number) => void;
   onToggleLights?: () => void;
-  onMoveStart?: (cmd: "forward" | "backward" | "left" | "right" | "turnLeft" | "turnRight" | "sprint" | "crouch") => void;
-  onMoveEnd?: () => void;
+  onTeleport?: (index: number) => void;
 }
 
 export default function WalkthroughOverlay({
   currentRoom,
-  currentRoomIndex,
-  rooms,
+  player,
   lightsOn = true,
   onExit,
-  onTeleportToRoom,
   onToggleLights,
-  onMoveStart,
-  onMoveEnd,
 }: WalkthroughOverlayProps) {
-  const roomHex = currentRoom
-    ? (ROOM_COLORS[currentRoom.name as RoomName] ?? 0xe8912d).toString(16).padStart(6, "0")
-    : "ffffff";
-  const roomTitle = currentRoom
-    ? (ROOM_LABELS[currentRoom.name as RoomName] ?? currentRoom.name)
-    : "Inside House";
+  const roomName = currentRoom?.name as RoomName | undefined;
+  const roomLabel = roomName ? ROOM_LABELS[roomName] ?? currentRoom?.name : "Circulation / Foyer";
+  const hexColor = roomName ? ROOM_COLORS[roomName] ?? 0xe8912d : 0x8899aa;
+
+  const wFt = currentRoom ? inchesToFeet(currentRoom.w_in) : 0;
+  const dFt = currentRoom ? inchesToFeet(currentRoom.d_in) : 0;
 
   return (
-    <div className={styles.walkthroughOverlay}>
-      {/* Top Bar HUD */}
-      <div className={styles.topBar}>
-        <div className={styles.locationBadge}>
-          <div
-            className={styles.roomDot}
-            style={{ backgroundColor: `#${roomHex}`, color: `#${roomHex}` }}
-          />
-          <div className={styles.roomInfo}>
-            <div className={styles.roomTitle}>
-              {roomTitle}
-              <span className={styles.eyeLevelTag}>🚶 5&apos;5&quot; Human Perspective</span>
-            </div>
-            {currentRoom && (
-              <div className={styles.roomDims}>
-                {inchesToFeet(currentRoom.w_in)}&apos; × {inchesToFeet(currentRoom.d_in)}&apos; ft
-              </div>
-            )}
+    <div className={styles.overlayContainer}>
+      {/* Center Reticle / Crosshair */}
+      <div className={styles.crosshair}>
+        <div className={styles.crosshairDot} />
+      </div>
+
+      {/* Top Center: Current Room Banner */}
+      <div className={styles.roomBanner}>
+        <div
+          className={styles.roomColorIndicator}
+          style={{ background: `#${hexColor.toString(16).padStart(6, "0")}` }}
+        />
+        <div className={styles.roomTextGroup}>
+          <span className={styles.currentRoomName}>{roomLabel}</span>
+          {currentRoom && (
+            <span className={styles.currentRoomDims}>
+              {wFt}′ × {dFt}′ ft • {Math.round(wFt * dFt)} sq ft
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Center: Quick Controls HUD */}
+      <div className={styles.bottomHud}>
+        <div className={styles.hudCard}>
+          <div className={styles.hudHeader}>
+            <span className={styles.hudTitle}>🎮 5′5″ First-Person Navigation</span>
+            <button className={styles.exitBtn} onClick={onExit} title="Exit Walkthrough (ESC)">
+              ✕ Exit to Aerial Orbit [ESC]
+            </button>
           </div>
-        </div>
 
-        {/* Action buttons (Lights, Exit) */}
-        <div className={styles.topActions}>
-          <button
-            className={`${styles.actionBtn} ${lightsOn ? styles.actionBtnActive : ""}`}
-            onClick={onToggleLights}
-            title="Toggle Room Lights (F)"
-          >
-            <span>{lightsOn ? "💡" : "🌙"}</span> {lightsOn ? "Lights ON (F)" : "Lights OFF (F)"}
-          </button>
+          <div className={styles.hudKeysGrid}>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>W A S D</span>
+              <span className={styles.keyDesc}>Walk</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>Mouse Drag</span>
+              <span className={styles.keyDesc}>Look Around</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>Shift</span>
+              <span className={styles.keyDesc}>Sprint</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>Space</span>
+              <span className={styles.keyDesc}>Jump</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>C</span>
+              <span className={styles.keyDesc}>Crouch</span>
+            </div>
+            <div className={styles.keyItem} onClick={onToggleLights} style={{ cursor: "pointer" }}>
+              <span className={styles.keyBadge}>F</span>
+              <span className={styles.keyDesc}>Lights ({lightsOn ? "ON" : "OFF"})</span>
+            </div>
+          </div>
 
-          <button className={styles.exitBtn} onClick={onExit} title="Exit Walkthrough (ESC)">
-            <span>✕</span> Exit Walkthrough
-          </button>
-        </div>
-      </div>
-
-      {/* Center Controls Legend */}
-      <div className={styles.centerHint}>
-        <span>🖱️ <strong>Drag</strong> Look 360°</span>
-        <span>⌨️ <strong>WASD / Arrows</strong> Walk</span>
-        <span>⚡ <strong>Shift</strong> Sprint</span>
-        <span>🧘 <strong>C</strong> Crouch</span>
-        <span>🦘 <strong>Space</strong> Jump</span>
-        <span>💡 <strong>F</strong> Lights</span>
-      </div>
-
-      {/* Bottom Container: Teleport + Touch/Mouse Navigation D-Pad */}
-      <div className={styles.bottomContainer}>
-        {/* Quick Room Teleport Bar */}
-        <div className={styles.teleportBar}>
-          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", alignSelf: "center" }}>
-            Jump to:
-          </span>
-          {rooms.map((r, i) => {
-            const isActive = i === currentRoomIndex;
-            const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
-            return (
-              <button
-                key={`${r.name}-${i}`}
-                className={`${styles.teleportBtn} ${isActive ? styles.activeTeleport : ""}`}
-                onClick={() => onTeleportToRoom(i)}
-              >
-                {label} {i > 0 && r.name === rooms[i - 1]?.name ? `(${i + 1})` : ""}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Virtual Directional Pad */}
-        <div className={styles.dpad}>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("turnLeft")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Turn Left"
-          >
-            ↺
-          </button>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("forward")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Walk Forward (W)"
-          >
-            ▲
-          </button>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("turnRight")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Turn Right"
-          >
-            ↻
-          </button>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("left")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Strafe Left (A)"
-          >
-            ◀
-          </button>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("backward")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Walk Backward (S)"
-          >
-            ▼
-          </button>
-          <button
-            className={styles.dpadBtn}
-            onPointerDown={() => onMoveStart?.("right")}
-            onPointerUp={onMoveEnd}
-            onPointerLeave={onMoveEnd}
-            title="Strafe Right (D)"
-          >
-            ▶
-          </button>
+          {player && (
+            <div className={styles.telemetryRow}>
+              <span>
+                Eye Level: <strong>{player.isCrouched ? "3′8″ (Crouched)" : "5′5″ (Standing)"}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                Status: <strong>{player.isSprinting ? "Sprinting" : player.isMoving ? "Walking" : "Idle"}</strong>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

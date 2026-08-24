@@ -46,8 +46,6 @@ export default function Home() {
   const [mode, setMode] = useState<"orbit" | "walkthrough">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
 
-  // Walkthrough active control state
-  const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
 
   // Player location (5'5" perspective)
@@ -63,22 +61,19 @@ export default function Home() {
     lightsOn: true,
   });
 
-  const roomListWithSpecs: (RoomName | RoomSpecIn)[] = useMemo(() => {
-    const list: (RoomName | RoomSpecIn)[] = [];
+  const roomListWithSpecs: RoomSpecIn[] = useMemo(() => {
+    const list: RoomSpecIn[] = [];
     for (const name of ROOM_NAMES) {
       const count = counts[name] ?? 0;
       for (let c = 0; c < count; c++) {
         const id = `${name}_${c}`;
         const custom = customDims[id];
-        if (custom) {
-          list.push({
-            name,
-            custom_w_in: custom.wFt * 12,
-            custom_d_in: custom.dFt * 12,
-          });
-        } else {
-          list.push(name);
-        }
+        list.push({
+          id,
+          name,
+          custom_w_in: custom ? custom.wFt * 12 : undefined,
+          custom_d_in: custom ? custom.dFt * 12 : undefined,
+        });
       }
     }
     return list;
@@ -114,139 +109,157 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mode]);
 
-  // Teleport to a room center
-  const handleTeleportToRoom = useCallback(
+  // Teleport to (x, z) in world coordinates (feet)
+  const handleTeleport = useCallback((x: number, z: number) => {
+    setTeleportTarget({ x, z });
+  }, []);
+
+  const handleTeleportToRoomIndex = useCallback(
     (index: number) => {
       const targetRoom = rooms[index];
       if (!targetRoom) return;
-      const rx = inchesToFeet(targetRoom.x_in);
-      const rz = inchesToFeet(targetRoom.y_in);
-      const rw = inchesToFeet(targetRoom.w_in);
-      const rd = inchesToFeet(targetRoom.d_in);
-
       setTeleportTarget({
-        x: rx + rw / 2,
-        z: rz + rd / 2,
+        x: inchesToFeet(targetRoom.x_in + targetRoom.w_in / 2),
+        z: inchesToFeet(targetRoom.y_in + targetRoom.d_in / 2),
       });
-      setTimeout(() => setTeleportTarget(null), 100);
     },
     [rooms]
   );
 
-  // Teleport to canvas coordinate
-  const handleTeleportToCoord = useCallback((x: number, z: number) => {
-    setTeleportTarget({ x, z });
-    setTimeout(() => setTeleportTarget(null), 100);
+  const handleToggleMode = useCallback(() => {
+    setMode((prev) => (prev === "orbit" ? "walkthrough" : "orbit"));
   }, []);
 
-  const toggleLights = useCallback(() => {
+  const handleToggleLights = useCallback(() => {
     setLightsOn((prev) => !prev);
   }, []);
 
   return (
-    <div className={styles.page}>
-      {/* 3D Canvas Host with Drag-and-Drop & Auto Doors */}
-      <div className={styles.canvasHost}>
-        <Scene
-          plot={plot}
-          facing={facing}
-          rooms={rooms}
-          mode={mode}
-          activeMoveCmd={activeMoveCmd}
-          teleportTarget={teleportTarget}
-          lightsOn={lightsOn}
-          onPlotChange={setPlot}
-          onPlayerUpdate={setPlayer}
-          onToggleLights={toggleLights}
-          onRoomMove={moveRoom}
-        />
-      </div>
+    <div className={styles.appContainer}>
+      <header className={styles.header}>
+        <div className={styles.logoGroup}>
+          <div className={styles.badge}>3D PLANNER</div>
+          <h1 className={styles.title}>Plot to Plan</h1>
+        </div>
+        <div className={styles.headerControls}>
+          {pending && <div className={styles.solvingPill}>⚡ Solving Layout...</div>}
+          {error && <div className={styles.errorPill}>⚠️ {error}</div>}
 
-      {/* Top Center Mode Switcher */}
-      <div className={styles.topCenterBar}>
-        <button
-          className={`${styles.modeToggleBtn} ${mode === "orbit" ? styles.activeModeBtn : ""}`}
-          onClick={() => setMode("orbit")}
-        >
-          <span>🌐</span> 3D Orbit View
-        </button>
-        <button
-          className={`${styles.modeToggleBtn} ${mode === "walkthrough" ? styles.activeModeBtn : ""}`}
-          onClick={() => setMode("walkthrough")}
-        >
-          <span>🚶</span> 5&apos;5&quot; First-Person Walkthrough
-        </button>
-      </div>
+          {/* Mode Switcher Button */}
+          <button
+            className={`${styles.modeBtn} ${mode === "walkthrough" ? styles.modeBtnActive : ""}`}
+            onClick={handleToggleMode}
+          >
+            {mode === "orbit" ? "🚶 Walk Inside (5'5\")" : "🌐 Aerial 3D Orbit"}
+          </button>
+        </div>
+      </header>
 
-      {/* Orbit Control Panel (Left) */}
-      <div className={`${styles.panel} ${mode === "walkthrough" ? styles.panelHidden : ""}`}>
-        <div className={styles.brand}>
-          <div className={styles.brandDot} />
-          plot-to-plan
-        </div>
-        <PlotPicker plot={plot} onChange={setPlot} />
-        <RoomTray counts={counts} onChange={setCounts} />
-        <RoomCustomizer
-          counts={counts}
-          rooms={rooms}
-          customDims={customDims}
-          onChangeCustomDims={setCustomDims}
-        />
-        <CompassDial facing={facing} onChange={setFacing} />
-      </div>
+      <main className={styles.mainLayout}>
+        <section className={styles.viewport}>
+          <Scene
+            plot={plot}
+            facing={facing}
+            rooms={rooms}
+            setback={DEFAULT_SETBACK}
+            mode={mode}
+            teleportTarget={teleportTarget}
+            lightsOn={lightsOn}
+            onPlotChange={setPlot}
+            onPlayerUpdate={setPlayer}
+            onToggleLights={handleToggleLights}
+            onRoomMove={moveRoom}
+          />
 
-      {/* Orbit Info Readout (Right) */}
-      <div className={`${styles.readout} ${mode === "walkthrough" ? styles.panelHidden : ""}`}>
-        <div>
-          Plot <strong>{inchesToFeet(plot.widthIn)} × {inchesToFeet(plot.depthIn)} ft</strong>
-        </div>
-        <div>
-          Buildable <strong>{inchesToFeet(buildableW)} × {inchesToFeet(buildableD)} ft</strong>
-        </div>
-        <div className={styles.divider} />
-        <div>
-          Rooms <strong>{rooms.length}</strong>
-          {pending && <span className={styles.pending}> solving…</span>}
-        </div>
-        {meta && (
-          <div>
-            Solve <strong>{meta.solve_ms} ms</strong>{" "}
-            <span className={styles.status}>{meta.status}</span>
-          </div>
+          {/* Orbit View HUD Overlay */}
+          {mode === "orbit" && (
+            <>
+              <div className={styles.plotMetaOverlay}>
+                <span className={styles.metaLabel}>Plot:</span>
+                <span className={styles.metaValue}>
+                  {inchesToFeet(plot.widthIn)}′ × {inchesToFeet(plot.depthIn)}′ ft
+                </span>
+                <span className={styles.metaDivider}>•</span>
+                <span className={styles.metaLabel}>Buildable:</span>
+                <span className={styles.metaValue}>
+                  {inchesToFeet(buildableW)}′ × {inchesToFeet(buildableD)}′ ft
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* 3D Minimap Radar */}
+          <Minimap
+            plot={plot}
+            facing={facing}
+            rooms={rooms}
+            player={player}
+            currentRoomIndex={currentRoomIndex}
+            onTeleport={handleTeleport}
+          />
+
+          {/* First-Person Walkthrough HUD Overlay */}
+          {mode === "walkthrough" && (
+            <WalkthroughOverlay
+              currentRoom={currentRoom}
+              currentRoomIndex={currentRoomIndex}
+              rooms={rooms}
+              player={player}
+              lightsOn={lightsOn}
+              onExit={() => setMode("orbit")}
+              onToggleLights={handleToggleLights}
+              onTeleport={handleTeleportToRoomIndex}
+            />
+          )}
+        </section>
+
+        {/* Sidebar Controls (Visible in Orbit Mode) */}
+        {mode === "orbit" && (
+          <aside className={styles.sidebar}>
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>1. Plot Dimensions</h2>
+              <PlotPicker plot={plot} onChange={setPlot} />
+            </div>
+
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>2. Road Facing Direction</h2>
+              <CompassDial facing={facing} onChange={setFacing} />
+            </div>
+
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>3. Room Program</h2>
+              <RoomTray counts={counts} onChange={setCounts} />
+            </div>
+
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>4. Room Dimensions (Custom)</h2>
+              <RoomCustomizer
+                counts={counts}
+                rooms={rooms}
+                customDims={customDims}
+                onChangeCustomDims={setCustomDims}
+              />
+            </div>
+
+            {meta && (
+              <div className={styles.statusFooter}>
+                <div className={styles.statusRow}>
+                  <span>Solver Status:</span>
+                  <span className={styles.statusOk}>{meta.status}</span>
+                </div>
+                <div className={styles.statusRow}>
+                  <span>Solve Time:</span>
+                  <span>{meta.solve_ms} ms</span>
+                </div>
+                <div className={styles.statusRow}>
+                  <span>Vaastu Compliant:</span>
+                  <span>{meta.vaastu_constraints_applied.length} zones active</span>
+                </div>
+              </div>
+            )}
+          </aside>
         )}
-        {meta?.vaastu_constraints_applied.map((c) => (
-          <div key={c} className={styles.vaastu}>
-            ✓ {c}
-          </div>
-        ))}
-        {error && <div className={styles.error}>solver offline — {error}</div>}
-      </div>
-
-      {/* Interactive 2D Minimap Radar */}
-      <Minimap
-        plot={plot}
-        facing={facing}
-        rooms={rooms}
-        player={player}
-        currentRoomIndex={currentRoomIndex}
-        onTeleport={handleTeleportToCoord}
-      />
-
-      {/* First-Person Walkthrough HUD Overlay */}
-      {mode === "walkthrough" && (
-        <WalkthroughOverlay
-          currentRoom={currentRoom}
-          currentRoomIndex={currentRoomIndex}
-          rooms={rooms}
-          player={player}
-          lightsOn={lightsOn}
-          onExit={() => setMode("orbit")}
-          onTeleportToRoom={handleTeleportToRoom}
-          onToggleLights={toggleLights}
-          onMoveStart={(cmd) => setActiveMoveCmd(cmd)}
-          onMoveEnd={() => setActiveMoveCmd(null)}
-        />
-      )}
+      </main>
     </div>
   );
 }

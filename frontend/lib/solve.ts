@@ -1,20 +1,35 @@
-// Client for POST /solve — notes/build/step-3-wire-together.md.
-// Supports custom per-room dimensions (e.g. 15x15 ft bedroom).
+// API client — notes/build/step-3-wire-together.md: fetch from FastAPI solver backend.
 
-import { Facing, Setback } from "./plot";
+import { edgeSetbacksIn, Facing, Setback } from "./plot";
 import { RoomName } from "./rooms";
 
-const SOLVE_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000/solve";
+export interface RoomSpecIn {
+  id?: string;
+  name: string;
+  custom_w_in?: number;
+  custom_d_in?: number;
+  min_w_in?: number;
+  max_w_in?: number;
+  min_d_in?: number;
+  max_d_in?: number;
+}
 
 export interface SolvedRoom {
-  name: RoomName;
+  name: string;
   floor: number;
   x_in: number;
   y_in: number;
   w_in: number;
   d_in: number;
   wall_thickness_in: number | null;
-  openings: unknown[];
+  openings: {
+    kind: "door" | "window" | "opening" | "entrance";
+    edge: "N" | "S" | "E" | "W";
+    offset_in: number;
+    width_in: number;
+    height_in: number;
+    to_room?: number | null;
+  }[];
 }
 
 export interface SolveMeta {
@@ -33,41 +48,56 @@ export interface SolveResponse {
   meta: SolveMeta;
 }
 
-export interface RoomSpecIn {
-  name: RoomName;
-  custom_w_in?: number;
-  custom_d_in?: number;
+export interface PrevRoomIn {
+  index: number;
+  x_in: number;
+  y_in: number;
 }
 
-export interface SolveArgs {
+export interface SolveRequestArgs {
   plotWIn: number;
   plotDIn: number;
   facing: Facing;
   rooms: (RoomName | RoomSpecIn)[];
-  setback: Setback;
-  prev?: { index: number; x_in: number; y_in: number }[];
+  setback?: Setback;
+  prev?: PrevRoomIn[];
 }
 
-export async function requestSolve(args: SolveArgs, signal?: AbortSignal): Promise<SolveResponse> {
-  const res = await fetch(SOLVE_URL, {
+const SOLVER_API_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000";
+
+export async function requestSolve(
+  args: SolveRequestArgs,
+  signal?: AbortSignal
+): Promise<SolveResponse> {
+  const [frontIn, rightIn, rearIn, leftIn] = args.setback
+    ? edgeSetbacksIn(args.facing, args.setback)
+    : [60, 36, 60, 36];
+
+  const payload = {
+    plot_w_in: args.plotWIn,
+    plot_d_in: args.plotDIn,
+    facing: args.facing,
+    rooms: args.rooms,
+    setback: {
+      front_in: frontIn,
+      rear_in: rearIn,
+      left_in: leftIn,
+      right_in: rightIn,
+    },
+    prev: args.prev,
+    apply_vaastu: true,
+  };
+
+  const res = await fetch(`${SOLVER_API_URL}/solve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
     signal,
-    body: JSON.stringify({
-      plot_w_in: args.plotWIn,
-      plot_d_in: args.plotDIn,
-      facing: args.facing,
-      rooms: args.rooms,
-      setback: {
-        front_in: args.setback.frontIn,
-        rear_in: args.setback.rearIn,
-        left_in: args.setback.leftIn,
-        right_in: args.setback.rightIn,
-      },
-      prev: args.prev ?? null,
-      apply_vaastu: true,
-    }),
   });
-  if (!res.ok) throw new Error(`solve failed: ${res.status}`);
+
+  if (!res.ok) {
+    throw new Error(`Solver returned HTTP ${res.status}: ${await res.text()}`);
+  }
+
   return res.json();
 }

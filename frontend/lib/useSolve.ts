@@ -2,12 +2,12 @@
 
 // Debounced solve — notes/architecture/architecture.md: ~400ms after input settles.
 // Supports optimistic drag-and-drop repositioning via moveRoom() and custom room dimensions.
-// Preserves dragged positions across custom dimension adjustments (no resets to corner).
+// Persistent stable instance-ID position tracking: adding/removing rooms never shifts existing room placements.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Facing, Setback } from "./plot";
 import { RoomName } from "./rooms";
-import { requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
+import { PrevRoomIn, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
 
 const DEBOUNCE_MS = 350;
 
@@ -19,8 +19,9 @@ interface UseSolveArgs {
   setback: Setback;
 }
 
-function getRoomName(r: RoomName | RoomSpecIn): string {
-  return typeof r === "string" ? r : r.name;
+function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
+  if (typeof r === "string") return `${r}_${index}`;
+  return r.id || `${r.name}_${index}`;
 }
 
 export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }: UseSolveArgs) {
@@ -29,41 +30,54 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const prevRef = useRef<{ index: number; x_in: number; y_in: number }[] | undefined>(undefined);
-  const lastRoomNamesRef = useRef<string[]>([]);
+  // Persistent instance-level position map: roomId -> { x_in, y_in } (envelope relative)
+  const savedPositionsRef = useRef<Map<string, { x_in: number; y_in: number }>>(new Map());
 
   useEffect(() => {
-    const currentRoomNames = roomList.map(getRoomName);
-    const namesChanged =
-      currentRoomNames.length !== lastRoomNamesRef.current.length ||
-      currentRoomNames.some((name, i) => name !== lastRoomNamesRef.current[i]);
-
-    if (namesChanged) {
-      lastRoomNamesRef.current = currentRoomNames;
-      // If room types or counts changed significantly, prune or re-index prevRef
-      if (prevRef.current && prevRef.current.length > currentRoomNames.length) {
-        prevRef.current = prevRef.current.slice(0, currentRoomNames.length);
-      }
-    }
-
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setPending(true);
+
+      // Build prev payload strictly matching each room's persistent instance ID
+      const prevPayload: PrevRoomIn[] = [];
+      roomList.forEach((r, i) => {
+        const id = getRoomId(r, i);
+        const saved = savedPositionsRef.current.get(id);
+        if (saved) {
+          prevPayload.push({
+            index: i,
+            x_in: saved.x_in,
+            y_in: saved.y_in,
+          });
+        }
+      });
+
       try {
         const res = await requestSolve(
-          { plotWIn, plotDIn, facing, rooms: roomList, setback, prev: prevRef.current },
+          {
+            plotWIn,
+            plotDIn,
+            facing,
+            rooms: roomList,
+            setback,
+            prev: prevPayload.length > 0 ? prevPayload : undefined,
+          },
           controller.signal
         );
         setRooms(res.rooms);
         setMeta(res.meta);
         setError(null);
 
-        // Update prevRef with envelope-relative coordinates for subsequent solves
-        prevRef.current = res.rooms.map((r, index) => ({
-          index,
-          x_in: r.x_in - res.meta.envelope_origin_x_in,
-          y_in: r.y_in - res.meta.envelope_origin_z_in,
-        }));
+        // Update persistent positions for every placed room
+        res.rooms.forEach((r, i) => {
+          if (i < roomList.length) {
+            const id = getRoomId(roomList[i], i);
+            savedPositionsRef.current.set(id, {
+              x_in: r.x_in - res.meta.envelope_origin_x_in,
+              y_in: r.y_in - res.meta.envelope_origin_z_in,
+            });
+          }
+        });
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
         setError((e as Error).message);
@@ -85,12 +99,26 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
       const envX0 = meta.envelope_origin_x_in;
       const envZ0 = meta.envelope_origin_z_in;
 
-      const nextPrev = rooms.map((r, i) => ({
-        index: i,
-        x_in: i === roomIndex ? Math.max(0, targetPlotXIn - envX0) : r.x_in - envX0,
-        y_in: i === roomIndex ? Math.max(0, targetPlotYIn - envZ0) : r.y_in - envZ0,
-      }));
-      prevRef.current = nextPrev;
+      // Update persistent instance position immediately
+      const movedId = getRoomId(roomList[roomIndex], roomIndex);
+      savedPositionsRef.current.set(movedId, {
+        x_in: Math.max(0, targetPlotXIn - envX0),
+        y_in: Math.max(0, targetPlotYIn - envZ0),
+      });
+
+      // Build updated prev payload
+      const nextPrev: PrevRoomIn[] = [];
+      roomList.forEach((r, i) => {
+        const id = getRoomId(r, i);
+        const saved = savedPositionsRef.current.get(id);
+        if (saved) {
+          nextPrev.push({
+            index: i,
+            x_in: saved.x_in,
+            y_in: saved.y_in,
+          });
+        }
+      });
 
       // Optimistically update on-screen position instantly
       setRooms((prevRooms) =>
@@ -112,18 +140,23 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
         setRooms(res.rooms);
         setMeta(res.meta);
         setError(null);
-        prevRef.current = res.rooms.map((r, index) => ({
-          index,
-          x_in: r.x_in - res.meta.envelope_origin_x_in,
-          y_in: r.y_in - res.meta.envelope_origin_z_in,
-        }));
+
+        res.rooms.forEach((r, i) => {
+          if (i < roomList.length) {
+            const id = getRoomId(roomList[i], i);
+            savedPositionsRef.current.set(id, {
+              x_in: r.x_in - res.meta.envelope_origin_x_in,
+              y_in: r.y_in - res.meta.envelope_origin_z_in,
+            });
+          }
+        });
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setPending(false);
       }
     },
-    [meta, rooms, plotWIn, plotDIn, facing, roomList, setback]
+    [meta, plotWIn, plotDIn, facing, roomList, setback]
   );
 
   return { rooms, meta, pending, error, moveRoom };
