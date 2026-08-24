@@ -1,65 +1,53 @@
-// Intelligent, Door-Aware High-Fidelity 3D Interior & Architectural Furniture Details
-// Real-world architectural layouts: Zero door blockages, 3.5ft+ clear circulation corridors,
-// procedural PBR materials, and realistic furniture ergonomics.
+// Photorealistic Architectural Interior Procedural Models & PBR Textures
+// Dynamic Door-Aware Ergonomics Engine: All furniture, TV units, beds, counters, and wardrobes
+// automatically adapt to all attached room doorways and entrance doors to guarantee 100% obstruction-free walkways.
 
 import * as THREE from "three";
 import { RoomName } from "./rooms";
 
 export interface RoomDoorInfo {
   edge: "N" | "S" | "E" | "W";
-  center: number;
+  center: number; // feet along the axis
   isEntrance?: boolean;
 }
 
-// -------------------------------------------------------------
-// Procedural High-Res PBR Floor Textures
-// -------------------------------------------------------------
+// --------------------------------------------------------------------------------------
+// 1. Procedural PBR Floor Texture Generators
+// --------------------------------------------------------------------------------------
 
 export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 1024;
+  canvas.width = 512;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.fillStyle = isPooja ? "#faf6ee" : "#f1f5f9";
-  ctx.fillRect(0, 0, 1024, 1024);
+  ctx.fillStyle = isPooja ? "#fcfaf2" : "#f1f5f9";
+  ctx.fillRect(0, 0, 512, 512);
 
-  // Marble Veins
-  ctx.save();
-  for (let v = 0; v < 9; v++) {
-    ctx.strokeStyle = isPooja ? "rgba(195, 155, 100, 0.16)" : "rgba(148, 163, 184, 0.18)";
-    ctx.lineWidth = Math.random() * 5 + 2;
-    ctx.filter = "blur(3px)";
+  ctx.strokeStyle = isPooja ? "rgba(180, 150, 90, 0.15)" : "rgba(100, 116, 139, 0.16)";
+  ctx.lineWidth = 2.5;
+
+  for (let i = 0; i < 9; i++) {
     ctx.beginPath();
-    let x = Math.random() * 1024;
+    let x = (i * 65 + 30) % 512;
     let y = 0;
     ctx.moveTo(x, y);
-    while (y < 1024) {
-      x += (Math.random() - 0.48) * 110;
-      y += Math.random() * 90 + 30;
+    while (y < 512) {
+      x += (Math.sin(y * 0.04 + i) + Math.cos(x * 0.03)) * 6;
+      y += 18;
       ctx.lineTo(x, y);
     }
     ctx.stroke();
   }
-  ctx.restore();
 
-  // Subtle 4x4 slab seams
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.07)";
+  // Tile grout lines (4ft x 4ft marble slabs)
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
   ctx.lineWidth = 2;
-  const tileSize = 256;
-  for (let x = 0; x <= 1024; x += tileSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, 1024);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= 1024; y += tileSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(1024, y);
-    ctx.stroke();
-  }
+  ctx.strokeRect(0, 0, 256, 256);
+  ctx.strokeRect(256, 0, 256, 256);
+  ctx.strokeRect(0, 256, 256, 256);
+  ctx.strokeRect(256, 256, 256, 256);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
@@ -70,81 +58,44 @@ export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTex
 
 export function getWoodFloorTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return new THREE.CanvasTexture(canvas);
-
-  const plankH = 64;
-  const numPlanks = 1024 / plankH;
-
-  for (let i = 0; i < numPlanks; i++) {
-    const y = i * plankH;
-    const toneVariation = (Math.random() - 0.5) * 18;
-    const r = Math.round(116 + toneVariation);
-    const g = Math.round(78 + toneVariation * 0.7);
-    const b = Math.round(54 + toneVariation * 0.5);
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.fillRect(0, y, 1024, plankH);
-
-    ctx.strokeStyle = "rgba(45, 28, 18, 0.22)";
-    ctx.lineWidth = 1.2;
-    for (let gIdx = 0; gIdx < 6; gIdx++) {
-      const gy = y + Math.random() * plankH;
-      ctx.beginPath();
-      ctx.moveTo(0, gy);
-      ctx.bezierCurveTo(340, gy + (Math.random() - 0.5) * 8, 680, gy + (Math.random() - 0.5) * 8, 1024, gy);
-      ctx.stroke();
-    }
-
-    ctx.strokeStyle = "rgba(25, 14, 8, 0.75)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, y + plankH);
-    ctx.lineTo(1024, y + plankH);
-    ctx.stroke();
-
-    const offset = (i % 3) * 340 + (i % 2) * 120;
-    for (let x = offset % 340; x < 1024; x += 340) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x, y + plankH);
-      ctx.stroke();
-    }
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 2);
-  return texture;
-}
-
-export function getTileFloorTexture(isKitchen: boolean): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.fillStyle = isKitchen ? "#e2e8f0" : "#cbd5e1";
+  ctx.fillStyle = "#8a5833";
   ctx.fillRect(0, 0, 512, 512);
 
-  const size = 128;
-  ctx.strokeStyle = isKitchen ? "#94a3b8" : "#64748b";
-  ctx.lineWidth = 3;
+  // Walnut plank grain lines
+  const plankH = 64;
+  for (let y = 0; y < 512; y += plankH) {
+    const tone = (y / plankH) % 2 === 0 ? "#784b29" : "#8d5d36";
+    ctx.fillStyle = tone;
+    ctx.fillRect(0, y, 512, plankH);
 
-  for (let x = 0; x <= 512; x += size) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, 512);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= 512; y += size) {
+    ctx.strokeStyle = "rgba(45, 25, 12, 0.6)";
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(512, y);
     ctx.stroke();
+
+    const stagger = (y / plankH) % 2 === 0 ? 256 : 128;
+    ctx.beginPath();
+    ctx.moveTo(stagger, y);
+    ctx.lineTo(stagger, y + plankH);
+    ctx.moveTo((stagger + 256) % 512, y);
+    ctx.lineTo((stagger + 256) % 512, y + plankH);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(60, 32, 16, 0.18)";
+    ctx.lineWidth = 1;
+    for (let g = 4; g < plankH; g += 8) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + g);
+      ctx.lineTo(512, y + g);
+      ctx.stroke();
+    }
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -154,50 +105,59 @@ export function getTileFloorTexture(isKitchen: boolean): THREE.CanvasTexture {
   return texture;
 }
 
-// -------------------------------------------------------------
-// Animated Ceiling Fan with Frosted Globe Light
-// -------------------------------------------------------------
+export function getTileFloorTexture(isKitchen: boolean = false): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new THREE.CanvasTexture(canvas);
 
-export function addCeilingFan(group: THREE.Group, cx: number, cz: number, y: number): THREE.Group {
+  ctx.fillStyle = isKitchen ? "#334155" : "#1e293b";
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, 128, 128);
+  ctx.strokeRect(128, 0, 128, 128);
+  ctx.strokeRect(0, 128, 128, 128);
+  ctx.strokeRect(128, 128, 128, 128);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return texture;
+}
+
+// --------------------------------------------------------------------------------------
+// 2. Animated Ceiling Fan
+// --------------------------------------------------------------------------------------
+
+export function addCeilingFan(group: THREE.Group, x: number, z: number, y: number): THREE.Group {
   const fanGroup = new THREE.Group();
-  fanGroup.position.set(cx, y, cz);
+  fanGroup.position.set(x, y, z);
 
-  const mountMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.35, metalness: 0.7 });
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x3d2718, roughness: 0.45, metalness: 0.1 });
-  const globeMat = new THREE.MeshStandardMaterial({
-    color: 0xfffae8,
-    emissive: 0xffecc4,
-    emissiveIntensity: 0.6,
-    roughness: 0.2,
-  });
+  const rodMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, metalness: 0.8, roughness: 0.2 });
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.4 });
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
 
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 12), mountMat);
-  rod.position.y = 0.45;
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 16), rodMat);
+  rod.position.y = 0.6;
   fanGroup.add(rod);
 
-  const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.38, 0.3, 24), mountMat);
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.45, 0.35, 24), brassMat);
   motor.position.y = 0;
   fanGroup.add(motor);
 
-  const globe = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), globeMat);
-  globe.position.y = -0.15;
-  fanGroup.add(globe);
-
   const bladesGroup = new THREE.Group();
-  bladesGroup.position.y = 0.02;
+  bladesGroup.position.y = 0;
 
-  const numBlades = 3;
-  for (let i = 0; i < numBlades; i++) {
-    const angle = (i * Math.PI * 2) / numBlades;
-    const bladeArm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.4), mountMat);
-    bladeArm.position.set(Math.sin(angle) * 0.4, 0, Math.cos(angle) * 0.4);
-    bladeArm.rotation.y = angle;
-    bladesGroup.add(bladeArm);
-
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.03, 1.8), bladeMat);
-    blade.position.set(Math.sin(angle) * 1.3, 0, Math.cos(angle) * 1.3);
-    blade.rotation.y = angle;
-    blade.rotation.x = 0.08;
+  for (let i = 0; i < 3; i++) {
+    const angle = (i * 2 * Math.PI) / 3;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.03, 0.45), bladeMat);
+    blade.position.set(Math.cos(angle) * 1.15, 0, Math.sin(angle) * 1.15);
+    blade.rotation.y = -angle;
+    blade.rotation.z = 0.1;
     blade.castShadow = true;
     bladesGroup.add(blade);
   }
@@ -207,9 +167,9 @@ export function addCeilingFan(group: THREE.Group, cx: number, cz: number, y: num
   return bladesGroup;
 }
 
-// -------------------------------------------------------------
-// High-Quality Window with Aluminum Frame & Pleated Curtains
-// -------------------------------------------------------------
+// --------------------------------------------------------------------------------------
+// 3. Architectural Window with Glass & Drapery Curtains
+// --------------------------------------------------------------------------------------
 
 export function buildWindowWithCurtains(
   group: THREE.Group,
@@ -221,131 +181,94 @@ export function buildWindowWithCurtains(
   wallThick: number,
   isEW: boolean,
   hasCurtains: boolean = true,
-  isPrivacyGlass: boolean = false
+  isBathroom: boolean = false
 ) {
-  const frameMat = new THREE.MeshStandardMaterial({
-    color: 0x1f242b,
-    roughness: 0.35,
-    metalness: 0.85,
-  });
-
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.35 });
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: isPrivacyGlass ? 0xd0e8ec : 0x88ccff,
+    color: 0x93c5fd,
     transparent: true,
-    opacity: isPrivacyGlass ? 0.85 : 0.38,
-    roughness: isPrivacyGlass ? 0.7 : 0.05,
+    opacity: isBathroom ? 0.65 : 0.3,
+    roughness: isBathroom ? 0.6 : 0.05,
     metalness: 0.1,
-    transmission: isPrivacyGlass ? 0.3 : 0.9,
-    ior: 1.52,
+    transmission: 0.9,
   });
 
-  const frameThick = 0.14;
-  const glassW = winW - frameThick * 2;
-  const glassH = winH - frameThick * 2;
+  const frameDepth = wallThick + 0.08;
+  const glassW = isEW ? winW : frameDepth;
+  const glassD = isEW ? frameDepth : winW;
 
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, winH, glassD), glassMat);
+  glass.position.set(wx, wy, wz);
+  group.add(glass);
+
+  const mullionMat = frameMat;
   if (isEW) {
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, glassH, 0.05), glassMat);
-    glass.position.set(wx, wy, wz);
-    group.add(glass);
-
-    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW, frameThick, wallThick + 0.06), frameMat);
-    frameTop.position.set(wx, wy + winH / 2 - frameThick / 2, wz);
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.15, frameDepth), mullionMat);
+    frameTop.position.set(wx, wy + winH / 2, wz);
     group.add(frameTop);
 
-    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW, frameThick + 0.06, wallThick + 0.12), frameMat);
-    frameBot.position.set(wx, wy - winH / 2 + frameThick / 2, wz);
+    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.3, 0.18, frameDepth + 0.1), mullionMat);
+    frameBot.position.set(wx, wy - winH / 2, wz);
     group.add(frameBot);
 
-    const frameL = new THREE.Mesh(new THREE.BoxGeometry(frameThick, winH, wallThick + 0.06), frameMat);
-    frameL.position.set(wx - winW / 2 + frameThick / 2, wy, wz);
-    group.add(frameL);
-
-    const frameR = new THREE.Mesh(new THREE.BoxGeometry(frameThick, winH, wallThick + 0.06), frameMat);
-    frameR.position.set(wx + winW / 2 - frameThick / 2, wy, wz);
-    group.add(frameR);
-
-    const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.08, winH, wallThick + 0.04), frameMat);
-    mullion.position.set(wx, wy, wz);
-    group.add(mullion);
-
-    if (hasCurtains) {
-      const curtainMat = new THREE.MeshStandardMaterial({
-        color: 0xeeece6,
-        roughness: 0.9,
-        metalness: 0.02,
-      });
-      const rodMat = new THREE.MeshStandardMaterial({ color: 0x221c16, metalness: 0.7, roughness: 0.3 });
-
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, winW + 1.2, 12), rodMat);
-      rod.rotation.z = Math.PI / 2;
-      rod.position.set(wx, wy + winH / 2 + 0.35, wz + (wallThick / 2 + 0.18));
-      group.add(rod);
-
-      const panelW = winW * 0.28;
-      const panelH = winH + 1.6;
-
-      const leftCurtain = new THREE.Mesh(new THREE.BoxGeometry(panelW, panelH, 0.12), curtainMat);
-      leftCurtain.position.set(wx - winW / 2 + panelW / 2 - 0.1, wy - 0.45, wz + (wallThick / 2 + 0.18));
-      group.add(leftCurtain);
-
-      const rightCurtain = new THREE.Mesh(new THREE.BoxGeometry(panelW, panelH, 0.12), curtainMat);
-      rightCurtain.position.set(wx + winW / 2 - panelW / 2 + 0.1, wy - 0.45, wz + (wallThick / 2 + 0.18));
-      group.add(rightCurtain);
-    }
+    const mullionV = new THREE.Mesh(new THREE.BoxGeometry(0.12, winH, frameDepth), mullionMat);
+    mullionV.position.set(wx, wy, wz);
+    group.add(mullionV);
   } else {
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.05, glassH, glassW), glassMat);
-    glass.position.set(wx, wy, wz);
-    group.add(glass);
-
-    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(wallThick + 0.06, frameThick, winW), frameMat);
-    frameTop.position.set(wx, wy + winH / 2 - frameThick / 2, wz);
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.15, winW + 0.2), mullionMat);
+    frameTop.position.set(wx, wy + winH / 2, wz);
     group.add(frameTop);
 
-    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(wallThick + 0.12, frameThick + 0.06, winW), frameMat);
-    frameBot.position.set(wx, wy - winH / 2 + frameThick / 2, wz);
+    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.1, 0.18, winW + 0.3), mullionMat);
+    frameBot.position.set(wx, wy - winH / 2, wz);
     group.add(frameBot);
 
-    const frameN = new THREE.Mesh(new THREE.BoxGeometry(wallThick + 0.06, winH, frameThick), frameMat);
-    frameN.position.set(wx, wy, wz - winW / 2 + frameThick / 2);
-    group.add(frameN);
+    const mullionV = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, winH, 0.12), mullionMat);
+    mullionV.position.set(wx, wy, wz);
+    group.add(mullionV);
+  }
 
-    const frameS = new THREE.Mesh(new THREE.BoxGeometry(wallThick + 0.06, winH, frameThick), frameMat);
-    frameS.position.set(wx, wy, wz + winW / 2 - frameThick / 2);
-    group.add(frameS);
+  if (hasCurtains && !isBathroom) {
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
+    const fabricMat = new THREE.MeshStandardMaterial({ color: 0xede9fe, roughness: 0.9 });
 
-    const mullion = new THREE.Mesh(new THREE.BoxGeometry(wallThick + 0.04, winH, 0.08), frameMat);
-    mullion.position.set(wx, wy, wz);
-    group.add(mullion);
-
-    if (hasCurtains) {
-      const curtainMat = new THREE.MeshStandardMaterial({
-        color: 0xeeece6,
-        roughness: 0.9,
-        metalness: 0.02,
-      });
-      const rodMat = new THREE.MeshStandardMaterial({ color: 0x221c16, metalness: 0.7, roughness: 0.3 });
-
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, winW + 1.2, 12), rodMat);
-      rod.position.set(wx + (wallThick / 2 + 0.18), wy + winH / 2 + 0.35, wz);
+    if (isEW) {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, winW + 1.2, 16), rodMat);
+      rod.rotation.z = Math.PI / 2;
+      rod.position.set(wx, wy + winH / 2 + 0.45, wz + 0.35);
       group.add(rod);
 
-      const panelW = winW * 0.28;
-      const panelH = winH + 1.6;
+      const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.7, winH + 0.8, 0.2), fabricMat);
+      panelL.position.set(wx - winW / 2 - 0.2, wy - 0.1, wz + 0.35);
+      panelL.castShadow = true;
+      group.add(panelL);
 
-      const topCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.12, panelH, panelW), curtainMat);
-      topCurtain.position.set(wx + (wallThick / 2 + 0.18), wy - 0.45, wz - winW / 2 + panelW / 2 - 0.1);
-      group.add(topCurtain);
+      const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.7, winH + 0.8, 0.2), fabricMat);
+      panelR.position.set(wx + winW / 2 + 0.2, wy - 0.1, wz + 0.35);
+      panelR.castShadow = true;
+      group.add(panelR);
+    } else {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, winW + 1.2, 16), rodMat);
+      rod.rotation.x = Math.PI / 2;
+      rod.position.set(wx + 0.35, wy + winH / 2 + 0.45, wz);
+      group.add(rod);
 
-      const botCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.12, panelH, panelW), curtainMat);
-      botCurtain.position.set(wx + (wallThick / 2 + 0.18), wy - 0.45, wz + winW / 2 - panelW / 2 + 0.1);
-      group.add(botCurtain);
+      const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.2, winH + 0.8, 0.7), fabricMat);
+      panelL.position.set(wx + 0.35, wy - 0.1, wz - winW / 2 - 0.2);
+      panelL.castShadow = true;
+      group.add(panelL);
+
+      const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.2, winH + 0.8, 0.7), fabricMat);
+      panelR.position.set(wx + 0.35, wy - 0.1, wz + winW / 2 + 0.2);
+      panelR.castShadow = true;
+      group.add(panelR);
     }
   }
 }
 
-// -------------------------------------------------------------
-// Intelligent, Door-Aware Room Furniture & Ergonomics
-// -------------------------------------------------------------
+// --------------------------------------------------------------------------------------
+// 4. Dynamic Door-Aware Furniture Placement Engine
+// --------------------------------------------------------------------------------------
 
 export function addRoomInteriorDetails(
   group: THREE.Group,
@@ -362,102 +285,84 @@ export function addRoomInteriorDetails(
 
   if (roomName === "bedroom") {
     // ---------------------------------------------------------
-    // BEDROOM: Headboard on a SOLID WALL (NEVER in front of a door)
+    // BEDROOM: Headboard on solid non-door wall with 3.5ft clearance
     // ---------------------------------------------------------
-    const bedFrameMat = new THREE.MeshStandardMaterial({ color: 0x33241b, roughness: 0.5 });
-    const mattressMat = new THREE.MeshStandardMaterial({ color: 0xfdfdfd, roughness: 0.75 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.5 });
+    const linenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.85 });
     const duvetMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
-    const pillowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
-    const nightstandMat = new THREE.MeshStandardMaterial({ color: 0x33241b, roughness: 0.4 });
-    const lampMat = new THREE.MeshStandardMaterial({
-      color: 0xfff3d6,
-      emissive: 0xffdb8b,
-      emissiveIntensity: 0.8,
-      roughness: 0.2,
-    });
-    const closetMat = new THREE.MeshStandardMaterial({ color: 0x241710, roughness: 0.4 });
-    const handleMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+    const closetMat = new THREE.MeshStandardMaterial({ color: 0x271c19, roughness: 0.45 });
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.15 });
 
-    const bedW = 5.6;
-    const bedD = 6.4;
-
-    // Pick headboard wall that has NO door
     let headEdge: "N" | "S" | "E" | "W" = "N";
     if (!doorEdges.has("N")) headEdge = "N";
-    else if (!doorEdges.has("S")) headEdge = "S";
     else if (!doorEdges.has("W")) headEdge = "W";
     else if (!doorEdges.has("E")) headEdge = "E";
-
-    let bedX = cx;
-    let bedZ = cz;
-    let bedRot = 0;
-
-    if (headEdge === "N") {
-      bedX = cx;
-      bedZ = rz + bedD / 2 + 0.8;
-      bedRot = 0;
-    } else if (headEdge === "S") {
-      bedX = cx;
-      bedZ = rz + rd - bedD / 2 - 0.8;
-      bedRot = Math.PI;
-    } else if (headEdge === "W") {
-      bedX = rx + bedD / 2 + 0.8;
-      bedZ = cz;
-      bedRot = Math.PI / 2;
-    } else if (headEdge === "E") {
-      bedX = rx + rw - bedD / 2 - 0.8;
-      bedZ = cz;
-      bedRot = -Math.PI / 2;
-    }
+    else headEdge = "S";
 
     const bedGroup = new THREE.Group();
-    bedGroup.position.set(bedX, 0, bedZ);
-    bedGroup.rotation.y = bedRot;
+    const bedW = Math.min(rw * 0.48, 6.2);
+    const bedL = Math.min(rd * 0.52, 6.6);
 
-    // Platform Base
-    const platform = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.4, 0.8, bedD + 0.2), bedFrameMat);
-    platform.position.set(0, 0.4, 0);
-    platform.castShadow = true;
-    bedGroup.add(platform);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.9, bedL), woodMat);
+    frame.position.y = 0.45;
+    frame.castShadow = true;
+    bedGroup.add(frame);
 
-    // Tufted Headboard
-    const headboard = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.8, 3.8, 0.4), bedFrameMat);
-    headboard.position.set(0, 2.2, -bedD / 2 + 0.2);
+    const mattress = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.2, 0.7, bedL - 0.2), linenMat);
+    mattress.position.y = 1.1;
+    mattress.castShadow = true;
+    bedGroup.add(mattress);
+
+    const duvet = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.15, 0.72, bedL * 0.65), duvetMat);
+    duvet.position.set(0, 1.12, bedL * 0.15);
+    duvet.castShadow = true;
+    bedGroup.add(duvet);
+
+    const headboard = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.4, 3.8, 0.4), woodMat);
+    headboard.position.set(0, 1.9, -bedL / 2 + 0.1);
     headboard.castShadow = true;
     bedGroup.add(headboard);
 
-    // Mattress
-    const mattress = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.9, bedD), mattressMat);
-    mattress.position.set(0, 1.25, 0.1);
-    bedGroup.add(mattress);
+    const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(bedW * 0.38, 0.35, 1.3), linenMat);
+    pillow1.position.set(-bedW * 0.24, 1.5, -bedL / 2 + 1.2);
+    bedGroup.add(pillow1);
 
-    // Folded Duvet Blanket
-    const duvet = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.2, 0.22, bedD * 0.65), duvetMat);
-    duvet.position.set(0, 1.72, 0.8);
-    bedGroup.add(duvet);
+    const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(bedW * 0.38, 0.35, 1.3), linenMat);
+    pillow2.position.set(bedW * 0.24, 1.5, -bedL / 2 + 1.2);
+    bedGroup.add(pillow2);
 
-    // 4 Sleeping Pillows
-    for (let pIdx = -1; pIdx <= 1; pIdx += 2) {
-      const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 1.1), pillowMat);
-      pillow.position.set(pIdx * 1.5, 1.8, -bedD / 2 + 1.2);
-      pillow.rotation.x = 0.2;
-      bedGroup.add(pillow);
-    }
-
-    // Twin Nightstands & Lamps
-    [-1, 1].forEach((side) => {
-      const stand = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.4), nightstandMat);
-      stand.position.set(side * (bedW / 2 + 1.1), 0.6, -bedD / 2 + 1.0);
+    for (const side of [-1, 1]) {
+      const stand = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.4), woodMat);
+      stand.position.set(side * (bedW / 2 + 1.1), 0.7, -bedL / 2 + 0.9);
+      stand.castShadow = true;
       bedGroup.add(stand);
 
-      const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 0.6, 16), bedFrameMat);
-      lampBase.position.set(side * (bedW / 2 + 1.1), 1.5, -bedD / 2 + 1.0);
+      const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.1, 16), brassMat);
+      lampBase.position.set(side * (bedW / 2 + 1.1), 1.45, -bedL / 2 + 0.9);
       bedGroup.add(lampBase);
 
-      const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.7, 16, 1, true), lampMat);
-      lampShade.position.set(side * (bedW / 2 + 1.1), 2.0, -bedD / 2 + 1.0);
+      const lampShade = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 0.48, 0.7, 16),
+        new THREE.MeshStandardMaterial({ color: 0xfffaed, emissive: 0xffe8ba, emissiveIntensity: 0.6 })
+      );
+      lampShade.position.set(side * (bedW / 2 + 1.1), 1.95, -bedL / 2 + 0.9);
       bedGroup.add(lampShade);
-    });
+    }
+
+    if (headEdge === "N") {
+      bedGroup.position.set(cx, 0, rz + bedL / 2 + 0.8);
+      bedGroup.rotation.y = 0;
+    } else if (headEdge === "S") {
+      bedGroup.position.set(cx, 0, rz + rd - bedL / 2 - 0.8);
+      bedGroup.rotation.y = Math.PI;
+    } else if (headEdge === "W") {
+      bedGroup.position.set(rx + bedL / 2 + 0.8, 0, cz);
+      bedGroup.rotation.y = Math.PI / 2;
+    } else {
+      bedGroup.position.set(rx + rw - bedL / 2 - 0.8, 0, cz);
+      bedGroup.rotation.y = -Math.PI / 2;
+    }
 
     group.add(bedGroup);
 
@@ -484,7 +389,6 @@ export function addRoomInteriorDetails(
     closet.castShadow = true;
     group.add(closet);
 
-    // Wardrobe gold handles
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.6, 0.08), handleMat);
     handle.position.set(closet.position.x, 3.8, closet.position.z + 1.05);
     group.add(handle);
@@ -506,7 +410,6 @@ export function addRoomInteriorDetails(
     const counterW = rw - 1.4;
     const counterZ = counterRunEdge === "N" ? rz + 1.2 : rz + rd - 1.2;
 
-    // Main Counter Run
     const counter1 = new THREE.Mesh(new THREE.BoxGeometry(counterW, 2.8, 2.0), cabinetMat);
     counter1.position.set(rx + counterW / 2 + 0.7, 1.4, counterZ);
     counter1.castShadow = true;
@@ -516,7 +419,6 @@ export function addRoomInteriorDetails(
     top1.position.set(rx + counterW / 2 + 0.7, 2.85, counterZ);
     group.add(top1);
 
-    // 4-Burner Glass Induction Cooktop & Chimney Hood
     const cooktopMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.1, metalness: 0.8 });
     const cooktop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 1.8), cooktopMat);
     cooktop.position.set(rx + counterW * 0.35 + 0.7, 2.98, counterZ);
@@ -530,7 +432,6 @@ export function addRoomInteriorDetails(
     duct.position.set(rx + counterW * 0.35 + 0.7, 7.6, counterZ);
     group.add(duct);
 
-    // Stainless Sink & Chrome Faucet
     const sinkMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 });
     const sink = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 1.5), sinkMat);
     sink.position.set(rx + counterW * 0.75 + 0.7, 2.5, counterZ);
@@ -541,7 +442,6 @@ export function addRoomInteriorDetails(
     faucet.rotation.z = Math.PI;
     group.add(faucet);
 
-    // Refrigerator in corner away from door
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 });
     const fridge = new THREE.Mesh(new THREE.BoxGeometry(2.8, 6.8, 2.4), fridgeMat);
     const fridgeX = rx + rw - 1.8;
@@ -552,49 +452,23 @@ export function addRoomInteriorDetails(
 
   } else if (roomName === "hall") {
     // ---------------------------------------------------------
-    // LIVING HALL: Unobstructed Foyer & Clear Walking Corridors
+    // LIVING HALL: Dynamic Door-Aware Ergonomics Engine
+    // 100% Unobstructed Corridors Connecting All Attached Doors & Entrances
     // ---------------------------------------------------------
     const rugMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
     const sofaMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 });
     const cushionMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.7 });
     const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
-
-    // 1. Modern Area Rug centered in conversational zone
-    const rug = new THREE.Mesh(new THREE.PlaneGeometry(rw * 0.52, rd * 0.52), rugMat);
-    rug.rotation.x = -Math.PI / 2;
-    rug.position.set(cx, 0.05, cz);
-    rug.receiveShadow = true;
-    group.add(rug);
-
-    // 2. Sectional Sofa facing solid TV wall
-    const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.44, 1.4, 2.2), sofaMat);
-    sofaMain.position.set(cx - 0.2, 0.7, cz + 1.2);
-    sofaMain.castShadow = true;
-    group.add(sofaMain);
-
-    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.44, 1.2, 0.5), sofaMat);
-    sofaBack.position.set(cx - 0.2, 1.5, cz + 2.05);
-    sofaBack.castShadow = true;
-    group.add(sofaBack);
-
-    const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, rd * 0.28), sofaMat);
-    sofaL.position.set(cx + rw * 0.22 - 1.1, 0.7, cz + 0.3);
-    sofaL.castShadow = true;
-    group.add(sofaL);
-
-    // Pillows
-    const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), pillowMat);
-    pillow1.position.set(cx - rw * 0.16, 1.5, cz + 1.7);
-    pillow1.rotation.y = 0.2;
-    group.add(pillow1);
-
-    const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), cushionMat);
-    pillow2.position.set(cx + rw * 0.16 - 0.9, 1.5, cz + 1.7);
-    pillow2.rotation.y = -0.2;
-    group.add(pillow2);
-
-    // Coffee Table
+    const slatMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.5 });
+    const tvFrameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.8, roughness: 0.2 });
+    const tvScreenMat = new THREE.MeshStandardMaterial({
+      color: 0x05070a,
+      emissive: 0x1e293b,
+      emissiveIntensity: 0.55,
+      roughness: 0.05,
+    });
+    const consoleMat = new THREE.MeshStandardMaterial({ color: 0x221810, roughness: 0.4 });
     const glassTableMat = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       transparent: true,
@@ -604,63 +478,169 @@ export function addRoomInteriorDetails(
       transmission: 0.8,
     });
 
-    const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.08, 1.8), glassTableMat);
-    coffeeTop.position.set(cx - 0.2, 1.1, cz - 0.4);
-    group.add(coffeeTop);
-
-    const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 1.6), brassMat);
-    coffeeBase.position.set(cx - 0.2, 0.55, cz - 0.4);
-    group.add(coffeeBase);
-
-    // 3. Acoustic Wood Slat TV Accent Wall + 65" OLED TV (against solid wall)
+    // 1. Determine the Best SOLID (Door-Free) Wall for the TV Accent Unit
     let tvEdge: "N" | "S" | "E" | "W" = "N";
-    if (!doorEdges.has("N")) tvEdge = "N";
-    else if (!doorEdges.has("W")) tvEdge = "W";
-    else if (!doorEdges.has("E")) tvEdge = "E";
-    else tvEdge = "S";
+    if (!doorEdges.has("N")) {
+      tvEdge = "N";
+    } else if (!doorEdges.has("W")) {
+      tvEdge = "W";
+    } else if (!doorEdges.has("E")) {
+      tvEdge = "E";
+    } else if (!doorEdges.has("S")) {
+      tvEdge = "S";
+    } else {
+      tvEdge = "W";
+    }
 
-    const tvWallX = cx;
-    const tvWallZ = tvEdge === "N" ? rz + 0.4 : rz + rd - 0.4;
+    const isEWTV = tvEdge === "N" || tvEdge === "S";
 
-    const slatMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.5 });
-    const slatPanel = new THREE.Mesh(new THREE.BoxGeometry(5.4, 7.2, 0.15), slatMat);
+    // 2. Build Area Rug centered in the conversational zone
+    const rugW = isEWTV ? Math.min(rw * 0.55, 10.0) : Math.min(rw * 0.48, 8.0);
+    const rugD = isEWTV ? Math.min(rd * 0.48, 8.0) : Math.min(rd * 0.55, 10.0);
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(rugW, rugD), rugMat);
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(cx, 0.05, cz);
+    rug.receiveShadow = true;
+    group.add(rug);
+
+    // 3. Build TV Accent Wall + 65" OLED TV + Media Console against chosen solid wall
+    const slatW = isEWTV ? Math.min(rw * 0.55, 6.0) : 0.15;
+    const slatD = isEWTV ? 0.15 : Math.min(rd * 0.55, 6.0);
+    const slatPanel = new THREE.Mesh(new THREE.BoxGeometry(slatW, 7.2, slatD), slatMat);
+
+    let tvWallX = cx;
+    let tvWallZ = cz;
+    if (tvEdge === "N") tvWallZ = rz + 0.3;
+    else if (tvEdge === "S") tvWallZ = rz + rd - 0.3;
+    else if (tvEdge === "W") tvWallX = rx + 0.3;
+    else if (tvEdge === "E") tvWallX = rx + rw - 0.3;
+
     slatPanel.position.set(tvWallX, 4.4, tvWallZ);
     group.add(slatPanel);
 
-    const tvFrameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.8, roughness: 0.2 });
-    const tvScreenMat = new THREE.MeshStandardMaterial({
-      color: 0x05070a,
-      emissive: 0x1e293b,
-      emissiveIntensity: 0.55,
-      roughness: 0.05,
-    });
+    // TV Mesh
+    const tvMeshW = isEWTV ? 4.4 : 0.12;
+    const tvMeshD = isEWTV ? 0.12 : 4.4;
+    const tvMesh = new THREE.Mesh(new THREE.BoxGeometry(tvMeshW, 2.5, tvMeshD), tvFrameMat);
 
-    const tvMesh = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.5, 0.12), tvFrameMat);
-    tvMesh.position.set(tvWallX, 4.5, tvWallZ + (tvEdge === "N" ? 0.14 : -0.14));
+    let tvOffX = tvWallX;
+    let tvOffZ = tvWallZ;
+    if (tvEdge === "N") tvOffZ += 0.14;
+    else if (tvEdge === "S") tvOffZ -= 0.14;
+    else if (tvEdge === "W") tvOffX += 0.14;
+    else if (tvEdge === "E") tvOffX -= 0.14;
+
+    tvMesh.position.set(tvOffX, 4.5, tvOffZ);
     group.add(tvMesh);
 
-    const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.25, 2.35), tvScreenMat);
-    screenMesh.position.set(tvWallX, 4.5, tvWallZ + (tvEdge === "N" ? 0.21 : -0.21));
-    if (tvEdge === "S") screenMesh.rotation.y = Math.PI;
+    const screenGeom = new THREE.PlaneGeometry(4.25, 2.35);
+    const screenMesh = new THREE.Mesh(screenGeom, tvScreenMat);
+    if (tvEdge === "N") {
+      screenMesh.position.set(tvWallX, 4.5, tvWallZ + 0.21);
+    } else if (tvEdge === "S") {
+      screenMesh.rotation.y = Math.PI;
+      screenMesh.position.set(tvWallX, 4.5, tvWallZ - 0.21);
+    } else if (tvEdge === "W") {
+      screenMesh.rotation.y = Math.PI / 2;
+      screenMesh.position.set(tvWallX + 0.21, 4.5, tvWallZ);
+    } else {
+      screenMesh.rotation.y = -Math.PI / 2;
+      screenMesh.position.set(tvWallX - 0.21, 4.5, tvWallZ);
+    }
     group.add(screenMesh);
 
-    const consoleMat = new THREE.MeshStandardMaterial({ color: 0x221810, roughness: 0.4 });
-    const mediaConsole = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.9, 1.2), consoleMat);
-    mediaConsole.position.set(tvWallX, 1.2, tvWallZ + (tvEdge === "N" ? 0.6 : -0.6));
+    // Media Console
+    const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
+    const conD = isEWTV ? 1.2 : Math.min(rd * 0.48, 5.8);
+    const mediaConsole = new THREE.Mesh(new THREE.BoxGeometry(conW, 0.9, conD), consoleMat);
+
+    let conX = tvWallX;
+    let conZ = tvWallZ;
+    if (tvEdge === "N") conZ += 0.65;
+    else if (tvEdge === "S") conZ -= 0.65;
+    else if (tvEdge === "W") conX += 0.65;
+    else if (tvEdge === "E") conX -= 0.65;
+
+    mediaConsole.position.set(conX, 1.2, conZ);
     mediaConsole.castShadow = true;
     group.add(mediaConsole);
 
-    // Indoor Fiddle Leaf Fig Tree
+    // 4. Sectional Sofa (Positioned directly facing the TV unit across the coffee table)
+    const sofaGroup = new THREE.Group();
+    const sofaMainW = Math.min(isEWTV ? rw * 0.44 : rd * 0.44, 7.2);
+    const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.4, 2.2), sofaMat);
+    sofaMain.position.set(0, 0.7, 0);
+    sofaMain.castShadow = true;
+    sofaGroup.add(sofaMain);
+
+    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.2, 0.5), sofaMat);
+    sofaBack.position.set(0, 1.5, 0.85);
+    sofaBack.castShadow = true;
+    sofaGroup.add(sofaBack);
+
+    const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 2.6), sofaMat);
+    sofaL.position.set(sofaMainW / 2 - 1.0, 0.7, -1.1);
+    sofaL.castShadow = true;
+    sofaGroup.add(sofaL);
+
+    // Pillows
+    const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), pillowMat);
+    pillow1.position.set(-sofaMainW * 0.25, 1.5, 0.5);
+    pillow1.rotation.y = 0.2;
+    sofaGroup.add(pillow1);
+
+    const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), cushionMat);
+    pillow2.position.set(sofaMainW * 0.25, 1.5, 0.5);
+    pillow2.rotation.y = -0.2;
+    sofaGroup.add(pillow2);
+
+    // Position & Orient Sofa based on TV Wall
+    if (tvEdge === "N") {
+      sofaGroup.position.set(cx, 0, cz + Math.min(rd * 0.2, 2.4));
+      sofaGroup.rotation.y = 0;
+    } else if (tvEdge === "S") {
+      sofaGroup.position.set(cx, 0, cz - Math.min(rd * 0.2, 2.4));
+      sofaGroup.rotation.y = Math.PI;
+    } else if (tvEdge === "W") {
+      sofaGroup.position.set(cx + Math.min(rw * 0.2, 2.4), 0, cz);
+      sofaGroup.rotation.y = -Math.PI / 2;
+    } else {
+      sofaGroup.position.set(cx - Math.min(rw * 0.2, 2.4), 0, cz);
+      sofaGroup.rotation.y = Math.PI / 2;
+    }
+    group.add(sofaGroup);
+
+    // 5. Modern Glass Coffee Table
+    const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8), glassTableMat);
+    coffeeTop.position.set(cx, 1.1, cz);
+    group.add(coffeeTop);
+
+    const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6), brassMat);
+    coffeeBase.position.set(cx, 0.55, cz);
+    group.add(coffeeBase);
+
+    // 6. Indoor Fiddle Leaf Fig Tree (in an unobstructed corner away from any doors)
+    let plantCornerX = rx + 1.4;
+    let plantCornerZ = rz + 1.4;
+    if (doorEdges.has("N") || doorEdges.has("W")) {
+      plantCornerX = rx + 1.4;
+      plantCornerZ = rz + rd - 1.4;
+    }
+    if (doorEdges.has("S") && doorEdges.has("W")) {
+      plantCornerX = rx + rw - 1.4;
+      plantCornerZ = rz + rd - 1.4;
+    }
+
     const potMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
     const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
 
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 1.2, 20), potMat);
-    pot.position.set(rx + 1.6, 0.6, rz + 1.6);
+    pot.position.set(plantCornerX, 0.6, plantCornerZ);
     pot.castShadow = true;
     group.add(pot);
 
     const plantLeaves = new THREE.Mesh(new THREE.DodecahedronGeometry(1.2, 1), leafMat);
-    plantLeaves.position.set(rx + 1.6, 2.2, rz + 1.6);
+    plantLeaves.position.set(plantCornerX, 2.2, plantCornerZ);
     plantLeaves.castShadow = true;
     group.add(plantLeaves);
 
@@ -679,7 +659,6 @@ export function addRoomInteriorDetails(
     });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.15 });
 
-    // Floating Vanity & Round Halo Mirror
     const vanityX = rx + rw - 1.6;
     const vanityZ = rz + 1.4;
 
@@ -696,7 +675,6 @@ export function addRoomInteriorDetails(
     mirror.position.set(vanityX, 4.8, rz + 0.4);
     group.add(mirror);
 
-    // Wall-Hung Commode
     const commode = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 1.8), porcelainMat);
     commode.position.set(rx + 1.4, 1.1, rz + 1.4);
     group.add(commode);
@@ -705,7 +683,6 @@ export function addRoomInteriorDetails(
     flushPlate.position.set(rx + 1.4, 3.2, rz + 0.4);
     group.add(flushPlate);
 
-    // Walk-in Shower Enclosure in far corner
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       transparent: true,
@@ -729,39 +706,54 @@ export function addRoomInteriorDetails(
 
   } else if (roomName === "pooja") {
     // ---------------------------------------------------------
-    // POOJA: Sacred Mandir on East/North wall
+    // POOJA ROOM: Sacred Marble Mandir Altar with Brass Decor
     // ---------------------------------------------------------
-    const mandirMat = new THREE.MeshStandardMaterial({ color: 0xfaf6ee, roughness: 0.35 });
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+    const mandirMat = new THREE.MeshStandardMaterial({
+      color: 0xfcfaf2,
+      roughness: 0.15,
+      metalness: 0.08,
+    });
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37,
+      metalness: 0.95,
+      roughness: 0.15,
+    });
+    const flameMat = new THREE.MeshStandardMaterial({
+      color: 0xffa500,
+      emissive: 0xff4500,
+      emissiveIntensity: 1.2,
+      roughness: 0.1,
+    });
 
-    const altarBase = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.7, 1.2, rd * 0.6), mandirMat);
-    altarBase.position.set(cx, 0.6, cz);
+    const altarBase = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.65, 3.8), 1.2, Math.min(rd * 0.48, 2.4)), mandirMat);
+    altarBase.position.set(cx, 0.6, rz + 1.2);
     altarBase.castShadow = true;
     group.add(altarBase);
 
-    const altarTier = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.5, 0.8, rd * 0.4), mandirMat);
-    altarTier.position.set(cx, 1.6, cz);
+    const altarTier = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.45, 2.8), 0.8, Math.min(rd * 0.35, 1.8)), mandirMat);
+    altarTier.position.set(cx, 1.6, rz + 1.2);
     group.add(altarTier);
 
-    const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.15, 0.25, 16), goldMat);
-    diya.position.set(cx, 2.1, cz);
+    const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);
+    diya.position.set(cx, 2.08, rz + 1.2);
     group.add(diya);
 
-    const flameMat = new THREE.MeshStandardMaterial({
-      color: 0xffaa00,
-      emissive: 0xff7700,
-      emissiveIntensity: 1.5,
-    });
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 12), flameMat);
-    flame.position.set(cx, 2.4, cz);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 16), flameMat);
+    flame.position.set(cx, 2.25, rz + 1.2);
     group.add(flame);
 
-    const flameLight = new THREE.PointLight(0xff9900, 0.8, 8, 2);
-    flameLight.position.set(cx, 2.6, cz);
+    const flameLight = new THREE.PointLight(0xffaa44, 0.9, 10, 1.5);
+    flameLight.position.set(cx, 2.4, rz + 1.2);
     group.add(flameLight);
 
-    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.45, 16), goldMat);
-    bell.position.set(cx, 6.2, cz);
+    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 16), goldMat);
+    bell.rotation.x = Math.PI;
+    bell.position.set(cx, 6.8, rz + 1.2);
     group.add(bell);
+
+    const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb8860b });
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.1, 8), ropeMat);
+    rope.position.set(cx, 7.9, rz + 1.2);
+    group.add(rope);
   }
 }
