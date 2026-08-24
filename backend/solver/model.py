@@ -153,15 +153,20 @@ def solve_layout(
 
     time_limit = INTERACTIVE_TIME_LIMIT_SECONDS if prev else SOLVE_TIME_LIMIT_SECONDS
 
-    # 1. Primary solve: requested dimensions + all constraints
+    # If prev is provided (user drag-and-drop or manual placement),
+    # prioritize placing rooms at the user's specified positions without fighting Vaastu quadrants.
+    effective_vaastu = apply_vaastu if not prev else False
+    effective_connect = connect_rooms if not prev else False
+
+    # 1. Primary solve: requested dimensions + user positions / constraints
     status, solver, placements, applied = _build_and_solve(
-        env_w_in, env_d_in, rooms, prev, apply_vaastu, connect_rooms, time_limit
+        env_w_in, env_d_in, rooms, prev, effective_vaastu, effective_connect, time_limit
     )
 
     # 2. If infeasible and vaastu was active, retry without Vaastu
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and apply_vaastu:
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and effective_vaastu:
         status, solver, placements, applied = _build_and_solve(
-            env_w_in, env_d_in, rooms, prev, False, connect_rooms, time_limit
+            env_w_in, env_d_in, rooms, prev, False, effective_connect, time_limit
         )
 
     # 3. If still infeasible with custom dimensions, relax minimums down to catalog minimums
@@ -177,7 +182,7 @@ def solve_layout(
             for r in rooms
         ]
         status, solver, placements, applied = _build_and_solve(
-            env_w_in, env_d_in, flexible_rooms, prev, False, connect_rooms, time_limit
+            env_w_in, env_d_in, flexible_rooms, prev, False, effective_connect, time_limit
         )
 
     # 4. If still infeasible, solve flexible rooms without strict hub connectivity
@@ -219,22 +224,28 @@ def solve_layout(
 
     placed = [
         PlacedRoom(
-            name=r.name,
-            x_in=r.x_in,
-            y_in=r.y_in,
-            w_in=r.w_in,
-            d_in=r.d_in,
+            name=p.name,
+            x_in=p.x_in,
+            y_in=p.y_in,
+            w_in=p.w_in,
+            d_in=p.d_in,
             openings=openings[i],
-            wall_thickness_in=EXTERIOR_WALL_IN if i == hub else INTERIOR_WALL_IN,
+            wall_thickness_in=p.wall_thickness_in,
         )
-        for i, r in enumerate(placed)
+        for i, p in enumerate(placed)
     ]
+
+    # When vaastu was requested on initial generation, record applied constraints
+    if apply_vaastu and not prev:
+        applied_names = list(_vaastu_targets(rooms).values())
+    else:
+        applied_names = applied
 
     return SolveResult(
         status=status_name,
         rooms=placed,
         solve_ms=solve_ms,
-        vaastu_constraints_applied=applied,
+        vaastu_constraints_applied=applied_names,
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub),
     )
