@@ -136,7 +136,6 @@ export default function Scene({
   const depthHandleRef = useRef<THREE.Mesh | null>(null);
 
   // Drag-and-Drop room meshes references
-  const roomFloorMeshesRef = useRef<{ mesh: THREE.Mesh; roomIndex: number }[]>([]);
   const ghostRoomMeshRef = useRef<THREE.Mesh | null>(null);
   const draggedRoomIdxRef = useRef<number | null>(null);
   const [draggedRoomInfo, setDraggedRoomInfo] = useState<{ name: string; x: number; z: number } | null>(null);
@@ -334,20 +333,41 @@ export default function Scene({
       return intersects[0].object === widthHandle ? "width" : "depth";
     }
 
+    // High-Precision 3D Volume Room Picker: Picks ANY room (Pooja, Bath, Bed, Hall)
+    // whether clicking the floor, furniture, altar, walls, or floating badge!
     function pickRoom(ev: PointerEvent): number | null {
       if (modeRef.current === "walkthrough") return null;
       setPointerNdc(ev);
       raycaster.setFromCamera(pointerNdc, camera);
 
-      const meshes = roomFloorMeshesRef.current.map((r) => r.mesh);
-      const intersects = raycaster.intersectObjects(meshes, false);
-      if (intersects.length > 0) {
-        const found = roomFloorMeshesRef.current.find((r) => r.mesh === intersects[0].object);
-        if (found) return found.roomIndex;
+      const currentRooms = roomsRef.current;
+      let closestIdx: number | null = null;
+      let closestDist = Infinity;
+
+      for (let i = 0; i < currentRooms.length; i++) {
+        const r = currentRooms[i];
+        const rx = inchesToFeet(r.x_in);
+        const rz = inchesToFeet(r.y_in);
+        const rw = inchesToFeet(r.w_in);
+        const rd = inchesToFeet(r.d_in);
+
+        const roomBox = new THREE.Box3(
+          new THREE.Vector3(rx, 0, rz),
+          new THREE.Vector3(rx + rw, WALL_HEIGHT_FT + 3.2, rz + rd)
+        );
+
+        const target = new THREE.Vector3();
+        if (raycaster.ray.intersectBox(roomBox, target)) {
+          const dist = raycaster.ray.origin.distanceTo(target);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestIdx = i;
+          }
+        }
       }
 
-      if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-        const currentRooms = roomsRef.current;
+      // Ground plane fallback
+      if (closestIdx === null && raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
         for (let i = 0; i < currentRooms.length; i++) {
           const r = currentRooms[i];
           const rx = inchesToFeet(r.x_in);
@@ -359,7 +379,8 @@ export default function Scene({
           }
         }
       }
-      return null;
+
+      return closestIdx;
     }
 
     function onPointerDownCapture(ev: PointerEvent) {
@@ -754,7 +775,6 @@ export default function Scene({
 
     fanBladesRef.current = [];
     roomLightsRef.current = [];
-    roomFloorMeshesRef.current = [];
 
     group.children.forEach((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Sprite || child instanceof THREE.PointLight) {
@@ -1033,8 +1053,6 @@ export default function Scene({
       floorMesh.position.set(rx + rw / 2, 0.04, rz + rd / 2);
       floorMesh.receiveShadow = true;
       group.add(floorMesh);
-
-      roomFloorMeshesRef.current.push({ mesh: floorMesh, roomIndex: i });
 
       const touchesAnyRoom = (edge: "N" | "S" | "E" | "W"): boolean => {
         for (let j = 0; j < rooms.length; j++) {
