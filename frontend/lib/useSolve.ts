@@ -2,6 +2,7 @@
 
 // Debounced solve — notes/architecture/architecture.md: ~400ms after input settles.
 // Supports optimistic drag-and-drop repositioning via moveRoom() and custom room dimensions.
+// Preserves dragged positions across custom dimension adjustments (no resets to corner).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Facing, Setback } from "./plot";
@@ -18,6 +19,10 @@ interface UseSolveArgs {
   setback: Setback;
 }
 
+function getRoomName(r: RoomName | RoomSpecIn): string {
+  return typeof r === "string" ? r : r.name;
+}
+
 export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
@@ -25,13 +30,20 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
   const [error, setError] = useState<string | null>(null);
 
   const prevRef = useRef<{ index: number; x_in: number; y_in: number }[] | undefined>(undefined);
-  const lastRoomsKeyRef = useRef("");
+  const lastRoomNamesRef = useRef<string[]>([]);
 
   useEffect(() => {
-    const roomsKey = JSON.stringify(roomList);
-    if (lastRoomsKeyRef.current !== roomsKey) {
-      lastRoomsKeyRef.current = roomsKey;
-      prevRef.current = undefined;
+    const currentRoomNames = roomList.map(getRoomName);
+    const namesChanged =
+      currentRoomNames.length !== lastRoomNamesRef.current.length ||
+      currentRoomNames.some((name, i) => name !== lastRoomNamesRef.current[i]);
+
+    if (namesChanged) {
+      lastRoomNamesRef.current = currentRoomNames;
+      // If room types or counts changed significantly, prune or re-index prevRef
+      if (prevRef.current && prevRef.current.length > currentRoomNames.length) {
+        prevRef.current = prevRef.current.slice(0, currentRoomNames.length);
+      }
     }
 
     const controller = new AbortController();
@@ -45,6 +57,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
         setRooms(res.rooms);
         setMeta(res.meta);
         setError(null);
+
+        // Update prevRef with envelope-relative coordinates for subsequent solves
         prevRef.current = res.rooms.map((r, index) => ({
           index,
           x_in: r.x_in - res.meta.envelope_origin_x_in,

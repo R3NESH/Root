@@ -2,7 +2,7 @@
 
 Stateless request/response, no database, no secrets — notes/architecture/environment-notes.md.
 Payload shape follows notes/architecture/output-schema.md.
-Supports per-room custom dimension overrides (e.g. 15x15 ft bedroom).
+Supports per-room custom dimension overrides (e.g. 15x15 ft bedroom) and stable dragging.
 """
 
 from typing import Union
