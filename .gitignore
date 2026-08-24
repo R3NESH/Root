@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+
+# Obsidian — keep vault config (app/graph/daily-notes settings are project state),
+# ignore only per-machine workspace and recovery cruft
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Env
+.env
+.env.local

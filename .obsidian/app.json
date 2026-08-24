@@ -1,0 +1,19 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": true,
+  "attachmentFolderPath": "notes/_attachments",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "notes/inbox",
+  "userIgnoreFilters": [
+    "node_modules/",
+    ".git/",
+    ".venv/",
+    "__pycache__/",
+    ".next/"
+  ],
+  "defaultViewMode": "preview",
+  "livePreview": true,
+  "strictLineBreaks": false
+}

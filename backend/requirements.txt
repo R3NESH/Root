@@ -1,0 +1,4 @@
+ortools==9.15.6755
+fastapi
+uvicorn[standard]
+pydantic

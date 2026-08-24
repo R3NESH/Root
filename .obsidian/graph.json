@@ -1,0 +1,32 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    { "query": "path:notes/decisions", "color": { "a": 1, "rgb": 5025616 } },
+    { "query": "path:notes/market", "color": { "a": 1, "rgb": 16757504 } },
+    { "query": "path:notes/solver", "color": { "a": 1, "rgb": 15022389 } },
+    { "query": "path:notes/architecture", "color": { "a": 1, "rgb": 4367861 } },
+    { "query": "path:notes/ui", "color": { "a": 1, "rgb": 4367861 } },
+    { "query": "path:notes/open-questions", "color": { "a": 1, "rgb": 11225020 } },
+    { "query": "path:notes/build", "color": { "a": 1, "rgb": 2541274 } },
+    { "query": "path:notes/codebase", "color": { "a": 1, "rgb": 9479342 } },
+    { "query": "path:notes/daily", "color": { "a": 1, "rgb": 16740419 } }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -0.6,
+  "nodeSizeMultiplier": 1.3,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.42,
+  "repelStrength": 11,
+  "linkStrength": 0.8,
+  "linkDistance": 190,
+  "scale": 0.75,
+  "close": false
+}
