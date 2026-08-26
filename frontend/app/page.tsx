@@ -118,7 +118,7 @@ export default function Home() {
     return list;
   }, [counts, customDims]);
 
-  const { rooms: solvedRooms, meta, pending, error, staleBackend, moveRoom, resetPositions } = useSolve({
+  const { rooms: solvedRooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions } = useSolve({
     plotWIn: plot.widthIn,
     plotDIn: plot.depthIn,
     facing,
@@ -127,6 +127,26 @@ export default function Home() {
   });
 
   // Apply a curated or imported model blueprint to instantly configure and construct the house in 2D & 3D
+  const handleRoomResize = useCallback(
+    (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number, targetWIn: number, targetDIn: number) => {
+      // Commit new dimensions into customDims so the solver keeps them
+      if (roomIndex < 0 || roomIndex >= solvedRooms.length) return;
+      const room = solvedRooms[roomIndex];
+      const roomId = room ? `${room.name}_${roomIndex}` : null;
+      if (roomId) {
+        setCustomDims((prev) => ({
+          ...prev,
+          [roomId]: {
+            wFt: Math.round((targetWIn / 12) * 10) / 10,
+            dFt: Math.round((targetDIn / 12) * 10) / 10,
+          },
+        }));
+      }
+      resizeRoom(roomIndex, targetPlotXIn, targetPlotYIn, targetWIn, targetDIn);
+    },
+    [solvedRooms, resizeRoom]
+  );
+
   const handleApplyModelBlueprint = (
     bp: ModelBlueprint,
     targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint"
@@ -758,6 +778,7 @@ export default function Home() {
               onChangeCustomOpenings={setCustomOpenings}
               onChangeCustomWallThickness={setCustomWallThickness}
               onRoomMove={moveRoom}
+              onRoomResize={handleRoomResize}
               onOpenExportModal={() => setIsExportModalOpen(true)}
               onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
               onApplyBlueprint={handleApplyModelBlueprint}

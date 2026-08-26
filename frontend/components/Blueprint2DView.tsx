@@ -15,6 +15,8 @@ import {
 } from "@/lib/blueprintExport";
 import styles from "./Blueprint2DView.module.css";
 
+type CropHandle = "N" | "S" | "E" | "W" | "NW" | "NE" | "SW" | "SE";
+
 interface Blueprint2DViewProps {
   plot: PlotDims;
   facing: Facing;
@@ -31,6 +33,7 @@ interface Blueprint2DViewProps {
   onChangeCustomOpenings?: (openings: Record<string, RoomOpening[]>) => void;
   onChangeCustomWallThickness?: (thickness: Record<string, number>) => void;
   onRoomMove?: (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => void;
+  onRoomResize?: (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number, targetWIn: number, targetDIn: number) => void;
   onOpenExportModal: () => void;
   onOpenModelBlueprintsModal?: () => void;
   onApplyBlueprint?: (
@@ -54,6 +57,7 @@ export default function Blueprint2DView({
   onChangeCustomOpenings,
   onChangeCustomWallThickness,
   onRoomMove,
+  onRoomResize,
   onOpenExportModal,
   onOpenModelBlueprintsModal,
   onApplyBlueprint,
@@ -89,6 +93,21 @@ export default function Blueprint2DView({
     startMouse: { x: number; y: number };
     initialW: number;
     initialD: number;
+  } | null>(null);
+
+  // Crop-Resize State (image-crop style — 8 directional handles)
+  const [draggingCrop, setDraggingCrop] = useState<{
+    roomIndex: number;
+    handle: CropHandle;
+    startMouse: { x: number; y: number };
+    initialX: number;  // room.x_in
+    initialY: number;  // room.y_in
+    initialW: number;  // room.w_in
+    initialD: number;  // room.d_in
+  } | null>(null);
+  // Live preview of crop dimensions during drag
+  const [cropPreview, setCropPreview] = useState<{
+    x_in: number; y_in: number; w_in: number; d_in: number;
   } | null>(null);
 
   // Drag-to-Slide / Resize Opening State
@@ -265,7 +284,39 @@ export default function Blueprint2DView({
       return;
     }
 
-    // 2. Wall Drag Resizing
+    // 2a. Crop-Resize (image-crop style, 8 directional handles)
+    if (draggingCrop) {
+      const dx = Math.round(((e.clientX - draggingCrop.startMouse.x) / zoom) / baseScale);
+      const dy = Math.round(((e.clientY - draggingCrop.startMouse.y) / zoom) / baseScale);
+      const MIN_IN = 4 * 12; // 4 ft minimum
+      const { handle, initialX, initialY, initialW, initialD } = draggingCrop;
+
+      let newX = initialX, newY = initialY, newW = initialW, newD = initialD;
+
+      // East / West edges control width
+      if (handle.includes("E")) {
+        newW = Math.max(MIN_IN, initialW + dx);
+      }
+      if (handle.includes("W")) {
+        const clamped = Math.max(MIN_IN, initialW - dx);
+        newX = initialX + (initialW - clamped);
+        newW = clamped;
+      }
+      // North / South edges control depth
+      if (handle.includes("S")) {
+        newD = Math.max(MIN_IN, initialD + dy);
+      }
+      if (handle.includes("N")) {
+        const clamped = Math.max(MIN_IN, initialD - dy);
+        newY = initialY + (initialD - clamped);
+        newD = clamped;
+      }
+
+      setCropPreview({ x_in: newX, y_in: newY, w_in: newW, d_in: newD });
+      return;
+    }
+
+    // 2b. Wall Drag Resizing
     if (draggingWall) {
       const deltaScreenX = (e.clientX - draggingWall.startMouse.x) / zoom;
       const deltaScreenY = (e.clientY - draggingWall.startMouse.y) / zoom;
@@ -369,12 +420,25 @@ export default function Blueprint2DView({
       }
     }
 
+    // Commit crop resize
+    if (draggingCrop && cropPreview && onRoomResize) {
+      onRoomResize(
+        draggingCrop.roomIndex,
+        cropPreview.x_in,
+        cropPreview.y_in,
+        cropPreview.w_in,
+        cropPreview.d_in
+      );
+    }
+
     setIsPanning(false);
     isDraggingRoomRef.current = false;
     setDraggingIndex(null);
     setDragOffsetIn({ dx: 0, dy: 0 });
     setDraggingWall(null);
     setDraggingOpening(null);
+    setDraggingCrop(null);
+    setCropPreview(null);
   };
 
   const handleRoomMouseDown = (e: React.MouseEvent, idx: number) => {
@@ -415,6 +479,29 @@ export default function Blueprint2DView({
       initialW,
       initialD,
     });
+  };
+
+  const handleCropHandleMouseDown = (
+    e: React.MouseEvent,
+    roomIdx: number,
+    handle: CropHandle
+  ) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    const room = rooms[roomIdx];
+    if (!room) return;
+    setSelectedRoomIndex(roomIdx);
+    setSelectedOpeningIndex(null);
+    setDraggingCrop({
+      roomIndex: roomIdx,
+      handle,
+      startMouse: { x: e.clientX, y: e.clientY },
+      initialX: room.x_in,
+      initialY: room.y_in,
+      initialW: room.w_in,
+      initialD: room.d_in,
+    });
+    setCropPreview({ x_in: room.x_in, y_in: room.y_in, w_in: room.w_in, d_in: room.d_in });
   };
 
   const handleOpeningMouseDown = (
@@ -911,13 +998,19 @@ export default function Blueprint2DView({
           {/* Placed Rooms with Interactive Walls & Doors */}
           {rooms.map((room, idx) => {
             const isDraggingThis = draggingIndex === idx;
-            const currentXIn = isDraggingThis ? room.x_in + dragOffsetIn.dx : room.x_in;
-            const currentYIn = isDraggingThis ? room.y_in + dragOffsetIn.dy : room.y_in;
+            const isCropDraggingThis = draggingCrop?.roomIndex === idx;
+            const cropP = isCropDraggingThis && cropPreview ? cropPreview : null;
+            const currentXIn = isDraggingThis ? room.x_in + dragOffsetIn.dx
+              : cropP ? cropP.x_in : room.x_in;
+            const currentYIn = isDraggingThis ? room.y_in + dragOffsetIn.dy
+              : cropP ? cropP.y_in : room.y_in;
+            const currentWIn = cropP ? cropP.w_in : room.w_in;
+            const currentDIn = cropP ? cropP.d_in : room.d_in;
 
             const rx = toPxX(currentXIn);
             const ry = toPxY(currentYIn);
-            const rw = room.w_in * baseScale;
-            const rd = room.d_in * baseScale;
+            const rw = currentWIn * baseScale;
+            const rd = currentDIn * baseScale;
 
             const isSelected = idx === selectedRoomIndex;
             const label = ROOM_LABELS[room.name as RoomName] ?? room.name;
@@ -1123,6 +1216,92 @@ export default function Blueprint2DView({
                       <rect x="0" y="0" width="10" height="24" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
                       <text x="5" y="15" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">▶</text>
                     </g>
+                  </g>
+                )}
+
+                {/* Image-Crop Style Resize Handles (8 directional) */}
+                {isSelected && (
+                  <g pointerEvents="all">
+                    {/* ── Dashed crop bounding box overlay ── */}
+                    <rect
+                      x={rx} y={ry} width={rw} height={rd}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="1.5"
+                      strokeDasharray="5,3"
+                      pointerEvents="none"
+                    />
+
+                    {/* ── 4 CORNER handles (L-bracket style) ── */}
+                    {/* NW corner */}
+                    <g style={{ cursor: "nwse-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "NW")}>
+                      <rect x={rx - 6} y={ry - 6} width={14} height={14} fill="transparent" />
+                      <path d={`M${rx + 8} ${ry} H${rx} V${ry + 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                    </g>
+                    {/* NE corner */}
+                    <g style={{ cursor: "nesw-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "NE")}>
+                      <rect x={rx + rw - 8} y={ry - 6} width={14} height={14} fill="transparent" />
+                      <path d={`M${rx + rw - 8} ${ry} H${rx + rw} V${ry + 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                    </g>
+                    {/* SW corner */}
+                    <g style={{ cursor: "nesw-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "SW")}>
+                      <rect x={rx - 6} y={ry + rd - 8} width={14} height={14} fill="transparent" />
+                      <path d={`M${rx + 8} ${ry + rd} H${rx} V${ry + rd - 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                    </g>
+                    {/* SE corner */}
+                    <g style={{ cursor: "nwse-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "SE")}>
+                      <rect x={rx + rw - 8} y={ry + rd - 8} width={14} height={14} fill="transparent" />
+                      <path d={`M${rx + rw - 8} ${ry + rd} H${rx + rw} V${ry + rd - 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                    </g>
+
+                    {/* ── 4 EDGE midpoint handles (bars) ── */}
+                    {/* N edge */}
+                    <g style={{ cursor: "n-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "N")}>
+                      <rect x={rx + rw / 2 - 14} y={ry - 5} width={28} height={10} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <line x1={rx + rw / 2 - 6} y1={ry} x2={rx + rw / 2 + 6} y2={ry} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    </g>
+                    {/* S edge */}
+                    <g style={{ cursor: "s-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "S")}>
+                      <rect x={rx + rw / 2 - 14} y={ry + rd - 5} width={28} height={10} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <line x1={rx + rw / 2 - 6} y1={ry + rd} x2={rx + rw / 2 + 6} y2={ry + rd} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    </g>
+                    {/* W edge */}
+                    <g style={{ cursor: "w-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "W")}>
+                      <rect x={rx - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <line x1={rx} y1={ry + rd / 2 - 6} x2={rx} y2={ry + rd / 2 + 6} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    </g>
+                    {/* E edge */}
+                    <g style={{ cursor: "e-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "E")}>
+                      <rect x={rx + rw - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <line x1={rx + rw} y1={ry + rd / 2 - 6} x2={rx + rw} y2={ry + rd / 2 + 6} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    </g>
+
+                    {/* ── Live crop dimension HUD (shown while dragging) ── */}
+                    {isCropDraggingThis && cropPreview && (
+                      <g pointerEvents="none">
+                        <rect
+                          x={rx + rw / 2 - 56}
+                          y={ry + rd / 2 - 14}
+                          width={112}
+                          height={26}
+                          rx="5"
+                          fill="rgba(15,23,42,0.88)"
+                          stroke="#f59e0b"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={rx + rw / 2}
+                          y={ry + rd / 2 + 4}
+                          fill="#f59e0b"
+                          fontSize="11"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {formatFeetInches(cropPreview.w_in)} × {formatFeetInches(cropPreview.d_in)}
+                        </text>
+                      </g>
+                    )}
                   </g>
                 )}
 

@@ -167,9 +167,92 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
     [meta, plotWIn, plotDIn, facing, roomList, setback]
   );
 
+  // Immediate optimistic room crop resizing (width, depth, and position)
+  const resizeRoom = useCallback(
+    async (
+      roomIndex: number,
+      targetPlotXIn: number,
+      targetPlotYIn: number,
+      targetWIn: number,
+      targetDIn: number
+    ) => {
+      if (!meta) return;
+      const envX0 = meta.envelope_origin_x_in;
+      const envZ0 = meta.envelope_origin_z_in;
+
+      const resizedId = getRoomId(roomList[roomIndex], roomIndex);
+      savedPositionsRef.current.set(resizedId, {
+        x_in: Math.max(0, targetPlotXIn - envX0),
+        y_in: Math.max(0, targetPlotYIn - envZ0),
+      });
+
+      const nextRoomList: (RoomName | RoomSpecIn)[] = roomList.map((r, i) => {
+        if (i !== roomIndex) return r;
+        if (typeof r === "string") {
+          // r is just a RoomName string — wrap into a RoomSpecIn with new dims
+          return { name: r as RoomName, custom_w_in: targetWIn, custom_d_in: targetDIn } as RoomSpecIn;
+        }
+        return { ...r, custom_w_in: targetWIn, custom_d_in: targetDIn };
+      });
+
+      const nextPrev: PrevRoomIn[] = [];
+      roomList.forEach((r, i) => {
+        const id = getRoomId(r, i);
+        const saved = savedPositionsRef.current.get(id);
+        if (saved) {
+          nextPrev.push({
+            index: i,
+            x_in: saved.x_in,
+            y_in: saved.y_in,
+          });
+        }
+      });
+
+      // Optimistically update on-screen position and dimensions immediately
+      setRooms((prevRooms) =>
+        prevRooms.map((r, i) =>
+          i === roomIndex
+            ? { ...r, x_in: targetPlotXIn, y_in: targetPlotYIn, w_in: targetWIn, d_in: targetDIn }
+            : r
+        )
+      );
+
+      setPending(true);
+      try {
+        const res = await requestSolve({
+          plotWIn,
+          plotDIn,
+          facing,
+          rooms: nextRoomList,
+          setback,
+          prev: nextPrev,
+          movedIndex: roomIndex,
+        });
+        setRooms(res.rooms);
+        setMeta(res.meta);
+        setError(null);
+
+        res.rooms.forEach((r, i) => {
+          if (i < roomList.length) {
+            const id = getRoomId(roomList[i], i);
+            savedPositionsRef.current.set(id, {
+              x_in: r.x_in - res.meta.envelope_origin_x_in,
+              y_in: r.y_in - res.meta.envelope_origin_z_in,
+            });
+          }
+        });
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setPending(false);
+      }
+    },
+    [meta, plotWIn, plotDIn, facing, roomList, setback]
+  );
+
   const resetPositions = useCallback(() => {
     savedPositionsRef.current.clear();
   }, []);
 
-  return { rooms, meta, pending, error, staleBackend, moveRoom, resetPositions };
+  return { rooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions };
 }
