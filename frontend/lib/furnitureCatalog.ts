@@ -1,7 +1,7 @@
 // 3D Architectural Furniture & Objects Catalog & Procedural Mesh Factories
 import * as THREE from "three";
 
-export type FurnitureCategory = "living" | "bedroom" | "dining" | "kitchen" | "office" | "decor" | "sacred";
+export type FurnitureCategory = "living" | "bedroom" | "dining" | "kitchen" | "office" | "decor" | "sacred" | "walls";
 
 export interface FurnitureItemDef {
   type: string;
@@ -258,6 +258,55 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     icon: "🛕",
     dimensions: { widthFt: 3.4, depthFt: 2.2, heightFt: 5.0 },
     description: "Carved teakwood pooja mandir shrine with pyramid gopuram spire, brass kalash, and diya lamps.",
+  },
+
+  // --------------------------------------------------------------------------------------
+  // 6. Custom Partition Walls & Architectural Dividers
+  // --------------------------------------------------------------------------------------
+  {
+    type: "wall_partition_full",
+    name: "Full-Height Interior Partition Wall",
+    category: "walls",
+    icon: "🧱",
+    dimensions: { widthFt: 8.0, depthFt: 0.5, heightFt: 9.0 },
+    description: "Solid 9-foot architectural interior partition wall with top crown trim and bottom baseboards.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "wall_partition_short",
+    name: "Half-Height Divider Wall (Pony Wall)",
+    category: "walls",
+    icon: "🧱",
+    dimensions: { widthFt: 6.0, depthFt: 0.5, heightFt: 4.0 },
+    description: "4-foot pony wall room divider capped with a polished walnut wood ledge.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "wall_partition_slat",
+    name: "Acoustic Slatted Wood Screen Wall",
+    category: "walls",
+    icon: "🪵",
+    dimensions: { widthFt: 6.0, depthFt: 0.35, heightFt: 9.0 },
+    description: "Floor-to-ceiling vertical teakwood fluted slats allowing ambient light penetration.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "wall_glass_partition",
+    name: "Crittall Glass Wall with Black Mullions",
+    category: "walls",
+    icon: "🪟",
+    dimensions: { widthFt: 8.0, depthFt: 0.3, heightFt: 9.0 },
+    description: "Modern industrial glass partition wall framed in sleek black aluminum grid mullions.",
+    defaultColor: 0x1e293b,
+  },
+  {
+    type: "wall_archway_divider",
+    name: "Neoclassical Arched Divider Wall",
+    category: "walls",
+    icon: "🏛️",
+    dimensions: { widthFt: 8.0, depthFt: 0.5, heightFt: 9.0 },
+    description: "Architectural partition wall featuring a grand roman arched walkthrough opening with decorative trim.",
+    defaultColor: 0xf8fafc,
   },
 ];
 
@@ -976,6 +1025,179 @@ export function createFurnitureMesh(type: string, customColor?: number): THREE.G
       );
       rug.position.set(0, 0.02, 0);
       root.add(rug);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 25. Full-Height Interior Partition Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_partition_full": {
+      const w = 8.0;
+      const d = 0.5;
+      const h = 9.0;
+      const wallMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.82, metalness: 0.02 });
+      const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.5 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 });
+
+      // Main Solid Wall
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+      wall.position.set(0, h / 2, 0);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      root.add(wall);
+
+      // Top Ceiling Crown Trim
+      const crown = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.3, d + 0.08), trimMat);
+      crown.position.set(0, h - 0.15, 0);
+      root.add(crown);
+
+      // Bottom Baseboards
+      const baseboard = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.45, d + 0.06), baseboardMat);
+      baseboard.position.set(0, 0.225, 0);
+      root.add(baseboard);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 26. Half-Height Room Divider (Pony Wall)
+    // ----------------------------------------------------------------------------------
+    case "wall_partition_short": {
+      const w = 6.0;
+      const d = 0.5;
+      const h = 4.0;
+      const wallMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.82, metalness: 0.02 });
+      const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.5 });
+      const ledgeMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.35 });
+
+      // Wall Body
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+      wall.position.set(0, h / 2, 0);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      root.add(wall);
+
+      // Top Wood Capping Ledge
+      const ledge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.18, d + 0.2), ledgeMat);
+      ledge.position.set(0, h + 0.09, 0);
+      root.add(ledge);
+
+      // Bottom Baseboard
+      const baseboard = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.45, d + 0.06), baseboardMat);
+      baseboard.position.set(0, 0.225, 0);
+      root.add(baseboard);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 27. Acoustic Slatted Wood Screen Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_partition_slat": {
+      const w = 6.0;
+      const h = 9.0;
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, metalness: 0.7, roughness: 0.3 });
+      const slatMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.45 });
+
+      // Top and Bottom Rails
+      const railBottom = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, 0.35), frameMat);
+      railBottom.position.set(0, 0.1, 0);
+      const railTop = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, 0.35), frameMat);
+      railTop.position.set(0, h - 0.1, 0);
+      root.add(railBottom, railTop);
+
+      // Vertical Slat Sliders
+      const slatCount = 14;
+      const slatSpacing = (w - 0.4) / (slatCount - 1);
+      for (let i = 0; i < slatCount; i++) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.18, h - 0.4, 0.25), slatMat);
+        slat.position.set(-w / 2 + 0.2 + i * slatSpacing, h / 2, 0);
+        slat.castShadow = true;
+        root.add(slat);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 28. Crittall Glass Wall with Black Mullions
+    // ----------------------------------------------------------------------------------
+    case "wall_glass_partition": {
+      const w = 8.0;
+      const h = 9.0;
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.2 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xe0f2fe,
+        transmission: 0.88,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+        ior: 1.5,
+        thickness: 0.1,
+      });
+
+      // Glass Pane
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, h - 0.2, 0.06), glassMat);
+      glass.position.set(0, h / 2, 0);
+      root.add(glass);
+
+      // Outer Frame
+      const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.18, h, 0.25), frameMat);
+      frameL.position.set(-w / 2 + 0.09, h / 2, 0);
+      const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.18, h, 0.25), frameMat);
+      frameR.position.set(w / 2 - 0.09, h / 2, 0);
+      const frameB = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, 0.25), frameMat);
+      frameB.position.set(0, 0.09, 0);
+      const frameT = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, 0.25), frameMat);
+      frameT.position.set(0, h - 0.09, 0);
+      root.add(frameL, frameR, frameB, frameT);
+
+      // Vertical & Horizontal Grid Mullions
+      for (let i = 1; i <= 3; i++) {
+        const vMullion = new THREE.Mesh(new THREE.BoxGeometry(0.08, h - 0.36, 0.16), frameMat);
+        vMullion.position.set(-w / 2 + (i * w) / 4, h / 2, 0);
+        root.add(vMullion);
+      }
+      for (let j = 1; j <= 3; j++) {
+        const hMullion = new THREE.Mesh(new THREE.BoxGeometry(w - 0.36, 0.08, 0.16), frameMat);
+        hMullion.position.set(0, (j * h) / 4, 0);
+        root.add(hMullion);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 29. Neoclassical Arched Divider Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_archway_divider": {
+      const w = 8.0;
+      const d = 0.5;
+      const h = 9.0;
+      const archW = 4.0;
+      const archH = 7.0;
+      const wallMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.82, metalness: 0.02 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 });
+
+      const sideW = (w - archW) / 2;
+      const topH = h - archH;
+
+      // Left Pillar Wall
+      const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, h, d), wallMat);
+      leftWall.position.set(-w / 2 + sideW / 2, h / 2, 0);
+      leftWall.castShadow = true;
+
+      // Right Pillar Wall
+      const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, h, d), wallMat);
+      rightWall.position.set(w / 2 - sideW / 2, h / 2, 0);
+      rightWall.castShadow = true;
+
+      // Top Header Wall
+      const topWall = new THREE.Mesh(new THREE.BoxGeometry(archW, topH, d), wallMat);
+      topWall.position.set(0, archH + topH / 2, 0);
+      topWall.castShadow = true;
+
+      // Arch Molding Trim
+      const archTrim = new THREE.Mesh(new THREE.BoxGeometry(archW + 0.2, 0.25, d + 0.08), trimMat);
+      archTrim.position.set(0, archH - 0.1, 0);
+
+      root.add(leftWall, rightWall, topWall, archTrim);
       break;
     }
 

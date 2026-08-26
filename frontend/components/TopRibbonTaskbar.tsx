@@ -167,6 +167,7 @@ export default function TopRibbonTaskbar({
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
 
   const categories: { id: FurnitureCategory | "all"; label: string; icon: string }[] = [
+    { id: "walls", label: "Walls & Partitions", icon: "🧱" },
     { id: "living", label: "Living & Sofas", icon: "🛋️" },
     { id: "bedroom", label: "Bedrooms & Beds", icon: "🛏️" },
     { id: "dining", label: "Dining & Kitchen", icon: "🍽️" },
@@ -682,6 +683,55 @@ export default function TopRibbonTaskbar({
           {/* TAB 4: WINDOWS & OPENINGS */}
           {activeTab === "windows" && (
             <div className={styles.tabContentRow}>
+              {/* Add Custom Partition Walls */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.presetsGrid}>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_partition_full" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_partition_full" ? null : "wall_partition_full")}
+                      title="Place a 9ft Full-Height Interior Partition Wall (8ft × 9ft)"
+                    >
+                      <span className={styles.windowShapeIcon}>🧱</span>
+                      <span className={styles.windowShapeName}>+ 9ft Wall</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_partition_short" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_partition_short" ? null : "wall_partition_short")}
+                      title="Place a 4ft Half-Height Pony Divider Wall (6ft × 4ft)"
+                    >
+                      <span className={styles.windowShapeIcon}>🧱</span>
+                      <span className={styles.windowShapeName}>+ 4ft Divider</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_partition_slat" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_partition_slat" ? null : "wall_partition_slat")}
+                      title="Place an Acoustic Slatted Wood Screen Partition"
+                    >
+                      <span className={styles.windowShapeIcon}>🪵</span>
+                      <span className={styles.windowShapeName}>+ Slat Screen</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_glass_partition" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_glass_partition" ? null : "wall_glass_partition")}
+                      title="Place a Modern Industrial Glass Partition with Black Grid"
+                    >
+                      <span className={styles.windowShapeIcon}>🪟</span>
+                      <span className={styles.windowShapeName}>+ Glass Wall</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_archway_divider" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_archway_divider" ? null : "wall_archway_divider")}
+                      title="Place a Grand Neoclassical Arched Opening Wall Divider"
+                    >
+                      <span className={styles.windowShapeIcon}>🏛️</span>
+                      <span className={styles.windowShapeName}>+ Arched Wall</span>
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Add Custom Partition Walls</div>
+              </div>
+
               {/* Window Shapes */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
@@ -710,7 +760,7 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupBody}>
                   <div className={styles.wallActionsColumn}>
                     <span className={styles.instructionHint}>
-                      💡 Click any wall in 3D to Demolish or Install Windows!
+                      💡 Click any wall in 3D to Demolish, Add Windows, or Rebuild!
                     </span>
                     <button
                       className={styles.actionPillBtn}
@@ -796,11 +846,11 @@ export default function TopRibbonTaskbar({
                       }
                       title={
                         selectedObject.isWallRemoved
-                          ? "Rebuild solid wall partition"
+                          ? "Add back solid wall partition to close this opening"
                           : "Delete this wall to merge both rooms into an open concept space"
                       }
                     >
-                      {selectedObject.isWallRemoved ? "🧱 Rebuild Wall" : "🗑️ Delete Wall (Open Concept)"}
+                      {selectedObject.isWallRemoved ? "🧱 + Add / Rebuild Wall" : "🗑️ Delete Wall (Open Concept)"}
                     </button>
                     {!selectedObject.isWallRemoved && (
                       <button
