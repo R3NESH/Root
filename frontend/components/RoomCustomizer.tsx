@@ -62,6 +62,26 @@ export default function RoomCustomizer({
     onChangeCustomDims(nextDims);
   };
 
+  const handleRotateRoom = (id: string, roomIdx: number, roomName: RoomName) => {
+    const solved = rooms[roomIdx];
+    const defaultW = solved ? Math.round(inchesToFeet(solved.w_in)) : (roomName === "hall" || roomName === "bedroom" ? 14 : 10);
+    const defaultD = solved ? Math.round(inchesToFeet(solved.d_in)) : (roomName === "hall" || roomName === "bedroom" ? 14 : 10);
+
+    const current = customDims[id] ?? {
+      wFt: defaultW,
+      dFt: defaultD,
+    };
+
+    const nextDims = {
+      ...customDims,
+      [id]: {
+        wFt: current.dFt,
+        dFt: current.wFt,
+      },
+    };
+    onChangeCustomDims(nextDims);
+  };
+
   const handleApplyPreset = (id: string, w: number, d: number) => {
     const nextDims = {
       ...customDims,
@@ -98,6 +118,7 @@ export default function RoomCustomizer({
           const currentW = custom ? custom.wFt : (solved ? Math.round(inchesToFeet(solved.w_in)) : 14);
           const currentD = custom ? custom.dFt : (solved ? Math.round(inchesToFeet(solved.d_in)) : 14);
           const sqFt = currentW * currentD;
+          const orientation = currentW > currentD ? "↔ Horiz" : currentW < currentD ? "↕ Vert" : "◻ Square";
 
           return (
             <div key={item.id} className={styles.roomCard}>
@@ -106,7 +127,10 @@ export default function RoomCustomizer({
                   <div className={styles.colorDot} style={{ backgroundColor: `#${hex}` }} />
                   <span className={styles.roomNameText}>{item.label}</span>
                 </div>
-                <div className={styles.sqFtBadge}>{sqFt} sq ft</div>
+                <div className={styles.badgeRow}>
+                  <span className={styles.orientationPill}>{orientation}</span>
+                  <div className={styles.sqFtBadge}>{sqFt} sq ft</div>
+                </div>
               </div>
 
               {/* Width & Depth Steppers */}
@@ -156,6 +180,26 @@ export default function RoomCustomizer({
                 </div>
               </div>
 
+              {/* Rotate Clockwise & Anticlockwise Controls */}
+              <div className={styles.rotateRow}>
+                <button
+                  className={styles.rotateBtn}
+                  onClick={() => handleRotateRoom(item.id, item.index, item.name)}
+                  title="Rotate Room Anticlockwise (-90°)"
+                >
+                  <span className={styles.rotateIcon}>↺</span>
+                  <span>Rotate CCW (-90°)</span>
+                </button>
+                <button
+                  className={styles.rotateBtn}
+                  onClick={() => handleRotateRoom(item.id, item.index, item.name)}
+                  title="Rotate Room Clockwise (+90°)"
+                >
+                  <span className={styles.rotateIcon}>↻</span>
+                  <span>Rotate CW (+90°)</span>
+                </button>
+              </div>
+
               {/* Quick Presets for 15x15 etc. */}
               <div className={styles.presetsRow}>
                 <button
@@ -175,6 +219,12 @@ export default function RoomCustomizer({
                   onClick={() => handleApplyPreset(item.id, 12, 14)}
                 >
                   12×14&apos;
+                </button>
+                <button
+                  className={`${styles.presetBtn} ${currentW === 14 && currentD === 12 ? styles.activePreset : ""}`}
+                  onClick={() => handleApplyPreset(item.id, 14, 12)}
+                >
+                  14×12&apos;
                 </button>
                 <button
                   className={`${styles.presetBtn} ${currentW === 10 && currentD === 12 ? styles.activePreset : ""}`}

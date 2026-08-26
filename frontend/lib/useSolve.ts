@@ -167,5 +167,9 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
     [meta, plotWIn, plotDIn, facing, roomList, setback]
   );
 
-  return { rooms, meta, pending, error, staleBackend, moveRoom };
+  const resetPositions = useCallback(() => {
+    savedPositionsRef.current.clear();
+  }, []);
+
+  return { rooms, meta, pending, error, staleBackend, moveRoom, resetPositions };
 }

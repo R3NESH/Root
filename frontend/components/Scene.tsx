@@ -34,6 +34,11 @@ import {
   getWoodFloorTexture,
   RoomDoorInfo,
 } from "@/lib/interiorDetails";
+import {
+  createFurnitureMesh,
+  FURNITURE_CATALOG,
+  PlacedCustomObject,
+} from "@/lib/furnitureCatalog";
 
 interface SceneProps {
   plot: PlotDims;
@@ -46,10 +51,16 @@ interface SceneProps {
   lightsOn?: boolean;
   /** Place beds, sofas, counters, fans and curtains. Off gives the bare shell. */
   furnished?: boolean;
+  customObjects?: PlacedCustomObject[];
+  placingItemType?: string | null;
+  selectedObjectId?: string | null;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
   onRoomMove?: (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => void;
+  onAddCustomObject?: (obj: PlacedCustomObject) => void;
+  onSelectObject?: (id: string | null) => void;
+  onUpdateCustomObject?: (obj: PlacedCustomObject) => void;
 }
 
 const PLOT_COLOR = 0xffffff;
@@ -124,10 +135,16 @@ export default function Scene({
   teleportTarget = null,
   lightsOn = true,
   furnished = true,
+  customObjects = [],
+  placingItemType = null,
+  selectedObjectId = null,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
   onRoomMove,
+  onAddCustomObject,
+  onSelectObject,
+  onUpdateCustomObject,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -143,6 +160,10 @@ export default function Scene({
   const draggedRoomIdxRef = useRef<number | null>(null);
   const [draggedRoomInfo, setDraggedRoomInfo] = useState<{ name: string; x: number; z: number } | null>(null);
   const [doorAlert, setDoorAlert] = useState<string | null>(null);
+
+  // Custom 3D Furniture Placement & Selection References
+  const placingGhostGroupRef = useRef<THREE.Group | null>(null);
+  const draggedCustomObjectIdRef = useRef<string | null>(null);
 
   // Animated Ceiling Fan references
   const fanBladesRef = useRef<THREE.Group[]>([]);
@@ -179,10 +200,16 @@ export default function Scene({
   const onPlayerUpdateRef = useRef(onPlayerUpdate);
   const onToggleLightsRef = useRef(onToggleLights);
   const onRoomMoveRef = useRef(onRoomMove);
+  const onAddCustomObjectRef = useRef(onAddCustomObject);
+  const onSelectObjectRef = useRef(onSelectObject);
+  const onUpdateCustomObjectRef = useRef(onUpdateCustomObject);
   const modeRef = useRef(mode);
   const activeMoveCmdRef = useRef(activeMoveCmd);
   const lightsOnRef = useRef(lightsOn);
   const roomsRef = useRef(rooms);
+  const customObjectsRef = useRef(customObjects);
+  const placingItemTypeRef = useRef(placingItemType);
+  const selectedObjectIdRef = useRef(selectedObjectId);
 
   useEffect(() => {
     plotRef.current = plot;
@@ -190,15 +217,37 @@ export default function Scene({
     onPlayerUpdateRef.current = onPlayerUpdate;
     onToggleLightsRef.current = onToggleLights;
     onRoomMoveRef.current = onRoomMove;
+    onAddCustomObjectRef.current = onAddCustomObject;
+    onSelectObjectRef.current = onSelectObject;
+    onUpdateCustomObjectRef.current = onUpdateCustomObject;
     modeRef.current = mode;
     activeMoveCmdRef.current = activeMoveCmd;
     lightsOnRef.current = lightsOn;
     roomsRef.current = rooms;
+    customObjectsRef.current = customObjects;
+    placingItemTypeRef.current = placingItemType;
+    selectedObjectIdRef.current = selectedObjectId;
 
     roomLightsRef.current.forEach((l) => {
       l.visible = lightsOn;
     });
-  }, [plot, onPlotChange, onPlayerUpdate, onToggleLights, onRoomMove, mode, activeMoveCmd, lightsOn, rooms]);
+  }, [
+    plot,
+    onPlotChange,
+    onPlayerUpdate,
+    onToggleLights,
+    onRoomMove,
+    onAddCustomObject,
+    onSelectObject,
+    onUpdateCustomObject,
+    mode,
+    activeMoveCmd,
+    lightsOn,
+    rooms,
+    customObjects,
+    placingItemType,
+    selectedObjectId,
+  ]);
 
   // 1. Scene & Renderer Initialization
   useEffect(() => {
@@ -232,6 +281,7 @@ export default function Scene({
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.maxPolarAngle = Math.PI / 2.05;
+    controls.enablePan = false; // Strictly keeps rotation centered on the house model
     controlsRef.current = controls;
 
     // Architectural Lighting setup
@@ -321,7 +371,7 @@ export default function Scene({
     const pointerNdc = new THREE.Vector2();
     const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const hitPoint = new THREE.Vector3();
-    let dragKind: "width" | "depth" | "room" | null = null;
+    let dragKind: "width" | "depth" | "room" | "customObject" | null = null;
 
     function setPointerNdc(ev: PointerEvent) {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -388,6 +438,40 @@ export default function Scene({
       return closestIdx;
     }
 
+    // Custom 3D Furniture Picker
+    function pickCustomObject(ev: PointerEvent): string | null {
+      if (modeRef.current === "walkthrough") return null;
+      setPointerNdc(ev);
+      raycaster.setFromCamera(pointerNdc, camera);
+
+      const customList = customObjectsRef.current || [];
+      let closestId: string | null = null;
+      let closestDist = Infinity;
+
+      for (const obj of customList) {
+        const itemDef = FURNITURE_CATALOG.find((i) => i.type === obj.type);
+        const s = obj.scale || 1.0;
+        const w = (itemDef?.dimensions.widthFt || 4) * s;
+        const d = (itemDef?.dimensions.depthFt || 4) * s;
+        const h = (itemDef?.dimensions.heightFt || 4) * s;
+
+        const box = new THREE.Box3(
+          new THREE.Vector3(obj.x - w / 2, 0, obj.z - d / 2),
+          new THREE.Vector3(obj.x + w / 2, h, obj.z + d / 2)
+        );
+
+        const target = new THREE.Vector3();
+        if (raycaster.ray.intersectBox(box, target)) {
+          const dist = raycaster.ray.origin.distanceTo(target);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestId = obj.id;
+          }
+        }
+      }
+      return closestId;
+    }
+
     function onPointerDownCapture(ev: PointerEvent) {
       if (modeRef.current === "walkthrough") {
         isDraggingLook.current = true;
@@ -395,6 +479,36 @@ export default function Scene({
         return;
       }
 
+      setPointerNdc(ev);
+      raycaster.setFromCamera(pointerNdc, camera);
+
+      // If user is currently placing a furniture item from the catalog
+      if (placingItemTypeRef.current && ev.button === 0) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
+          const newObj: PlacedCustomObject = {
+            id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            type: placingItemTypeRef.current,
+            name: itemDef?.name || "Furniture",
+            x: Math.round(hitPoint.x * 2) / 2,
+            y: 0,
+            z: Math.round(hitPoint.z * 2) / 2,
+            rotationY: 0,
+            scale: 1.0,
+          };
+          if (onAddCustomObjectRef.current) {
+            onAddCustomObjectRef.current(newObj);
+          }
+          if (placingGhostGroupRef.current) {
+            placingGhostGroupRef.current.visible = false;
+          }
+          return;
+        }
+      }
+
+      // Check plot dimension resize handles
       const hitHandle = pickHandle(ev);
       if (hitHandle) {
         ev.stopPropagation();
@@ -404,6 +518,21 @@ export default function Scene({
         return;
       }
 
+      // Check custom furniture object selection
+      const hitCustomObjId = pickCustomObject(ev);
+      if (hitCustomObjId && ev.button === 0) {
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+        dragKind = "customObject";
+        draggedCustomObjectIdRef.current = hitCustomObjId;
+        if (onSelectObjectRef.current) {
+          onSelectObjectRef.current(hitCustomObjId);
+        }
+        controls.enabled = false;
+        return;
+      }
+
+      // Check room drag
       const hitRoomIdx = pickRoom(ev);
       if (hitRoomIdx !== null && ev.button === 0) {
         ev.stopPropagation();
@@ -423,6 +552,12 @@ export default function Scene({
           ghostMesh.visible = true;
           setDraggedRoomInfo({ name: r.name, x: rx + rw / 2, z: rz + rd / 2 });
         }
+        return;
+      }
+
+      // Clicking empty ground deselects custom object
+      if (selectedObjectIdRef.current && onSelectObjectRef.current) {
+        onSelectObjectRef.current(null);
       }
     }
 
@@ -443,10 +578,23 @@ export default function Scene({
       setPointerNdc(ev);
       raycaster.setFromCamera(pointerNdc, camera);
 
+      // Handle placing preview ghost
+      if (placingItemTypeRef.current) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          if (placingGhostGroupRef.current) {
+            placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
+            placingGhostGroupRef.current.visible = true;
+          }
+          renderer.domElement.style.cursor = "crosshair";
+        }
+        return;
+      }
+
       if (!dragKind) {
         const isOverHandle = pickHandle(ev) !== null;
+        const isOverCustomObj = pickCustomObject(ev) !== null;
         const isOverRoom = pickRoom(ev) !== null;
-        renderer.domElement.style.cursor = isOverHandle || isOverRoom ? "grab" : "auto";
+        renderer.domElement.style.cursor = isOverHandle || isOverCustomObj || isOverRoom ? "grab" : "auto";
         return;
       }
 
@@ -462,6 +610,16 @@ export default function Scene({
         const nextIn = snapToFoot(clampInches(hitPoint.z * 12, MIN_DIM_IN, MAX_DIM_IN));
         if (nextIn !== current.depthIn && onPlotChangeRef.current) {
           onPlotChangeRef.current({ ...current, depthIn: nextIn });
+        }
+      } else if (dragKind === "customObject" && draggedCustomObjectIdRef.current) {
+        const objId = draggedCustomObjectIdRef.current;
+        const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
+        if (obj && onUpdateCustomObjectRef.current) {
+          onUpdateCustomObjectRef.current({
+            ...obj,
+            x: Math.round(hitPoint.x * 2) / 2,
+            z: Math.round(hitPoint.z * 2) / 2,
+          });
         }
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
         const rIdx = draggedRoomIdxRef.current;
@@ -503,6 +661,7 @@ export default function Scene({
 
       if (dragKind) {
         dragKind = null;
+        draggedCustomObjectIdRef.current = null;
         controls.enabled = true;
       }
     }
@@ -703,10 +862,35 @@ export default function Scene({
       if (widthHandleRef.current) widthHandleRef.current.visible = false;
       if (depthHandleRef.current) depthHandleRef.current.visible = false;
     } else {
-      if (savedOrbitCamPos.current.lengthSq() > 0) {
-        camera.position.copy(savedOrbitCamPos.current);
-        controls.target.copy(savedOrbitTarget.current);
+      const wFt = inchesToFeet(plot.widthIn);
+      const dFt = inchesToFeet(plot.depthIn);
+      let minX = Infinity, maxX = -Infinity;
+      let minZ = Infinity, maxZ = -Infinity;
+      for (const r of rooms) {
+        const rx = inchesToFeet(r.x_in);
+        const rz = inchesToFeet(r.y_in);
+        const rw = inchesToFeet(r.w_in);
+        const rd = inchesToFeet(r.d_in);
+        minX = Math.min(minX, rx);
+        maxX = Math.max(maxX, rx + rw);
+        minZ = Math.min(minZ, rz);
+        maxZ = Math.max(maxZ, rz + rd);
       }
+      const hX = isFinite(minX) && isFinite(maxX) ? (minX + maxX) / 2 : wFt / 2;
+      const hZ = isFinite(minZ) && isFinite(maxZ) ? (minZ + maxZ) / 2 : dFt / 2;
+      const houseCenter = new THREE.Vector3(hX, WALL_HEIGHT_FT * 0.4, hZ);
+      controls.target.copy(houseCenter);
+
+      if (savedOrbitCamPos.current.lengthSq() > 0) {
+        const dir = savedOrbitCamPos.current.clone().sub(savedOrbitTarget.current).normalize();
+        if (dir.lengthSq() < 1e-6) dir.set(1, 1.2, 1.4).normalize();
+        const houseRad = isFinite(minX) && isFinite(maxX) ? Math.max(Math.hypot(maxX - minX, maxZ - minZ) / 2, WALL_HEIGHT_FT * 1.5) : wFt;
+        const fovRad = (camera.fov * Math.PI) / 180;
+        const dist = (houseRad * 1.35) / Math.sin(fovRad / 2);
+        camera.position.copy(houseCenter).addScaledVector(dir, dist);
+      }
+      controls.update();
+
       if (widthHandleRef.current) widthHandleRef.current.visible = true;
       if (depthHandleRef.current) depthHandleRef.current.visible = true;
     }
@@ -756,16 +940,18 @@ export default function Scene({
         minZ = Math.min(minZ, rz);
         maxZ = Math.max(maxZ, rz + rd);
       }
-      houseCenterX = (minX + maxX) / 2;
-      houseCenterZ = (minZ + maxZ) / 2;
-      houseRadius = Math.max(Math.hypot(maxX - minX, maxZ - minZ) / 2, WALL_HEIGHT_FT);
+      houseCenterX = isFinite(minX) && isFinite(maxX) ? (minX + maxX) / 2 : wFt / 2;
+      houseCenterZ = isFinite(minZ) && isFinite(maxZ) ? (minZ + maxZ) / 2 : dFt / 2;
+      houseRadius = isFinite(minX) && isFinite(maxX)
+        ? Math.max(Math.hypot(maxX - minX, maxZ - minZ) / 2, WALL_HEIGHT_FT * 1.5)
+        : Math.max(Math.hypot(envMaxX - envMinX, envMaxZ - envMinZ) / 2, WALL_HEIGHT_FT * 1.5);
     } else {
       houseCenterX = (envMinX + envMaxX) / 2;
       houseCenterZ = (envMinZ + envMaxZ) / 2;
-      houseRadius = Math.max(Math.hypot(envMaxX - envMinX, envMaxZ - envMinZ) / 2, WALL_HEIGHT_FT);
+      houseRadius = Math.max(Math.hypot(envMaxX - envMinX, envMaxZ - envMinZ) / 2, WALL_HEIGHT_FT * 1.5);
     }
 
-    const houseCenter = new THREE.Vector3(houseCenterX, WALL_HEIGHT_FT * 0.35, houseCenterZ);
+    const houseCenter = new THREE.Vector3(houseCenterX, WALL_HEIGHT_FT * 0.4, houseCenterZ);
     controls.target.copy(houseCenter);
 
     const dir = camera.position.clone().sub(controls.target);
@@ -776,8 +962,6 @@ export default function Scene({
     const dist = (houseRadius * 1.35) / Math.sin(fovRad / 2);
     camera.position.copy(houseCenter).addScaledVector(dir, dist);
     controls.update();
-    // Deliberately not keyed on `furnished`: toggling furniture must not yank the camera out
-    // from under someone mid-orbit. Same reasoning as the 2026-08-24 reframe fix.
   }, [plot, facing, setback, rooms]);
 
   // Sync effect: Rebuild Architectural 3D Geometry
@@ -1372,9 +1556,71 @@ export default function Scene({
       });
     }
 
+    // 8. Custom Interactive Placed Furniture & Decor Objects
+    const customList = customObjectsRef.current || [];
+    for (const obj of customList) {
+      const objGroup = createFurnitureMesh(obj.type, obj.colorHex);
+      objGroup.position.set(obj.x, obj.y || 0, obj.z);
+      objGroup.rotation.y = obj.rotationY || 0;
+      const s = obj.scale || 1.0;
+      objGroup.scale.set(s, s, s);
+      objGroup.userData = { isCustomObject: true, id: obj.id };
+
+      objGroup.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      // Luminous selection ring indicator
+      if (obj.id === selectedObjectIdRef.current) {
+        const itemDef = FURNITURE_CATALOG.find((i) => i.type === obj.type);
+        const radius = Math.max(1.8, Math.max(itemDef?.dimensions.widthFt || 3, itemDef?.dimensions.depthFt || 3) * 0.6) * s;
+        const ringGeom = new THREE.RingGeometry(radius, radius + 0.18, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xe8912d, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeom, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.05;
+        objGroup.add(ring);
+      }
+
+      group.add(objGroup);
+    }
+
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
     depthHandle.position.set(wFt / 2, HANDLE_RADIUS_FT, dFt);
-  }, [plot, facing, setback, rooms, furnished]);
+  }, [plot, facing, setback, rooms, furnished, customObjects, selectedObjectId]);
+
+  // Ghost Furniture Placement Preview Handler
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    if (placingGhostGroupRef.current) {
+      scene.remove(placingGhostGroupRef.current);
+      placingGhostGroupRef.current = null;
+    }
+
+    if (placingItemType) {
+      const ghost = createFurnitureMesh(placingItemType);
+      ghost.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+          const origColor = mat && "color" in mat ? (mat.color as THREE.Color).getHex() : 0xe8912d;
+          child.material = new THREE.MeshStandardMaterial({
+            color: origColor,
+            emissive: 0x553300,
+            transparent: true,
+            opacity: 0.6,
+          });
+        }
+      });
+      ghost.visible = false;
+      scene.add(ghost);
+      placingGhostGroupRef.current = ghost;
+    }
+  }, [placingItemType]);
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative" }}>

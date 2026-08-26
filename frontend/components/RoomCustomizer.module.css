@@ -153,6 +153,60 @@
   color: #ffffff;
 }
 
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orientationPill {
+  font-size: 9.5px;
+  font-family: monospace;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  letter-spacing: 0.02em;
+}
+
+.rotateRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.rotateBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: #bae6fd;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rotateBtn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.rotateIcon {
+  font-size: 12px;
+  font-weight: bold;
+  color: #38bdf8;
+}
+
 .presetsRow {
   display: flex;
   gap: 6px;
@@ -182,3 +236,4 @@
   color: #ffffff !important;
   font-weight: 600;
 }
+

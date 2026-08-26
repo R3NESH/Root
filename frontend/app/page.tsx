@@ -23,8 +23,10 @@ import {
 } from "@/lib/plot";
 import { RoomName, ROOM_NAMES } from "@/lib/rooms";
 import { useSolve } from "@/lib/useSolve";
-import { RoomSpecIn } from "@/lib/solve";
-import { inchesToFeet } from "@/lib/units";
+import { RoomOpening, RoomSpecIn } from "@/lib/solve";
+import { feetToInches, inchesToFeet } from "@/lib/units";
+import { ModelBlueprint } from "@/lib/modelBlueprints";
+import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
 import {
   detectCurrentRoom,
   EYE_LEVEL_FT,
@@ -47,12 +49,16 @@ export default function Home() {
   const [facing, setFacing] = useState<Facing>("N");
   const [counts, setCounts] = useState<Record<RoomName, number>>(DEFAULT_COUNTS);
   const [customDims, setCustomDims] = useState<Record<string, CustomDim>>({});
+  const [customOpenings, setCustomOpenings] = useState<Record<string, RoomOpening[]>>({});
+  const [customWallThickness, setCustomWallThickness] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
   const [furnished, setFurnished] = useState(true);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isModelBlueprintsOpen, setIsModelBlueprintsOpen] = useState(false);
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
+  const [activeBlueprintName, setActiveBlueprintName] = useState<string | null>(null);
 
   // Player location (5'5" perspective)
   const [player, setPlayer] = useState<PlayerTransform>({
@@ -85,13 +91,47 @@ export default function Home() {
     return list;
   }, [counts, customDims]);
 
-  const { rooms, meta, pending, error, staleBackend, moveRoom } = useSolve({
+  const { rooms: solvedRooms, meta, pending, error, staleBackend, moveRoom, resetPositions } = useSolve({
     plotWIn: plot.widthIn,
     plotDIn: plot.depthIn,
     facing,
     rooms: roomListWithSpecs,
     setback: DEFAULT_SETBACK,
   });
+
+  // Apply a curated or imported model blueprint to instantly configure and construct the house in 2D & 3D
+  const handleApplyModelBlueprint = (
+    bp: ModelBlueprint,
+    targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint"
+  ) => {
+    resetPositions();
+    setActiveBlueprintName(bp.name);
+    setPlot({
+      widthIn: feetToInches(bp.plotWidthFt),
+      depthIn: feetToInches(bp.plotDepthFt),
+    });
+    setFacing(bp.facing);
+    setCounts(bp.counts);
+    setCustomDims(bp.customDims);
+    setCustomOpenings(bp.customOpenings ?? {});
+    setCustomWallThickness(bp.customWallThickness ?? {});
+    setMode(targetMode);
+  };
+
+  // Merge custom door / window openings and wall thicknesses into solved rooms
+  const rooms = useMemo(() => {
+    return solvedRooms.map((room, idx) => {
+      const spec = roomListWithSpecs[idx];
+      const id = spec?.id || `${room.name}_${idx}`;
+      const customOps = customOpenings[id];
+      const customThick = customWallThickness[id];
+      return {
+        ...room,
+        wall_thickness_in: customThick !== undefined ? customThick : room.wall_thickness_in,
+        openings: customOps !== undefined ? customOps : room.openings,
+      };
+    });
+  }, [solvedRooms, customOpenings, customWallThickness, roomListWithSpecs]);
 
   const buildableW = useMemo(() => buildableWidthIn(plot, facing, DEFAULT_SETBACK), [plot, facing]);
   const buildableD = useMemo(() => buildableDepthIn(plot, facing, DEFAULT_SETBACK), [plot, facing]);
@@ -179,6 +219,15 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Model Blueprints Catalog Action */}
+          <button
+            className={styles.headerModelBtn}
+            onClick={() => setIsModelBlueprintsOpen(true)}
+            title="Explore authentic architectural blueprints for different plot sizes and build instantly"
+          >
+            🏛️ Model Blueprints
+          </button>
+
           {/* Export Blueprint Sheet Action */}
           <button
             className={styles.headerExportBtn}
@@ -202,10 +251,17 @@ export default function Home() {
               meta={meta}
               counts={counts}
               customDims={customDims}
+              customOpenings={customOpenings}
+              customWallThickness={customWallThickness}
+              activeBlueprintName={activeBlueprintName}
               onChangeCounts={setCounts}
               onChangeCustomDims={setCustomDims}
+              onChangeCustomOpenings={setCustomOpenings}
+              onChangeCustomWallThickness={setCustomWallThickness}
               onRoomMove={moveRoom}
               onOpenExportModal={() => setIsExportModalOpen(true)}
+              onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
+              onApplyBlueprint={handleApplyModelBlueprint}
             />
           ) : (
             /* 3D Three.js Scene Viewport */
@@ -345,6 +401,13 @@ export default function Home() {
         setback={DEFAULT_SETBACK}
         rooms={rooms}
         meta={meta}
+      />
+
+      {/* Curated Model Blueprints Catalog Modal */}
+      <ModelBlueprintsModal
+        isOpen={isModelBlueprintsOpen}
+        onClose={() => setIsModelBlueprintsOpen(false)}
+        onSelectBlueprint={handleApplyModelBlueprint}
       />
     </div>
   );
