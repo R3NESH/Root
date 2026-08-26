@@ -2,9 +2,9 @@ import { inchesToFeet } from "./units";
 import { SolvedRoom } from "./solve";
 import { PlotDims, Facing } from "./plot";
 
-// Exactly 5 feet 5 inches (65 inches)
-export const EYE_LEVEL_FT = 65 / 12; // 5.4167 ft
-export const CROUCH_HEIGHT_FT = 3.6; // 3.6 ft crouched
+// Eye level calibrated for realistic, grand residential interior perspectives (4.4 ft / 53 inches)
+export const EYE_LEVEL_FT = 4.4; // 4.4 ft
+export const CROUCH_HEIGHT_FT = 2.8; // 2.8 ft crouched
 export const WALK_SPEED_FPS = 7.5; // ft per second (realistic walk)
 export const SPRINT_SPEED_FPS = 13.5; // ft per second (sprint)
 export const ROTATE_SPEED_RAD = 1.9; // rad per second

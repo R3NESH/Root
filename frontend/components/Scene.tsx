@@ -222,7 +222,7 @@ export default function Scene({
     y: EYE_LEVEL_FT,
     z: 20,
     yaw: Math.PI,
-    pitch: 0,
+    pitch: -0.06,
     isSprinting: false,
     isCrouched: false,
     isMoving: false,
@@ -238,6 +238,7 @@ export default function Scene({
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const isDraggingLook = useRef(false);
   const prevMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pointerDownPosRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
   const savedOrbitTarget = useRef<THREE.Vector3>(new THREE.Vector3());
   const savedOrbitCamPos = useRef<THREE.Vector3>(new THREE.Vector3());
 
@@ -508,7 +509,6 @@ export default function Scene({
 
     // Universal 3D Furniture Picker (Both Custom Placed & Built-in Items)
     function pickFurnitureObject(ev: PointerEvent): SelectedObjectInfo | null {
-      if (modeRef.current === "walkthrough") return null;
       setPointerNdc(ev);
       raycaster.setFromCamera(pointerNdc, camera);
 
@@ -580,6 +580,8 @@ export default function Scene({
     }
 
     function onPointerDownCapture(ev: PointerEvent) {
+      pointerDownPosRef.current = { x: ev.clientX, y: ev.clientY, time: performance.now() };
+
       if (modeRef.current === "walkthrough") {
         isDraggingLook.current = true;
         prevMousePos.current = { x: ev.clientX, y: ev.clientY };
@@ -673,6 +675,9 @@ export default function Scene({
     let lastHoverCheckTime = 0;
 
     function onPointerMove(ev: PointerEvent) {
+      setPointerNdc(ev);
+      raycaster.setFromCamera(pointerNdc, camera);
+
       if (modeRef.current === "walkthrough") {
         if (isDraggingLook.current) {
           const dx = ev.clientX - prevMousePos.current.x;
@@ -680,16 +685,33 @@ export default function Scene({
           prevMousePos.current = { x: ev.clientX, y: ev.clientY };
 
           const p = playerRef.current;
-          p.yaw -= dx * 0.0045;
-          p.pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, p.pitch - dy * 0.0045));
+          p.yaw -= dx * 0.0042;
+          p.pitch = Math.max(-Math.PI / 2.6, Math.min(Math.PI / 2.6, p.pitch - dy * 0.0042));
+        }
+
+        // Handle placing preview ghost in walkthrough mode
+        if (placingItemTypeRef.current) {
+          if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+            if (placingGhostGroupRef.current) {
+              placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
+              placingGhostGroupRef.current.visible = true;
+            }
+            renderer.domElement.style.cursor = "crosshair";
+          }
+          return;
+        }
+
+        // Hover feedback in walkthrough mode
+        const now = performance.now();
+        if (now - lastHoverCheckTime > 60) {
+          lastHoverCheckTime = now;
+          const isOverFurniture = pickFurnitureObject(ev) !== null;
+          renderer.domElement.style.cursor = isOverFurniture ? "pointer" : "crosshair";
         }
         return;
       }
 
-      setPointerNdc(ev);
-      raycaster.setFromCamera(pointerNdc, camera);
-
-      // Handle placing preview ghost
+      // Handle placing preview ghost in orbit mode
       if (placingItemTypeRef.current) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
           if (placingGhostGroupRef.current) {
@@ -750,8 +772,62 @@ export default function Scene({
       }
     }
 
-    function onPointerUp() {
+    function onPointerUp(ev: PointerEvent) {
       isDraggingLook.current = false;
+
+      // Handle walkthrough mode click-to-select and click-to-place
+      if (modeRef.current === "walkthrough") {
+        const dist = Math.hypot(
+          ev.clientX - pointerDownPosRef.current.x,
+          ev.clientY - pointerDownPosRef.current.y
+        );
+        const timeDiff = performance.now() - pointerDownPosRef.current.time;
+
+        // If it was a quick click / tap (not a sustained camera look drag)
+        if (dist < 8 && timeDiff < 450) {
+          // If in placing mode
+          if (placingItemTypeRef.current && ev.button === 0) {
+            setPointerNdc(ev);
+            raycaster.setFromCamera(pointerNdc, camera);
+            if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+              const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
+              const newObj: PlacedCustomObject = {
+                id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                type: placingItemTypeRef.current,
+                name: itemDef?.name || "Furniture",
+                x: Math.round(hitPoint.x * 2) / 2,
+                y: 0,
+                z: Math.round(hitPoint.z * 2) / 2,
+                rotationY: playerRef.current.yaw + Math.PI,
+                scale: 1.0,
+              };
+              if (onAddCustomObjectRef.current) {
+                onAddCustomObjectRef.current(newObj);
+              }
+              if (placingGhostGroupRef.current) {
+                placingGhostGroupRef.current.visible = false;
+              }
+              return;
+            }
+          }
+
+          // Otherwise, check object pick
+          const hitObj = pickFurnitureObject(ev);
+          if (hitObj && ev.button === 0) {
+            if (onSelectObjectRef.current) {
+              onSelectObjectRef.current(hitObj);
+            }
+            return;
+          }
+
+          // Clicked empty ground -> deselect
+          if (selectedObjectIdRef.current && onSelectObjectRef.current) {
+            onSelectObjectRef.current(null);
+          }
+        }
+        return;
+      }
+
       if (dragKind === "customObject" && draggedCustomObjectIdRef.current && draggedCustomObjPosRef.current) {
         const objId = draggedCustomObjectIdRef.current;
         const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
@@ -1026,7 +1102,7 @@ export default function Scene({
         y: EYE_LEVEL_FT,
         z: spawn.z,
         yaw: spawn.yaw,
-        pitch: 0,
+        pitch: -0.06,
       };
 
       if (widthHandleRef.current) widthHandleRef.current.visible = false;
@@ -1946,6 +2022,26 @@ export default function Scene({
         >
           📍 Dragging {ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name} — Release to place & auto-connect door!
         </div>
+      )}
+
+      {/* First-Person Walkthrough Targeting Reticle */}
+      {mode === "walkthrough" && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: "7px",
+            height: "7px",
+            background: "rgba(255, 255, 255, 0.8)",
+            border: "1.5px solid rgba(0, 0, 0, 0.6)",
+            borderRadius: "50%",
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+            boxShadow: "0 0 10px rgba(0, 0, 0, 0.6)",
+            zIndex: 35,
+          }}
+        />
       )}
 
       {doorAlert && (
