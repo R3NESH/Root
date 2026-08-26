@@ -27,6 +27,8 @@ interface TopRibbonTaskbarProps {
   onChangeMode: (mode: "orbit" | "walkthrough" | "blueprint") => void;
   lightsOn: boolean;
   onToggleLights: () => void;
+  isLayoutLocked?: boolean;
+  onToggleLayoutLock?: () => void;
   onOpenMaterialModal: () => void;
   onOpenWindowModal: () => void;
   onOpenModelBlueprintsModal: () => void;
@@ -53,6 +55,8 @@ export default function TopRibbonTaskbar({
   onChangeMode,
   lightsOn,
   onToggleLights,
+  isLayoutLocked = false,
+  onToggleLayoutLock,
   onOpenMaterialModal,
   onOpenWindowModal,
   onOpenModelBlueprintsModal,
@@ -150,6 +154,20 @@ export default function TopRibbonTaskbar({
           >
             {lightsOn ? "💡 Lights On" : "🌙 Lights Off"}
           </button>
+
+          {mode === "orbit" && onToggleLayoutLock && (
+            <button
+              className={isLayoutLocked ? styles.lockBtnActive : styles.lockBtn}
+              onClick={onToggleLayoutLock}
+              title={
+                isLayoutLocked
+                  ? "3D Layout is Locked: Orbit and view freely without moving rooms (Press L to unlock)"
+                  : "3D Layout is Unlocked: Click to lock view and prevent accidental room dragging (Press L)"
+              }
+            >
+              {isLayoutLocked ? "🔒 Locked View" : "🔓 Edit Layout"}
+            </button>
+          )}
 
           <button
             className={styles.materialStudioBtn}

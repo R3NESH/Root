@@ -89,6 +89,8 @@ interface SceneProps {
   selectedObjectInfo?: SelectedObjectInfo | null;
   materialConfig?: HouseMaterialConfig;
   windowConfig?: WindowConfig;
+  isLayoutLocked?: boolean;
+  onToggleLayoutLock?: () => void;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
@@ -130,7 +132,7 @@ function getPrimaryCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
   return "N";
 }
 
-function createRoomBadge(name: string, wFt: number, dFt: number): THREE.Sprite {
+function createRoomBadge(name: string, wFt: number, dFt: number, isLocked: boolean = false): THREE.Sprite {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 128;
@@ -139,7 +141,7 @@ function createRoomBadge(name: string, wFt: number, dFt: number): THREE.Sprite {
     ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
     ctx.roundRect(8, 12, 240, 104, 16);
     ctx.fill();
-    ctx.strokeStyle = "rgba(232, 145, 45, 0.85)";
+    ctx.strokeStyle = isLocked ? "rgba(56, 189, 248, 0.85)" : "rgba(232, 145, 45, 0.85)";
     ctx.lineWidth = 4;
     ctx.stroke();
 
@@ -152,9 +154,9 @@ function createRoomBadge(name: string, wFt: number, dFt: number): THREE.Sprite {
     ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     ctx.fillText(`${wFt}' × ${dFt}' ft`, 128, 84);
 
-    ctx.fillStyle = "#e8912d";
+    ctx.fillStyle = isLocked ? "#38bdf8" : "#e8912d";
     ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText("✋ Drag to Reposition", 128, 106);
+    ctx.fillText(isLocked ? "🔒 View-Only Mode" : "✋ Drag to Reposition", 128, 106);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -182,6 +184,8 @@ export default function Scene({
   selectedObjectInfo = null,
   materialConfig = DEFAULT_MATERIAL_CONFIG,
   windowConfig = DEFAULT_WINDOW_CONFIG,
+  isLayoutLocked = false,
+  onToggleLayoutLock,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
@@ -276,6 +280,8 @@ export default function Scene({
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
   const windowConfigRef = useRef(windowConfig);
+  const isLayoutLockedRef = useRef(isLayoutLocked);
+  const onToggleLayoutLockRef = useRef(onToggleLayoutLock);
 
   useEffect(() => {
     plotRef.current = plot;
@@ -301,6 +307,11 @@ export default function Scene({
     selectedObjectIdRef.current = selectedObjectId;
     materialConfigRef.current = materialConfig;
     windowConfigRef.current = windowConfig;
+    isLayoutLockedRef.current = isLayoutLocked;
+    onToggleLayoutLockRef.current = onToggleLayoutLock;
+
+    if (widthHandleRef.current) widthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
+    if (depthHandleRef.current) depthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
 
     roomLightsRef.current.forEach((l) => {
       l.visible = lightsOn;
@@ -329,6 +340,8 @@ export default function Scene({
     selectedObjectId,
     materialConfig,
     windowConfig,
+    isLayoutLocked,
+    onToggleLayoutLock,
   ]);
 
   // 1. Scene & Renderer Initialization
@@ -689,53 +702,64 @@ export default function Scene({
         }
       }
 
-      // Check plot dimension resize handles
-      const hitHandle = pickHandle(ev);
-      if (hitHandle) {
-        ev.stopPropagation();
-        ev.stopImmediatePropagation();
-        dragKind = hitHandle;
-        controls.enabled = false;
-        return;
-      }
-
-      // Check furniture object selection (custom OR built-in)
-      const hitObj = pickFurnitureObject(ev);
-      if (hitObj && ev.button === 0) {
-        ev.stopPropagation();
-        ev.stopImmediatePropagation();
-        dragKind = hitObj.isBuiltin ? null : "customObject";
-        draggedCustomObjectIdRef.current = hitObj.isBuiltin ? null : hitObj.id;
-        if (onSelectObjectRef.current) {
-          onSelectObjectRef.current(hitObj);
-        }
-        if (!hitObj.isBuiltin) {
+      // If layout is unlocked, allow dragging plot resize handles, custom objects, and room blocks
+      if (!isLayoutLockedRef.current) {
+        // Check plot dimension resize handles
+        const hitHandle = pickHandle(ev);
+        if (hitHandle) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          dragKind = hitHandle;
           controls.enabled = false;
+          return;
         }
-        return;
-      }
 
-      // Check room drag
-      const hitRoomIdx = pickRoom(ev);
-      if (hitRoomIdx !== null && ev.button === 0) {
-        ev.stopPropagation();
-        ev.stopImmediatePropagation();
-        dragKind = "room";
-        draggedRoomIdxRef.current = hitRoomIdx;
-        controls.enabled = false;
-
-        const r = roomsRef.current[hitRoomIdx];
-        if (r && ghostMesh) {
-          const rw = inchesToFeet(r.w_in);
-          const rd = inchesToFeet(r.d_in);
-          const rx = inchesToFeet(r.x_in);
-          const rz = inchesToFeet(r.y_in);
-          ghostMesh.scale.set(rw, 1, rd);
-          ghostMesh.position.set(rx + rw / 2, WALL_HEIGHT_FT / 2, rz + rd / 2);
-          ghostMesh.visible = true;
-          setDraggedRoomInfo({ name: r.name, x: rx + rw / 2, z: rz + rd / 2 });
+        // Check furniture object selection (custom OR built-in)
+        const hitObj = pickFurnitureObject(ev);
+        if (hitObj && ev.button === 0) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          dragKind = hitObj.isBuiltin ? null : "customObject";
+          draggedCustomObjectIdRef.current = hitObj.isBuiltin ? null : hitObj.id;
+          if (onSelectObjectRef.current) {
+            onSelectObjectRef.current(hitObj);
+          }
+          if (!hitObj.isBuiltin) {
+            controls.enabled = false;
+          }
+          return;
         }
-        return;
+
+        // Check room drag
+        const hitRoomIdx = pickRoom(ev);
+        if (hitRoomIdx !== null && ev.button === 0) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          dragKind = "room";
+          draggedRoomIdxRef.current = hitRoomIdx;
+          controls.enabled = false;
+
+          const r = roomsRef.current[hitRoomIdx];
+          if (r && ghostMesh) {
+            const rw = inchesToFeet(r.w_in);
+            const rd = inchesToFeet(r.d_in);
+            const rx = inchesToFeet(r.x_in);
+            const rz = inchesToFeet(r.y_in);
+            ghostMesh.scale.set(rw, 1, rd);
+            ghostMesh.position.set(rx + rw / 2, WALL_HEIGHT_FT / 2, rz + rd / 2);
+            ghostMesh.visible = true;
+            setDraggedRoomInfo({ name: r.name, x: rx + rw / 2, z: rz + rd / 2 });
+          }
+          return;
+        }
+      } else {
+        // When 3D Orbit is locked, clicking an object selects it to view details without moving any block
+        const hitObj = pickFurnitureObject(ev);
+        if (hitObj && ev.button === 0) {
+          if (onSelectObjectRef.current) {
+            onSelectObjectRef.current(hitObj);
+          }
+        }
       }
 
       // Clicking empty ground deselects custom object
@@ -803,10 +827,15 @@ export default function Scene({
         const now = performance.now();
         if (now - lastHoverCheckTime > 50) {
           lastHoverCheckTime = now;
-          const isOverHandle = pickHandle(ev) !== null;
-          const isOverFurniture = pickFurnitureObject(ev) !== null;
-          const isOverRoom = pickRoom(ev) !== null;
-          renderer.domElement.style.cursor = isOverHandle || isOverFurniture || isOverRoom ? "grab" : "auto";
+          if (isLayoutLockedRef.current) {
+            const isOverFurniture = pickFurnitureObject(ev) !== null;
+            renderer.domElement.style.cursor = isOverFurniture ? "pointer" : "default";
+          } else {
+            const isOverHandle = pickHandle(ev) !== null;
+            const isOverFurniture = pickFurnitureObject(ev) !== null;
+            const isOverRoom = pickRoom(ev) !== null;
+            renderer.domElement.style.cursor = isOverHandle || isOverFurniture || isOverRoom ? "grab" : "auto";
+          }
         }
         return;
       }
@@ -975,6 +1004,10 @@ export default function Scene({
         } else if (selectedObjectIdRef.current && onRotateSelectedRef.current) {
           onRotateSelectedRef.current(Math.PI / 4);
         }
+      }
+      // 'L' Key: Toggle 3D Orbit Layout Lock
+      if (ev.code === "KeyL" && onToggleLayoutLockRef.current) {
+        onToggleLayoutLockRef.current();
       }
       // Escape: Deselect or cancel placement
       if (ev.code === "Escape") {
@@ -2142,6 +2175,51 @@ export default function Scene({
             ✕
           </button>
         </div>
+      )}
+
+      {/* Floating 3D Viewport Orbit Lock Toggle */}
+      {mode === "orbit" && onToggleLayoutLock && (
+        <button
+          onClick={onToggleLayoutLock}
+          style={{
+            position: "absolute",
+            top: 14,
+            left: 14,
+            background: isLayoutLocked ? "rgba(2, 132, 199, 0.92)" : "rgba(15, 23, 42, 0.8)",
+            border: isLayoutLocked ? "1.5px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.15)",
+            color: "#ffffff",
+            padding: "7px 15px",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: 700,
+            cursor: "pointer",
+            backdropFilter: "blur(8px)",
+            boxShadow: isLayoutLocked ? "0 0 16px rgba(2, 132, 199, 0.5)" : "0 4px 12px rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            gap: "7px",
+            zIndex: 40,
+            transition: "all 0.15s ease",
+          }}
+          title={
+            isLayoutLocked
+              ? "3D Layout is Locked: Blocks cannot be moved while rotating view (Press 'L' to unlock)"
+              : "3D Layout is Unlocked: Click to lock view and prevent accidental room dragging (Press 'L')"
+          }
+        >
+          <span>{isLayoutLocked ? "🔒 3D Orbit: View Locked" : "🔓 3D Orbit: Edit Mode"}</span>
+          <span
+            style={{
+              fontSize: "10px",
+              opacity: 0.85,
+              background: "rgba(0,0,0,0.25)",
+              padding: "1px 5px",
+              borderRadius: "4px",
+            }}
+          >
+            [L]
+          </span>
+        </button>
       )}
 
       {draggedRoomInfo && (

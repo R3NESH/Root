@@ -76,6 +76,11 @@ export default function Home() {
   const [isModelBlueprintsOpen, setIsModelBlueprintsOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
+  const [isLayoutLocked, setIsLayoutLocked] = useState(false);
+
+  const handleToggleLayoutLock = useCallback(() => {
+    setIsLayoutLocked((prev) => !prev);
+  }, []);
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
   const [activeBlueprintName, setActiveBlueprintName] = useState<string | null>(null);
@@ -346,11 +351,13 @@ export default function Home() {
         } else if (selectedObjectId || selectedObjectInfo) {
           handleRotateSelected(Math.PI / 4);
         }
+      } else if (e.code === "KeyL") {
+        handleToggleLayoutLock();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing]);
+  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLayoutLock]);
 
   return (
     <div className={styles.appContainer}>
@@ -360,6 +367,8 @@ export default function Home() {
         onChangeMode={setMode}
         lightsOn={lightsOn}
         onToggleLights={handleToggleLights}
+        isLayoutLocked={isLayoutLocked}
+        onToggleLayoutLock={handleToggleLayoutLock}
         onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
         onOpenWindowModal={() => setIsWindowModalOpen(true)}
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
@@ -425,6 +434,8 @@ export default function Home() {
                 furnished={furnished}
                 materialConfig={materialConfig}
                 windowConfig={windowConfig}
+                isLayoutLocked={isLayoutLocked}
+                onToggleLayoutLock={handleToggleLayoutLock}
                 customObjects={customObjects}
                 deletedBuiltinIds={deletedBuiltinIds}
                 placingItemType={placingItemType}
