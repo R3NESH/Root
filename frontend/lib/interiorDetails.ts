@@ -193,6 +193,16 @@ export function addCeilingFan(group: THREE.Group, x: number, z: number, y: numbe
 // --------------------------------------------------------------------------------------
 // 3. Architectural Window with Glass & Drapery Curtains
 // --------------------------------------------------------------------------------------
+// 3. Procedural Window & Fenestration Engine
+// --------------------------------------------------------------------------------------
+
+import {
+  WindowShapeId,
+  WindowFrameFinishId,
+  WindowGlassTintId,
+  getWindowFrameMaterial,
+  getWindowGlassMaterial,
+} from "./windowCatalog";
 
 export function buildWindowWithCurtains(
   group: THREE.Group,
@@ -204,53 +214,365 @@ export function buildWindowWithCurtains(
   wallThick: number,
   isEW: boolean,
   hasCurtains: boolean = true,
-  isBathroom: boolean = false
+  isBathroom: boolean = false,
+  shape: WindowShapeId = "modern_slider",
+  frameFinish: WindowFrameFinishId = "black_aluminum",
+  glassTint: WindowGlassTintId = "clear"
 ) {
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.35 });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x93c5fd,
-    transparent: true,
-    opacity: isBathroom ? 0.65 : 0.35,
-    roughness: isBathroom ? 0.6 : 0.1,
-    metalness: 0.15,
-  });
-
+  const frameMat = getWindowFrameMaterial(frameFinish);
+  const glassMat = getWindowGlassMaterial(glassTint, isBathroom);
   const frameDepth = wallThick + 0.08;
-  const glassW = isEW ? winW : frameDepth;
-  const glassD = isEW ? frameDepth : winW;
 
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, winH, glassD), glassMat);
-  glass.position.set(wx, wy, wz);
-  group.add(glass);
+  const winGroup = new THREE.Group();
+  winGroup.userData = {
+    isWindow: true,
+    shape,
+    frameFinish,
+    glassTint,
+    x: wx,
+    y: wy,
+    z: wz,
+    name: "Architectural Window",
+  };
 
-  const mullionMat = frameMat;
-  if (isEW) {
-    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.15, frameDepth), mullionMat);
-    frameTop.position.set(wx, wy + winH / 2, wz);
-    group.add(frameTop);
+  if (shape === "circle_porthole") {
+    // CIRCULAR PORTHOLE WINDOW
+    const radius = Math.min(winW, winH) * 0.44;
+    const ringGeom = new THREE.CylinderGeometry(radius + 0.12, radius + 0.12, frameDepth, 32, 1, true);
+    const ring = new THREE.Mesh(ringGeom, frameMat);
+    if (isEW) {
+      ring.rotation.x = Math.PI / 2;
+    } else {
+      ring.rotation.z = Math.PI / 2;
+    }
+    ring.position.set(wx, wy, wz);
+    winGroup.add(ring);
 
-    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.3, 0.18, frameDepth + 0.1), mullionMat);
-    frameBot.position.set(wx, wy - winH / 2, wz);
-    group.add(frameBot);
+    const glassGeom = new THREE.CylinderGeometry(radius, radius, 0.08, 32);
+    const glassCircle = new THREE.Mesh(glassGeom, glassMat);
+    if (isEW) {
+      glassCircle.rotation.x = Math.PI / 2;
+    } else {
+      glassCircle.rotation.z = Math.PI / 2;
+    }
+    glassCircle.position.set(wx, wy, wz);
+    winGroup.add(glassCircle);
 
-    const mullionV = new THREE.Mesh(new THREE.BoxGeometry(0.12, winH, frameDepth), mullionMat);
-    mullionV.position.set(wx, wy, wz);
-    group.add(mullionV);
+    const cross1Geom = isEW
+      ? new THREE.BoxGeometry(radius * 2, 0.08, frameDepth)
+      : new THREE.BoxGeometry(frameDepth, 0.08, radius * 2);
+    const cross1 = new THREE.Mesh(cross1Geom, frameMat);
+    cross1.position.set(wx, wy, wz);
+    winGroup.add(cross1);
+
+    const cross2Geom = isEW
+      ? new THREE.BoxGeometry(0.08, radius * 2, frameDepth)
+      : new THREE.BoxGeometry(frameDepth, radius * 2, 0.08);
+    const cross2 = new THREE.Mesh(cross2Geom, frameMat);
+    cross2.position.set(wx, wy, wz);
+    winGroup.add(cross2);
+
+  } else if (shape === "roman_arch") {
+    // PALLADIAN ROMAN ARCH WINDOW
+    const archRadius = winW / 2;
+    const lowerH = Math.max(1.2, winH - archRadius);
+
+    const glassW = isEW ? winW : frameDepth;
+    const glassD = isEW ? frameDepth : winW;
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, lowerH, glassD), glassMat);
+    glass.position.set(wx, wy - archRadius / 2, wz);
+    winGroup.add(glass);
+
+    const archGlassGeom = new THREE.CylinderGeometry(archRadius, archRadius, isEW ? frameDepth : 0.08, 24, 1, false, 0, Math.PI);
+    const archGlass = new THREE.Mesh(archGlassGeom, glassMat);
+    if (isEW) {
+      archGlass.rotation.z = Math.PI / 2;
+      archGlass.rotation.x = Math.PI / 2;
+    } else {
+      archGlass.rotation.x = Math.PI / 2;
+      archGlass.rotation.y = Math.PI / 2;
+    }
+    archGlass.position.set(wx, wy + lowerH / 2, wz);
+    winGroup.add(archGlass);
+
+    if (isEW) {
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.3, 0.18, frameDepth + 0.1), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.14, lowerH, frameDepth), frameMat);
+      frameL.position.set(wx - winW / 2 + 0.07, wy - archRadius / 2, wz);
+      winGroup.add(frameL);
+
+      const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.14, lowerH, frameDepth), frameMat);
+      frameR.position.set(wx + winW / 2 - 0.07, wy - archRadius / 2, wz);
+      winGroup.add(frameR);
+
+      const archTorus = new THREE.Mesh(
+        new THREE.TorusGeometry(archRadius, 0.08, 12, 24, Math.PI),
+        frameMat
+      );
+      archTorus.position.set(wx, wy + lowerH / 2, wz);
+      winGroup.add(archTorus);
+
+      for (const angle of [Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4]) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(archRadius, 0.06, frameDepth), frameMat);
+        spoke.position.set(wx + (Math.cos(angle) * archRadius) / 2, wy + lowerH / 2 + (Math.sin(angle) * archRadius) / 2, wz);
+        spoke.rotation.z = angle;
+        winGroup.add(spoke);
+      }
+    } else {
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.1, 0.18, winW + 0.3), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      const frameL = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, lowerH, 0.14), frameMat);
+      frameL.position.set(wx, wy - archRadius / 2, wz - winW / 2 + 0.07);
+      winGroup.add(frameL);
+
+      const frameR = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, lowerH, 0.14), frameMat);
+      frameR.position.set(wx, wy - archRadius / 2, wz + winW / 2 - 0.07);
+      winGroup.add(frameR);
+
+      const archTorus = new THREE.Mesh(
+        new THREE.TorusGeometry(archRadius, 0.08, 12, 24, Math.PI),
+        frameMat
+      );
+      archTorus.rotation.y = Math.PI / 2;
+      archTorus.position.set(wx, wy + lowerH / 2, wz);
+      winGroup.add(archTorus);
+
+      for (const angle of [Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4]) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.06, archRadius), frameMat);
+        spoke.position.set(wx, wy + lowerH / 2 + (Math.sin(angle) * archRadius) / 2, wz + (Math.cos(angle) * archRadius) / 2);
+        spoke.rotation.x = -angle;
+        winGroup.add(spoke);
+      }
+    }
+
+  } else if (shape === "french_grid") {
+    // FRENCH COLONIAL MULTI-PANE GRID WINDOW
+    const glassW = isEW ? winW : frameDepth;
+    const glassD = isEW ? frameDepth : winW;
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, winH, glassD), glassMat);
+    glass.position.set(wx, wy, wz);
+    winGroup.add(glass);
+
+    if (isEW) {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.15, frameDepth), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.3, 0.18, frameDepth + 0.1), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      for (const offset of [-winW / 2 + 0.06, winW / 2 - 0.06]) {
+        const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(0.12, winH, frameDepth), frameMat);
+        sideFrame.position.set(wx + offset, wy, wz);
+        winGroup.add(sideFrame);
+      }
+
+      for (const offset of [-winW / 6, winW / 6]) {
+        const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.06, winH, frameDepth + 0.02), frameMat);
+        mullion.position.set(wx + offset, wy, wz);
+        winGroup.add(mullion);
+      }
+
+      for (const offset of [-winH / 4, 0, winH / 4]) {
+        const transom = new THREE.Mesh(new THREE.BoxGeometry(winW, 0.06, frameDepth + 0.02), frameMat);
+        transom.position.set(wx, wy + offset, wz);
+        winGroup.add(transom);
+      }
+    } else {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.15, winW + 0.2), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.1, 0.18, winW + 0.3), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      for (const offset of [-winW / 2 + 0.06, winW / 2 - 0.06]) {
+        const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, winH, 0.12), frameMat);
+        sideFrame.position.set(wx, wy, wz + offset);
+        winGroup.add(sideFrame);
+      }
+
+      for (const offset of [-winW / 6, winW / 6]) {
+        const mullion = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.02, winH, 0.06), frameMat);
+        mullion.position.set(wx, wy, wz + offset);
+        winGroup.add(mullion);
+      }
+
+      for (const offset of [-winH / 4, 0, winH / 4]) {
+        const transom = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.02, 0.06, winW), frameMat);
+        transom.position.set(wx, wy + offset, wz);
+        winGroup.add(transom);
+      }
+    }
+
+  } else if (shape === "bay_window") {
+    // 3D FACETED PROJECTING BAY WINDOW
+    const bayOut = 1.1;
+    const centerW = winW * 0.65;
+    const sideW = winW * 0.32;
+
+    const centerGlass = new THREE.Mesh(
+      isEW ? new THREE.BoxGeometry(centerW, winH, 0.08) : new THREE.BoxGeometry(0.08, winH, centerW),
+      glassMat
+    );
+    if (isEW) {
+      centerGlass.position.set(wx, wy, wz - bayOut);
+    } else {
+      centerGlass.position.set(wx - bayOut, wy, wz);
+    }
+    winGroup.add(centerGlass);
+
+    for (const side of [-1, 1]) {
+      const returnGlass = new THREE.Mesh(
+        isEW ? new THREE.BoxGeometry(sideW, winH, 0.08) : new THREE.BoxGeometry(0.08, winH, sideW),
+        glassMat
+      );
+      if (isEW) {
+        returnGlass.position.set(wx + side * (centerW / 2 + sideW * 0.35), wy, wz - bayOut / 2);
+        returnGlass.rotation.y = side * 0.65;
+      } else {
+        returnGlass.position.set(wx - bayOut / 2, wy, wz + side * (centerW / 2 + sideW * 0.35));
+        returnGlass.rotation.y = side * 0.65;
+      }
+      winGroup.add(returnGlass);
+    }
+
+    // Cozy Wooden Window Seat Bench
+    const benchMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.5 });
+    const benchGeom = isEW
+      ? new THREE.BoxGeometry(winW + 0.2, 0.25, bayOut + wallThick + 0.4)
+      : new THREE.BoxGeometry(bayOut + wallThick + 0.4, 0.25, winW + 0.2);
+    const bench = new THREE.Mesh(benchGeom, benchMat);
+    if (isEW) {
+      bench.position.set(wx, wy - winH / 2, wz - bayOut / 2 + 0.2);
+    } else {
+      bench.position.set(wx - bayOut / 2 + 0.2, wy - winH / 2, wz);
+    }
+    bench.castShadow = true;
+    winGroup.add(bench);
+
+    const cushionMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.85 });
+    const cushion = new THREE.Mesh(
+      isEW ? new THREE.BoxGeometry(winW * 0.85, 0.18, bayOut + 0.1) : new THREE.BoxGeometry(bayOut + 0.1, 0.18, winW * 0.85),
+      cushionMat
+    );
+    if (isEW) {
+      cushion.position.set(wx, wy - winH / 2 + 0.2, wz - bayOut / 2 + 0.2);
+    } else {
+      cushion.position.set(wx - bayOut / 2 + 0.2, wy - winH / 2 + 0.2, wz);
+    }
+    winGroup.add(cushion);
+
+  } else if (shape === "picture_panoramic") {
+    // FLOOR-TO-CEILING PANORAMIC PICTURE WINDOW
+    const glassW = isEW ? winW + 0.4 : frameDepth;
+    const glassD = isEW ? frameDepth : winW + 0.4;
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, winH + 0.4, glassD), glassMat);
+    glass.position.set(wx, wy, wz);
+    winGroup.add(glass);
+
+    if (isEW) {
+      const topBezel = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.5, 0.08, frameDepth + 0.04), frameMat);
+      topBezel.position.set(wx, wy + winH / 2 + 0.2, wz);
+      winGroup.add(topBezel);
+
+      const botBezel = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.5, 0.08, frameDepth + 0.04), frameMat);
+      botBezel.position.set(wx, wy - winH / 2 - 0.2, wz);
+      winGroup.add(botBezel);
+    } else {
+      const topBezel = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.04, 0.08, winW + 0.5), frameMat);
+      topBezel.position.set(wx, wy + winH / 2 + 0.2, wz);
+      winGroup.add(topBezel);
+
+      const botBezel = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.04, 0.08, winW + 0.5), frameMat);
+      botBezel.position.set(wx, wy - winH / 2 - 0.2, wz);
+      winGroup.add(botBezel);
+    }
+
+  } else if (shape === "clerestory_slit") {
+    // HIGH HORIZONTAL CLERESTORY SLIT WINDOW
+    const slitH = Math.min(1.4, winH * 0.45);
+    const glassW = isEW ? winW : frameDepth;
+    const glassD = isEW ? frameDepth : winW;
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, slitH, glassD), glassMat);
+    glass.position.set(wx, wy + (winH - slitH) / 2, wz);
+    winGroup.add(glass);
+
+    if (isEW) {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.12, frameDepth), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.12, frameDepth), frameMat);
+      frameBot.position.set(wx, wy + (winH - slitH) / 2 - slitH / 2, wz);
+      winGroup.add(frameBot);
+
+      for (const off of [-slitH / 4, slitH / 4]) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(winW, 0.04, frameDepth + 0.04), frameMat);
+        slat.position.set(wx, wy + (winH - slitH) / 2 + off, wz);
+        winGroup.add(slat);
+      }
+    } else {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.12, winW + 0.2), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.12, winW + 0.2), frameMat);
+      frameBot.position.set(wx, wy + (winH - slitH) / 2 - slitH / 2, wz);
+      winGroup.add(frameBot);
+
+      for (const off of [-slitH / 4, slitH / 4]) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.04, 0.04, winW), frameMat);
+        slat.position.set(wx, wy + (winH - slitH) / 2 + off, wz);
+        winGroup.add(slat);
+      }
+    }
+
   } else {
-    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.15, winW + 0.2), mullionMat);
-    frameTop.position.set(wx, wy + winH / 2, wz);
-    group.add(frameTop);
+    // DEFAULT MODERN SLIDING WINDOW
+    const glassW = isEW ? winW : frameDepth;
+    const glassD = isEW ? frameDepth : winW;
 
-    const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.1, 0.18, winW + 0.3), mullionMat);
-    frameBot.position.set(wx, wy - winH / 2, wz);
-    group.add(frameBot);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, winH, glassD), glassMat);
+    glass.position.set(wx, wy, wz);
+    winGroup.add(glass);
 
-    const mullionV = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, winH, 0.12), mullionMat);
-    mullionV.position.set(wx, wy, wz);
-    group.add(mullionV);
+    if (isEW) {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.2, 0.15, frameDepth), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.3, 0.18, frameDepth + 0.1), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      const mullionV = new THREE.Mesh(new THREE.BoxGeometry(0.12, winH, frameDepth + 0.02), frameMat);
+      mullionV.position.set(wx, wy, wz);
+      winGroup.add(mullionV);
+    } else {
+      const frameTop = new THREE.Mesh(new THREE.BoxGeometry(frameDepth, 0.15, winW + 0.2), frameMat);
+      frameTop.position.set(wx, wy + winH / 2, wz);
+      winGroup.add(frameTop);
+
+      const frameBot = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.1, 0.18, winW + 0.3), frameMat);
+      frameBot.position.set(wx, wy - winH / 2, wz);
+      winGroup.add(frameBot);
+
+      const mullionV = new THREE.Mesh(new THREE.BoxGeometry(frameDepth + 0.02, winH, 0.12), frameMat);
+      mullionV.position.set(wx, wy, wz);
+      winGroup.add(mullionV);
+    }
   }
 
-  if (hasCurtains && !isBathroom) {
+  // Curtains / Drapes
+  if (hasCurtains && !isBathroom && shape !== "clerestory_slit" && shape !== "circle_porthole") {
     const rodMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
     const fabricMat = new THREE.MeshStandardMaterial({ color: 0xede9fe, roughness: 0.9 });
 
@@ -258,34 +580,36 @@ export function buildWindowWithCurtains(
       const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, winW + 1.2, 16), rodMat);
       rod.rotation.z = Math.PI / 2;
       rod.position.set(wx, wy + winH / 2 + 0.45, wz + 0.35);
-      group.add(rod);
+      winGroup.add(rod);
 
       const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.7, winH + 0.8, 0.2), fabricMat);
       panelL.position.set(wx - winW / 2 - 0.2, wy - 0.1, wz + 0.35);
       panelL.castShadow = true;
-      group.add(panelL);
+      winGroup.add(panelL);
 
       const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.7, winH + 0.8, 0.2), fabricMat);
       panelR.position.set(wx + winW / 2 + 0.2, wy - 0.1, wz + 0.35);
       panelR.castShadow = true;
-      group.add(panelR);
+      winGroup.add(panelR);
     } else {
       const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, winW + 1.2, 16), rodMat);
       rod.rotation.x = Math.PI / 2;
       rod.position.set(wx + 0.35, wy + winH / 2 + 0.45, wz);
-      group.add(rod);
+      winGroup.add(rod);
 
       const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.2, winH + 0.8, 0.7), fabricMat);
       panelL.position.set(wx + 0.35, wy - 0.1, wz - winW / 2 - 0.2);
       panelL.castShadow = true;
-      group.add(panelL);
+      winGroup.add(panelL);
 
       const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.2, winH + 0.8, 0.7), fabricMat);
       panelR.position.set(wx + 0.35, wy - 0.1, wz + winW / 2 + 0.2);
       panelR.castShadow = true;
-      group.add(panelR);
+      winGroup.add(panelR);
     }
   }
+
+  group.add(winGroup);
 }
 
 // --------------------------------------------------------------------------------------

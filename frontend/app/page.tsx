@@ -28,6 +28,7 @@ import { feetToInches, inchesToFeet } from "@/lib/units";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
 import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
 import MaterialCustomizerModal from "@/components/MaterialCustomizerModal";
+import WindowShapeModal from "@/components/WindowShapeModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
 import { SelectedObjectInfo } from "@/components/Scene";
@@ -38,6 +39,10 @@ import {
   HouseMaterialConfig,
   WALL_COLORS,
 } from "@/lib/materialsCatalog";
+import {
+  DEFAULT_WINDOW_CONFIG,
+  WindowConfig,
+} from "@/lib/windowCatalog";
 import {
   detectCurrentRoom,
   EYE_LEVEL_FT,
@@ -66,9 +71,11 @@ export default function Home() {
   const [lightsOn, setLightsOn] = useState(true);
   const [furnished, setFurnished] = useState(true);
   const [materialConfig, setMaterialConfig] = useState<HouseMaterialConfig>(DEFAULT_MATERIAL_CONFIG);
+  const [windowConfig, setWindowConfig] = useState<WindowConfig>(DEFAULT_WINDOW_CONFIG);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isModelBlueprintsOpen, setIsModelBlueprintsOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
+  const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
   const [activeBlueprintName, setActiveBlueprintName] = useState<string | null>(null);
@@ -354,6 +361,7 @@ export default function Home() {
         lightsOn={lightsOn}
         onToggleLights={handleToggleLights}
         onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
+        onOpenWindowModal={() => setIsWindowModalOpen(true)}
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         placingItemType={placingItemType}
@@ -416,6 +424,7 @@ export default function Home() {
                 lightsOn={lightsOn}
                 furnished={furnished}
                 materialConfig={materialConfig}
+                windowConfig={windowConfig}
                 customObjects={customObjects}
                 deletedBuiltinIds={deletedBuiltinIds}
                 placingItemType={placingItemType}
@@ -595,6 +604,14 @@ export default function Home() {
         config={materialConfig}
         onChangeConfig={setMaterialConfig}
         activeRooms={Object.keys(counts).filter((k) => (counts[k as RoomName] || 0) > 0) as RoomName[]}
+      />
+
+      {/* Architectural Window Shapes & Fenestration Studio Modal */}
+      <WindowShapeModal
+        isOpen={isWindowModalOpen}
+        onClose={() => setIsWindowModalOpen(false)}
+        config={windowConfig}
+        onChangeConfig={setWindowConfig}
       />
 
       {/* Architectural Blueprint Export Dialog Modal */}

@@ -28,6 +28,7 @@ interface TopRibbonTaskbarProps {
   lightsOn: boolean;
   onToggleLights: () => void;
   onOpenMaterialModal: () => void;
+  onOpenWindowModal: () => void;
   onOpenModelBlueprintsModal: () => void;
   onOpenExportModal: () => void;
   placingItemType: string | null;
@@ -53,6 +54,7 @@ export default function TopRibbonTaskbar({
   lightsOn,
   onToggleLights,
   onOpenMaterialModal,
+  onOpenWindowModal,
   onOpenModelBlueprintsModal,
   onOpenExportModal,
   placingItemType,
@@ -155,6 +157,14 @@ export default function TopRibbonTaskbar({
             title="Customize Marbles, Hardwoods, Kitchen Tiles & Wall Finishes"
           >
             🎨 Finishes &amp; Materials
+          </button>
+
+          <button
+            className={styles.windowStudioBtn}
+            onClick={onOpenWindowModal}
+            title="Customize Architectural Window Shapes, Frames & Glass Tints"
+          >
+            🪟 Windows
           </button>
 
           <button

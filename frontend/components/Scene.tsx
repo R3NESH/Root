@@ -51,6 +51,11 @@ import {
   getWallTextureBumpMap,
   HouseMaterialConfig,
 } from "@/lib/materialsCatalog";
+import {
+  DEFAULT_WINDOW_CONFIG,
+  getRoomWindowShape,
+  WindowConfig,
+} from "@/lib/windowCatalog";
 
 export interface SelectedObjectInfo {
   id: string;
@@ -83,6 +88,7 @@ interface SceneProps {
   selectedObjectId?: string | null;
   selectedObjectInfo?: SelectedObjectInfo | null;
   materialConfig?: HouseMaterialConfig;
+  windowConfig?: WindowConfig;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
@@ -175,6 +181,7 @@ export default function Scene({
   selectedObjectId = null,
   selectedObjectInfo = null,
   materialConfig = DEFAULT_MATERIAL_CONFIG,
+  windowConfig = DEFAULT_WINDOW_CONFIG,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
@@ -268,6 +275,7 @@ export default function Scene({
   const placingRotationYRef = useRef(placingRotationY);
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
+  const windowConfigRef = useRef(windowConfig);
 
   useEffect(() => {
     plotRef.current = plot;
@@ -292,6 +300,7 @@ export default function Scene({
     placingRotationYRef.current = placingRotationY;
     selectedObjectIdRef.current = selectedObjectId;
     materialConfigRef.current = materialConfig;
+    windowConfigRef.current = windowConfig;
 
     roomLightsRef.current.forEach((l) => {
       l.visible = lightsOn;
@@ -319,6 +328,7 @@ export default function Scene({
     placingRotationY,
     selectedObjectId,
     materialConfig,
+    windowConfig,
   ]);
 
   // 1. Scene & Renderer Initialization
@@ -1695,6 +1705,11 @@ export default function Scene({
             topWall.castShadow = true;
             roomGroup.add(topWall);
 
+            const winShape = getRoomWindowShape(room.name as RoomName, windowConfigRef.current);
+            const frameFinish = windowConfigRef.current?.globalFrameFinish || "black_aluminum";
+            const glassTint = windowConfigRef.current?.globalGlassTint || "clear";
+            const hasDrapes = windowConfigRef.current ? windowConfigRef.current.hasCurtains : (furnished && (room.name === "bedroom" || room.name === "hall"));
+
             buildWindowWithCurtains(
               roomGroup,
               wx,
@@ -1704,8 +1719,11 @@ export default function Scene({
               winH,
               wd,
               true,
-              furnished && (room.name === "bedroom" || room.name === "hall"),
-              false
+              hasDrapes,
+              room.name === "bathroom",
+              winShape,
+              frameFinish,
+              glassTint
             );
           } else {
             const sideD = Math.max(0.4, (wd - winW) / 2);
@@ -1737,6 +1755,11 @@ export default function Scene({
             topWall.castShadow = true;
             roomGroup.add(topWall);
 
+            const winShape = getRoomWindowShape(room.name as RoomName, windowConfigRef.current);
+            const frameFinish = windowConfigRef.current?.globalFrameFinish || "black_aluminum";
+            const glassTint = windowConfigRef.current?.globalGlassTint || "clear";
+            const hasDrapes = windowConfigRef.current ? windowConfigRef.current.hasCurtains : (furnished && (room.name === "bedroom" || room.name === "hall"));
+
             buildWindowWithCurtains(
               roomGroup,
               wx,
@@ -1746,8 +1769,11 @@ export default function Scene({
               winH,
               ww,
               false,
-              furnished && (room.name === "bedroom" || room.name === "hall"),
-              false
+              hasDrapes,
+              room.name === "bathroom",
+              winShape,
+              frameFinish,
+              glassTint
             );
           }
         } else {
@@ -1962,6 +1988,7 @@ export default function Scene({
     deletedBuiltinIds,
     selectedObjectId,
     materialConfig,
+    windowConfig,
   ]);
 
   // Ghost Furniture Placement Preview Handler
