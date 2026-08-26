@@ -7,6 +7,14 @@ import {
   FurnitureCategory,
   FurnitureItemDef,
 } from "@/lib/furnitureCatalog";
+import {
+  WINDOW_SHAPES,
+  WINDOW_FRAME_FINISHES,
+  WINDOW_GLASS_TINTS,
+  WindowShapeId,
+  WindowFrameFinishId,
+  WindowGlassTintId,
+} from "@/lib/windowCatalog";
 import styles from "./TopRibbonTaskbar.module.css";
 
 export interface SelectedObjectItem {
@@ -14,6 +22,16 @@ export interface SelectedObjectItem {
   name: string;
   type?: string;
   isBuiltin?: boolean;
+  isWindow?: boolean;
+  windowShape?: WindowShapeId;
+  windowFrameFinish?: WindowFrameFinishId;
+  windowGlassTint?: WindowGlassTintId;
+  windowHasCurtains?: boolean;
+  windowWidthFt?: number;
+  windowHeightFt?: number;
+  roomIndex?: number;
+  roomName?: string;
+  edge?: "N" | "S" | "E" | "W";
   x?: number;
   y?: number;
   z?: number;
@@ -43,6 +61,16 @@ interface TopRibbonTaskbarProps {
   onScaleSelected: (scaleDelta: number) => void;
   onChangeColorSelected: (colorHex: number) => void;
   onDeleteSelected: () => void;
+  onChangeIndividualWindow?: (
+    windowId: string,
+    updates: {
+      shape?: WindowShapeId;
+      frameFinish?: WindowFrameFinishId;
+      glassTint?: WindowGlassTintId;
+      hasCurtains?: boolean;
+    }
+  ) => void;
+  onDeleteIndividualWindow?: (windowId: string) => void;
   onClearAllFurniture: () => void;
   onDeselectObject: () => void;
   totalPlacedCount: number;
@@ -71,6 +99,8 @@ export default function TopRibbonTaskbar({
   onScaleSelected,
   onChangeColorSelected,
   onDeleteSelected,
+  onChangeIndividualWindow,
+  onDeleteIndividualWindow,
   onClearAllFurniture,
   onDeselectObject,
   totalPlacedCount,
@@ -275,87 +305,216 @@ export default function TopRibbonTaskbar({
             <span className={styles.sectionLabel}>OBJECT CONTROLS</span>
             {selectedObject ? (
               <div className={styles.selectedControls}>
-                <div className={styles.selectedTitleRow}>
-                  <div className={styles.selectedTitleWrapper}>
-                    <span className={styles.selectedObjName}>{selectedObject.name}</span>
-                    {selectedObject.isBuiltin && <span className={styles.builtinBadge}>Default</span>}
-                  </div>
-                  <button className={styles.deselectBtn} onClick={onDeselectObject} title="Deselect">
-                    ✕
-                  </button>
-                </div>
-
-                {/* Replace Action Button */}
-                <button
-                  className={styles.replaceBtn}
-                  onClick={onOpenReplaceModal}
-                  title="Replace this object with another piece of furniture at the same position"
-                >
-                  🔄 Replace Object...
-                </button>
-
-                {/* Transform Buttons */}
-                <div className={styles.transformRow}>
-                  <button
-                    className={styles.transformBtn}
-                    onClick={() => onRotateSelected(Math.PI / 4)}
-                    title="Rotate 45° (or press R)"
-                  >
-                    🔄 45°
-                  </button>
-                  <button
-                    className={styles.transformBtn}
-                    onClick={() => onRotateSelected(Math.PI / 2)}
-                    title="Rotate 90°"
-                  >
-                    🔄 90°
-                  </button>
-                  {!selectedObject.isBuiltin && (
-                    <>
-                      <button
-                        className={styles.transformBtn}
-                        onClick={() => onScaleSelected(0.1)}
-                        title="Scale Up (+10%)"
-                      >
-                        🔍 +
+                {selectedObject.isWindow ? (
+                  <div className={styles.windowSelectedDeck}>
+                    <div className={styles.selectedTitleRow}>
+                      <div className={styles.selectedTitleWrapper}>
+                        <span className={styles.selectedObjName}>{selectedObject.name}</span>
+                        <span className={styles.windowBadge}>Window</span>
+                      </div>
+                      <button className={styles.deselectBtn} onClick={onDeselectObject} title="Deselect">
+                        ✕
                       </button>
-                      <button
-                        className={styles.transformBtn}
-                        onClick={() => onScaleSelected(-0.1)}
-                        title="Scale Down (-10%)"
-                      >
-                        🔍 -
-                      </button>
-                    </>
-                  )}
-                </div>
+                    </div>
 
-                {/* Color Tint Palette (Custom Objects) */}
-                {!selectedObject.isBuiltin && (
-                  <div className={styles.colorPaletteRow}>
-                    {FURNITURE_COLOR_SWATCHES.map((swatch) => (
+                    {/* Shape Selector Dropdown */}
+                    <div className={styles.windowPropRow}>
+                      <span className={styles.propLabel}>Shape:</span>
+                      <select
+                        className={styles.windowSelect}
+                        value={selectedObject.windowShape || "modern_slider"}
+                        onChange={(e) =>
+                          onChangeIndividualWindow &&
+                          onChangeIndividualWindow(selectedObject.id, {
+                            shape: e.target.value as WindowShapeId,
+                          })
+                        }
+                      >
+                        {WINDOW_SHAPES.map((ws) => (
+                          <option key={ws.id} value={ws.id}>
+                            {ws.icon} {ws.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Frame Finish Swatches */}
+                    <div className={styles.windowPropRow}>
+                      <span className={styles.propLabel}>Frame:</span>
+                      <div className={styles.colorPaletteRow}>
+                        {WINDOW_FRAME_FINISHES.map((finish) => (
+                          <button
+                            key={finish.id}
+                            className={styles.swatchBtn}
+                            style={{
+                              backgroundColor: finish.swatch,
+                              outline:
+                                (selectedObject.windowFrameFinish || "black_aluminum") === finish.id
+                                  ? "2px solid #38bdf8"
+                                  : "none",
+                            }}
+                            onClick={() =>
+                              onChangeIndividualWindow &&
+                              onChangeIndividualWindow(selectedObject.id, {
+                                frameFinish: finish.id,
+                              })
+                            }
+                            title={`Frame: ${finish.name}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Glass Tint Swatches */}
+                    <div className={styles.windowPropRow}>
+                      <span className={styles.propLabel}>Glass:</span>
+                      <div className={styles.colorPaletteRow}>
+                        {WINDOW_GLASS_TINTS.map((tint) => (
+                          <button
+                            key={tint.id}
+                            className={styles.swatchBtn}
+                            style={{
+                              backgroundColor: tint.swatch,
+                              outline:
+                                (selectedObject.windowGlassTint || "clear") === tint.id
+                                  ? "2px solid #38bdf8"
+                                  : "none",
+                            }}
+                            onClick={() =>
+                              onChangeIndividualWindow &&
+                              onChangeIndividualWindow(selectedObject.id, {
+                                glassTint: tint.id,
+                              })
+                            }
+                            title={`Glazing: ${tint.name}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Row */}
+                    <div className={styles.windowActionRow}>
                       <button
-                        key={swatch.hex}
-                        className={styles.swatchBtn}
-                        style={{
-                          backgroundColor: swatch.bg,
-                          outline: selectedObject.colorHex === swatch.hex ? "2px solid #fbbf24" : "none",
+                        className={selectedObject.windowHasCurtains !== false ? styles.curtainBtnActive : styles.curtainBtn}
+                        onClick={() =>
+                          onChangeIndividualWindow &&
+                          onChangeIndividualWindow(selectedObject.id, {
+                            hasCurtains: !(selectedObject.windowHasCurtains !== false),
+                          })
+                        }
+                        title="Toggle Drapes / Curtains"
+                      >
+                        {selectedObject.windowHasCurtains !== false ? "🪟 Drapes ON" : "🪟 Drapes OFF"}
+                      </button>
+
+                      <button
+                        className={styles.deleteBtn}
+                        onClick={() => {
+                          if (onDeleteIndividualWindow) {
+                            onDeleteIndividualWindow(selectedObject.id);
+                          } else {
+                            onDeleteSelected();
+                          }
                         }}
-                        onClick={() => onChangeColorSelected(swatch.hex)}
-                        title={`Tint: ${swatch.name}`}
-                      />
-                    ))}
-                  </div>
-                )}
+                        title="Remove this window"
+                      >
+                        🗑️ Delete
+                      </button>
 
-                {/* Delete Button */}
-                <button
-                  className={styles.deleteBtn}
-                  onClick={onDeleteSelected}
-                  title="Delete selected object from the house"
-                >
-                  🗑️ Delete Object
-                </button>
+                      <button
+                        className={styles.windowStudioMiniBtn}
+                        onClick={onOpenWindowModal}
+                        title="Open Full Window Studio"
+                      >
+                        🎨 Studio...
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.selectedTitleRow}>
+                      <div className={styles.selectedTitleWrapper}>
+                        <span className={styles.selectedObjName}>{selectedObject.name}</span>
+                        {selectedObject.isBuiltin && <span className={styles.builtinBadge}>Default</span>}
+                      </div>
+                      <button className={styles.deselectBtn} onClick={onDeselectObject} title="Deselect">
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Replace Action Button */}
+                    <button
+                      className={styles.replaceBtn}
+                      onClick={onOpenReplaceModal}
+                      title="Replace this object with another piece of furniture at the same position"
+                    >
+                      🔄 Replace Object...
+                    </button>
+
+                    {/* Transform Buttons */}
+                    <div className={styles.transformRow}>
+                      <button
+                        className={styles.transformBtn}
+                        onClick={() => onRotateSelected(Math.PI / 4)}
+                        title="Rotate 45° (or press R)"
+                      >
+                        🔄 45°
+                      </button>
+                      <button
+                        className={styles.transformBtn}
+                        onClick={() => onRotateSelected(Math.PI / 2)}
+                        title="Rotate 90°"
+                      >
+                        🔄 90°
+                      </button>
+                      {!selectedObject.isBuiltin && (
+                        <>
+                          <button
+                            className={styles.transformBtn}
+                            onClick={() => onScaleSelected(0.1)}
+                            title="Scale Up (+10%)"
+                          >
+                            🔍 +
+                          </button>
+                          <button
+                            className={styles.transformBtn}
+                            onClick={() => onScaleSelected(-0.1)}
+                            title="Scale Down (-10%)"
+                          >
+                            🔍 -
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Color Tint Palette (Custom Objects) */}
+                    {!selectedObject.isBuiltin && (
+                      <div className={styles.colorPaletteRow}>
+                        {FURNITURE_COLOR_SWATCHES.map((swatch) => (
+                          <button
+                            key={swatch.hex}
+                            className={styles.swatchBtn}
+                            style={{
+                              backgroundColor: swatch.bg,
+                              outline: selectedObject.colorHex === swatch.hex ? "2px solid #fbbf24" : "none",
+                            }}
+                            onClick={() => onChangeColorSelected(swatch.hex)}
+                            title={`Tint: ${swatch.name}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Delete Button */}
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={onDeleteSelected}
+                      title="Delete selected object from the house"
+                    >
+                      🗑️ Delete Object
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className={styles.noSelectionPlaceholder}>

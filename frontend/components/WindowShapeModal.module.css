@@ -361,6 +361,68 @@
   box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
 }
 
+/* Individual Window Cards in Modal */
+.individualWindowsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.windowCard {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.windowCard:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.windowCardSelected {
+  background: rgba(2, 132, 199, 0.2) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.35);
+}
+
+.windowCardName {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.windowCardDetails {
+  font-size: 10px;
+  color: #94a3b8;
+  display: flex;
+  justify-content: space-between;
+}
+
+.windowCustomTag {
+  font-size: 8.5px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.windowDeletedTag {
+  font-size: 8.5px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
 @media (max-width: 768px) {
   .optionsRow {
     grid-template-columns: 1fr;

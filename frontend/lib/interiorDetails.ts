@@ -3,7 +3,7 @@
 // automatically adapt to all attached room doorways and entrance doors to guarantee 100% obstruction-free walkways.
 
 import * as THREE from "three";
-import { RoomName } from "./rooms";
+import { RoomName, ROOM_LABELS } from "./rooms";
 
 export interface RoomDoorInfo {
   edge: "N" | "S" | "E" | "W";
@@ -217,22 +217,39 @@ export function buildWindowWithCurtains(
   isBathroom: boolean = false,
   shape: WindowShapeId = "modern_slider",
   frameFinish: WindowFrameFinishId = "black_aluminum",
-  glassTint: WindowGlassTintId = "clear"
+  glassTint: WindowGlassTintId = "clear",
+  windowId?: string,
+  roomName?: string,
+  roomIndex?: number,
+  edge?: "N" | "S" | "E" | "W"
 ) {
   const frameMat = getWindowFrameMaterial(frameFinish);
   const glassMat = getWindowGlassMaterial(glassTint, isBathroom);
   const frameDepth = wallThick + 0.08;
 
   const winGroup = new THREE.Group();
+  const roomLabel = roomName ? (ROOM_LABELS[roomName as RoomName] || roomName) : "Room";
+  const displayName = edge ? `${roomLabel} (${edge} Wall) Window` : "Architectural Window";
+
   winGroup.userData = {
     isWindow: true,
+    isFurniture: true,
+    isBuiltin: true,
+    id: windowId || `win_${Date.now()}`,
+    name: displayName,
+    type: "window",
     shape,
     frameFinish,
     glassTint,
+    hasCurtains,
+    widthFt: winW,
+    heightFt: winH,
+    roomIndex,
+    roomName,
+    edge,
     x: wx,
     y: wy,
     z: wz,
-    name: "Architectural Window",
   };
 
   if (shape === "circle_porthole") {

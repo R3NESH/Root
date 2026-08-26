@@ -559,6 +559,96 @@
   color: #ffffff;
 }
 
+/* Individual Window Deck Controls */
+.windowSelectedDeck {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.windowBadge {
+  font-size: 8.5px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.windowPropRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.propLabel {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.windowSelect {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #f1f5f9;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 10.5px;
+  outline: none;
+  cursor: pointer;
+}
+
+.windowActionRow {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.curtainBtn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.curtainBtnActive {
+  flex: 1;
+  background: rgba(14, 165, 233, 0.25);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.windowStudioMiniBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.windowStudioMiniBtn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
 .noSelectionPlaceholder {
   display: flex;
   flex-direction: column;

@@ -42,6 +42,9 @@ import {
 import {
   DEFAULT_WINDOW_CONFIG,
   WindowConfig,
+  WindowFrameFinishId,
+  WindowGlassTintId,
+  WindowShapeId,
 } from "@/lib/windowCatalog";
 import {
   detectCurrentRoom,
@@ -261,9 +264,65 @@ export default function Home() {
     );
   }, [selectedObjectId]);
 
+  const handleDeleteIndividualWindow = useCallback((windowId: string) => {
+    setWindowConfig((prev) => {
+      const deleted = prev.deletedWindowIds || [];
+      if (deleted.includes(windowId)) return prev;
+      return {
+        ...prev,
+        deletedWindowIds: [...deleted, windowId],
+      };
+    });
+    setSelectedObjectId(null);
+    setSelectedObjectInfo(null);
+  }, []);
+
+  const handleChangeIndividualWindow = useCallback(
+    (
+      windowId: string,
+      updates: {
+        shape?: WindowShapeId;
+        frameFinish?: WindowFrameFinishId;
+        glassTint?: WindowGlassTintId;
+        hasCurtains?: boolean;
+      }
+    ) => {
+      setWindowConfig((prev) => {
+        const currentOverride = prev.individualOverrides?.[windowId] || {};
+        const nextOverrides = {
+          ...(prev.individualOverrides || {}),
+          [windowId]: {
+            ...currentOverride,
+            ...updates,
+          },
+        };
+        return {
+          ...prev,
+          individualOverrides: nextOverrides,
+        };
+      });
+
+      // Update selectedObjectInfo in-place for zero-latency ribbon feedback
+      setSelectedObjectInfo((prev) => {
+        if (!prev || prev.id !== windowId) return prev;
+        return {
+          ...prev,
+          windowShape: updates.shape !== undefined ? updates.shape : prev.windowShape,
+          windowFrameFinish: updates.frameFinish !== undefined ? updates.frameFinish : prev.windowFrameFinish,
+          windowGlassTint: updates.glassTint !== undefined ? updates.glassTint : prev.windowGlassTint,
+          windowHasCurtains: updates.hasCurtains !== undefined ? updates.hasCurtains : prev.windowHasCurtains,
+        };
+      });
+    },
+    []
+  );
+
   const handleDeleteSelected = useCallback(() => {
     if (selectedObjectInfo) {
-      if (selectedObjectInfo.isBuiltin) {
+      if (selectedObjectInfo.isWindow) {
+        handleDeleteIndividualWindow(selectedObjectInfo.id);
+        return;
+      } else if (selectedObjectInfo.isBuiltin) {
         setDeletedBuiltinIds((prev) => [...prev, selectedObjectInfo.id]);
       } else {
         setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectInfo.id));
@@ -274,7 +333,7 @@ export default function Home() {
       setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectId));
       setSelectedObjectId(null);
     }
-  }, [selectedObjectInfo, selectedObjectId]);
+  }, [selectedObjectInfo, selectedObjectId, handleDeleteIndividualWindow]);
 
   const handleReplaceSelected = useCallback((newType: string) => {
     const current = selectedObjectInfo;
@@ -386,6 +445,8 @@ export default function Home() {
         onScaleSelected={handleScaleSelected}
         onChangeColorSelected={handleChangeColorSelected}
         onDeleteSelected={handleDeleteSelected}
+        onChangeIndividualWindow={handleChangeIndividualWindow}
+        onDeleteIndividualWindow={handleDeleteIndividualWindow}
         onClearAllFurniture={handleClearAllFurniture}
         onDeselectObject={() => {
           setSelectedObjectId(null);
@@ -623,6 +684,8 @@ export default function Home() {
         onClose={() => setIsWindowModalOpen(false)}
         config={windowConfig}
         onChangeConfig={setWindowConfig}
+        rooms={rooms}
+        selectedWindowId={selectedObject?.isWindow ? selectedObject.id : null}
       />
 
       {/* Architectural Blueprint Export Dialog Modal */}

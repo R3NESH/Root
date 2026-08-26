@@ -53,8 +53,12 @@ import {
 } from "@/lib/materialsCatalog";
 import {
   DEFAULT_WINDOW_CONFIG,
+  getIndividualWindowProps,
   getRoomWindowShape,
   WindowConfig,
+  WindowFrameFinishId,
+  WindowGlassTintId,
+  WindowShapeId,
 } from "@/lib/windowCatalog";
 
 export interface SelectedObjectInfo {
@@ -62,6 +66,16 @@ export interface SelectedObjectInfo {
   name: string;
   type?: string;
   isBuiltin?: boolean;
+  isWindow?: boolean;
+  windowShape?: WindowShapeId;
+  windowFrameFinish?: WindowFrameFinishId;
+  windowGlassTint?: WindowGlassTintId;
+  windowHasCurtains?: boolean;
+  windowWidthFt?: number;
+  windowHeightFt?: number;
+  roomIndex?: number;
+  roomName?: string;
+  edge?: "N" | "S" | "E" | "W";
   x: number;
   y: number;
   z: number;
@@ -599,11 +613,12 @@ export default function Scene({
         for (const hit of intersects) {
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr !== groupRef.current) {
-            if (curr.userData && (curr.userData.isCustomObject || curr.userData.isFurniture)) {
+            if (curr.userData && (curr.userData.isCustomObject || curr.userData.isFurniture || curr.userData.isWindow)) {
               const id = curr.userData.id;
               const isBuiltin = Boolean(curr.userData.isBuiltin);
-              const name = curr.userData.name || "Furniture";
-              const type = curr.userData.type || "sofa_3seater";
+              const isWindow = Boolean(curr.userData.isWindow);
+              const name = curr.userData.name || (isWindow ? "Window" : "Furniture");
+              const type = curr.userData.type || (isWindow ? "window" : "sofa_3seater");
               const worldPos = new THREE.Vector3();
               curr.getWorldPosition(worldPos);
               return {
@@ -611,6 +626,16 @@ export default function Scene({
                 name,
                 type,
                 isBuiltin,
+                isWindow,
+                windowShape: curr.userData.shape,
+                windowFrameFinish: curr.userData.frameFinish,
+                windowGlassTint: curr.userData.glassTint,
+                windowHasCurtains: curr.userData.hasCurtains,
+                windowWidthFt: curr.userData.widthFt,
+                windowHeightFt: curr.userData.heightFt,
+                roomIndex: curr.userData.roomIndex,
+                roomName: curr.userData.roomName,
+                edge: curr.userData.edge,
                 x: curr.userData.x ?? worldPos.x,
                 y: 0,
                 z: curr.userData.z ?? worldPos.z,
@@ -1738,26 +1763,30 @@ export default function Scene({
             topWall.castShadow = true;
             roomGroup.add(topWall);
 
-            const winShape = getRoomWindowShape(room.name as RoomName, windowConfigRef.current);
-            const frameFinish = windowConfigRef.current?.globalFrameFinish || "black_aluminum";
-            const glassTint = windowConfigRef.current?.globalGlassTint || "clear";
-            const hasDrapes = windowConfigRef.current ? windowConfigRef.current.hasCurtains : (furnished && (room.name === "bedroom" || room.name === "hall"));
+            const winId = `win_${i}_${edge}`;
+            const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
 
-            buildWindowWithCurtains(
-              roomGroup,
-              wx,
-              sillH + winH / 2,
-              wz,
-              winW,
-              winH,
-              wd,
-              true,
-              hasDrapes,
-              room.name === "bathroom",
-              winShape,
-              frameFinish,
-              glassTint
-            );
+            if (!winProps.isDeleted) {
+              buildWindowWithCurtains(
+                roomGroup,
+                wx,
+                sillH + winH / 2,
+                wz,
+                winW,
+                winH,
+                wd,
+                true,
+                winProps.hasCurtains && (room.name === "bedroom" || room.name === "hall" || winProps.hasCurtains),
+                room.name === "bathroom",
+                winProps.shape,
+                winProps.frameFinish,
+                winProps.glassTint,
+                winId,
+                room.name,
+                i,
+                edge
+              );
+            }
           } else {
             const sideD = Math.max(0.4, (wd - winW) / 2);
 
@@ -1788,26 +1817,30 @@ export default function Scene({
             topWall.castShadow = true;
             roomGroup.add(topWall);
 
-            const winShape = getRoomWindowShape(room.name as RoomName, windowConfigRef.current);
-            const frameFinish = windowConfigRef.current?.globalFrameFinish || "black_aluminum";
-            const glassTint = windowConfigRef.current?.globalGlassTint || "clear";
-            const hasDrapes = windowConfigRef.current ? windowConfigRef.current.hasCurtains : (furnished && (room.name === "bedroom" || room.name === "hall"));
+            const winId = `win_${i}_${edge}`;
+            const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
 
-            buildWindowWithCurtains(
-              roomGroup,
-              wx,
-              sillH + winH / 2,
-              wz,
-              winW,
-              winH,
-              ww,
-              false,
-              hasDrapes,
-              room.name === "bathroom",
-              winShape,
-              frameFinish,
-              glassTint
-            );
+            if (!winProps.isDeleted) {
+              buildWindowWithCurtains(
+                roomGroup,
+                wx,
+                sillH + winH / 2,
+                wz,
+                winW,
+                winH,
+                ww,
+                false,
+                winProps.hasCurtains && (room.name === "bedroom" || room.name === "hall" || winProps.hasCurtains),
+                room.name === "bathroom",
+                winProps.shape,
+                winProps.frameFinish,
+                winProps.glassTint,
+                winId,
+                room.name,
+                i,
+                edge
+              );
+            }
           }
         } else {
           // Solid Wall

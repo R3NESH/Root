@@ -61,11 +61,22 @@ export interface WindowGlassTintDef {
   description: string;
 }
 
+export interface IndividualWindowOverride {
+  shape?: WindowShapeId;
+  frameFinish?: WindowFrameFinishId;
+  glassTint?: WindowGlassTintId;
+  widthFt?: number;
+  heightFt?: number;
+  hasCurtains?: boolean;
+}
+
 export interface WindowConfig {
   globalShape: WindowShapeId;
   globalFrameFinish: WindowFrameFinishId;
   globalGlassTint: WindowGlassTintId;
   roomWindowShapes: Partial<Record<RoomName, WindowShapeId>>;
+  individualOverrides?: Record<string, IndividualWindowOverride>;
+  deletedWindowIds?: string[];
   hasCurtains: boolean;
   hasWindowGrille: boolean;
 }
@@ -287,6 +298,30 @@ export function getRoomWindowShape(
     return config.roomWindowShapes[roomName]!;
   }
   return config.globalShape;
+}
+
+export function getIndividualWindowProps(
+  windowId: string,
+  roomName: RoomName | undefined,
+  config: WindowConfig = DEFAULT_WINDOW_CONFIG
+): {
+  shape: WindowShapeId;
+  frameFinish: WindowFrameFinishId;
+  glassTint: WindowGlassTintId;
+  hasCurtains: boolean;
+  isDeleted: boolean;
+} {
+  const isDeleted = config.deletedWindowIds?.includes(windowId) || false;
+  const override = config.individualOverrides?.[windowId] || {};
+  const roomShape = roomName && config.roomWindowShapes[roomName] ? config.roomWindowShapes[roomName]! : config.globalShape;
+
+  return {
+    shape: override.shape ?? roomShape,
+    frameFinish: override.frameFinish ?? config.globalFrameFinish,
+    glassTint: override.glassTint ?? config.globalGlassTint,
+    hasCurtains: override.hasCurtains ?? config.hasCurtains,
+    isDeleted,
+  };
 }
 
 export function getWindowFrameMaterial(
