@@ -17,7 +17,10 @@ import { SolvedRoom } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
 import {
   clampPlayerPosition,
+  computePotentiallyVisibleRooms,
   CROUCH_HEIGHT_FT,
+  detectCurrentRoom,
+  DoorwayConnection,
   EYE_LEVEL_FT,
   getSpawnPosition,
   PlayerTransform,
@@ -155,6 +158,11 @@ export default function Scene({
   const widthHandleRef = useRef<THREE.Mesh | null>(null);
   const depthHandleRef = useRef<THREE.Mesh | null>(null);
 
+  // Metaheuristic Room Occlusion Culling Sub-Graphs & Portals
+  const roomGroupsRef = useRef<Map<number, THREE.Group>>(new Map());
+  const roomDoorwaysRef = useRef<DoorwayConnection[]>([]);
+  const roomLightsByRoomRef = useRef<Map<number, THREE.PointLight[]>>(new Map());
+
   // Drag-and-Drop room meshes references
   const ghostRoomMeshRef = useRef<THREE.Mesh | null>(null);
   const draggedRoomIdxRef = useRef<number | null>(null);
@@ -267,9 +275,24 @@ export default function Scene({
     camera.position.set(32, 42, 58);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    const isMobileOrLowGPU =
+      typeof window !== "undefined" &&
+      (/Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) ||
+        window.innerWidth < 800 ||
+        (navigator.hardwareConcurrency !== undefined && navigator.hardwareConcurrency <= 4));
+
+    const targetDPR = isMobileOrLowGPU
+      ? Math.min(window.devicePixelRatio, 1.25)
+      : Math.min(window.devicePixelRatio, 1.75);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
+      precision: isMobileOrLowGPU ? "mediump" : "highp",
+    });
     renderer.setSize(mount.clientWidth, mount.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(targetDPR);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.shadowMap.enabled = true;
@@ -291,16 +314,17 @@ export default function Scene({
     const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.85);
     sunLight.position.set(50, 80, 40);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 4096;
-    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.mapSize.width = isMobileOrLowGPU ? 1024 : 2048;
+    sunLight.shadow.mapSize.height = isMobileOrLowGPU ? 1024 : 2048;
     sunLight.shadow.camera.near = 10;
     sunLight.shadow.camera.far = 220;
-    const shadowSize = 75;
+    const shadowSize = 65;
     sunLight.shadow.camera.left = -shadowSize;
     sunLight.shadow.camera.right = shadowSize;
     sunLight.shadow.camera.top = shadowSize;
     sunLight.shadow.camera.bottom = -shadowSize;
-    sunLight.shadow.bias = -0.0003;
+    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.normalBias = 0.02;
     scene.add(sunLight);
 
     const skyFill = new THREE.DirectionalLight(0x8cb6e8, 0.55);
@@ -697,6 +721,9 @@ export default function Scene({
       lastTime = currentTime;
 
       fanBladesRef.current.forEach((fan) => {
+        if (modeRef.current === "walkthrough" && fan.parent && !fan.parent.visible) {
+          return;
+        }
         fan.rotation.y += 4.2 * dt;
       });
 
@@ -793,6 +820,26 @@ export default function Scene({
         camera.fov += (targetFov - camera.fov) * 0.1;
         camera.updateProjectionMatrix();
 
+        // Metaheuristic Topological Cell & Portal Occlusion Culling
+        const detected = detectCurrentRoom(p.x, p.z, roomsRef.current);
+        const pvs = computePotentiallyVisibleRooms(
+          detected?.index ?? null,
+          roomsRef.current.length,
+          roomDoorwaysRef.current,
+          2
+        );
+
+        roomGroupsRef.current.forEach((rg, roomIdx) => {
+          const isVis = pvs.has(roomIdx);
+          if (rg.visible !== isVis) {
+            rg.visible = isVis;
+          }
+          const lights = roomLightsByRoomRef.current.get(roomIdx) || [];
+          lights.forEach((l) => {
+            l.visible = isVis && lightsOnRef.current;
+          });
+        });
+
         if (onPlayerUpdateRef.current) {
           onPlayerUpdateRef.current({
             ...p,
@@ -806,6 +853,15 @@ export default function Scene({
       } else {
         controls.enabled = true;
         controls.update();
+
+        // In Orbit mode, ensure all rooms and active lights are rendered
+        roomGroupsRef.current.forEach((rg, roomIdx) => {
+          if (!rg.visible) rg.visible = true;
+          const lights = roomLightsByRoomRef.current.get(roomIdx) || [];
+          lights.forEach((l) => {
+            l.visible = lightsOnRef.current;
+          });
+        });
       }
 
       renderer.render(scene, camera);
@@ -973,9 +1029,11 @@ export default function Scene({
 
     fanBladesRef.current = [];
     roomLightsRef.current = [];
+    roomGroupsRef.current.clear();
+    roomLightsByRoomRef.current.clear();
 
     group.children.forEach((child) => {
-      if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Sprite || child instanceof THREE.PointLight) {
+      if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Sprite || child instanceof THREE.PointLight || child instanceof THREE.Group) {
         if ("geometry" in child && child.geometry) child.geometry.dispose();
         if ("material" in child && child.material) {
           const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -1066,17 +1124,6 @@ export default function Scene({
     const hallIdx = rooms.findIndex((r) => r.name === "hall");
     const hubIndex = hallIdx >= 0 ? hallIdx : 0;
 
-    // 5. Doors, windows and the front door come from the solver.
-    //
-    // They used to be re-derived here from the room rectangles alone, which meant the renderer
-    // and the solver held two different opinions about the same house — see
-    // notes/architecture/duplicated-geometry.md. The backend now ships `openings` on every
-    // room (door / window / entrance, with edge, offset and width) and this reads them.
-    //
-    // It matters beyond tidiness: the client's own rule attached a bathroom to whichever
-    // bedroom it happened to touch, while the solver *constrains* the ensuite to open off the
-    // master bedroom and the second bath off the hall. The doors drawn were not the doors the
-    // plan was solved for.
     interface Doorway {
       roomAIndex: number;
       roomBIndex: number;
@@ -1092,8 +1139,6 @@ export default function Scene({
       W: "E",
     };
 
-    // Offsets run along the edge from the room's minimum corner on that edge's axis, matching
-    // _edge_origin() in backend/solver/connectivity.py. N/S edges run along X, E/W along Z.
     const openingCentreFt = (
       r: SolvedRoom,
       o: { edge: "N" | "S" | "E" | "W"; offset_in: number; width_in: number }
@@ -1123,10 +1168,16 @@ export default function Scene({
       }
     });
 
+    // Save topological doorways for metaheuristic PVS occlusion graph culling
+    roomDoorwaysRef.current = assignedDoorways.map((d) => ({
+      roomAIndex: d.roomAIndex,
+      roomBIndex: d.roomBIndex,
+    }));
+
     const windowOn = (i: number, edge: "N" | "S" | "E" | "W") =>
       (rooms[i].openings ?? []).find((o) => o.kind === "window" && o.edge === edge);
 
-    // 6. Build Architectural Rooms
+    // 6. Build Architectural Rooms (Organized as Per-Room Sub-Graphs for $O(1)$ Culling)
     for (let i = 0; i < rooms.length; i++) {
       const room = rooms[i];
       const rw = inchesToFeet(room.w_in);
@@ -1134,6 +1185,8 @@ export default function Scene({
       const rx = inchesToFeet(room.x_in);
       const rz = inchesToFeet(room.y_in);
       const isHub = i === hubIndex;
+
+      const roomGroup = new THREE.Group();
 
       // Floor Mesh
       let floorTexture: THREE.CanvasTexture;
@@ -1153,7 +1206,7 @@ export default function Scene({
       floorMesh.rotation.x = -Math.PI / 2;
       floorMesh.position.set(rx + rw / 2, 0.04, rz + rd / 2);
       floorMesh.receiveShadow = true;
-      group.add(floorMesh);
+      roomGroup.add(floorMesh);
 
       // Wall Builder
       const buildWall = (
@@ -1171,8 +1224,6 @@ export default function Scene({
         );
 
         const hasDoor = isMainEntrance || Boolean(assignedDoor);
-        // The solver decides which walls carry glass. The old rule excluded bathrooms outright,
-        // which left every wet room unventilated — see derive_windows() in connectivity.py.
         const windowSpec = hasDoor ? undefined : windowOn(i, edge);
         const hasWindow = Boolean(windowSpec);
 
@@ -1201,11 +1252,11 @@ export default function Scene({
               leftWall.position.set(wx - ww / 2 + leftW / 2, WALL_HEIGHT_FT / 2, wz);
               leftWall.castShadow = true;
               leftWall.receiveShadow = true;
-              group.add(leftWall);
+              roomGroup.add(leftWall);
 
               const leftBase = new THREE.Mesh(new THREE.BoxGeometry(leftW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
               leftBase.position.set(wx - ww / 2 + leftW / 2, BASEBOARD_H_FT / 2, wz);
-              group.add(leftBase);
+              roomGroup.add(leftBase);
             }
 
             if (rightW > 0.1) {
@@ -1213,35 +1264,35 @@ export default function Scene({
               rightWall.position.set(wx + ww / 2 - rightW / 2, WALL_HEIGHT_FT / 2, wz);
               rightWall.castShadow = true;
               rightWall.receiveShadow = true;
-              group.add(rightWall);
+              roomGroup.add(rightWall);
 
               const rightBase = new THREE.Mesh(new THREE.BoxGeometry(rightW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
               rightBase.position.set(wx + ww / 2 - rightW / 2, BASEBOARD_H_FT / 2, wz);
-              group.add(rightBase);
+              roomGroup.add(rightBase);
             }
 
             const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, wd), wallMaterial);
             lintel.position.set(doorPos, doorH + lintelH / 2, wz);
             lintel.castShadow = true;
-            group.add(lintel);
+            roomGroup.add(lintel);
 
             const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
             const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, wd + 0.08), fMat);
             frameL.position.set(doorPos - doorW / 2 + 0.11, doorH / 2, wz);
-            group.add(frameL);
+            roomGroup.add(frameL);
 
             const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, wd + 0.08), fMat);
             frameR.position.set(doorPos + doorW / 2 - 0.11, doorH / 2, wz);
-            group.add(frameR);
+            roomGroup.add(frameR);
 
             const frameTop = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.22, wd + 0.08), fMat);
             frameTop.position.set(doorPos, doorH - 0.11, wz);
-            group.add(frameTop);
+            roomGroup.add(frameTop);
 
             if (isMainEntrance) {
               const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
               handle.position.set(doorPos + doorW / 2 - 0.4, doorH * 0.48, wz + 0.15);
-              group.add(handle);
+              roomGroup.add(handle);
             }
           } else {
             const topD = Math.max(0.1, doorPos - (wz - wd / 2) - doorW / 2);
@@ -1252,11 +1303,11 @@ export default function Scene({
               topWall.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + topD / 2);
               topWall.castShadow = true;
               topWall.receiveShadow = true;
-              group.add(topWall);
+              roomGroup.add(topWall);
 
               const topBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, topD), baseboardMaterial);
               topBase.position.set(wx, BASEBOARD_H_FT / 2, wz - wd / 2 + topD / 2);
-              group.add(topBase);
+              roomGroup.add(topBase);
             }
 
             if (bottomD > 0.1) {
@@ -1264,35 +1315,35 @@ export default function Scene({
               botWall.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - bottomD / 2);
               botWall.castShadow = true;
               botWall.receiveShadow = true;
-              group.add(botWall);
+              roomGroup.add(botWall);
 
               const botBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, bottomD), baseboardMaterial);
               botBase.position.set(wx, BASEBOARD_H_FT / 2, wz + wd / 2 - bottomD / 2);
-              group.add(botBase);
+              roomGroup.add(botBase);
             }
 
             const lintel = new THREE.Mesh(new THREE.BoxGeometry(ww, lintelH, doorW), wallMaterial);
             lintel.position.set(wx, doorH + lintelH / 2, doorPos);
             lintel.castShadow = true;
-            group.add(lintel);
+            roomGroup.add(lintel);
 
             const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
             const frameN = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, doorH, 0.22), fMat);
             frameN.position.set(wx, doorH / 2, doorPos - doorW / 2 + 0.11);
-            group.add(frameN);
+            roomGroup.add(frameN);
 
             const frameS = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, doorH, 0.22), fMat);
             frameS.position.set(wx, doorH / 2, doorPos + doorW / 2 - 0.11);
-            group.add(frameS);
+            roomGroup.add(frameS);
 
             const frameTop = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, 0.22, doorW), fMat);
             frameTop.position.set(wx, doorH - 0.11, doorPos);
-            group.add(frameTop);
+            roomGroup.add(frameTop);
 
             if (isMainEntrance) {
               const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
               handle.position.set(wx + 0.15, doorH * 0.48, doorPos + doorW / 2 - 0.4);
-              group.add(handle);
+              roomGroup.add(handle);
             }
           }
         } else if (hasWindow) {
@@ -1311,31 +1362,31 @@ export default function Scene({
             leftWall.position.set(wx - ww / 2 + sideW / 2, WALL_HEIGHT_FT / 2, wz);
             leftWall.castShadow = true;
             leftWall.receiveShadow = true;
-            group.add(leftWall);
+            roomGroup.add(leftWall);
 
             const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, wd), wallMaterial);
             rightWall.position.set(wx + ww / 2 - sideW / 2, WALL_HEIGHT_FT / 2, wz);
             rightWall.castShadow = true;
             rightWall.receiveShadow = true;
-            group.add(rightWall);
+            roomGroup.add(rightWall);
 
             const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, wd), wallMaterial);
             sillWall.position.set(wx, sillH / 2, wz);
             sillWall.castShadow = true;
             sillWall.receiveShadow = true;
-            group.add(sillWall);
+            roomGroup.add(sillWall);
 
             const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
             baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
-            group.add(baseboard);
+            roomGroup.add(baseboard);
 
             const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, wd), wallMaterial);
             topWall.position.set(wx, sillH + winH + topH / 2, wz);
             topWall.castShadow = true;
-            group.add(topWall);
+            roomGroup.add(topWall);
 
             buildWindowWithCurtains(
-              group,
+              roomGroup,
               wx,
               sillH + winH / 2,
               wz,
@@ -1353,31 +1404,31 @@ export default function Scene({
             topWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + sideD / 2);
             topWallSeg.castShadow = true;
             topWallSeg.receiveShadow = true;
-            group.add(topWallSeg);
+            roomGroup.add(topWallSeg);
 
             const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, sideD), wallMaterial);
             botWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - sideD / 2);
             botWallSeg.castShadow = true;
             botWallSeg.receiveShadow = true;
-            group.add(botWallSeg);
+            roomGroup.add(botWallSeg);
 
             const sillWall = new THREE.Mesh(new THREE.BoxGeometry(ww, sillH, winW), wallMaterial);
             sillWall.position.set(wx, sillH / 2, wz);
             sillWall.castShadow = true;
             sillWall.receiveShadow = true;
-            group.add(sillWall);
+            roomGroup.add(sillWall);
 
             const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, wd), baseboardMaterial);
             baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
-            group.add(baseboard);
+            roomGroup.add(baseboard);
 
             const topWall = new THREE.Mesh(new THREE.BoxGeometry(ww, topH, winW), wallMaterial);
             topWall.position.set(wx, sillH + winH + topH / 2, wz);
             topWall.castShadow = true;
-            group.add(topWall);
+            roomGroup.add(topWall);
 
             buildWindowWithCurtains(
-              group,
+              roomGroup,
               wx,
               sillH + winH / 2,
               wz,
@@ -1395,20 +1446,17 @@ export default function Scene({
           wall.position.set(wx, WALL_HEIGHT_FT / 2, wz);
           wall.castShadow = true;
           wall.receiveShadow = true;
-          group.add(wall);
+          roomGroup.add(wall);
 
           const baseboard = new THREE.Mesh(
             new THREE.BoxGeometry(isEW ? ww : ww + 0.04, BASEBOARD_H_FT, isEW ? wd + 0.04 : wd),
             baseboardMaterial
           );
           baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
-          group.add(baseboard);
+          roomGroup.add(baseboard);
         }
       };
 
-      // Wall thickness comes from the solver: 9 in load-bearing on the building's perimeter,
-      // 4.5 in partitions inside. The renderer used to draw 4.5 in everywhere while the solver
-      // reserved 5 in — notes/architecture/duplicated-geometry.md.
       const wt = room.wall_thickness_in != null
         ? inchesToFeet(room.wall_thickness_in)
         : WALL_THICK_INT_FT;
@@ -1428,7 +1476,7 @@ export default function Scene({
       roomLight.castShadow = true;
       roomLight.shadow.bias = -0.001;
       roomLight.visible = lightsOnRef.current;
-      group.add(roomLight);
+      roomGroup.add(roomLight);
       roomLightsRef.current.push(roomLight);
 
       const fixtureMat = new THREE.MeshStandardMaterial({
@@ -1439,11 +1487,11 @@ export default function Scene({
       });
       const fixture = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.06, 24), fixtureMat);
       fixture.position.set(rx + rw / 2, 8.95, rz + rd / 2);
-      group.add(fixture);
+      roomGroup.add(fixture);
 
       // Ceiling Fan in Living Hall & Bedrooms
       if (furnished && (room.name === "hall" || room.name === "bedroom")) {
-        const fan = addCeilingFan(group, rx + rw / 2, rz + rd / 2, 8.1);
+        const fan = addCeilingFan(roomGroup, rx + rw / 2, rz + rd / 2, 8.1);
         fanBladesRef.current.push(fan);
       }
 
@@ -1460,10 +1508,8 @@ export default function Scene({
         }
       }
 
-      // Intelligent, Door-Aware Furniture Placement. Unchecked leaves the bare shell, which is
-      // also the honest view of what the solver actually decided.
       if (furnished) {
-        addRoomInteriorDetails(group, room.name as RoomName, rx, rz, rw, rd, roomDoors);
+        addRoomInteriorDetails(roomGroup, room.name as RoomName, rx, rz, rw, rd, roomDoors);
       }
 
       // 3D Floating Room Badge
@@ -1473,7 +1519,11 @@ export default function Scene({
         rd
       );
       badge.position.set(rx + rw / 2, WALL_HEIGHT_FT + 1.8, rz + rd / 2);
-      group.add(badge);
+      roomGroup.add(badge);
+
+      group.add(roomGroup);
+      roomGroupsRef.current.set(i, roomGroup);
+      roomLightsByRoomRef.current.set(i, [roomLight]);
     }
 
     // 7. Roof — RCC slab, parapet, and sunshades over exterior openings.
