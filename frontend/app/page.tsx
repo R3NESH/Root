@@ -31,6 +31,7 @@ import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
 import { SelectedObjectInfo } from "@/components/Scene";
 import { PlacedCustomObject, FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
+import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import {
   DEFAULT_MATERIAL_CONFIG,
   FLOOR_MATERIALS,
@@ -265,14 +266,14 @@ export default function Home() {
     []
   );
 
-  const handleUpdateCustomObjectPos = useCallback((id: string, x: number, z: number) => {
+  const handleUpdateCustomObjectPos = useCallback((id: string, x: number, z: number, rotationY?: number) => {
     const snappedX = Math.round(x * 2) / 2;
     const snappedZ = Math.round(z * 2) / 2;
     setCustomObjects((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, x: snappedX, z: snappedZ } : o))
+      prev.map((o) => (o.id === id ? { ...o, x: snappedX, z: snappedZ, ...(rotationY !== undefined ? { rotationY } : {}) } : o))
     );
     setSelectedObjectInfo((prev) =>
-      prev && prev.id === id ? { ...prev, x: snappedX, z: snappedZ } : prev
+      prev && prev.id === id ? { ...prev, x: snappedX, z: snappedZ, ...(rotationY !== undefined ? { rotationY } : {}) } : prev
     );
   }, []);
 
@@ -280,26 +281,54 @@ export default function Home() {
     (dx: number, dz: number) => {
       if (selectedObjectInfo) {
         if (selectedObjectInfo.isWall || selectedObjectInfo.isWindow) return;
+        let targetId = selectedObjectInfo.id;
+        let startX = selectedObjectInfo.x;
+        let startZ = selectedObjectInfo.z;
+        let targetType = selectedObjectInfo.type;
+
         if (selectedObjectInfo.isBuiltin) {
           const converted = handleConvertBuiltinToCustom(selectedObjectInfo);
           if (converted) {
-            handleUpdateCustomObjectPos(converted.id, converted.x + dx, converted.z + dz);
+            targetId = converted.id;
+            startX = converted.x;
+            startZ = converted.z;
+            targetType = converted.type;
+          } else {
+            return;
           }
-          return;
-        } else {
-          handleUpdateCustomObjectPos(selectedObjectInfo.id, selectedObjectInfo.x + dx, selectedObjectInfo.z + dz);
-          return;
         }
+
+        const nextX = startX + dx;
+        const nextZ = startZ + dz;
+
+        if (targetType?.startsWith("wall_")) {
+          const itemDef = FURNITURE_CATALOG.find((i) => i.type === targetType);
+          const wallLen = itemDef?.dimensions.widthFt || 8.0;
+          const snap = computeSmartWallSnap(nextX, nextZ, wallLen, rooms, customObjects, customOpenings, targetId);
+          handleUpdateCustomObjectPos(targetId, snap.x, snap.z, snap.isSnapped ? snap.rotationY : undefined);
+        } else {
+          handleUpdateCustomObjectPos(targetId, nextX, nextZ);
+        }
+        return;
       }
 
       if (selectedObjectId) {
         const custom = customObjects.find((o) => o.id === selectedObjectId);
         if (custom) {
-          handleUpdateCustomObjectPos(custom.id, custom.x + dx, custom.z + dz);
+          const nextX = custom.x + dx;
+          const nextZ = custom.z + dz;
+          if (custom.type.startsWith("wall_")) {
+            const itemDef = FURNITURE_CATALOG.find((i) => i.type === custom.type);
+            const wallLen = itemDef?.dimensions.widthFt || 8.0;
+            const snap = computeSmartWallSnap(nextX, nextZ, wallLen, rooms, customObjects, customOpenings, custom.id);
+            handleUpdateCustomObjectPos(custom.id, snap.x, snap.z, snap.isSnapped ? snap.rotationY : undefined);
+          } else {
+            handleUpdateCustomObjectPos(custom.id, nextX, nextZ);
+          }
         }
       }
     },
-    [selectedObjectInfo, customObjects, selectedObjectId, handleConvertBuiltinToCustom, handleUpdateCustomObjectPos]
+    [selectedObjectInfo, customObjects, selectedObjectId, handleConvertBuiltinToCustom, handleUpdateCustomObjectPos, rooms, customOpenings]
   );
 
   const handleRotateSelected = useCallback((angleDelta: number) => {
@@ -740,6 +769,7 @@ export default function Home() {
                 plot={plot}
                 facing={facing}
                 rooms={rooms}
+                customOpenings={customOpenings}
                 setback={DEFAULT_SETBACK}
                 mode={mode}
                 teleportTarget={teleportTarget}

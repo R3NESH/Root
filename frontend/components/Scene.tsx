@@ -13,8 +13,9 @@ import {
   Setback,
 } from "@/lib/plot";
 import { findAdjacentRoomEdge, ROOM_LABELS, RoomName } from "@/lib/rooms";
-import { SolvedRoom } from "@/lib/solve";
+import { RoomOpening, SolvedRoom } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
+import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import {
   clampPlayerPosition,
   computePotentiallyVisibleRooms,
@@ -98,6 +99,7 @@ interface SceneProps {
   /** Place beds, sofas, counters, fans and curtains. Off gives the bare shell. */
   furnished?: boolean;
   customObjects?: PlacedCustomObject[];
+  customOpenings?: Record<string, RoomOpening[]>;
   deletedBuiltinIds?: string[];
   placingItemType?: string | null;
   placingRotationY?: number;
@@ -114,7 +116,7 @@ interface SceneProps {
   onAddCustomObject?: (obj: PlacedCustomObject) => void;
   onSelectObject?: (info: SelectedObjectInfo | null) => void;
   onUpdateCustomObject?: (obj: PlacedCustomObject) => void;
-  onUpdateCustomObjectPos?: (id: string, x: number, z: number) => void;
+  onUpdateCustomObjectPos?: (id: string, x: number, z: number, rotationY?: number) => void;
   onConvertBuiltinToCustom?: (obj: SelectedObjectInfo) => PlacedCustomObject | null;
   onRequestReplace?: () => void;
   onRequestDelete?: () => void;
@@ -195,6 +197,7 @@ export default function Scene({
   lightsOn = true,
   furnished = true,
   customObjects = [],
+  customOpenings = {},
   deletedBuiltinIds = [],
   placingItemType = null,
   placingRotationY = 0,
@@ -237,12 +240,14 @@ export default function Scene({
   const draggedRoomIdxRef = useRef<number | null>(null);
   const [draggedRoomInfo, setDraggedRoomInfo] = useState<{ name: string; x: number; z: number } | null>(null);
   const [doorAlert, setDoorAlert] = useState<string | null>(null);
+  const [smartSnapDescription, setSmartSnapDescription] = useState<string | null>(null);
 
   // Custom 3D Furniture Placement & Selection References
   const placingGhostGroupRef = useRef<THREE.Group | null>(null);
+  const snapGuideMeshRef = useRef<THREE.Line | null>(null);
   const draggedCustomObjectIdRef = useRef<string | null>(null);
   const customObjectMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
-  const draggedCustomObjPosRef = useRef<{ x: number; z: number } | null>(null);
+  const draggedCustomObjPosRef = useRef<{ x: number; z: number; rotationY?: number } | null>(null);
 
   // Animated Ceiling Fan references
   const fanBladesRef = useRef<THREE.Group[]>([]);
@@ -296,6 +301,7 @@ export default function Scene({
   const lightsOnRef = useRef(lightsOn);
   const roomsRef = useRef(rooms);
   const customObjectsRef = useRef(customObjects);
+  const customOpeningsRef = useRef(customOpenings || {});
   const deletedBuiltinIdsRef = useRef(deletedBuiltinIds);
   const placingItemTypeRef = useRef(placingItemType);
   const placingRotationYRef = useRef(placingRotationY);
@@ -325,6 +331,7 @@ export default function Scene({
     lightsOnRef.current = lightsOn;
     roomsRef.current = rooms;
     customObjectsRef.current = customObjects;
+    customOpeningsRef.current = customOpenings || {};
     deletedBuiltinIdsRef.current = deletedBuiltinIds;
     placingItemTypeRef.current = placingItemType;
     placingRotationYRef.current = placingRotationY;
@@ -475,6 +482,21 @@ export default function Scene({
     ghostMesh.visible = false;
     scene.add(ghostMesh);
     ghostRoomMeshRef.current = ghostMesh;
+
+    // 3D Smart Wall Magnetic Snapping Guide Line
+    const snapGuideGeom = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.06, 0),
+      new THREE.Vector3(0, 0.06, 0),
+    ]);
+    const snapGuideMat = new THREE.LineDashedMaterial({
+      color: 0x38bdf8,
+      dashSize: 0.8,
+      gapSize: 0.4,
+    });
+    const snapGuideLine = new THREE.Line(snapGuideGeom, snapGuideMat);
+    snapGuideLine.visible = false;
+    scene.add(snapGuideLine);
+    snapGuideMeshRef.current = snapGuideLine;
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -720,16 +742,40 @@ export default function Scene({
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();
+          const isWall = placingItemTypeRef.current.startsWith("wall_");
           const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
+          const wallLen = itemDef?.dimensions.widthFt || 8.0;
+
+          let posX = Math.round(hitPoint.x * 2) / 2;
+          let posZ = Math.round(hitPoint.z * 2) / 2;
+          let rotY = placingRotationYRef.current || 0;
+
+          if (isWall) {
+            const snap = computeSmartWallSnap(
+              hitPoint.x,
+              hitPoint.z,
+              wallLen,
+              roomsRef.current,
+              customObjectsRef.current,
+              customOpeningsRef.current
+            );
+            if (snap.isSnapped) {
+              posX = snap.x;
+              posZ = snap.z;
+              rotY = snap.rotationY;
+            }
+          }
+
           const newObj: PlacedCustomObject = {
             id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             type: placingItemTypeRef.current,
-            name: itemDef?.name || "Furniture",
-            x: Math.round(hitPoint.x * 2) / 2,
+            name: itemDef?.name || (isWall ? "Partition Wall" : "Furniture"),
+            x: posX,
             y: 0,
-            z: Math.round(hitPoint.z * 2) / 2,
-            rotationY: placingRotationYRef.current || 0,
+            z: posZ,
+            rotationY: rotY,
             scale: 1.0,
+            colorHex: itemDef?.defaultColor,
           };
           if (onAddCustomObjectRef.current) {
             onAddCustomObjectRef.current(newObj);
@@ -737,6 +783,10 @@ export default function Scene({
           if (placingGhostGroupRef.current) {
             placingGhostGroupRef.current.visible = false;
           }
+          if (snapGuideMeshRef.current) {
+            snapGuideMeshRef.current.visible = false;
+          }
+          setSmartSnapDescription(null);
           return;
         }
       }
@@ -869,12 +919,53 @@ export default function Scene({
         return;
       }
 
-      // Handle placing preview ghost in orbit mode
+      // Handle placing preview ghost in orbit mode with smart snapping
       if (placingItemTypeRef.current) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          const isWall = placingItemTypeRef.current.startsWith("wall_");
+          let finalX = Math.round(hitPoint.x * 2) / 2;
+          let finalZ = Math.round(hitPoint.z * 2) / 2;
+          let finalRotY = placingRotationYRef.current || 0;
+
+          if (isWall) {
+            const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
+            const wallLen = itemDef?.dimensions.widthFt || 8.0;
+            const snap = computeSmartWallSnap(
+              hitPoint.x,
+              hitPoint.z,
+              wallLen,
+              roomsRef.current,
+              customObjectsRef.current,
+              customOpeningsRef.current
+            );
+
+            if (snap.isSnapped) {
+              finalX = snap.x;
+              finalZ = snap.z;
+              finalRotY = snap.rotationY;
+              setSmartSnapDescription(snap.snapDescription || "🧲 Attached to Wall");
+
+              if (snapGuideMeshRef.current && snap.guideLine) {
+                const points = [
+                  new THREE.Vector3(snap.guideLine.x1, 0.06, snap.guideLine.z1),
+                  new THREE.Vector3(snap.guideLine.x2, 0.06, snap.guideLine.z2),
+                ];
+                snapGuideMeshRef.current.geometry.setFromPoints(points);
+                snapGuideMeshRef.current.computeLineDistances();
+                snapGuideMeshRef.current.visible = true;
+              }
+            } else {
+              setSmartSnapDescription(null);
+              if (snapGuideMeshRef.current) snapGuideMeshRef.current.visible = false;
+            }
+          } else {
+            setSmartSnapDescription(null);
+            if (snapGuideMeshRef.current) snapGuideMeshRef.current.visible = false;
+          }
+
           if (placingGhostGroupRef.current) {
-            placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
-            placingGhostGroupRef.current.rotation.y = placingRotationYRef.current || 0;
+            placingGhostGroupRef.current.position.set(finalX, 0, finalZ);
+            placingGhostGroupRef.current.rotation.y = finalRotY;
             placingGhostGroupRef.current.visible = true;
           }
           renderer.domElement.style.cursor = "crosshair";
@@ -913,15 +1004,57 @@ export default function Scene({
           onPlotChangeRef.current({ ...current, depthIn: nextIn });
         }
       } else if (dragKind === "customObject" && draggedCustomObjectIdRef.current) {
-        // Direct Three.js GPU transform (0 React re-renders, 0 latency!)
+        // Direct Three.js GPU transform with Smart Wall Auto-Positioning
         const objId = draggedCustomObjectIdRef.current;
         const mesh = customObjectMeshesRef.current.get(objId);
-        const snappedX = Math.round(hitPoint.x * 2) / 2;
-        const snappedZ = Math.round(hitPoint.z * 2) / 2;
-        if (mesh) {
-          mesh.position.set(snappedX, 0, snappedZ);
+        const customObj = (customObjectsRef.current || []).find((o) => o.id === objId);
+        const isWall = customObj?.type?.startsWith("wall_");
+
+        let posX = Math.round(hitPoint.x * 2) / 2;
+        let posZ = Math.round(hitPoint.z * 2) / 2;
+        let rotY: number | undefined = undefined;
+
+        if (isWall) {
+          const itemDef = FURNITURE_CATALOG.find((i) => i.type === customObj?.type);
+          const wallLen = itemDef?.dimensions.widthFt || 8.0;
+          const snap = computeSmartWallSnap(
+            hitPoint.x,
+            hitPoint.z,
+            wallLen,
+            roomsRef.current,
+            customObjectsRef.current,
+            customOpeningsRef.current,
+            objId
+          );
+
+          if (snap.isSnapped) {
+            posX = snap.x;
+            posZ = snap.z;
+            rotY = snap.rotationY;
+            setSmartSnapDescription(snap.snapDescription || "🧲 Attached to Wall");
+
+            if (snapGuideMeshRef.current && snap.guideLine) {
+              const points = [
+                new THREE.Vector3(snap.guideLine.x1, 0.06, snap.guideLine.z1),
+                new THREE.Vector3(snap.guideLine.x2, 0.06, snap.guideLine.z2),
+              ];
+              snapGuideMeshRef.current.geometry.setFromPoints(points);
+              snapGuideMeshRef.current.computeLineDistances();
+              snapGuideMeshRef.current.visible = true;
+            }
+          } else {
+            setSmartSnapDescription(null);
+            if (snapGuideMeshRef.current) snapGuideMeshRef.current.visible = false;
+          }
         }
-        draggedCustomObjPosRef.current = { x: snappedX, z: snappedZ };
+
+        if (mesh) {
+          mesh.position.set(posX, 0, posZ);
+          if (rotY !== undefined) {
+            mesh.rotation.y = rotY;
+          }
+        }
+        draggedCustomObjPosRef.current = { x: posX, z: posZ, rotationY: rotY };
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
         // Direct Three.js ghost transform (0 React setState during drag)
         const rIdx = draggedRoomIdxRef.current;
@@ -938,6 +1071,10 @@ export default function Scene({
 
     function onPointerUp(ev: PointerEvent) {
       isDraggingLook.current = false;
+      if (snapGuideMeshRef.current) {
+        snapGuideMeshRef.current.visible = false;
+      }
+      setSmartSnapDescription(null);
 
       // Handle walkthrough mode click-to-select and click-to-place
       if (modeRef.current === "walkthrough") {
@@ -998,9 +1135,10 @@ export default function Scene({
         const objId = draggedCustomObjectIdRef.current;
         const newX = draggedCustomObjPosRef.current.x;
         const newZ = draggedCustomObjPosRef.current.z;
+        const newRotY = draggedCustomObjPosRef.current.rotationY;
 
         if (onUpdateCustomObjectPosRef.current) {
-          onUpdateCustomObjectPosRef.current(objId, newX, newZ);
+          onUpdateCustomObjectPosRef.current(objId, newX, newZ, newRotY);
         } else {
           const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
           if (obj && onUpdateCustomObjectRef.current) {
@@ -1008,6 +1146,7 @@ export default function Scene({
               ...obj,
               x: newX,
               z: newZ,
+              ...(newRotY !== undefined ? { rotationY: newRotY } : {}),
             });
           }
         }
@@ -2389,6 +2528,47 @@ export default function Scene({
             zIndex: 35,
           }}
         />
+      )}
+
+      {smartSnapDescription && (
+        <div
+          style={{
+            position: "absolute",
+            top: 70,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(135deg, rgba(2, 132, 199, 0.95), rgba(15, 23, 42, 0.98))",
+            border: "1.5px solid #38bdf8",
+            boxShadow: "0 0 24px rgba(56, 189, 248, 0.6), 0 8px 32px rgba(0, 0, 0, 0.6)",
+            color: "#ffffff",
+            fontWeight: 800,
+            padding: "9px 24px",
+            borderRadius: "22px",
+            zIndex: 110,
+            pointerEvents: "none",
+            fontSize: "13px",
+            letterSpacing: "0.03em",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <span style={{ fontSize: "16px" }}>🧲</span>
+          <span>{smartSnapDescription}</span>
+          <span
+            style={{
+              fontSize: "10.5px",
+              background: "rgba(56, 189, 248, 0.25)",
+              padding: "2px 7px",
+              borderRadius: "10px",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              color: "#e0f2fe",
+            }}
+          >
+            Auto-Positioned
+          </span>
+        </div>
       )}
 
       {doorAlert && (
