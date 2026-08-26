@@ -45,6 +45,7 @@ ROOM_CATALOG: dict[str, Room] = {
     "bedroom": Room("bedroom", ft(10), ft(14), ft(10), ft(13)),
     "hall": Room("hall", ft(11), ft(15), ft(12), ft(16)),
     "dining": Room("dining", ft(8), ft(12), ft(8), ft(12)),
+    "entrance": Room("entrance", ft(5), ft(8), ft(4), ft(7)),
     # --- habitable, wet ---------------------------------------------------------------
     "kitchen": Room("kitchen", ft(8), ft(11), ft(8), ft(10), wet=True),
     # --- service: no daylight requirement ---------------------------------------------

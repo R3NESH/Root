@@ -10,7 +10,8 @@ export type RoomName =
   | "bedroom"
   | "bathroom"
   | "pooja"
-  | "store";
+  | "store"
+  | "entrance";
 
 export const ROOM_NAMES: RoomName[] = [
   "hall",
@@ -20,6 +21,7 @@ export const ROOM_NAMES: RoomName[] = [
   "bathroom",
   "pooja",
   "store",
+  "entrance",
 ];
 
 export const ROOM_LABELS: Record<RoomName, string> = {
@@ -30,6 +32,7 @@ export const ROOM_LABELS: Record<RoomName, string> = {
   bathroom: "Bath",
   pooja: "Pooja",
   store: "Store",
+  entrance: "Entrance",
 };
 
 // Distinct hues so adjacent rooms read as separate volumes in the 3D model.
@@ -41,6 +44,7 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   bathroom: 0x8a6fc4,
   pooja: 0xd9b64a,
   store: 0x8d8577,
+  entrance: 0xe8912d,
 };
 
 // Rooms people spend time in. Drives the interior detailing.
@@ -49,6 +53,7 @@ export const HABITABLE: ReadonlySet<RoomName> = new Set<RoomName>([
   "dining",
   "kitchen",
   "bedroom",
+  "entrance",
 ]);
 
 export const DEFAULT_MIX: RoomName[] = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"];

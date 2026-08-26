@@ -51,6 +51,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 1,
       pooja: 1,
       store: 0,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 10, dFt: 12 },
@@ -108,6 +109,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 1,
       pooja: 0,
       store: 0,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 10, dFt: 11 },
@@ -164,6 +166,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 2,
       pooja: 1,
       store: 0,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 14, dFt: 15 },
@@ -231,6 +234,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 2,
       pooja: 0,
       store: 1,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 13, dFt: 16 },
@@ -295,6 +299,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 2,
       pooja: 1,
       store: 1,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 15, dFt: 17 },
@@ -363,6 +368,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 2,
       pooja: 1,
       store: 0,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 16, dFt: 18 },
@@ -404,6 +410,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 3,
       pooja: 1,
       store: 1,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 18, dFt: 20 },
@@ -464,6 +471,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 3,
       pooja: 1,
       store: 1,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 17, dFt: 19 },
@@ -509,6 +517,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom: 4,
       pooja: 1,
       store: 1,
+      entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 20, dFt: 24 },

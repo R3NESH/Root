@@ -60,6 +60,7 @@ const DEFAULT_COUNTS: Record<RoomName, number> = {
   bathroom: 1,
   pooja: 0,
   store: 0,
+  entrance: 0,
 };
 
 export default function Home() {
