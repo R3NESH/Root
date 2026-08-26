@@ -28,6 +28,8 @@ import { feetToInches, inchesToFeet } from "@/lib/units";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
 import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
 import MaterialCustomizerModal from "@/components/MaterialCustomizerModal";
+import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
+import { PlacedCustomObject } from "@/lib/furnitureCatalog";
 import {
   DEFAULT_MATERIAL_CONFIG,
   FLOOR_MATERIALS,
@@ -185,77 +187,99 @@ export default function Home() {
     setLightsOn((prev) => !prev);
   }, []);
 
+  const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
+  const [placingItemType, setPlacingItemType] = useState<string | null>(null);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+
+  const selectedObject = useMemo(
+    () => customObjects.find((o) => o.id === selectedObjectId) || null,
+    [customObjects, selectedObjectId]
+  );
+
+  const handleRotateSelected = useCallback((angleDelta: number) => {
+    if (!selectedObjectId) return;
+    setCustomObjects((prev) =>
+      prev.map((o) =>
+        o.id === selectedObjectId ? { ...o, rotationY: (o.rotationY || 0) + angleDelta } : o
+      )
+    );
+  }, [selectedObjectId]);
+
+  const handleScaleSelected = useCallback((scaleDelta: number) => {
+    if (!selectedObjectId) return;
+    setCustomObjects((prev) =>
+      prev.map((o) =>
+        o.id === selectedObjectId
+          ? { ...o, scale: Math.max(0.5, Math.min(2.5, (o.scale || 1.0) + scaleDelta)) }
+          : o
+      )
+    );
+  }, [selectedObjectId]);
+
+  const handleChangeColorSelected = useCallback((colorHex: number) => {
+    if (!selectedObjectId) return;
+    setCustomObjects((prev) =>
+      prev.map((o) => (o.id === selectedObjectId ? { ...o, colorHex } : o))
+    );
+  }, [selectedObjectId]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedObjectId) return;
+    setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectId));
+    setSelectedObjectId(null);
+  }, [selectedObjectId]);
+
+  const handleClearAllFurniture = useCallback(() => {
+    setCustomObjects([]);
+    setSelectedObjectId(null);
+    setPlacingItemType(null);
+  }, []);
+
+  // Global Keyboard shortcuts (Escape, Delete, Backspace, KeyR)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.code === "Escape") {
+        setPlacingItemType(null);
+        setSelectedObjectId(null);
+      } else if (e.code === "Delete" || e.code === "Backspace") {
+        if (selectedObjectId) {
+          handleDeleteSelected();
+        }
+      } else if (e.code === "KeyR") {
+        if (selectedObjectId) {
+          handleRotateSelected(Math.PI / 4);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedObjectId, handleDeleteSelected, handleRotateSelected]);
+
   return (
     <div className={styles.appContainer}>
-      <header className={styles.header}>
-        <div className={styles.logoGroup}>
-          <div className={styles.badge}>ARCHITECTURAL PLANNER</div>
-          <h1 className={styles.title}>Plot to Plan</h1>
-        </div>
-        <div className={styles.headerControls}>
-          {pending && <div className={styles.solvingPill}>⚡ Solving Layout...</div>}
-          {error && <div className={styles.errorPill}>⚠️ {error}</div>}
-          {!error && staleBackend && (
-            <div className={styles.errorPill}>
-              ⚠️ Solver is out of date — no doors or windows returned. Restart the backend.
-            </div>
-          )}
-
-          {/* 3-Way Mode Switcher Tabs */}
-          <div className={styles.modeTabsGroup}>
-            <button
-              className={`${styles.modeTab} ${mode === "orbit" ? styles.modeTabActive : ""}`}
-              onClick={() => setMode("orbit")}
-              title="Aerial 3D Orbit View"
-            >
-              🌐 3D Orbit
-            </button>
-            <button
-              className={`${styles.modeTab} ${mode === "walkthrough" ? styles.modeTabActive : ""}`}
-              onClick={() => setMode("walkthrough")}
-              title="First-Person Walkthrough (5'5' Eye Level)"
-            >
-              🚶 Walk Inside
-            </button>
-            <button
-              className={`${styles.modeTab} ${
-                mode === "blueprint" ? styles.modeTabActiveBlueprint : ""
-              }`}
-              onClick={() => setMode("blueprint")}
-              title="2D Architectural Blueprint & Measurement Plan"
-            >
-              📐 2D Blueprint
-            </button>
-          </div>
-
-          {/* Materials & Finishes Studio Action */}
-          <button
-            className={styles.headerMaterialBtn}
-            onClick={() => setIsMaterialModalOpen(true)}
-            title="Customize luxury floor marbles, hardwoods, kitchen tiles, and wall designs"
-          >
-            🎨 Finishes & Materials
-          </button>
-
-          {/* Model Blueprints Catalog Action */}
-          <button
-            className={styles.headerModelBtn}
-            onClick={() => setIsModelBlueprintsOpen(true)}
-            title="Explore authentic architectural blueprints for different plot sizes and build instantly"
-          >
-            🏛️ Model Blueprints
-          </button>
-
-          {/* Export Blueprint Sheet Action */}
-          <button
-            className={styles.headerExportBtn}
-            onClick={() => setIsExportModalOpen(true)}
-            title="Export Architectural Blueprint as 4K PNG, SVG, or Print PDF"
-          >
-            📥 Export Blueprint
-          </button>
-        </div>
-      </header>
+      {/* MS Paint / CAD Ribbon Taskbar */}
+      <TopRibbonTaskbar
+        mode={mode}
+        onChangeMode={setMode}
+        lightsOn={lightsOn}
+        onToggleLights={handleToggleLights}
+        onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
+        onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+        placingItemType={placingItemType}
+        onSelectPlaceItem={setPlacingItemType}
+        selectedObject={selectedObject}
+        onRotateSelected={handleRotateSelected}
+        onScaleSelected={handleScaleSelected}
+        onChangeColorSelected={handleChangeColorSelected}
+        onDeleteSelected={handleDeleteSelected}
+        onClearAllFurniture={handleClearAllFurniture}
+        onDeselectObject={() => setSelectedObjectId(null)}
+        totalPlacedCount={customObjects.length}
+      />
 
       <main className={styles.mainLayout}>
         <section className={styles.viewport}>
@@ -294,10 +318,24 @@ export default function Home() {
                 lightsOn={lightsOn}
                 furnished={furnished}
                 materialConfig={materialConfig}
+                customObjects={customObjects}
+                placingItemType={placingItemType}
+                selectedObjectId={selectedObjectId}
                 onPlotChange={setPlot}
                 onPlayerUpdate={setPlayer}
                 onToggleLights={handleToggleLights}
                 onRoomMove={moveRoom}
+                onAddCustomObject={(newObj) => {
+                  setCustomObjects((prev) => [...prev, newObj]);
+                  setPlacingItemType(null);
+                  setSelectedObjectId(newObj.id);
+                }}
+                onSelectObject={setSelectedObjectId}
+                onUpdateCustomObject={(updated) => {
+                  setCustomObjects((prev) =>
+                    prev.map((o) => (o.id === updated.id ? updated : o))
+                  );
+                }}
               />
 
               {/* Orbit View HUD Overlay */}

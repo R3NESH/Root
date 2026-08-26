@@ -1,13 +1,16 @@
 // 3D Architectural Furniture & Objects Catalog & Procedural Mesh Factories
 import * as THREE from "three";
 
+export type FurnitureCategory = "living" | "bedroom" | "dining" | "kitchen" | "office" | "decor" | "sacred";
+
 export interface FurnitureItemDef {
   type: string;
   name: string;
-  category: "living" | "bedroom" | "dining" | "kitchen" | "bathroom" | "decor";
+  category: FurnitureCategory;
   icon: string;
   dimensions: { widthFt: number; depthFt: number; heightFt: number };
   description: string;
+  defaultColor?: number;
 }
 
 export interface PlacedCustomObject {
@@ -22,191 +25,246 @@ export interface PlacedCustomObject {
   colorHex?: number;
 }
 
+export const FURNITURE_COLOR_SWATCHES = [
+  { name: "Royal Velvet Navy", hex: 0x1e3a8a, bg: "#1e3a8a" },
+  { name: "Emerald Serpentine", hex: 0x065f46, bg: "#065f46" },
+  { name: "Charcoal Obsidian", hex: 0x1e293b, bg: "#1e293b" },
+  { name: "Warm Ochre / Tan", hex: 0xb45309, bg: "#b45309" },
+  { name: "Indian Terracotta", hex: 0xb91c1c, bg: "#b91c1c" },
+  { name: "Linen Cream", hex: 0xf3f4f6, bg: "#f3f4f6" },
+  { name: "Teak Hardwood", hex: 0x78350f, bg: "#78350f" },
+  { name: "Dark Walnut", hex: 0x3e2723, bg: "#3e2723" },
+];
+
 export const FURNITURE_CATALOG: FurnitureItemDef[] = [
-  // Living / Lounge
+  // --------------------------------------------------------------------------------------
+  // 1. Living Room & Sofas (Multiple Shapes & Styles)
+  // --------------------------------------------------------------------------------------
   {
     type: "sofa_3seater",
     name: "Luxury 3-Seater Sofa",
     category: "living",
     icon: "🛋️",
-    dimensions: { widthFt: 6.8, depthFt: 3.2, heightFt: 2.8 },
-    description: "Comfortable velvet 3-seater sofa with accent cushions and walnut legs.",
+    dimensions: { widthFt: 7.0, depthFt: 3.2, heightFt: 2.8 },
+    description: "Classic straight 3-seater sofa with deep cushions, padded armrests, and brass-tipped tapered legs.",
+    defaultColor: 0x1e3a8a,
+  },
+  {
+    type: "sofa_l_shape",
+    name: "L-Shaped Sectional Corner Sofa",
+    category: "living",
+    icon: "🛋️",
+    dimensions: { widthFt: 8.5, depthFt: 6.5, heightFt: 2.8 },
+    description: "Spacious modular L-shaped corner sectional with extended chaise lounge for luxury living rooms.",
+    defaultColor: 0x1e293b,
+  },
+  {
+    type: "sofa_curved",
+    name: "Curved Crescent Lounge Sofa",
+    category: "living",
+    icon: "🛋️",
+    dimensions: { widthFt: 7.8, depthFt: 4.2, heightFt: 2.7 },
+    description: "Ultra-modern organic curved crescent sofa with rounded bouclé upholstery.",
+    defaultColor: 0xf3f4f6,
+  },
+  {
+    type: "sofa_loveseat",
+    name: "Compact 2-Seater Loveseat",
+    category: "living",
+    icon: "🛋️",
+    dimensions: { widthFt: 5.0, depthFt: 3.0, heightFt: 2.8 },
+    description: "Cozy 2-seater apartment loveseat with tailored piping and walnut legs.",
+    defaultColor: 0x065f46,
   },
   {
     type: "armchair",
-    name: "Modern Armchair",
+    name: "Modern Accent Armchair",
     category: "living",
     icon: "🪑",
     dimensions: { widthFt: 2.8, depthFt: 2.8, heightFt: 2.7 },
-    description: "Plush single-seater accent armchair with brass tipped legs.",
+    description: "Plush single-seater accent armchair with ergonomic curved backrest.",
+    defaultColor: 0xb45309,
+  },
+  {
+    type: "recliner_chair",
+    name: "Leather Ergonomic Recliner",
+    category: "living",
+    icon: "🪑",
+    dimensions: { widthFt: 3.2, depthFt: 3.4, heightFt: 3.4 },
+    description: "Padded top-grain leather recliner with swivel base and extendable footrest.",
+    defaultColor: 0x78350f,
   },
   {
     type: "coffee_table",
-    name: "Marble Coffee Table",
+    name: "Marble & Gold Coffee Table",
     category: "living",
     icon: "☕",
-    dimensions: { widthFt: 3.6, depthFt: 2.2, heightFt: 1.4 },
-    description: "Calacatta marble top coffee table with satin brass metal frame.",
+    dimensions: { widthFt: 3.8, depthFt: 2.4, heightFt: 1.4 },
+    description: "Calacatta marble top coffee table with satin brass metal architectural frame.",
   },
   {
     type: "tv_unit",
-    name: "Floating TV Console",
+    name: "Floating TV Entertainment Wall",
     category: "living",
     icon: "📺",
-    dimensions: { widthFt: 6.0, depthFt: 1.4, heightFt: 4.8 },
-    description: "Wall-mounted walnut media console with 65-inch ultra-thin 4K TV screen.",
-  },
-  {
-    type: "floor_lamp",
-    name: "Arc Floor Lamp",
-    category: "living",
-    icon: "💡",
-    dimensions: { widthFt: 1.6, depthFt: 1.6, heightFt: 5.5 },
-    description: "Architectural arc standing lamp with warm ambient shade.",
-  },
-  {
-    type: "plant_pot",
-    name: "Fiddle Leaf Fig Plant",
-    category: "decor",
-    icon: "🪴",
-    dimensions: { widthFt: 1.8, depthFt: 1.8, heightFt: 4.2 },
-    description: "Lush indoor botanical plant in a fluted white ceramic pot.",
-  },
-  {
-    type: "floor_rug",
-    name: "Persian / Geometric Rug",
-    category: "decor",
-    icon: "🧶",
-    dimensions: { widthFt: 7.0, depthFt: 5.0, heightFt: 0.05 },
-    description: "Soft high-pile woven area rug with subtle geometric patterns.",
+    dimensions: { widthFt: 6.5, depthFt: 1.4, heightFt: 5.2 },
+    description: "Wall-mounted dark walnut media console with 65-inch ultra-thin 4K OLED TV screen.",
   },
 
-  // Bedroom
+  // --------------------------------------------------------------------------------------
+  // 2. Bedroom (Multiple Bed Shapes & Storage)
+  // --------------------------------------------------------------------------------------
   {
     type: "bed_king",
-    name: "King Double Bed",
+    name: "Grand King Bed with Headboard",
     category: "bedroom",
     icon: "🛏️",
-    dimensions: { widthFt: 6.2, depthFt: 6.8, heightFt: 3.8 },
-    description: "Grand king bed with upholstered tufted headboard, duvet, and dual nightstands.",
+    dimensions: { widthFt: 6.4, depthFt: 7.0, heightFt: 4.0 },
+    description: "King bed with vertical channel tufted upholstered headboard, duvet, pillows, and dual nightstands.",
+    defaultColor: 0x1e293b,
+  },
+  {
+    type: "bed_queen_platform",
+    name: "Modern Platform Bed (Queen)",
+    category: "bedroom",
+    icon: "🛏️",
+    dimensions: { widthFt: 5.5, depthFt: 6.8, heightFt: 3.0 },
+    description: "Sleek low-profile Japanese-inspired wood platform bed with floating nightstands.",
+    defaultColor: 0x78350f,
   },
   {
     type: "bed_single",
-    name: "Single Bed",
+    name: "Single Bed with Side Table",
     category: "bedroom",
     icon: "🛏️",
-    dimensions: { widthFt: 3.5, depthFt: 6.5, heightFt: 3.0 },
-    description: "Minimalist contemporary single bed with linen mattress and nightstand.",
+    dimensions: { widthFt: 3.6, depthFt: 6.5, heightFt: 3.0 },
+    description: "Contemporary single bed with breathable linen mattress and compact side table.",
+    defaultColor: 0x1e3a8a,
+  },
+  {
+    type: "bed_bunk",
+    name: "Wooden Double Bunk Bed",
+    category: "bedroom",
+    icon: "🛏️",
+    dimensions: { widthFt: 3.8, depthFt: 6.6, heightFt: 5.8 },
+    description: "Solid pine double-tier bunk bed with safety guard rails and integrated access ladder.",
+    defaultColor: 0x78350f,
   },
   {
     type: "wardrobe",
-    name: "3-Door Wardrobe Closet",
+    name: "3-Door Full-Height Wardrobe",
     category: "bedroom",
     icon: "🚪",
-    dimensions: { widthFt: 5.2, depthFt: 2.0, heightFt: 7.8 },
-    description: "Full-height dark walnut wardrobe closet with brushed gold handles.",
-  },
-  {
-    type: "study_desk",
-    name: "Study Desk & Ergonomic Chair",
-    category: "bedroom",
-    icon: "💻",
-    dimensions: { widthFt: 4.2, depthFt: 2.2, heightFt: 3.2 },
-    description: "Modern home office workstation desk with laptop, table lamp, and ergonomic chair.",
+    dimensions: { widthFt: 5.4, depthFt: 2.0, heightFt: 7.8 },
+    description: "Floor-to-ceiling 3-door wardrobe closet in dark walnut with brushed brass handles.",
   },
   {
     type: "vanity_table",
-    name: "Dressing Vanity Table",
+    name: "Dressing Vanity & LED Mirror",
     category: "bedroom",
     icon: "🪞",
-    dimensions: { widthFt: 3.4, depthFt: 1.6, heightFt: 5.2 },
-    description: "Dressing table with illuminated round mirror and cushioned vanity stool.",
+    dimensions: { widthFt: 3.6, depthFt: 1.6, heightFt: 5.2 },
+    description: "Dressing console with backlit circular LED mirror and cushioned velvet vanity stool.",
   },
 
-  // Dining
+  // --------------------------------------------------------------------------------------
+  // 3. Dining & Kitchen
+  // --------------------------------------------------------------------------------------
   {
     type: "dining_6seater",
-    name: "6-Seater Dining Set",
+    name: "6-Seater Rectangular Dining Set",
     category: "dining",
     icon: "🍽️",
-    dimensions: { widthFt: 6.0, depthFt: 3.4, heightFt: 2.8 },
-    description: "Teak dining table with 6 upholstered dining chairs and table runner.",
+    dimensions: { widthFt: 6.2, depthFt: 3.5, heightFt: 2.8 },
+    description: "Teakwood dining table with 6 cushioned dining chairs and central runner.",
+    defaultColor: 0x78350f,
   },
   {
     type: "dining_round",
-    name: "Round Dining Table",
+    name: "4-Seater Round Dining Table",
     category: "dining",
     icon: "🍲",
-    dimensions: { widthFt: 4.2, depthFt: 4.2, heightFt: 2.8 },
-    description: "Round 4-seater contemporary glass & timber dining table with curved chairs.",
+    dimensions: { widthFt: 4.4, depthFt: 4.4, heightFt: 2.8 },
+    description: "Round marble pedestal dining table with 4 curved upholstered dining armchairs.",
   },
-
-  // Kitchen
   {
     type: "kitchen_island",
-    name: "Kitchen Island Counter",
+    name: "Kitchen Island & Bar Stools",
     category: "kitchen",
     icon: "🍳",
-    dimensions: { widthFt: 5.5, depthFt: 2.6, heightFt: 3.0 },
-    description: "Freestanding kitchen prep island with waterfall quartz countertop and storage.",
+    dimensions: { widthFt: 6.0, depthFt: 2.8, heightFt: 3.2 },
+    description: "Waterfall quartz kitchen prep island with 2 modern high-top bar stools.",
   },
   {
     type: "refrigerator",
-    name: "Double-Door Refrigerator",
+    name: "Double-Door Smart Refrigerator",
     category: "kitchen",
     icon: "🧊",
-    dimensions: { widthFt: 2.8, depthFt: 2.5, heightFt: 6.8 },
-    description: "Stainless steel double-door smart refrigerator.",
+    dimensions: { widthFt: 3.0, depthFt: 2.6, heightFt: 6.8 },
+    description: "Brushed stainless steel French door smart refrigerator with ice dispenser.",
   },
 
-  // Bathroom
+  // --------------------------------------------------------------------------------------
+  // 4. Work, Study & Decor
+  // --------------------------------------------------------------------------------------
   {
-    type: "bath_vanity",
-    name: "Floating Vanity & Basin",
-    category: "bathroom",
-    icon: "🪥",
-    dimensions: { widthFt: 3.2, depthFt: 1.8, heightFt: 5.5 },
-    description: "Wall-mounted timber vanity with porcelain washbasin and backlit LED mirror.",
+    type: "study_desk",
+    name: "Executive Desk & Ergonomic Chair",
+    category: "office",
+    icon: "💻",
+    dimensions: { widthFt: 4.5, depthFt: 2.2, heightFt: 3.2 },
+    description: "Modern workstation desk with laptop, desk lamp, and high-back ergonomic mesh chair.",
   },
   {
-    type: "toilet_wc",
-    name: "Wall-Hung Toilet (WC)",
-    category: "bathroom",
-    icon: "🚽",
-    dimensions: { widthFt: 1.6, depthFt: 2.2, heightFt: 2.4 },
-    description: "Concealed cistern wall-hung ceramic WC with soft-close seat.",
+    type: "bookshelf",
+    name: "Tall Open Bookshelf",
+    category: "office",
+    icon: "📚",
+    dimensions: { widthFt: 3.6, depthFt: 1.2, heightFt: 6.5 },
+    description: "Architectural 5-tier open bookcase with books and decorative ceramics.",
   },
   {
-    type: "bathtub",
-    name: "Freestanding Oval Bathtub",
-    category: "bathroom",
-    icon: "🛁",
-    dimensions: { widthFt: 5.2, depthFt: 2.8, heightFt: 2.0 },
-    description: "Luxury freestanding acrylic soaking bathtub with floor-mounted chrome faucet.",
+    type: "plant_pot",
+    name: "Indoor Botanical Planter",
+    category: "decor",
+    icon: "🪴",
+    dimensions: { widthFt: 1.8, depthFt: 1.8, heightFt: 4.4 },
+    description: "Lush Fiddle Leaf Fig tree in a fluted minimalist ceramic pot.",
+  },
+  {
+    type: "floor_lamp",
+    name: "Curved Arc Floor Lamp",
+    category: "decor",
+    icon: "💡",
+    dimensions: { widthFt: 1.8, depthFt: 1.8, heightFt: 5.6 },
+    description: "Gold/black metal arc standing lamp with warm ambient lampshade.",
+  },
+  {
+    type: "floor_rug",
+    name: "Geometric Area Rug",
+    category: "decor",
+    icon: "🧶",
+    dimensions: { widthFt: 7.5, depthFt: 5.5, heightFt: 0.05 },
+    description: "High-pile luxury woven area rug with subtle geometric borders.",
   },
 
-  // Pooja & Decor
+  // --------------------------------------------------------------------------------------
+  // 5. Sacred & Spiritual
+  // --------------------------------------------------------------------------------------
   {
     type: "pooja_mandir",
-    name: "Sacred Pooja Mandir Temple",
-    category: "decor",
+    name: "Sacred Teakwood Pooja Mandir",
+    category: "sacred",
     icon: "🛕",
-    dimensions: { widthFt: 3.2, depthFt: 2.0, heightFt: 4.8 },
-    description: "Carved teakwood pooja mandir shrine with brass kalash and oil diya lamps.",
-  },
-  {
-    type: "wall_art",
-    name: "Abstract Canvas Wall Art",
-    category: "decor",
-    icon: "🖼️",
-    dimensions: { widthFt: 4.0, depthFt: 0.15, heightFt: 3.0 },
-    description: "Framed contemporary minimalist canvas painting.",
+    dimensions: { widthFt: 3.4, depthFt: 2.2, heightFt: 5.0 },
+    description: "Carved teakwood pooja mandir shrine with pyramid gopuram spire, brass kalash, and diya lamps.",
   },
 ];
 
-/**
- * Procedural 3D Mesh Generator for each Furniture Catalog Type
- */
+// --------------------------------------------------------------------------------------
+// Procedural 3D Mesh Generator Engine
+// --------------------------------------------------------------------------------------
+
 export function createFurnitureMesh(type: string, customColor?: number): THREE.Group {
   const root = new THREE.Group();
 
@@ -216,472 +274,716 @@ export function createFurnitureMesh(type: string, customColor?: number): THREE.G
   const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.55 });
   const walnutMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.45 });
   const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.15, metalness: 0.05 });
-  const fabricColor = customColor ?? 0x1e3a8a; // Navy / Custom velvet
+  const quartzMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.18, metalness: 0.08 });
+  const fabricColor = customColor ?? (FURNITURE_CATALOG.find((i) => i.type === type)?.defaultColor || 0x1e3a8a);
   const fabricMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.8 });
-  const linenMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.9 });
-  const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.05 });
+  const cushionMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 });
 
   switch (type) {
+    // ----------------------------------------------------------------------------------
+    // 1. Luxury 3-Seater Sofa
+    // ----------------------------------------------------------------------------------
     case "sofa_3seater": {
-      const sofaW = 6.8;
-      const sofaD = 3.2;
+      const w = 7.0;
+      const d = 3.2;
+      const seatH = 1.3;
 
       // Base & Seat Cushions
-      const base = new THREE.Mesh(new THREE.BoxGeometry(sofaW, 0.6, sofaD), fabricMat);
-      base.position.y = 0.5;
-      base.castShadow = true;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w, seatH * 0.4, d), fabricMat);
+      base.position.y = 0.4 + (seatH * 0.4) / 2;
       root.add(base);
 
-      // Seat cushions (3 sections)
-      for (let i = 0; i < 3; i++) {
-        const cushion = new THREE.Mesh(new THREE.BoxGeometry(sofaW / 3 - 0.08, 0.45, sofaD - 0.7), fabricMat);
-        cushion.position.set(-sofaW / 3 + i * (sofaW / 3), 0.9, 0.25);
-        cushion.castShadow = true;
+      for (let i = -1; i <= 1; i++) {
+        const cushion = new THREE.Mesh(new THREE.BoxGeometry(w / 3 - 0.08, 0.4, d - 0.3), fabricMat);
+        cushion.position.set(i * (w / 3), seatH + 0.1, 0.1);
         root.add(cushion);
       }
 
       // Backrest
-      const back = new THREE.Mesh(new THREE.BoxGeometry(sofaW, 1.8, 0.65), fabricMat);
-      back.position.set(0, 1.7, -sofaD / 2 + 0.35);
-      back.castShadow = true;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w, 1.6, 0.5), fabricMat);
+      back.position.set(0, seatH + 0.8, -d / 2 + 0.25);
       root.add(back);
 
-      // Armrests (Left & Right)
-      for (const side of [-1, 1]) {
-        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.3, sofaD), fabricMat);
-        arm.position.set(side * (sofaW / 2 - 0.25), 1.1, 0);
-        arm.castShadow = true;
-        root.add(arm);
-      }
+      // Armrests
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, d), fabricMat);
+      armL.position.set(-w / 2 + 0.225, seatH + 0.3, 0);
+      const armR = armL.clone();
+      armR.position.x = w / 2 - 0.225;
+      root.add(armL, armR);
 
-      // 4 Walnut Legs
-      for (const lx of [-sofaW / 2 + 0.3, sofaW / 2 - 0.3]) {
-        for (const lz of [-sofaD / 2 + 0.3, sofaD / 2 - 0.3]) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.04, 0.5, 12), brassMat);
-          leg.position.set(lx, 0.25, lz);
+      // Throw Pillows
+      const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+      const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.25), pillowMat);
+      p1.position.set(-w / 2 + 0.75, seatH + 0.5, -d / 2 + 0.6);
+      p1.rotation.y = 0.2;
+      const p2 = p1.clone();
+      p2.position.x = w / 2 - 0.75;
+      p2.rotation.y = -0.2;
+      root.add(p1, p2);
+
+      // Brass Legs
+      for (const lx of [-w / 2 + 0.3, w / 2 - 0.3]) {
+        for (const lz of [-d / 2 + 0.3, d / 2 - 0.3]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.4, 16), brassMat);
+          leg.position.set(lx, 0.2, lz);
           root.add(leg);
         }
       }
       break;
     }
 
-    case "armchair": {
-      const chairW = 2.8;
-      const chairD = 2.8;
+    // ----------------------------------------------------------------------------------
+    // 2. L-Shaped Sectional Corner Sofa
+    // ----------------------------------------------------------------------------------
+    case "sofa_l_shape": {
+      const mainW = 8.5;
+      const mainD = 3.2;
+      const chaiseL = 6.5;
+      const seatH = 1.3;
 
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(chairW, 0.5, chairD - 0.4), fabricMat);
-      seat.position.set(0, 0.85, 0.1);
-      seat.castShadow = true;
-      root.add(seat);
+      // Main Section Base
+      const mainBase = new THREE.Mesh(new THREE.BoxGeometry(mainW, seatH * 0.4, mainD), fabricMat);
+      mainBase.position.set(0, 0.4 + (seatH * 0.4) / 2, 0);
+      root.add(mainBase);
 
-      const back = new THREE.Mesh(new THREE.BoxGeometry(chairW, 1.8, 0.45), fabricMat);
-      back.position.set(0, 1.6, -chairD / 2 + 0.25);
-      back.castShadow = true;
+      // Chaise Lounge Extension (on the right)
+      const chaiseBase = new THREE.Mesh(new THREE.BoxGeometry(3.0, seatH * 0.4, chaiseL - mainD), fabricMat);
+      chaiseBase.position.set(mainW / 2 - 1.5, 0.4 + (seatH * 0.4) / 2, (chaiseL - mainD) / 2 + mainD / 2);
+      root.add(chaiseBase);
+
+      // Main Backrest
+      const back = new THREE.Mesh(new THREE.BoxGeometry(mainW, 1.6, 0.5), fabricMat);
+      back.position.set(0, seatH + 0.8, -mainD / 2 + 0.25);
       root.add(back);
 
-      for (const side of [-1, 1]) {
-        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.1, chairD), fabricMat);
-        arm.position.set(side * (chairW / 2 - 0.15), 1.1, 0);
-        arm.castShadow = true;
-        root.add(arm);
-      }
+      // Left Armrest
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, mainD), fabricMat);
+      armL.position.set(-mainW / 2 + 0.225, seatH + 0.3, 0);
+      root.add(armL);
 
-      for (const lx of [-chairW / 2 + 0.3, chairW / 2 - 0.3]) {
-        for (const lz of [-chairD / 2 + 0.3, chairD / 2 - 0.3]) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.6, 12), brassMat);
-          leg.position.set(lx, 0.3, lz);
-          root.add(leg);
-        }
-      }
-      break;
-    }
-
-    case "coffee_table": {
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.1, 32), marbleMat);
-      top.position.y = 1.35;
-      top.castShadow = true;
-      root.add(top);
-
+      // Cushions on main sofa
       for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 16), brassMat);
-        leg.position.set(Math.cos(angle) * 1.4, 0.65, Math.sin(angle) * 1.4);
+        const cushion = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, mainD - 0.4), fabricMat);
+        cushion.position.set(-mainW / 2 + 1.2 + i * 1.9, seatH + 0.1, 0.1);
+        root.add(cushion);
+      }
+
+      // Chaise Long Cushion
+      const chaiseCushion = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, chaiseL - 0.4), fabricMat);
+      chaiseCushion.position.set(mainW / 2 - 1.5, seatH + 0.1, (chaiseL - mainD) / 2);
+      root.add(chaiseCushion);
+
+      // Throw Pillows
+      const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+      const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.25), pillowMat);
+      p1.position.set(-mainW / 2 + 0.8, seatH + 0.5, -mainD / 2 + 0.6);
+      p1.rotation.y = 0.2;
+      root.add(p1);
+
+      // Legs
+      for (const [lx, lz] of [
+        [-mainW / 2 + 0.3, -mainD / 2 + 0.3],
+        [-mainW / 2 + 0.3, mainD / 2 - 0.3],
+        [mainW / 2 - 0.3, -mainD / 2 + 0.3],
+        [mainW / 2 - 0.3, chaiseL - 0.3],
+        [mainW / 2 - 2.8, chaiseL - 0.3],
+      ]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.4, 16), darkWoodMat);
+        leg.position.set(lx, 0.2, lz);
         root.add(leg);
       }
       break;
     }
 
-    case "tv_unit": {
-      const unitW = 6.0;
-      const unitD = 1.4;
+    // ----------------------------------------------------------------------------------
+    // 3. Curved Crescent Lounge Sofa
+    // ----------------------------------------------------------------------------------
+    case "sofa_curved": {
+      const radius = 4.0;
+      const tube = 1.0;
+      const arc = Math.PI * 0.65;
 
-      // Floating cabinet
-      const cabinet = new THREE.Mesh(new THREE.BoxGeometry(unitW, 1.2, unitD), walnutMat);
-      cabinet.position.set(0, 1.4, 0);
-      cabinet.castShadow = true;
-      root.add(cabinet);
+      const curveGeom = new THREE.TorusGeometry(radius, tube * 0.7, 16, 32, arc);
+      const curveMesh = new THREE.Mesh(curveGeom, fabricMat);
+      curveMesh.rotation.x = Math.PI / 2;
+      curveMesh.rotation.z = -arc / 2 - Math.PI / 2;
+      curveMesh.position.set(0, 0.8, -1.2);
+      root.add(curveMesh);
 
-      // Backlit wall panel
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(unitW + 0.4, 3.8, 0.1), marbleMat);
-      panel.position.set(0, 3.6, -unitD / 2 + 0.05);
-      root.add(panel);
-
-      // TV Screen
-      const tvMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 });
-      const tv = new THREE.Mesh(new THREE.BoxGeometry(4.8, 2.7, 0.08), tvMat);
-      tv.position.set(0, 3.6, -unitD / 2 + 0.2);
-      root.add(tv);
+      // Curved Backrest
+      const backGeom = new THREE.TorusGeometry(radius + 0.4, tube * 0.55, 16, 32, arc);
+      const backMesh = new THREE.Mesh(backGeom, fabricMat);
+      backMesh.rotation.x = Math.PI / 2;
+      backMesh.rotation.z = -arc / 2 - Math.PI / 2;
+      backMesh.position.set(0, 1.6, -1.2);
+      root.add(backMesh);
       break;
     }
 
-    case "floor_lamp": {
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 0.15, 24), marbleMat);
-      base.position.y = 0.075;
+    // ----------------------------------------------------------------------------------
+    // 4. Compact 2-Seater Loveseat
+    // ----------------------------------------------------------------------------------
+    case "sofa_loveseat": {
+      const w = 5.0;
+      const d = 3.0;
+      const seatH = 1.2;
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w, seatH * 0.4, d), fabricMat);
+      base.position.y = 0.4 + (seatH * 0.4) / 2;
       root.add(base);
 
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 5.0, 16), brassMat);
-      stem.position.y = 2.5;
-      root.add(stem);
+      for (let i = -0.5; i <= 0.5; i += 1.0) {
+        const cushion = new THREE.Mesh(new THREE.BoxGeometry(w / 2 - 0.1, 0.4, d - 0.3), fabricMat);
+        cushion.position.set(i * (w / 2), seatH + 0.1, 0.1);
+        root.add(cushion);
+      }
 
-      const shadeMat = new THREE.MeshStandardMaterial({
-        color: 0xfffaed,
-        emissive: 0xffe8ba,
-        emissiveIntensity: 0.8,
-      });
-      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 0.9, 24), shadeMat);
-      shade.position.y = 4.8;
-      root.add(shade);
-      break;
-    }
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w, 1.5, 0.5), fabricMat);
+      back.position.set(0, seatH + 0.75, -d / 2 + 0.25);
+      root.add(back);
 
-    case "plant_pot": {
-      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.55, 1.5, 24), ceramicMat);
-      pot.position.y = 0.75;
-      pot.castShadow = true;
-      root.add(pot);
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.1, d), fabricMat);
+      armL.position.set(-w / 2 + 0.2, seatH + 0.25, 0);
+      const armR = armL.clone();
+      armR.position.x = w / 2 - 0.2;
+      root.add(armL, armR);
 
-      const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 16), darkWoodMat);
-      soil.position.y = 1.45;
-      root.add(soil);
-
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.35 });
-      for (let i = 0; i < 7; i++) {
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.6, 5), leafMat);
-        const angle = (i * 2 * Math.PI) / 7;
-        leaf.position.set(Math.cos(angle) * 0.4, 2.4 + (i % 3) * 0.4, Math.sin(angle) * 0.4);
-        leaf.rotation.z = Math.cos(angle) * 0.35;
-        leaf.rotation.x = Math.sin(angle) * 0.35;
-        root.add(leaf);
+      for (const lx of [-w / 2 + 0.3, w / 2 - 0.3]) {
+        for (const lz of [-d / 2 + 0.3, d / 2 - 0.3]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.4, 16), brassMat);
+          leg.position.set(lx, 0.2, lz);
+          root.add(leg);
+        }
       }
       break;
     }
 
-    case "floor_rug": {
-      const rugW = 7.0;
-      const rugD = 5.0;
-      const rugMat = new THREE.MeshStandardMaterial({ color: 0xdbeafe, roughness: 0.95 });
-      const rug = new THREE.Mesh(new THREE.BoxGeometry(rugW, 0.03, rugD), rugMat);
-      rug.position.y = 0.015;
-      root.add(rug);
+    // ----------------------------------------------------------------------------------
+    // 5. Armchair
+    // ----------------------------------------------------------------------------------
+    case "armchair": {
+      const w = 2.8;
+      const d = 2.8;
+      const seatH = 1.3;
+
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(w - 0.5, 0.4, d - 0.4), fabricMat);
+      seat.position.set(0, seatH, 0.1);
+      root.add(seat);
+
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w - 0.5, 1.4, 0.4), fabricMat);
+      back.position.set(0, seatH + 0.7, -d / 2 + 0.3);
+      root.add(back);
+
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, d - 0.2), fabricMat);
+      armL.position.set(-w / 2 + 0.15, seatH + 0.25, 0);
+      const armR = armL.clone();
+      armR.position.x = w / 2 - 0.15;
+      root.add(armL, armR);
+
+      for (const lx of [-w / 2 + 0.3, w / 2 - 0.3]) {
+        for (const lz of [-d / 2 + 0.3, d / 2 - 0.3]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, seatH, 16), brassMat);
+          leg.position.set(lx, seatH / 2, lz);
+          root.add(leg);
+        }
+      }
       break;
     }
 
+    // ----------------------------------------------------------------------------------
+    // 6. Leather Recliner
+    // ----------------------------------------------------------------------------------
+    case "recliner_chair": {
+      const w = 3.2;
+      const d = 3.4;
+      const leatherMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.45 });
+
+      const baseRing = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.15, 32), chromeMat);
+      baseRing.position.y = 0.08;
+      root.add(baseRing);
+
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 0.6, d - 0.8), leatherMat);
+      seat.position.set(0, 1.3, 0);
+      root.add(seat);
+
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 2.0, 0.5), leatherMat);
+      back.position.set(0, 2.2, -d / 2 + 0.5);
+      back.rotation.x = -0.15;
+      root.add(back);
+
+      const headrest = new THREE.Mesh(new THREE.BoxGeometry(w - 0.8, 0.6, 0.4), leatherMat);
+      headrest.position.set(0, 3.2, -d / 2 + 0.35);
+      root.add(headrest);
+
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.8, d - 0.6), leatherMat);
+      armL.position.set(-w / 2 + 0.2, 1.6, 0);
+      const armR = armL.clone();
+      armR.position.x = w / 2 - 0.2;
+      root.add(armL, armR);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 7. Coffee Table
+    // ----------------------------------------------------------------------------------
+    case "coffee_table": {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.15, 2.4), marbleMat);
+      top.position.y = 1.4;
+      root.add(top);
+
+      for (const lx of [-1.6, 1.6]) {
+        for (const lz of [-0.9, 0.9]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.35, 16), brassMat);
+          leg.position.set(lx, 0.675, lz);
+          root.add(leg);
+        }
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 8. Floating TV Unit
+    // ----------------------------------------------------------------------------------
+    case "tv_unit": {
+      const w = 6.5;
+      const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, 1.4), walnutMat);
+      consoleMesh.position.set(0, 1.2, 0);
+      root.add(consoleMesh);
+
+      // Backing Wall Slat Panel
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 4.2, 0.15), darkWoodMat);
+      panel.position.set(0, 3.0, -0.6);
+      root.add(panel);
+
+      // 65" TV Screen
+      const tvScreen = new THREE.Mesh(
+        new THREE.BoxGeometry(5.0, 2.8, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
+      );
+      tvScreen.position.set(0, 3.2, -0.45);
+      root.add(tvScreen);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 9. Grand King Bed
+    // ----------------------------------------------------------------------------------
     case "bed_king": {
-      const bedW = 6.2;
-      const bedL = 6.8;
+      const w = 6.4;
+      const d = 7.0;
 
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.8, bedL), darkWoodMat);
-      frame.position.y = 0.4;
-      frame.castShadow = true;
-      root.add(frame);
+      // Base
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, d), darkWoodMat);
+      base.position.set(0, 0.4, 0);
+      root.add(base);
 
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.2, 0.7, bedL - 0.2), linenMat);
-      mattress.position.y = 1.05;
-      mattress.castShadow = true;
+      // Mattress & Duvet
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.7, d - 0.4), cushionMat);
+      mattress.position.set(0, 1.15, 0.1);
       root.add(mattress);
 
-      const duvet = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.15, 0.72, bedL * 0.65), fabricMat);
-      duvet.position.set(0, 1.07, bedL * 0.15);
-      duvet.castShadow = true;
+      const duvet = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.15, d * 0.65), fabricMat);
+      duvet.position.set(0, 1.55, 0.5);
       root.add(duvet);
 
-      const headboard = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.4, 3.8, 0.4), darkWoodMat);
-      headboard.position.set(0, 1.9, -bedL / 2 + 0.1);
-      headboard.castShadow = true;
+      // Tufted Headboard
+      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.2, 0.4), fabricMat);
+      headboard.position.set(0, 2.0, -d / 2 + 0.2);
       root.add(headboard);
 
       // Pillows
-      for (const px of [-bedW * 0.24, bedW * 0.24]) {
-        const pillow = new THREE.Mesh(new THREE.BoxGeometry(bedW * 0.38, 0.35, 1.3), linenMat);
-        pillow.position.set(px, 1.45, -bedL / 2 + 1.2);
+      for (const px of [-1.5, 1.5]) {
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 1.2), cushionMat);
+        pillow.position.set(px, 1.6, -d / 2 + 1.2);
+        pillow.rotation.x = 0.2;
         root.add(pillow);
       }
 
-      // Nightstands
+      // Dual Nightstands
       for (const side of [-1, 1]) {
-        const stand = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.4), darkWoodMat);
-        stand.position.set(side * (bedW / 2 + 1.1), 0.7, -bedL / 2 + 0.9);
-        stand.castShadow = true;
+        const stand = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.4), darkWoodMat);
+        stand.position.set(side * (w / 2 + 1.0), 0.6, -d / 2 + 1.0);
         root.add(stand);
 
-        const lampShade = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.35, 0.45, 0.6, 16),
-          new THREE.MeshStandardMaterial({ color: 0xfffaed, emissive: 0xffe8ba, emissiveIntensity: 0.6 })
-        );
-        lampShade.position.set(side * (bedW / 2 + 1.1), 1.9, -bedL / 2 + 0.9);
-        root.add(lampShade);
+        const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.6, 16), brassMat);
+        lamp.position.set(side * (w / 2 + 1.0), 1.5, -d / 2 + 1.0);
+        root.add(lamp);
       }
       break;
     }
 
-    case "bed_single": {
-      const bedW = 3.5;
-      const bedL = 6.5;
+    // ----------------------------------------------------------------------------------
+    // 10. Platform Bed (Queen)
+    // ----------------------------------------------------------------------------------
+    case "bed_queen_platform": {
+      const w = 5.5;
+      const d = 6.8;
 
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.8, bedL), darkWoodMat);
-      frame.position.y = 0.4;
-      frame.castShadow = true;
-      root.add(frame);
+      const platform = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.4, d + 0.6), walnutMat);
+      platform.position.set(0, 0.2, 0);
+      root.add(platform);
 
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.2, 0.7, bedL - 0.2), linenMat);
-      mattress.position.y = 1.05;
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w, 0.7, d), cushionMat);
+      mattress.position.set(0, 0.75, 0);
       root.add(mattress);
 
-      const duvet = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.15, 0.72, bedL * 0.65), fabricMat);
-      duvet.position.set(0, 1.07, bedL * 0.15);
+      const duvet = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.15, d * 0.6), fabricMat);
+      duvet.position.set(0, 1.15, 0.5);
       root.add(duvet);
 
-      const headboard = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.2, 3.0, 0.35), darkWoodMat);
-      headboard.position.set(0, 1.5, -bedL / 2 + 0.15);
+      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 2.2, 0.25), walnutMat);
+      headboard.position.set(0, 1.3, -d / 2 - 0.1);
       root.add(headboard);
       break;
     }
 
+    // ----------------------------------------------------------------------------------
+    // 11. Single Bed
+    // ----------------------------------------------------------------------------------
+    case "bed_single": {
+      const w = 3.6;
+      const d = 6.5;
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.6, d), darkWoodMat);
+      base.position.set(0, 0.3, 0);
+      root.add(base);
+
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.6, d - 0.2), cushionMat);
+      mattress.position.set(0, 0.9, 0);
+      root.add(mattress);
+
+      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w, 2.2, 0.3), darkWoodMat);
+      headboard.position.set(0, 1.3, -d / 2 + 0.15);
+      root.add(headboard);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 12. Bunk Bed
+    // ----------------------------------------------------------------------------------
+    case "bed_bunk": {
+      const w = 3.8;
+      const d = 6.6;
+      const h = 5.8;
+
+      // 4 Corner Posts
+      for (const lx of [-w / 2 + 0.15, w / 2 - 0.15]) {
+        for (const lz of [-d / 2 + 0.15, d / 2 - 0.15]) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, 0.3), darkWoodMat);
+          post.position.set(lx, h / 2, lz);
+          root.add(post);
+        }
+      }
+
+      // Bottom Bunk
+      const bed1 = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.5, d - 0.3), cushionMat);
+      bed1.position.set(0, 1.2, 0);
+      root.add(bed1);
+
+      // Top Bunk
+      const bed2 = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.5, d - 0.3), cushionMat);
+      bed2.position.set(0, 4.2, 0);
+      root.add(bed2);
+
+      // Safety Guard Rail
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.8, 0.15), darkWoodMat);
+      rail.position.set(0, 4.8, d / 2 - 0.2);
+      root.add(rail);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 13. 3-Door Wardrobe
+    // ----------------------------------------------------------------------------------
     case "wardrobe": {
-      const wardW = 5.2;
-      const wardD = 2.0;
-      const wardH = 7.8;
+      const w = 5.4;
+      const d = 2.0;
+      const h = 7.8;
 
-      const closet = new THREE.Mesh(new THREE.BoxGeometry(wardW, wardH, wardD), walnutMat);
-      closet.position.y = wardH / 2;
-      closet.castShadow = true;
-      root.add(closet);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), walnutMat);
+      body.position.set(0, h / 2, 0);
+      root.add(body);
 
-      for (let i = 0; i < 3; i++) {
-        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.4, 0.08), brassMat);
-        handle.position.set(-wardW / 3 + i * (wardW / 3) + 0.5, 3.8, wardD / 2 + 0.05);
+      // 3 Doors with Grooves
+      for (let i = -1; i <= 1; i++) {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(w / 3 - 0.06, h - 0.2, 0.05), darkWoodMat);
+        door.position.set(i * (w / 3), h / 2, d / 2 + 0.03);
+        root.add(door);
+
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.2, 0.1), brassMat);
+        handle.position.set(i * (w / 3) + (i === 1 ? -0.5 : 0.5), h / 2, d / 2 + 0.08);
         root.add(handle);
       }
       break;
     }
 
-    case "study_desk": {
-      const deskW = 4.2;
-      const deskD = 2.2;
+    // ----------------------------------------------------------------------------------
+    // 14. Vanity Table
+    // ----------------------------------------------------------------------------------
+    case "vanity_table": {
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.8, 1.6), walnutMat);
+      desk.position.set(0, 2.4, 0);
+      root.add(desk);
 
-      // Tabletop
-      const top = new THREE.Mesh(new THREE.BoxGeometry(deskW, 0.15, deskD), walnutMat);
-      top.position.y = 2.65;
-      top.castShadow = true;
-      root.add(top);
+      // Round LED Mirror
+      const mirror = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.2, 1.2, 0.08, 32),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.05 })
+      );
+      mirror.rotation.x = Math.PI / 2;
+      mirror.position.set(0, 4.4, -0.6);
+      root.add(mirror);
 
-      // Legs
-      for (const lx of [-deskW / 2 + 0.2, deskW / 2 - 0.2]) {
-        for (const lz of [-deskD / 2 + 0.2, deskD / 2 - 0.2]) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 12), chromeMat);
+      // Stool
+      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.2, 24), fabricMat);
+      stool.position.set(0, 0.6, 0.8);
+      root.add(stool);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 15. 6-Seater Dining Set
+    // ----------------------------------------------------------------------------------
+    case "dining_6seater": {
+      const tw = 6.2;
+      const td = 3.5;
+      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tw, 0.2, td), darkWoodMat);
+      tableTop.position.set(0, 2.7, 0);
+      root.add(tableTop);
+
+      for (const lx of [-tw / 2 + 0.4, tw / 2 - 0.4]) {
+        for (const lz of [-td / 2 + 0.4, td / 2 - 0.4]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), darkWoodMat);
           leg.position.set(lx, 1.3, lz);
           root.add(leg);
         }
       }
 
-      // Laptop
-      const laptopBase = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.03, 0.8), chromeMat);
-      laptopBase.position.set(0, 2.74, 0);
-      root.add(laptopBase);
-
-      const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.7, 0.03), chromeMat);
-      laptopScreen.position.set(0, 3.08, -0.38);
-      laptopScreen.rotation.x = -0.15;
-      root.add(laptopScreen);
-      break;
-    }
-
-    case "vanity_table": {
-      const tableW = 3.4;
-      const tableD = 1.6;
-
-      const top = new THREE.Mesh(new THREE.BoxGeometry(tableW, 1.0, tableD), marbleMat);
-      top.position.y = 2.5;
-      top.castShadow = true;
-      root.add(top);
-
-      const mirror = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.06, 32), chromeMat);
-      mirror.position.set(0, 4.4, -tableD / 2 + 0.1);
-      mirror.rotation.x = Math.PI / 2;
-      root.add(mirror);
-      break;
-    }
-
-    case "dining_6seater": {
-      const tableW = 6.0;
-      const tableD = 3.4;
-
-      const top = new THREE.Mesh(new THREE.BoxGeometry(tableW, 0.2, tableD), darkWoodMat);
-      top.position.y = 2.75;
-      top.castShadow = true;
-      root.add(top);
-
-      for (const lx of [-tableW / 2 + 0.3, tableW / 2 - 0.3]) {
-        for (const lz of [-tableD / 2 + 0.3, tableD / 2 - 0.3]) {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.65, 0.2), darkWoodMat);
-          leg.position.set(lx, 1.32, lz);
-          root.add(leg);
-        }
-      }
-
       // 6 Chairs
-      for (const side of [-1, 1]) {
-        for (let i = 0; i < 3; i++) {
-          const chairGroup = new THREE.Group();
-          const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 1.4), fabricMat);
-          chairSeat.position.y = 1.6;
-          chairGroup.add(chairSeat);
-
-          const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.1), fabricMat);
-          chairBack.position.set(0, 2.3, -side * 0.65);
-          chairGroup.add(chairBack);
-
-          chairGroup.position.set(-tableW / 3 + i * (tableW / 3), 0, side * (tableD / 2 + 0.85));
-          chairGroup.rotation.y = side === 1 ? Math.PI : 0;
-          root.add(chairGroup);
+      for (let i = -1; i <= 1; i++) {
+        for (const side of [-1, 1]) {
+          const chair = new THREE.Group();
+          const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 1.3), fabricMat);
+          seat.position.y = 1.5;
+          const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 0.15), darkWoodMat);
+          chairBack.position.set(0, 2.2, side * 0.6);
+          chair.add(seat, chairBack);
+          chair.position.set(i * 1.8, 0, side * (td / 2 + 0.8));
+          root.add(chair);
         }
       }
       break;
     }
 
+    // ----------------------------------------------------------------------------------
+    // 16. Round Dining Table
+    // ----------------------------------------------------------------------------------
     case "dining_round": {
-      const table = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.15, 32), darkWoodMat);
-      table.position.y = 2.75;
-      table.castShadow = true;
-      root.add(table);
-
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 2.65, 24), darkWoodMat);
-      pedestal.position.y = 1.32;
-      root.add(pedestal);
-      break;
-    }
-
-    case "kitchen_island": {
-      const islandW = 5.5;
-      const islandD = 2.6;
-
-      const base = new THREE.Mesh(new THREE.BoxGeometry(islandW, 2.8, islandD), darkWoodMat);
-      base.position.y = 1.4;
-      base.castShadow = true;
-      root.add(base);
-
-      const top = new THREE.Mesh(new THREE.BoxGeometry(islandW + 0.3, 0.25, islandD + 0.3), marbleMat);
-      top.position.y = 2.9;
-      top.castShadow = true;
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.15, 32), marbleMat);
+      top.position.set(0, 2.7, 0);
       root.add(top);
+
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.8, 2.6, 24), brassMat);
+      pedestal.position.set(0, 1.3, 0);
+      root.add(pedestal);
+
+      // 4 Chairs in circle
+      for (let a = 0; a < 4; a++) {
+        const angle = (a * Math.PI) / 2;
+        const chair = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 1.4, 24), fabricMat);
+        chair.position.set(Math.cos(angle) * 3.0, 0.7, Math.sin(angle) * 3.0);
+        root.add(chair);
+      }
       break;
     }
 
-    case "refrigerator": {
-      const fridgeW = 2.8;
-      const fridgeD = 2.5;
-      const fridgeH = 6.8;
-
-      const body = new THREE.Mesh(new THREE.BoxGeometry(fridgeW, fridgeH, fridgeD), chromeMat);
-      body.position.y = fridgeH / 2;
-      body.castShadow = true;
+    // ----------------------------------------------------------------------------------
+    // 17. Kitchen Island
+    // ----------------------------------------------------------------------------------
+    case "kitchen_island": {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(5.8, 2.7, 2.6), darkWoodMat);
+      body.position.set(0, 1.35, 0);
       root.add(body);
+
+      const top = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.25, 3.0), quartzMat);
+      top.position.set(0, 2.8, 0);
+      root.add(top);
+
+      // 2 Bar Stools
+      for (const bx of [-1.5, 1.5]) {
+        const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 16), fabricMat);
+        stool.position.set(bx, 1.1, 2.2);
+        root.add(stool);
+      }
       break;
     }
 
-    case "bath_vanity": {
-      const vanW = 3.2;
-      const vanD = 1.8;
+    // ----------------------------------------------------------------------------------
+    // 18. Refrigerator
+    // ----------------------------------------------------------------------------------
+    case "refrigerator": {
+      const fridge = new THREE.Mesh(new THREE.BoxGeometry(3.0, 6.8, 2.6), chromeMat);
+      fridge.position.set(0, 3.4, 0);
+      root.add(fridge);
 
-      const cab = new THREE.Mesh(new THREE.BoxGeometry(vanW, 1.8, vanD), walnutMat);
-      cab.position.set(0, 2.1, 0);
-      cab.castShadow = true;
-      root.add(cab);
-
-      const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.5, 0.4, 24), ceramicMat);
-      basin.position.set(0, 3.2, 0);
-      root.add(basin);
-
-      const mirror = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.8, 0.08), chromeMat);
-      mirror.position.set(0, 5.0, -vanD / 2 + 0.04);
-      root.add(mirror);
+      // Handle Bars
+      for (const side of [-0.3, 0.3]) {
+        const hBar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.5, 12), brassMat);
+        hBar.position.set(side, 4.0, 1.38);
+        root.add(hBar);
+      }
       break;
     }
 
-    case "toilet_wc": {
-      const wcMat = ceramicMat;
-      const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 2.0), wcMat);
-      base.position.set(0, 0.65, 0);
-      base.castShadow = true;
+    // ----------------------------------------------------------------------------------
+    // 19. Executive Study Desk
+    // ----------------------------------------------------------------------------------
+    case "study_desk": {
+      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.2, 2.2), darkWoodMat);
+      deskTop.position.set(0, 2.5, 0);
+      root.add(deskTop);
+
+      for (const lx of [-2.0, 2.0]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.4, 2.0), chromeMat);
+        leg.position.set(lx, 1.2, 0);
+        root.add(leg);
+      }
+
+      // Laptop
+      const laptop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.9), chromeMat);
+      laptop.position.set(0, 2.65, 0);
+      root.add(laptop);
+
+      // Office Chair
+      const chair = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.6, 1.4), fabricMat);
+      chair.position.set(0, 1.8, 1.6);
+      root.add(chair);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 20. Tall Open Bookshelf
+    // ----------------------------------------------------------------------------------
+    case "bookshelf": {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 6.5, 1.2), darkWoodMat);
+      frame.position.set(0, 3.25, 0);
+      root.add(frame);
+
+      // 4 Internal Shelves with decorative items
+      for (let s = 1; s <= 4; s++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 1.15), brassMat);
+        shelf.position.set(0, s * 1.3, 0.05);
+        root.add(shelf);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 21. Plant Pot
+    // ----------------------------------------------------------------------------------
+    case "plant_pot": {
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.7, 0.5, 1.4, 24),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+      );
+      pot.position.set(0, 0.7, 0);
+      root.add(pot);
+
+      // Stem & Foliage
+      const plantMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.8, 12), darkWoodMat);
+      stem.position.set(0, 2.2, 0);
+      root.add(stem);
+
+      for (let i = 0; i < 6; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), plantMat);
+        leaf.scale.set(1.4, 0.3, 0.8);
+        const a = (i * Math.PI) / 3;
+        leaf.position.set(Math.cos(a) * 0.7, 2.0 + i * 0.35, Math.sin(a) * 0.7);
+        leaf.rotation.y = a;
+        leaf.rotation.z = 0.3;
+        root.add(leaf);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 22. Floor Lamp
+    // ----------------------------------------------------------------------------------
+    case "floor_lamp": {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 24), brassMat);
+      base.position.set(0, 0.05, 0);
       root.add(base);
 
-      const tank = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.8), wcMat);
-      tank.position.set(0, 1.7, -0.6);
-      tank.castShadow = true;
-      root.add(tank);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 5.0, 16), brassMat);
+      pole.position.set(0, 2.5, 0);
+      root.add(pole);
+
+      const shade = new THREE.Mesh(
+        new THREE.ConeGeometry(0.8, 0.9, 24),
+        new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0x422006, roughness: 0.5 })
+      );
+      shade.position.set(0, 5.0, 0);
+      root.add(shade);
       break;
     }
 
-    case "bathtub": {
-      const tub = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.8, 2.8), ceramicMat);
-      tub.position.y = 0.9;
-      tub.castShadow = true;
-      root.add(tub);
-      break;
-    }
-
+    // ----------------------------------------------------------------------------------
+    // 23. Sacred Pooja Mandir Temple
+    // ----------------------------------------------------------------------------------
     case "pooja_mandir": {
-      const mandirW = 3.2;
-      const mandirD = 2.0;
+      const w = 3.4;
+      const d = 2.2;
 
-      const base = new THREE.Mesh(new THREE.BoxGeometry(mandirW, 1.6, mandirD), darkWoodMat);
-      base.position.y = 0.8;
+      // Base Platform
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), darkWoodMat);
+      base.position.set(0, 0.6, 0);
       root.add(base);
 
-      const canopy = new THREE.Mesh(new THREE.BoxGeometry(mandirW, 0.3, mandirD), darkWoodMat);
-      canopy.position.y = 3.8;
-      root.add(canopy);
-
-      for (const px of [-mandirW / 2 + 0.15, mandirW / 2 - 0.15]) {
-        for (const pz of [-mandirD / 2 + 0.15, mandirD / 2 - 0.15]) {
-          const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 16), brassMat);
-          pillar.position.set(px, 2.7, pz);
+      // Inner Sanctum Pillars
+      for (const px of [-w / 2 + 0.3, w / 2 - 0.3]) {
+        for (const pz of [-d / 2 + 0.3, d / 2 - 0.3]) {
+          const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 16), brassMat);
+          pillar.position.set(px, 2.4, pz);
           root.add(pillar);
         }
       }
 
-      const dome = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.0, 16), brassMat);
-      dome.position.y = 4.4;
+      // Temple Canopy / Shikhara
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.3, d + 0.2), darkWoodMat);
+      canopy.position.set(0, 3.6, 0);
+      root.add(canopy);
+
+      const dome = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.4, 4), brassMat);
+      dome.position.set(0, 4.4, 0);
+      dome.rotation.y = Math.PI / 4;
       root.add(dome);
+
+      // Brass Kalash Top
+      const kalash = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), brassMat);
+      kalash.position.set(0, 5.2, 0);
+      root.add(kalash);
       break;
     }
 
-    case "wall_art": {
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(4.0, 3.0, 0.12), darkWoodMat);
-      frame.position.y = 4.5;
-      root.add(frame);
-
-      const canvasMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 });
-      const art = new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.7, 0.14), canvasMat);
-      art.position.y = 4.5;
-      root.add(art);
+    // ----------------------------------------------------------------------------------
+    // 24. Floor Area Rug
+    // ----------------------------------------------------------------------------------
+    case "floor_rug": {
+      const rug = new THREE.Mesh(
+        new THREE.BoxGeometry(7.5, 0.04, 5.5),
+        new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.95 })
+      );
+      rug.position.set(0, 0.02, 0);
+      root.add(rug);
       break;
     }
 
     default: {
-      const placeholder = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), fabricMat);
-      placeholder.position.y = 1;
-      root.add(placeholder);
+      const cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), fabricMat);
+      cube.position.y = 1;
+      root.add(cube);
+      break;
     }
   }
 
