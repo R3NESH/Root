@@ -5,14 +5,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Scene from "@/components/Scene";
-import PlotPicker from "@/components/PlotPicker";
-import CompassDial from "@/components/CompassDial";
-import RoomTray from "@/components/RoomTray";
-import RoomCustomizer, { CustomDim } from "@/components/RoomCustomizer";
+import { CustomDim } from "@/components/RoomCustomizer";
 import Minimap from "@/components/Minimap";
 import WalkthroughOverlay from "@/components/WalkthroughOverlay";
 import Blueprint2DView from "@/components/Blueprint2DView";
 import BlueprintExportModal from "@/components/BlueprintExportModal";
+import RoomDimensionsModal from "@/components/RoomDimensionsModal";
 import {
   buildableDepthIn,
   buildableWidthIn,
@@ -211,6 +209,7 @@ export default function Home() {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
   const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
+  const [isRoomDimensionsOpen, setIsRoomDimensionsOpen] = useState(false);
 
   const selectedObject = useMemo(() => {
     if (selectedObjectInfo) return selectedObjectInfo;
@@ -622,6 +621,22 @@ export default function Home() {
       <TopRibbonTaskbar
         mode={mode}
         onChangeMode={setMode}
+        plot={plot}
+        onChangePlot={setPlot}
+        facing={facing}
+        onChangeFacing={setFacing}
+        counts={counts}
+        onChangeCounts={setCounts}
+        furnished={furnished}
+        onToggleFurnished={setFurnished}
+        rooms={rooms}
+        customDims={customDims}
+        onChangeCustomDims={setCustomDims}
+        meta={meta}
+        materialConfig={materialConfig}
+        onChangeMaterialConfig={setMaterialConfig}
+        windowConfig={windowConfig}
+        onChangeWindowConfig={setWindowConfig}
         lightsOn={lightsOn}
         onToggleLights={handleToggleLights}
         isLayoutLocked={isLayoutLocked}
@@ -630,6 +645,7 @@ export default function Home() {
         onOpenWindowModal={() => setIsWindowModalOpen(true)}
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
         placingItemType={placingItemType}
         placingRotationY={placingRotationY}
         onSelectPlaceItem={(type) => {
@@ -784,93 +800,17 @@ export default function Home() {
             </>
           )}
         </section>
-
-        {/* Sidebar Controls (Active in Orbit and Blueprint Modes) */}
-        {mode !== "walkthrough" && (
-          <aside className={styles.sidebar}>
-            <div className={styles.card}>
-              <h2 className={styles.cardHeading}>1. Plot Dimensions</h2>
-              <PlotPicker plot={plot} onChange={setPlot} />
-            </div>
-
-            <div className={styles.card}>
-              <h2 className={styles.cardHeading}>2. Road Facing Direction</h2>
-              <CompassDial facing={facing} onChange={setFacing} />
-            </div>
-
-            <div className={styles.card}>
-              <h2 className={styles.cardHeading}>3. Room Program</h2>
-              <RoomTray counts={counts} onChange={setCounts} />
-            </div>
-
-            <div className={styles.card}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <h2 className={styles.cardHeading} style={{ margin: 0 }}>4. Materials & Finishes</h2>
-                <button
-                  className={styles.sidebarMaterialBtn}
-                  onClick={() => setIsMaterialModalOpen(true)}
-                >
-                  🎨 Customize
-                </button>
-              </div>
-              <div className={styles.materialPillsSummary}>
-                <div className={styles.summaryBadge}>
-                  <b>Flooring:</b> {FLOOR_MATERIALS.find((m) => m.id === materialConfig.globalFloor)?.name ?? "Carrara White Marble"}
-                </div>
-                <div className={styles.summaryBadge}>
-                  <b>Walls:</b> {WALL_COLORS.find((c) => c.id === materialConfig.globalWallColor)?.name ?? "Arctic White"}
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.card}>
-              <h2 className={styles.cardHeading}>5. Interiors</h2>
-              <label className={styles.toggleRow}>
-                <input
-                  type="checkbox"
-                  className={styles.toggleBox}
-                  checked={furnished}
-                  onChange={(e) => setFurnished(e.target.checked)}
-                />
-                <span className={styles.toggleText}>
-                  <span className={styles.toggleTitle}>Auto-Furnish Interiors</span>
-                  <span className={styles.toggleHint}>
-                    Beds, sofas, counters, wardrobes, fans and curtains, placed clear of every
-                    doorway. Uncheck for the bare shell.
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            <div className={styles.card}>
-              <h2 className={styles.cardHeading}>6. Room Dimensions (Custom)</h2>
-              <RoomCustomizer
-                counts={counts}
-                rooms={rooms}
-                customDims={customDims}
-                onChangeCustomDims={setCustomDims}
-              />
-            </div>
-
-            {meta && (
-              <div className={styles.statusFooter}>
-                <div className={styles.statusRow}>
-                  <span>Solver Status:</span>
-                  <span className={styles.statusOk}>{meta.status}</span>
-                </div>
-                <div className={styles.statusRow}>
-                  <span>Solve Time:</span>
-                  <span>{meta.solve_ms} ms</span>
-                </div>
-                <div className={styles.statusRow}>
-                  <span>Vaastu Compliant:</span>
-                  <span>{meta.vaastu_constraints_applied.length} zones active</span>
-                </div>
-              </div>
-            )}
-          </aside>
-        )}
       </main>
+
+      {/* Room Dimensions & Sizing Studio Modal */}
+      <RoomDimensionsModal
+        isOpen={isRoomDimensionsOpen}
+        onClose={() => setIsRoomDimensionsOpen(false)}
+        counts={counts}
+        rooms={rooms}
+        customDims={customDims}
+        onChangeCustomDims={setCustomDims}
+      />
 
       {/* Materials & Finishes Studio Dialog Modal */}
       <MaterialCustomizerModal
