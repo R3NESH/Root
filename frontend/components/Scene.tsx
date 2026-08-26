@@ -254,6 +254,9 @@ export default function Scene({
   const onAddCustomObjectRef = useRef(onAddCustomObject);
   const onSelectObjectRef = useRef(onSelectObject);
   const onUpdateCustomObjectRef = useRef(onUpdateCustomObject);
+  const onRequestReplaceRef = useRef(onRequestReplace);
+  const onRequestDeleteRef = useRef(onRequestDelete);
+  const onRotateSelectedRef = useRef(onRotateSelected);
   const onRotatePlacingRef = useRef(onRotatePlacing);
   const modeRef = useRef(mode);
   const activeMoveCmdRef = useRef(activeMoveCmd);
@@ -275,6 +278,9 @@ export default function Scene({
     onAddCustomObjectRef.current = onAddCustomObject;
     onSelectObjectRef.current = onSelectObject;
     onUpdateCustomObjectRef.current = onUpdateCustomObject;
+    onRequestReplaceRef.current = onRequestReplace;
+    onRequestDeleteRef.current = onRequestDelete;
+    onRotateSelectedRef.current = onRotateSelected;
     onRotatePlacingRef.current = onRotatePlacing;
     modeRef.current = mode;
     activeMoveCmdRef.current = activeMoveCmd;
@@ -299,6 +305,9 @@ export default function Scene({
     onAddCustomObject,
     onSelectObject,
     onUpdateCustomObject,
+    onRequestReplace,
+    onRequestDelete,
+    onRotateSelected,
     onRotatePlacing,
     mode,
     activeMoveCmd,
@@ -517,9 +526,48 @@ export default function Scene({
       return closestIdx;
     }
 
+    // Universal 3D Placement Position Calculator for Walkthrough Mode
+    function getWalkthroughPlacementPoint(ndc: THREE.Vector2): THREE.Vector3 {
+      raycaster.setFromCamera(ndc, camera);
+      // 1. Raycast against scene objects (floors & walls)
+      if (groupRef.current) {
+        const hits = raycaster.intersectObjects(groupRef.current.children, true);
+        for (const hit of hits) {
+          // Exclude ceiling/roof slabs & ceiling fans
+          if (hit.point.y > 8.5) continue;
+          if (hit.distance < 28) {
+            return new THREE.Vector3(hit.point.x, 0, hit.point.z);
+          }
+        }
+      }
+      // 2. Ground plane intersection if in front of player
+      if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+        const camToHit = hitPoint.clone().sub(camera.position);
+        const lookDir = new THREE.Vector3();
+        camera.getWorldDirection(lookDir);
+        if (camToHit.dot(lookDir) > 0 && hitPoint.distanceTo(camera.position) < 32) {
+          return new THREE.Vector3(hitPoint.x, 0, hitPoint.z);
+        }
+      }
+      // 3. Fallback: 6 feet directly in front of the player on floor
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      forward.normalize();
+      return new THREE.Vector3(
+        playerRef.current.x + forward.x * 6.0,
+        0,
+        playerRef.current.z + forward.z * 6.0
+      );
+    }
+
     // Universal 3D Furniture Picker (Both Custom Placed & Built-in Items)
-    function pickFurnitureObject(ev: PointerEvent): SelectedObjectInfo | null {
-      setPointerNdc(ev);
+    function pickFurnitureObject(ev?: PointerEvent | null, ndcOverride?: THREE.Vector2): SelectedObjectInfo | null {
+      if (ndcOverride) {
+        pointerNdc.copy(ndcOverride);
+      } else if (ev) {
+        setPointerNdc(ev);
+      }
       raycaster.setFromCamera(pointerNdc, camera);
 
       // 1. Raycast against scene hierarchy for any mesh with userData.isFurniture or userData.isCustomObject
@@ -533,15 +581,19 @@ export default function Scene({
               const isBuiltin = Boolean(curr.userData.isBuiltin);
               const name = curr.userData.name || "Furniture";
               const type = curr.userData.type || "sofa_3seater";
+              const worldPos = new THREE.Vector3();
+              curr.getWorldPosition(worldPos);
               return {
                 id,
                 name,
                 type,
                 isBuiltin,
-                x: curr.position.x || curr.userData.x || 0,
-                y: curr.position.y || curr.userData.y || 0,
-                z: curr.position.z || curr.userData.z || 0,
+                x: curr.userData.x ?? worldPos.x,
+                y: 0,
+                z: curr.userData.z ?? worldPos.z,
                 rotationY: curr.rotation.y || curr.userData.rotationY || 0,
+                scale: curr.scale.x || curr.userData.scale || 1.0,
+                colorHex: curr.userData.colorHex,
               };
             }
             curr = curr.parent;
@@ -699,17 +751,16 @@ export default function Scene({
           p.pitch = Math.max(-Math.PI / 2.6, Math.min(Math.PI / 2.6, p.pitch - dy * 0.0042));
         }
 
-        // Handle placing preview ghost in walkthrough mode
+        // Handle placing preview ghost in walkthrough mode (uses robust 3D forward floor projection)
         if (placingItemTypeRef.current) {
-          if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-            if (placingGhostGroupRef.current) {
-              placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
-              placingGhostGroupRef.current.rotation.y =
-                playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0);
-              placingGhostGroupRef.current.visible = true;
-            }
-            renderer.domElement.style.cursor = "crosshair";
+          const placePos = getWalkthroughPlacementPoint(pointerNdc);
+          if (placingGhostGroupRef.current) {
+            placingGhostGroupRef.current.position.set(placePos.x, 0, placePos.z);
+            placingGhostGroupRef.current.rotation.y =
+              playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0);
+            placingGhostGroupRef.current.visible = true;
           }
+          renderer.domElement.style.cursor = "crosshair";
           return;
         }
 
@@ -717,7 +768,9 @@ export default function Scene({
         const now = performance.now();
         if (now - lastHoverCheckTime > 60) {
           lastHoverCheckTime = now;
-          const isOverFurniture = pickFurnitureObject(ev) !== null;
+          const isOverFurniture =
+            pickFurnitureObject(ev) !== null ||
+            pickFurnitureObject(null, new THREE.Vector2(0, 0)) !== null;
           renderer.domElement.style.cursor = isOverFurniture ? "pointer" : "crosshair";
         }
         return;
@@ -796,37 +849,39 @@ export default function Scene({
         );
         const timeDiff = performance.now() - pointerDownPosRef.current.time;
 
-        // If it was a quick click / tap (not a sustained camera look drag)
-        if (dist < 8 && timeDiff < 450) {
-          // If in placing mode
-          if (placingItemTypeRef.current && ev.button === 0) {
+        // Forgiving click detection (up to 20px look-drag or 750ms tap)
+        if (dist < 20 && timeDiff < 750 && ev.button === 0) {
+          // 1. If in placing mode -> drop item into room floor in front of player
+          if (placingItemTypeRef.current) {
             setPointerNdc(ev);
-            raycaster.setFromCamera(pointerNdc, camera);
-            if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-              const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
-              const newObj: PlacedCustomObject = {
-                id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                type: placingItemTypeRef.current,
-                name: itemDef?.name || "Furniture",
-                x: Math.round(hitPoint.x * 2) / 2,
-                y: 0,
-                z: Math.round(hitPoint.z * 2) / 2,
-                rotationY: playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0),
-                scale: 1.0,
-              };
-              if (onAddCustomObjectRef.current) {
-                onAddCustomObjectRef.current(newObj);
-              }
-              if (placingGhostGroupRef.current) {
-                placingGhostGroupRef.current.visible = false;
-              }
-              return;
+            const placePos = getWalkthroughPlacementPoint(pointerNdc);
+            const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
+            const newObj: PlacedCustomObject = {
+              id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              type: placingItemTypeRef.current,
+              name: itemDef?.name || "Furniture",
+              x: Math.round(placePos.x * 2) / 2,
+              y: 0,
+              z: Math.round(placePos.z * 2) / 2,
+              rotationY: playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0),
+              scale: 1.0,
+            };
+            if (onAddCustomObjectRef.current) {
+              onAddCustomObjectRef.current(newObj);
             }
+            if (placingGhostGroupRef.current) {
+              placingGhostGroupRef.current.visible = false;
+            }
+            return;
           }
 
-          // Otherwise, check object pick
-          const hitObj = pickFurnitureObject(ev);
-          if (hitObj && ev.button === 0) {
+          // 2. Otherwise check object pick from mouse point OR center crosshair
+          let hitObj = pickFurnitureObject(ev);
+          if (!hitObj) {
+            hitObj = pickFurnitureObject(null, new THREE.Vector2(0, 0));
+          }
+
+          if (hitObj) {
             if (onSelectObjectRef.current) {
               onSelectObjectRef.current(hitObj);
             }
@@ -889,6 +944,33 @@ export default function Scene({
       if (ev.code === "Space" && !isJumping.current && modeRef.current === "walkthrough") {
         jumpVelocityY.current = 10.0;
         isJumping.current = true;
+      }
+      // 'E' Key: Interact / Select object directly in center crosshair
+      if (ev.code === "KeyE" && modeRef.current === "walkthrough") {
+        const hitObj = pickFurnitureObject(null, new THREE.Vector2(0, 0));
+        if (hitObj && onSelectObjectRef.current) {
+          onSelectObjectRef.current(hitObj);
+        }
+      }
+      // Delete / Backspace: Delete selected object immediately
+      if ((ev.code === "Delete" || ev.code === "Backspace") && selectedObjectIdRef.current) {
+        if (onRequestDeleteRef.current) {
+          onRequestDeleteRef.current();
+        }
+      }
+      // 'R' Key: Rotate selected object or placing ghost
+      if (ev.code === "KeyR") {
+        if (placingItemTypeRef.current && onRotatePlacingRef.current) {
+          onRotatePlacingRef.current(Math.PI / 4);
+        } else if (selectedObjectIdRef.current && onRotateSelectedRef.current) {
+          onRotateSelectedRef.current(Math.PI / 4);
+        }
+      }
+      // Escape: Deselect or cancel placement
+      if (ev.code === "Escape") {
+        if (onSelectObjectRef.current) {
+          onSelectObjectRef.current(null);
+        }
       }
     }
 

@@ -92,12 +92,24 @@ export default function WalkthroughOverlay({
               <span className={styles.keyBadge}>F</span>
               <span className={styles.keyDesc}>Lights ({lightsOn ? "ON" : "OFF"})</span>
             </div>
+            <div className={styles.keyItem} style={{ borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "8px" }}>
+              <span className={styles.keyBadge} style={{ background: "rgba(232, 145, 45, 0.25)", color: "#fbbf24" }}>Click / E</span>
+              <span className={styles.keyDesc}>Select / Edit</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge}>R</span>
+              <span className={styles.keyDesc}>Rotate</span>
+            </div>
+            <div className={styles.keyItem}>
+              <span className={styles.keyBadge} style={{ background: "rgba(239, 68, 68, 0.2)", color: "#ef4444" }}>Del</span>
+              <span className={styles.keyDesc}>Delete</span>
+            </div>
           </div>
 
           {player && (
             <div className={styles.telemetryRow}>
               <span>
-                Eye Level: <strong>{player.isCrouched ? "3′8″ (Crouched)" : "5′5″ (Standing)"}</strong>
+                Eye Level: <strong>{player.isCrouched ? "2′8″ (Crouched)" : "4′4″ (Natural)"}</strong>
               </span>
               <span>•</span>
               <span>
