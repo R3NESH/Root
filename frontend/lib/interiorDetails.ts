@@ -299,7 +299,9 @@ export function addRoomInteriorDetails(
   rz: number,
   rw: number,
   rd: number,
-  doors: RoomDoorInfo[] = []
+  doors: RoomDoorInfo[] = [],
+  roomIndex: number = 0,
+  deletedIds?: Set<string>
 ) {
   const cx = rx + rw / 2;
   const cz = rz + rd / 2;
@@ -386,7 +388,21 @@ export function addRoomInteriorDetails(
       bedGroup.rotation.y = -Math.PI / 2;
     }
 
-    group.add(bedGroup);
+    const bedId = `builtin_${roomIndex}_bed`;
+    if (!deletedIds?.has(bedId)) {
+      bedGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: bedId,
+        name: "Grand King Bed",
+        type: "bed_king",
+        x: bedGroup.position.x,
+        y: 0,
+        z: bedGroup.position.z,
+        rotationY: bedGroup.rotation.y,
+      };
+      group.add(bedGroup);
+    }
 
     // Full-Height Wardrobe Closet placed on a solid non-door side wall
     let closetEdge: "N" | "S" | "E" | "W" = headEdge === "N" || headEdge === "S" ? "E" : "N";
@@ -409,11 +425,27 @@ export function addRoomInteriorDetails(
       closet.position.set(cx, 3.9, rz + 1.2);
     }
     closet.castShadow = true;
-    group.add(closet);
 
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.6, 0.08), handleMat);
     handle.position.set(closet.position.x, 3.8, closet.position.z + 1.05);
-    group.add(handle);
+
+    const wardrobeId = `builtin_${roomIndex}_wardrobe`;
+    if (!deletedIds?.has(wardrobeId)) {
+      const wardrobeGroup = new THREE.Group();
+      wardrobeGroup.add(closet, handle);
+      wardrobeGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: wardrobeId,
+        name: "3-Door Wardrobe",
+        type: "wardrobe",
+        x: closet.position.x,
+        y: 0,
+        z: closet.position.z,
+        rotationY: closet.rotation.y,
+      };
+      group.add(wardrobeGroup);
+    }
 
   } else if (roomName === "kitchen") {
     // ---------------------------------------------------------
@@ -435,34 +467,45 @@ export function addRoomInteriorDetails(
     const counter1 = new THREE.Mesh(new THREE.BoxGeometry(counterW, 2.8, 2.0), cabinetMat);
     counter1.position.set(rx + counterW / 2 + 0.7, 1.4, counterZ);
     counter1.castShadow = true;
-    group.add(counter1);
 
     const top1 = new THREE.Mesh(new THREE.BoxGeometry(counterW + 0.1, 0.25, 2.1), quartzMat);
     top1.position.set(rx + counterW / 2 + 0.7, 2.85, counterZ);
-    group.add(top1);
 
     const cooktopMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.1, metalness: 0.8 });
     const cooktop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 1.8), cooktopMat);
     cooktop.position.set(rx + counterW * 0.35 + 0.7, 2.98, counterZ);
-    group.add(cooktop);
 
     const chimney = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 1.6), chromeMat);
     chimney.position.set(rx + counterW * 0.35 + 0.7, 6.2, counterZ);
-    group.add(chimney);
 
     const duct = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.0, 1.0), chromeMat);
     duct.position.set(rx + counterW * 0.35 + 0.7, 7.6, counterZ);
-    group.add(duct);
 
     const sinkMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 });
     const sink = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 1.5), sinkMat);
     sink.position.set(rx + counterW * 0.75 + 0.7, 2.5, counterZ);
-    group.add(sink);
 
     const faucet = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 12, 24, Math.PI), chromeMat);
     faucet.position.set(rx + counterW * 0.75 + 0.7, 3.4, counterZ - (counterRunEdge === "N" ? 0.55 : -0.55));
     faucet.rotation.z = Math.PI;
-    group.add(faucet);
+
+    const counterId = `builtin_${roomIndex}_counter`;
+    if (!deletedIds?.has(counterId)) {
+      const counterGroup = new THREE.Group();
+      counterGroup.add(counter1, top1, cooktop, chimney, duct, sink, faucet);
+      counterGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: counterId,
+        name: "Kitchen Counter & Cooktop",
+        type: "kitchen_island",
+        x: rx + counterW / 2 + 0.7,
+        y: 0,
+        z: counterZ,
+        rotationY: 0,
+      };
+      group.add(counterGroup);
+    }
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 });
     const fridge = new THREE.Mesh(new THREE.BoxGeometry(2.8, 6.8, 2.4), fridgeMat);
@@ -470,7 +513,22 @@ export function addRoomInteriorDetails(
     const fridgeZ = counterRunEdge === "N" ? rz + rd - 1.6 : rz + 1.6;
     fridge.position.set(fridgeX, 3.4, fridgeZ);
     fridge.castShadow = true;
-    group.add(fridge);
+
+    const fridgeId = `builtin_${roomIndex}_fridge`;
+    if (!deletedIds?.has(fridgeId)) {
+      fridge.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: fridgeId,
+        name: "Double-Door Refrigerator",
+        type: "refrigerator",
+        x: fridgeX,
+        y: 0,
+        z: fridgeZ,
+        rotationY: 0,
+      };
+      group.add(fridge);
+    }
 
   } else if (roomName === "hall") {
     // ---------------------------------------------------------
@@ -538,7 +596,6 @@ export function addRoomInteriorDetails(
     else if (tvEdge === "E") tvWallX = rx + rw - 0.3;
 
     slatPanel.position.set(tvWallX, 4.4, tvWallZ);
-    group.add(slatPanel);
 
     // TV Mesh
     const tvMeshW = isEWTV ? 4.4 : 0.12;
@@ -553,7 +610,6 @@ export function addRoomInteriorDetails(
     else if (tvEdge === "E") tvOffX -= 0.14;
 
     tvMesh.position.set(tvOffX, 4.5, tvOffZ);
-    group.add(tvMesh);
 
     const screenGeom = new THREE.PlaneGeometry(4.25, 2.35);
     const screenMesh = new THREE.Mesh(screenGeom, tvScreenMat);
@@ -569,7 +625,6 @@ export function addRoomInteriorDetails(
       screenMesh.rotation.y = -Math.PI / 2;
       screenMesh.position.set(tvWallX - 0.21, 4.5, tvWallZ);
     }
-    group.add(screenMesh);
 
     // Media Console
     const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
@@ -585,7 +640,24 @@ export function addRoomInteriorDetails(
 
     mediaConsole.position.set(conX, 1.2, conZ);
     mediaConsole.castShadow = true;
-    group.add(mediaConsole);
+
+    const tvId = `builtin_${roomIndex}_tv`;
+    if (!deletedIds?.has(tvId)) {
+      const tvGroup = new THREE.Group();
+      tvGroup.add(slatPanel, tvMesh, screenMesh, mediaConsole);
+      tvGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: tvId,
+        name: "TV Entertainment Wall",
+        type: "tv_unit",
+        x: conX,
+        y: 0,
+        z: conZ,
+        rotationY: isEWTV ? 0 : Math.PI / 2,
+      };
+      group.add(tvGroup);
+    }
 
     // 4. Sectional Sofa (Positioned directly facing the TV unit across the coffee table)
     const sofaGroup = new THREE.Group();
@@ -630,16 +702,47 @@ export function addRoomInteriorDetails(
       sofaGroup.position.set(cx - Math.min(rw * 0.2, 2.4), 0, cz);
       sofaGroup.rotation.y = Math.PI / 2;
     }
-    group.add(sofaGroup);
+
+    const sofaId = `builtin_${roomIndex}_sofa`;
+    if (!deletedIds?.has(sofaId)) {
+      sofaGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: sofaId,
+        name: "Living Room Sofa",
+        type: "sofa_3seater",
+        x: sofaGroup.position.x,
+        y: 0,
+        z: sofaGroup.position.z,
+        rotationY: sofaGroup.rotation.y,
+      };
+      group.add(sofaGroup);
+    }
 
     // 5. Modern Glass Coffee Table
     const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8), glassTableMat);
     coffeeTop.position.set(cx, 1.1, cz);
-    group.add(coffeeTop);
 
     const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6), brassMat);
     coffeeBase.position.set(cx, 0.55, cz);
-    group.add(coffeeBase);
+
+    const coffeeId = `builtin_${roomIndex}_coffee_table`;
+    if (!deletedIds?.has(coffeeId)) {
+      const coffeeGroup = new THREE.Group();
+      coffeeGroup.add(coffeeTop, coffeeBase);
+      coffeeGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: coffeeId,
+        name: "Glass Coffee Table",
+        type: "coffee_table",
+        x: cx,
+        y: 0,
+        z: cz,
+        rotationY: 0,
+      };
+      group.add(coffeeGroup);
+    }
 
     // 6. Indoor Fiddle Leaf Fig Tree (in an unobstructed corner away from any doors)
     let plantCornerX = rx + 1.4;
@@ -659,12 +762,62 @@ export function addRoomInteriorDetails(
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 1.2, 20), potMat);
     pot.position.set(plantCornerX, 0.6, plantCornerZ);
     pot.castShadow = true;
-    group.add(pot);
 
     const plantLeaves = new THREE.Mesh(new THREE.DodecahedronGeometry(1.2, 1), leafMat);
     plantLeaves.position.set(plantCornerX, 2.2, plantCornerZ);
     plantLeaves.castShadow = true;
-    group.add(plantLeaves);
+
+    const plantId = `builtin_${roomIndex}_plant`;
+    if (!deletedIds?.has(plantId)) {
+      const plantGroup = new THREE.Group();
+      plantGroup.add(pot, plantLeaves);
+      plantGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: plantId,
+        name: "Fiddle Leaf Fig Plant",
+        type: "plant_pot",
+        x: plantCornerX,
+        y: 0,
+        z: plantCornerZ,
+        rotationY: 0,
+      };
+      group.add(plantGroup);
+    }
+
+  } else if (roomName === "dining") {
+    const diningId = `builtin_${roomIndex}_dining`;
+    if (!deletedIds?.has(diningId)) {
+      const tableMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.45 });
+      const chairMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.8 });
+      const diningGroup = new THREE.Group();
+
+      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.55, 6.0), 0.2, Math.min(rd * 0.45, 3.4)), tableMat);
+      tableTop.position.set(0, 2.7, 0);
+      diningGroup.add(tableTop);
+
+      for (const lx of [-2.4, 2.4]) {
+        for (const lz of [-1.2, 1.2]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), tableMat);
+          leg.position.set(lx, 1.3, lz);
+          diningGroup.add(leg);
+        }
+      }
+
+      diningGroup.position.set(cx, 0, cz);
+      diningGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: diningId,
+        name: "6-Seater Dining Set",
+        type: "dining_6seater",
+        x: cx,
+        y: 0,
+        z: cz,
+        rotationY: 0,
+      };
+      group.add(diningGroup);
+    }
 
   } else if (roomName === "bathroom") {
     // ---------------------------------------------------------
@@ -686,16 +839,31 @@ export function addRoomInteriorDetails(
 
     const vanity = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.4, 1.6), vanityMat);
     vanity.position.set(vanityX, 1.8, vanityZ);
-    group.add(vanity);
 
     const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 0.45, 24), porcelainMat);
     vessel.position.set(vanityX, 2.7, vanityZ);
-    group.add(vessel);
 
     const mirror = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.08, 32), mirrorMat);
     mirror.rotation.x = Math.PI / 2;
     mirror.position.set(vanityX, 4.8, rz + 0.4);
-    group.add(mirror);
+
+    const vanityId = `builtin_${roomIndex}_vanity`;
+    if (!deletedIds?.has(vanityId)) {
+      const vanityGroup = new THREE.Group();
+      vanityGroup.add(vanity, vessel, mirror);
+      vanityGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: vanityId,
+        name: "Bathroom Vanity & Mirror",
+        type: "vanity_table",
+        x: vanityX,
+        y: 0,
+        z: vanityZ,
+        rotationY: 0,
+      };
+      group.add(vanityGroup);
+    }
 
     const commode = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 1.8), porcelainMat);
     commode.position.set(rx + 1.4, 1.1, rz + 1.4);
@@ -750,32 +918,43 @@ export function addRoomInteriorDetails(
     const altarBase = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.65, 3.8), 1.2, Math.min(rd * 0.48, 2.4)), mandirMat);
     altarBase.position.set(cx, 0.6, rz + 1.2);
     altarBase.castShadow = true;
-    group.add(altarBase);
 
     const altarTier = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.45, 2.8), 0.8, Math.min(rd * 0.35, 1.8)), mandirMat);
     altarTier.position.set(cx, 1.6, rz + 1.2);
-    group.add(altarTier);
 
     const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);
     diya.position.set(cx, 2.08, rz + 1.2);
-    group.add(diya);
 
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 16), flameMat);
     flame.position.set(cx, 2.25, rz + 1.2);
-    group.add(flame);
 
     const flameLight = new THREE.PointLight(0xffaa44, 0.9, 10, 1.5);
     flameLight.position.set(cx, 2.4, rz + 1.2);
-    group.add(flameLight);
 
     const bell = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 16), goldMat);
     bell.rotation.x = Math.PI;
     bell.position.set(cx, 6.8, rz + 1.2);
-    group.add(bell);
 
     const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb8860b });
     const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.1, 8), ropeMat);
     rope.position.set(cx, 7.9, rz + 1.2);
-    group.add(rope);
+
+    const mandirId = `builtin_${roomIndex}_mandir`;
+    if (!deletedIds?.has(mandirId)) {
+      const mandirGroup = new THREE.Group();
+      mandirGroup.add(altarBase, altarTier, diya, flame, flameLight, bell, rope);
+      mandirGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: mandirId,
+        name: "Sacred Pooja Mandir",
+        type: "pooja_mandir",
+        x: cx,
+        y: 0,
+        z: rz + 1.2,
+        rotationY: 0,
+      };
+      group.add(mandirGroup);
+    }
   }
 }

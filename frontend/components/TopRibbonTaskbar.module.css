@@ -104,6 +104,23 @@
   gap: 8px;
 }
 
+.restoreBtn {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 5px 11px;
+  border-radius: 16px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.restoreBtn:hover {
+  background: rgba(245, 158, 11, 0.3);
+  color: #ffffff;
+}
+
 .toolBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -359,19 +376,26 @@
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   padding-left: 12px;
   flex-shrink: 0;
-  min-width: 180px;
+  min-width: 190px;
 }
 
 .selectedControls {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .selectedTitleRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.selectedTitleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 150px;
 }
 
 .selectedObjName {
@@ -381,7 +405,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 130px;
+}
+
+.builtinBadge {
+  font-size: 8.5px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 .deselectBtn {
@@ -394,6 +425,24 @@
 
 .deselectBtn:hover {
   color: #ef4444;
+}
+
+.replaceBtn {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.25));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.replaceBtn:hover {
+  background: rgba(56, 189, 248, 0.35);
+  color: #ffffff;
 }
 
 .transformRow {
@@ -438,10 +487,10 @@
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #ef4444;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-radius: 4px;
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   text-align: center;
 }

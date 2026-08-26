@@ -29,7 +29,9 @@ import { ModelBlueprint } from "@/lib/modelBlueprints";
 import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
 import MaterialCustomizerModal from "@/components/MaterialCustomizerModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
-import { PlacedCustomObject } from "@/lib/furnitureCatalog";
+import ReplaceObjectModal from "@/components/ReplaceObjectModal";
+import { SelectedObjectInfo } from "@/components/Scene";
+import { PlacedCustomObject, FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
 import {
   DEFAULT_MATERIAL_CONFIG,
   FLOOR_MATERIALS,
@@ -188,13 +190,31 @@ export default function Home() {
   }, []);
 
   const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
+  const [deletedBuiltinIds, setDeletedBuiltinIds] = useState<string[]>([]);
   const [placingItemType, setPlacingItemType] = useState<string | null>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
 
-  const selectedObject = useMemo(
-    () => customObjects.find((o) => o.id === selectedObjectId) || null,
-    [customObjects, selectedObjectId]
-  );
+  const selectedObject = useMemo(() => {
+    if (selectedObjectInfo) return selectedObjectInfo;
+    const custom = customObjects.find((o) => o.id === selectedObjectId);
+    if (custom) {
+      return {
+        id: custom.id,
+        name: custom.name,
+        type: custom.type,
+        isBuiltin: false,
+        x: custom.x,
+        y: 0,
+        z: custom.z,
+        rotationY: custom.rotationY || 0,
+        scale: custom.scale || 1.0,
+        colorHex: custom.colorHex,
+      };
+    }
+    return null;
+  }, [customObjects, selectedObjectId, selectedObjectInfo]);
 
   const handleRotateSelected = useCallback((angleDelta: number) => {
     if (!selectedObjectId) return;
@@ -203,6 +223,7 @@ export default function Home() {
         o.id === selectedObjectId ? { ...o, rotationY: (o.rotationY || 0) + angleDelta } : o
       )
     );
+    setSelectedObjectInfo((prev) => (prev ? { ...prev, rotationY: (prev.rotationY || 0) + angleDelta } : null));
   }, [selectedObjectId]);
 
   const handleScaleSelected = useCallback((scaleDelta: number) => {
@@ -224,14 +245,70 @@ export default function Home() {
   }, [selectedObjectId]);
 
   const handleDeleteSelected = useCallback(() => {
-    if (!selectedObjectId) return;
-    setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectId));
-    setSelectedObjectId(null);
-  }, [selectedObjectId]);
+    if (selectedObjectInfo) {
+      if (selectedObjectInfo.isBuiltin) {
+        setDeletedBuiltinIds((prev) => [...prev, selectedObjectInfo.id]);
+      } else {
+        setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectInfo.id));
+      }
+      setSelectedObjectInfo(null);
+      setSelectedObjectId(null);
+    } else if (selectedObjectId) {
+      setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectId));
+      setSelectedObjectId(null);
+    }
+  }, [selectedObjectInfo, selectedObjectId]);
+
+  const handleReplaceSelected = useCallback((newType: string) => {
+    const current = selectedObjectInfo;
+    if (!current) return;
+    const itemDef = FURNITURE_CATALOG.find((i) => i.type === newType);
+    const posX = current.x;
+    const posZ = current.z;
+    const rotY = current.rotationY;
+
+    // Delete the old object
+    if (current.isBuiltin) {
+      setDeletedBuiltinIds((prev) => [...prev, current.id]);
+    } else {
+      setCustomObjects((prev) => prev.filter((o) => o.id !== current.id));
+    }
+
+    // Spawn the new replacement object at the same spot
+    const newObj: PlacedCustomObject = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: newType,
+      name: itemDef?.name || "Furniture",
+      x: posX,
+      y: 0,
+      z: posZ,
+      rotationY: rotY,
+      scale: 1.0,
+      colorHex: itemDef?.defaultColor,
+    };
+
+    setCustomObjects((prev) => [...prev, newObj]);
+    setSelectedObjectId(newObj.id);
+    setSelectedObjectInfo({
+      id: newObj.id,
+      name: newObj.name,
+      type: newObj.type,
+      isBuiltin: false,
+      x: posX,
+      y: 0,
+      z: posZ,
+      rotationY: rotY,
+    });
+  }, [selectedObjectInfo]);
+
+  const handleRestoreDefaults = useCallback(() => {
+    setDeletedBuiltinIds([]);
+  }, []);
 
   const handleClearAllFurniture = useCallback(() => {
     setCustomObjects([]);
     setSelectedObjectId(null);
+    setSelectedObjectInfo(null);
     setPlacingItemType(null);
   }, []);
 
@@ -244,19 +321,20 @@ export default function Home() {
       if (e.code === "Escape") {
         setPlacingItemType(null);
         setSelectedObjectId(null);
+        setSelectedObjectInfo(null);
       } else if (e.code === "Delete" || e.code === "Backspace") {
-        if (selectedObjectId) {
+        if (selectedObjectId || selectedObjectInfo) {
           handleDeleteSelected();
         }
       } else if (e.code === "KeyR") {
-        if (selectedObjectId) {
+        if (selectedObjectId || selectedObjectInfo) {
           handleRotateSelected(Math.PI / 4);
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedObjectId, handleDeleteSelected, handleRotateSelected]);
+  }, [selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected]);
 
   return (
     <div className={styles.appContainer}>
@@ -272,13 +350,19 @@ export default function Home() {
         placingItemType={placingItemType}
         onSelectPlaceItem={setPlacingItemType}
         selectedObject={selectedObject}
+        onOpenReplaceModal={() => setIsReplaceModalOpen(true)}
         onRotateSelected={handleRotateSelected}
         onScaleSelected={handleScaleSelected}
         onChangeColorSelected={handleChangeColorSelected}
         onDeleteSelected={handleDeleteSelected}
         onClearAllFurniture={handleClearAllFurniture}
-        onDeselectObject={() => setSelectedObjectId(null)}
+        onDeselectObject={() => {
+          setSelectedObjectId(null);
+          setSelectedObjectInfo(null);
+        }}
         totalPlacedCount={customObjects.length}
+        deletedBuiltinCount={deletedBuiltinIds.length}
+        onRestoreDefaults={handleRestoreDefaults}
       />
 
       <main className={styles.mainLayout}>
@@ -319,8 +403,10 @@ export default function Home() {
                 furnished={furnished}
                 materialConfig={materialConfig}
                 customObjects={customObjects}
+                deletedBuiltinIds={deletedBuiltinIds}
                 placingItemType={placingItemType}
                 selectedObjectId={selectedObjectId}
+                selectedObjectInfo={selectedObjectInfo}
                 onPlotChange={setPlot}
                 onPlayerUpdate={setPlayer}
                 onToggleLights={handleToggleLights}
@@ -329,13 +415,29 @@ export default function Home() {
                   setCustomObjects((prev) => [...prev, newObj]);
                   setPlacingItemType(null);
                   setSelectedObjectId(newObj.id);
+                  setSelectedObjectInfo({
+                    id: newObj.id,
+                    name: newObj.name,
+                    type: newObj.type,
+                    isBuiltin: false,
+                    x: newObj.x,
+                    y: 0,
+                    z: newObj.z,
+                    rotationY: newObj.rotationY || 0,
+                  });
                 }}
-                onSelectObject={setSelectedObjectId}
+                onSelectObject={(info) => {
+                  setSelectedObjectInfo(info);
+                  setSelectedObjectId(info ? info.id : null);
+                }}
                 onUpdateCustomObject={(updated) => {
                   setCustomObjects((prev) =>
                     prev.map((o) => (o.id === updated.id ? updated : o))
                   );
                 }}
+                onRequestReplace={() => setIsReplaceModalOpen(true)}
+                onRequestDelete={handleDeleteSelected}
+                onRotateSelected={handleRotateSelected}
               />
 
               {/* Orbit View HUD Overlay */}
@@ -494,6 +596,15 @@ export default function Home() {
         isOpen={isModelBlueprintsOpen}
         onClose={() => setIsModelBlueprintsOpen(false)}
         onSelectBlueprint={handleApplyModelBlueprint}
+      />
+
+      {/* Interactive 3D Object Replacement Modal */}
+      <ReplaceObjectModal
+        isOpen={isReplaceModalOpen}
+        onClose={() => setIsReplaceModalOpen(false)}
+        targetObjectName={selectedObjectInfo?.name || "Selected Object"}
+        targetItemType={selectedObjectInfo?.type}
+        onConfirmReplace={handleReplaceSelected}
       />
     </div>
   );

@@ -52,6 +52,19 @@ import {
   HouseMaterialConfig,
 } from "@/lib/materialsCatalog";
 
+export interface SelectedObjectInfo {
+  id: string;
+  name: string;
+  type?: string;
+  isBuiltin?: boolean;
+  x: number;
+  y: number;
+  z: number;
+  rotationY: number;
+  scale?: number;
+  colorHex?: number;
+}
+
 interface SceneProps {
   plot: PlotDims;
   facing: Facing;
@@ -64,16 +77,21 @@ interface SceneProps {
   /** Place beds, sofas, counters, fans and curtains. Off gives the bare shell. */
   furnished?: boolean;
   customObjects?: PlacedCustomObject[];
+  deletedBuiltinIds?: string[];
   placingItemType?: string | null;
   selectedObjectId?: string | null;
+  selectedObjectInfo?: SelectedObjectInfo | null;
   materialConfig?: HouseMaterialConfig;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
   onRoomMove?: (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => void;
   onAddCustomObject?: (obj: PlacedCustomObject) => void;
-  onSelectObject?: (id: string | null) => void;
+  onSelectObject?: (info: SelectedObjectInfo | null) => void;
   onUpdateCustomObject?: (obj: PlacedCustomObject) => void;
+  onRequestReplace?: () => void;
+  onRequestDelete?: () => void;
+  onRotateSelected?: (angleDelta: number) => void;
 }
 
 const PLOT_COLOR = 0xffffff;
@@ -149,8 +167,10 @@ export default function Scene({
   lightsOn = true,
   furnished = true,
   customObjects = [],
+  deletedBuiltinIds = [],
   placingItemType = null,
   selectedObjectId = null,
+  selectedObjectInfo = null,
   materialConfig = DEFAULT_MATERIAL_CONFIG,
   onPlotChange,
   onPlayerUpdate,
@@ -159,6 +179,9 @@ export default function Scene({
   onAddCustomObject,
   onSelectObject,
   onUpdateCustomObject,
+  onRequestReplace,
+  onRequestDelete,
+  onRotateSelected,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -231,6 +254,7 @@ export default function Scene({
   const lightsOnRef = useRef(lightsOn);
   const roomsRef = useRef(rooms);
   const customObjectsRef = useRef(customObjects);
+  const deletedBuiltinIdsRef = useRef(deletedBuiltinIds);
   const placingItemTypeRef = useRef(placingItemType);
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
@@ -249,6 +273,7 @@ export default function Scene({
     lightsOnRef.current = lightsOn;
     roomsRef.current = rooms;
     customObjectsRef.current = customObjects;
+    deletedBuiltinIdsRef.current = deletedBuiltinIds;
     placingItemTypeRef.current = placingItemType;
     selectedObjectIdRef.current = selectedObjectId;
     materialConfigRef.current = materialConfig;
@@ -270,6 +295,7 @@ export default function Scene({
     lightsOn,
     rooms,
     customObjects,
+    deletedBuiltinIds,
     placingItemType,
     selectedObjectId,
     materialConfig,
@@ -480,14 +506,42 @@ export default function Scene({
       return closestIdx;
     }
 
-    // Custom 3D Furniture Picker
-    function pickCustomObject(ev: PointerEvent): string | null {
+    // Universal 3D Furniture Picker (Both Custom Placed & Built-in Items)
+    function pickFurnitureObject(ev: PointerEvent): SelectedObjectInfo | null {
       if (modeRef.current === "walkthrough") return null;
       setPointerNdc(ev);
       raycaster.setFromCamera(pointerNdc, camera);
 
+      // 1. Raycast against scene hierarchy for any mesh with userData.isFurniture or userData.isCustomObject
+      if (groupRef.current) {
+        const intersects = raycaster.intersectObjects(groupRef.current.children, true);
+        for (const hit of intersects) {
+          let curr: THREE.Object3D | null = hit.object;
+          while (curr && curr !== groupRef.current) {
+            if (curr.userData && (curr.userData.isCustomObject || curr.userData.isFurniture)) {
+              const id = curr.userData.id;
+              const isBuiltin = Boolean(curr.userData.isBuiltin);
+              const name = curr.userData.name || "Furniture";
+              const type = curr.userData.type || "sofa_3seater";
+              return {
+                id,
+                name,
+                type,
+                isBuiltin,
+                x: curr.position.x || curr.userData.x || 0,
+                y: curr.position.y || curr.userData.y || 0,
+                z: curr.position.z || curr.userData.z || 0,
+                rotationY: curr.rotation.y || curr.userData.rotationY || 0,
+              };
+            }
+            curr = curr.parent;
+          }
+        }
+      }
+
+      // 2. Also check bounding boxes of custom list as fallback
       const customList = customObjectsRef.current || [];
-      let closestId: string | null = null;
+      let closestObj: SelectedObjectInfo | null = null;
       let closestDist = Infinity;
 
       for (const obj of customList) {
@@ -507,11 +561,22 @@ export default function Scene({
           const dist = raycaster.ray.origin.distanceTo(target);
           if (dist < closestDist) {
             closestDist = dist;
-            closestId = obj.id;
+            closestObj = {
+              id: obj.id,
+              name: obj.name || itemDef?.name || "Furniture",
+              type: obj.type,
+              isBuiltin: false,
+              x: obj.x,
+              y: 0,
+              z: obj.z,
+              rotationY: obj.rotationY || 0,
+              scale: obj.scale || 1.0,
+              colorHex: obj.colorHex,
+            };
           }
         }
       }
-      return closestId;
+      return closestObj;
     }
 
     function onPointerDownCapture(ev: PointerEvent) {
@@ -560,17 +625,19 @@ export default function Scene({
         return;
       }
 
-      // Check custom furniture object selection
-      const hitCustomObjId = pickCustomObject(ev);
-      if (hitCustomObjId && ev.button === 0) {
+      // Check furniture object selection (custom OR built-in)
+      const hitObj = pickFurnitureObject(ev);
+      if (hitObj && ev.button === 0) {
         ev.stopPropagation();
         ev.stopImmediatePropagation();
-        dragKind = "customObject";
-        draggedCustomObjectIdRef.current = hitCustomObjId;
+        dragKind = hitObj.isBuiltin ? null : "customObject";
+        draggedCustomObjectIdRef.current = hitObj.isBuiltin ? null : hitObj.id;
         if (onSelectObjectRef.current) {
-          onSelectObjectRef.current(hitCustomObjId);
+          onSelectObjectRef.current(hitObj);
         }
-        controls.enabled = false;
+        if (!hitObj.isBuiltin) {
+          controls.enabled = false;
+        }
         return;
       }
 
@@ -639,9 +706,9 @@ export default function Scene({
         if (now - lastHoverCheckTime > 50) {
           lastHoverCheckTime = now;
           const isOverHandle = pickHandle(ev) !== null;
-          const isOverCustomObj = pickCustomObject(ev) !== null;
+          const isOverFurniture = pickFurnitureObject(ev) !== null;
           const isOverRoom = pickRoom(ev) !== null;
-          renderer.domElement.style.cursor = isOverHandle || isOverCustomObj || isOverRoom ? "grab" : "auto";
+          renderer.domElement.style.cursor = isOverHandle || isOverFurniture || isOverRoom ? "grab" : "auto";
         }
         return;
       }
@@ -1570,7 +1637,18 @@ export default function Scene({
       }
 
       if (furnished) {
-        addRoomInteriorDetails(roomGroup, room.name as RoomName, rx, rz, rw, rd, roomDoors);
+        const deletedBuiltinSet = new Set(deletedBuiltinIdsRef.current || []);
+        addRoomInteriorDetails(
+          roomGroup,
+          room.name as RoomName,
+          rx,
+          rz,
+          rw,
+          rd,
+          roomDoors,
+          i,
+          deletedBuiltinSet
+        );
       }
 
       // 3D Floating Room Badge
@@ -1588,12 +1666,6 @@ export default function Scene({
     }
 
     // 7. Roof — RCC slab, parapet, and sunshades over exterior openings.
-    //
-    // The walls used to stop at 9 ft and stop. An Indian house is a flat reinforced-concrete
-    // slab with a parapet round the terrace and a chajja over every window and door to keep
-    // monsoon rain off the opening; without them this reads as a massing diagram, not a
-    // building. Hidden in orbit so the plan stays readable from above, shown in walkthrough
-    // where you would otherwise be standing in a roofless room.
     if (rooms.length > 0) {
       const roof = new THREE.Group();
       roof.visible = modeRef.current === "walkthrough";
@@ -1606,8 +1678,6 @@ export default function Scene({
       const CHAJJA_OUT = 1.9;      // ~22 in projection, a standard sunshade
       const PARAPET_H = 3.2;
 
-      // One slab per room, so the roof follows an L- or T-shaped footprint rather than
-      // bridging the gaps a rectangular slab would invent.
       for (const room of rooms) {
         const rw = inchesToFeet(room.w_in);
         const rd = inchesToFeet(room.d_in);
@@ -1620,7 +1690,6 @@ export default function Scene({
         roof.add(slab);
       }
 
-      // Parapet around the outside of the built footprint.
       const fx0 = Math.min(...rooms.map((r) => inchesToFeet(r.x_in)));
       const fz0 = Math.min(...rooms.map((r) => inchesToFeet(r.y_in)));
       const fx1 = Math.max(...rooms.map((r) => inchesToFeet(r.x_in + r.w_in)));
@@ -1639,15 +1708,13 @@ export default function Scene({
         roof.add(wall);
       }
 
-      // Chajja over each exterior opening. These stay visible in orbit — they are part of how
-      // the building reads from outside, and they do not hide the plan.
       rooms.forEach((room) => {
         const rw = inchesToFeet(room.w_in);
         const rd = inchesToFeet(room.d_in);
         const rx = inchesToFeet(room.x_in);
         const rz = inchesToFeet(room.y_in);
         for (const o of room.openings ?? []) {
-          if (o.to_room != null) continue; // interior door, no weather to keep off
+          if (o.to_room != null) continue;
           const width = inchesToFeet(o.width_in) + 1.2;
           const head = inchesToFeet((o.sill_in ?? 0) + o.height_in) + 0.35;
           const isEW = o.edge === "N" || o.edge === "S";
@@ -1675,7 +1742,7 @@ export default function Scene({
       objGroup.rotation.y = obj.rotationY || 0;
       const s = obj.scale || 1.0;
       objGroup.scale.set(s, s, s);
-      objGroup.userData = { isCustomObject: true, id: obj.id };
+      objGroup.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type };
 
       objGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
@@ -1684,25 +1751,37 @@ export default function Scene({
         }
       });
 
-      // Luminous selection ring indicator
-      if (obj.id === selectedObjectIdRef.current) {
-        const itemDef = FURNITURE_CATALOG.find((i) => i.type === obj.type);
-        const radius = Math.max(1.8, Math.max(itemDef?.dimensions.widthFt || 3, itemDef?.dimensions.depthFt || 3) * 0.6) * s;
-        const ringGeom = new THREE.RingGeometry(radius, radius + 0.18, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0xe8912d, side: THREE.DoubleSide });
-        const ring = new THREE.Mesh(ringGeom, ringMat);
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.y = 0.05;
-        objGroup.add(ring);
-      }
-
       group.add(objGroup);
       customObjectMeshesRef.current.set(obj.id, objGroup);
     }
 
+    // Add Glowing Selection Ring around ANY selected object (custom or built-in)
+    if (selectedObjectIdRef.current) {
+      group.traverse((child) => {
+        if (child.userData && child.userData.id === selectedObjectIdRef.current) {
+          const ringGeom = new THREE.RingGeometry(2.3, 2.55, 32);
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0xe8912d, side: THREE.DoubleSide });
+          const ring = new THREE.Mesh(ringGeom, ringMat);
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.06;
+          child.add(ring);
+        }
+      });
+    }
+
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
     depthHandle.position.set(wFt / 2, HANDLE_RADIUS_FT, dFt);
-  }, [plot, facing, setback, rooms, furnished, customObjects, selectedObjectId, materialConfig]);
+  }, [
+    plot,
+    facing,
+    setback,
+    rooms,
+    furnished,
+    customObjects,
+    deletedBuiltinIds,
+    selectedObjectId,
+    materialConfig,
+  ]);
 
   // Ghost Furniture Placement Preview Handler
   useEffect(() => {
@@ -1736,6 +1815,116 @@ export default function Scene({
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+      {/* Floating 3D Object Quick Action Menu */}
+      {selectedObjectInfo && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(15, 23, 42, 0.94)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
+            padding: "8px 18px",
+            borderRadius: "30px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            zIndex: 40,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "16px" }}>🛋️</span>
+            <span style={{ fontSize: "12.5px", fontWeight: "bold", color: "#fbbf24" }}>
+              {selectedObjectInfo.name}
+            </span>
+            {selectedObjectInfo.isBuiltin && (
+              <span
+                style={{
+                  fontSize: "9px",
+                  background: "rgba(148, 163, 184, 0.2)",
+                  color: "#cbd5e1",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                }}
+              >
+                Default
+              </span>
+            )}
+          </div>
+
+          <div style={{ height: "16px", width: "1px", background: "rgba(255,255,255,0.15)" }} />
+
+          <button
+            style={{
+              background: "linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.35))",
+              border: "1px solid rgba(56, 189, 248, 0.5)",
+              color: "#38bdf8",
+              padding: "4px 12px",
+              borderRadius: "14px",
+              fontSize: "11.5px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={onRequestReplace}
+            title="Replace this object with a different piece of furniture"
+          >
+            🔄 Replace...
+          </button>
+
+          <button
+            style={{
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              color: "#f1f5f9",
+              padding: "4px 10px",
+              borderRadius: "14px",
+              fontSize: "11.5px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            onClick={() => onRotateSelected && onRotateSelected(Math.PI / 4)}
+            title="Rotate 45° (or press R)"
+          >
+            🔄 45°
+          </button>
+
+          <button
+            style={{
+              background: "rgba(239, 68, 68, 0.2)",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              color: "#ef4444",
+              padding: "4px 12px",
+              borderRadius: "14px",
+              fontSize: "11.5px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={onRequestDelete}
+            title="Delete this object from the house"
+          >
+            🗑️ Delete
+          </button>
+
+          <button
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontSize: "14px",
+              padding: "0 4px",
+            }}
+            onClick={() => onSelectObject && onSelectObject(null)}
+            title="Deselect (ESC)"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {draggedRoomInfo && (
         <div
           style={{

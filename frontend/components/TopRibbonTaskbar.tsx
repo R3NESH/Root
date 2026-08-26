@@ -6,9 +6,21 @@ import {
   FURNITURE_COLOR_SWATCHES,
   FurnitureCategory,
   FurnitureItemDef,
-  PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
 import styles from "./TopRibbonTaskbar.module.css";
+
+export interface SelectedObjectItem {
+  id: string;
+  name: string;
+  type?: string;
+  isBuiltin?: boolean;
+  x?: number;
+  y?: number;
+  z?: number;
+  rotationY?: number;
+  scale?: number;
+  colorHex?: number;
+}
 
 interface TopRibbonTaskbarProps {
   mode: "orbit" | "walkthrough" | "blueprint";
@@ -20,7 +32,8 @@ interface TopRibbonTaskbarProps {
   onOpenExportModal: () => void;
   placingItemType: string | null;
   onSelectPlaceItem: (type: string | null) => void;
-  selectedObject: PlacedCustomObject | null;
+  selectedObject: SelectedObjectItem | null;
+  onOpenReplaceModal: () => void;
   onRotateSelected: (angleDelta: number) => void;
   onScaleSelected: (scaleDelta: number) => void;
   onChangeColorSelected: (colorHex: number) => void;
@@ -28,6 +41,8 @@ interface TopRibbonTaskbarProps {
   onClearAllFurniture: () => void;
   onDeselectObject: () => void;
   totalPlacedCount: number;
+  deletedBuiltinCount: number;
+  onRestoreDefaults: () => void;
 }
 
 export default function TopRibbonTaskbar({
@@ -41,6 +56,7 @@ export default function TopRibbonTaskbar({
   placingItemType,
   onSelectPlaceItem,
   selectedObject,
+  onOpenReplaceModal,
   onRotateSelected,
   onScaleSelected,
   onChangeColorSelected,
@@ -48,6 +64,8 @@ export default function TopRibbonTaskbar({
   onClearAllFurniture,
   onDeselectObject,
   totalPlacedCount,
+  deletedBuiltinCount,
+  onRestoreDefaults,
 }: TopRibbonTaskbarProps) {
   const [activeCategory, setActiveCategory] = useState<FurnitureCategory | "all">("living");
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
@@ -109,6 +127,16 @@ export default function TopRibbonTaskbar({
 
         {/* Right Quick Action Tools */}
         <div className={styles.quickTools}>
+          {deletedBuiltinCount > 0 && (
+            <button
+              className={styles.restoreBtn}
+              onClick={onRestoreDefaults}
+              title="Restore all default furniture deleted from rooms"
+            >
+              ↩️ Restore Defaults ({deletedBuiltinCount})
+            </button>
+          )}
+
           <button
             className={styles.toolBtn}
             onClick={onToggleLights}
@@ -216,11 +244,23 @@ export default function TopRibbonTaskbar({
             {selectedObject ? (
               <div className={styles.selectedControls}>
                 <div className={styles.selectedTitleRow}>
-                  <span className={styles.selectedObjName}>{selectedObject.name}</span>
+                  <div className={styles.selectedTitleWrapper}>
+                    <span className={styles.selectedObjName}>{selectedObject.name}</span>
+                    {selectedObject.isBuiltin && <span className={styles.builtinBadge}>Default</span>}
+                  </div>
                   <button className={styles.deselectBtn} onClick={onDeselectObject} title="Deselect">
                     ✕
                   </button>
                 </div>
+
+                {/* Replace Action Button */}
+                <button
+                  className={styles.replaceBtn}
+                  onClick={onOpenReplaceModal}
+                  title="Replace this object with another piece of furniture at the same position"
+                >
+                  🔄 Replace Object...
+                </button>
 
                 {/* Transform Buttons */}
                 <div className={styles.transformRow}>
@@ -238,52 +278,62 @@ export default function TopRibbonTaskbar({
                   >
                     🔄 90°
                   </button>
-                  <button
-                    className={styles.transformBtn}
-                    onClick={() => onScaleSelected(0.1)}
-                    title="Scale Up (+10%)"
-                  >
-                    🔍 +
-                  </button>
-                  <button
-                    className={styles.transformBtn}
-                    onClick={() => onScaleSelected(-0.1)}
-                    title="Scale Down (-10%)"
-                  >
-                    🔍 -
-                  </button>
+                  {!selectedObject.isBuiltin && (
+                    <>
+                      <button
+                        className={styles.transformBtn}
+                        onClick={() => onScaleSelected(0.1)}
+                        title="Scale Up (+10%)"
+                      >
+                        🔍 +
+                      </button>
+                      <button
+                        className={styles.transformBtn}
+                        onClick={() => onScaleSelected(-0.1)}
+                        title="Scale Down (-10%)"
+                      >
+                        🔍 -
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                {/* Color Tint Palette */}
-                <div className={styles.colorPaletteRow}>
-                  {FURNITURE_COLOR_SWATCHES.map((swatch) => (
-                    <button
-                      key={swatch.hex}
-                      className={styles.swatchBtn}
-                      style={{
-                        backgroundColor: swatch.bg,
-                        outline: selectedObject.colorHex === swatch.hex ? "2px solid #fbbf24" : "none",
-                      }}
-                      onClick={() => onChangeColorSelected(swatch.hex)}
-                      title={`Tint: ${swatch.name}`}
-                    />
-                  ))}
-                </div>
+                {/* Color Tint Palette (Custom Objects) */}
+                {!selectedObject.isBuiltin && (
+                  <div className={styles.colorPaletteRow}>
+                    {FURNITURE_COLOR_SWATCHES.map((swatch) => (
+                      <button
+                        key={swatch.hex}
+                        className={styles.swatchBtn}
+                        style={{
+                          backgroundColor: swatch.bg,
+                          outline: selectedObject.colorHex === swatch.hex ? "2px solid #fbbf24" : "none",
+                        }}
+                        onClick={() => onChangeColorSelected(swatch.hex)}
+                        title={`Tint: ${swatch.name}`}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Delete Button */}
-                <button className={styles.deleteBtn} onClick={onDeleteSelected} title="Delete selected object">
-                  🗑️ Delete Item
+                <button
+                  className={styles.deleteBtn}
+                  onClick={onDeleteSelected}
+                  title="Delete selected object from the house"
+                >
+                  🗑️ Delete Object
                 </button>
               </div>
             ) : (
               <div className={styles.noSelectionPlaceholder}>
                 <span className={styles.placeholderIcon}>👆</span>
                 <span className={styles.placeholderText}>
-                  Click any placed 3D furniture to rotate, recolor, scale, or delete.
+                  Click any furniture in 3D to delete, replace, rotate, or recolor.
                 </span>
                 {totalPlacedCount > 0 && (
                   <button className={styles.clearAllBtn} onClick={onClearAllFurniture}>
-                    🧹 Clear All Placed
+                    🧹 Clear Placed
                   </button>
                 )}
               </div>
