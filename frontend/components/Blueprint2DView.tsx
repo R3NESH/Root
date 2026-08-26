@@ -1427,6 +1427,47 @@ export default function Blueprint2DView({
                         )}
                       </g>
                     );
+                  } else if (opening.kind === "opening") {
+                    const isHoriz = opening.edge === "N" || opening.edge === "S";
+                    const wx2 = isHoriz ? ox + openWidthPx : ox;
+                    const wy2 = isHoriz ? oy : oy + openWidthPx;
+
+                    return (
+                      <g
+                        key={`op-${oIdx}`}
+                        pointerEvents="all"
+                        style={{ cursor: "pointer" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRoomIndex(idx);
+                          setSelectedOpeningIndex(oIdx);
+                          setSelectedWallEdge(opening.edge);
+                          setInspectorTab("door");
+                        }}
+                      >
+                        <line
+                          x1={ox}
+                          y1={oy}
+                          x2={wx2}
+                          y2={wy2}
+                          stroke="#94a3b8"
+                          strokeWidth="2.5"
+                          strokeDasharray="5,4"
+                        />
+                        <text
+                          x={isHoriz ? ox + openWidthPx / 2 : ox - 6}
+                          y={isHoriz ? oy - 6 : oy + openWidthPx / 2}
+                          fill="#cbd5e1"
+                          fontSize="8.5"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                          textAnchor="middle"
+                          transform={isHoriz ? undefined : `rotate(-90, ${ox - 6}, ${oy + openWidthPx / 2})`}
+                        >
+                          OPEN PASSAGE
+                        </text>
+                      </g>
+                    );
                   }
                   return null;
                 })}

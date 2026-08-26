@@ -12,7 +12,7 @@ import {
   PlotDims,
   Setback,
 } from "@/lib/plot";
-import { ROOM_LABELS, RoomName } from "@/lib/rooms";
+import { findAdjacentRoomEdge, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { SolvedRoom } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
 import {
@@ -1636,6 +1636,17 @@ export default function Scene({
         wd: number,
         isEW: boolean
       ) => {
+        // Detect if this wall edge is shared with an adjacent touching room
+        const adj = findAdjacentRoomEdge(rooms, i, edge);
+        // If this edge is shared with another room that already built the partition wall (adjIndex < i), skip to avoid duplicate overlapping walls!
+        if (adj && adj.adjIndex < i) {
+          return;
+        }
+
+        const isShared = Boolean(adj);
+        const adjRoom = adj ? rooms[adj.adjIndex] : null;
+        const adjLabel = adjRoom ? (ROOM_LABELS[adjRoom.name as RoomName] || adjRoom.name) : "";
+
         const isMainEntrance = i === entranceRoomIndex && edge === chosenEntranceEdge;
 
         const assignedDoor = assignedDoorways.find(
@@ -1651,21 +1662,28 @@ export default function Scene({
 
         const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
 
+        const wallTitle = isShared
+          ? `${roomLabel} / ${adjLabel} Partition Wall${hasFullOpening ? " [Open-Concept]" : ""}`
+          : `${roomLabel} (${edge} Wall)${hasFullOpening ? " [Open-Concept]" : ""}`;
+
+        const wallUserData = {
+          isWall: true,
+          isRemoved: hasFullOpening,
+          id: `wall_${i}_${edge}`,
+          roomIndex: i,
+          adjRoomIndex: adj?.adjIndex,
+          edge,
+          adjEdge: adj?.adjEdge,
+          name: wallTitle,
+        };
+
         if (hasFullOpening) {
           // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
           const beamH = 0.75;
           const beam = new THREE.Mesh(new THREE.BoxGeometry(ww, beamH, wd), wallMaterial);
           beam.position.set(wx, WALL_HEIGHT_FT - beamH / 2, wz);
           beam.castShadow = true;
-          beam.userData = {
-            isWall: true,
-            isRemoved: true,
-            id: `wall_${i}_${edge}`,
-            roomIndex: i,
-            roomName: room.name,
-            edge,
-            name: `${roomLabel} (${edge} Wall) [Open-Concept]`,
-          };
+          beam.userData = { ...wallUserData };
           roomGroup.add(beam);
         } else if (hasDoor) {
           const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : DOOR_WIDTH_FT;
@@ -1692,6 +1710,7 @@ export default function Scene({
               leftWall.position.set(wx - ww / 2 + leftW / 2, WALL_HEIGHT_FT / 2, wz);
               leftWall.castShadow = true;
               leftWall.receiveShadow = true;
+              leftWall.userData = { ...wallUserData };
               roomGroup.add(leftWall);
 
               const leftBase = new THREE.Mesh(new THREE.BoxGeometry(leftW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
@@ -1704,6 +1723,7 @@ export default function Scene({
               rightWall.position.set(wx + ww / 2 - rightW / 2, WALL_HEIGHT_FT / 2, wz);
               rightWall.castShadow = true;
               rightWall.receiveShadow = true;
+              rightWall.userData = { ...wallUserData };
               roomGroup.add(rightWall);
 
               const rightBase = new THREE.Mesh(new THREE.BoxGeometry(rightW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
@@ -1714,6 +1734,7 @@ export default function Scene({
             const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, wd), wallMaterial);
             lintel.position.set(doorPos, doorH + lintelH / 2, wz);
             lintel.castShadow = true;
+            lintel.userData = { ...wallUserData };
             roomGroup.add(lintel);
 
             const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
@@ -1743,6 +1764,7 @@ export default function Scene({
               topWall.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + topD / 2);
               topWall.castShadow = true;
               topWall.receiveShadow = true;
+              topWall.userData = { ...wallUserData };
               roomGroup.add(topWall);
 
               const topBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, topD), baseboardMaterial);
@@ -1755,6 +1777,7 @@ export default function Scene({
               botWall.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - bottomD / 2);
               botWall.castShadow = true;
               botWall.receiveShadow = true;
+              botWall.userData = { ...wallUserData };
               roomGroup.add(botWall);
 
               const botBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, bottomD), baseboardMaterial);
@@ -1765,6 +1788,7 @@ export default function Scene({
             const lintel = new THREE.Mesh(new THREE.BoxGeometry(ww, lintelH, doorW), wallMaterial);
             lintel.position.set(wx, doorH + lintelH / 2, doorPos);
             lintel.castShadow = true;
+            lintel.userData = { ...wallUserData };
             roomGroup.add(lintel);
 
             const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
@@ -1806,18 +1830,21 @@ export default function Scene({
             leftWall.position.set(wx - ww / 2 + sideW / 2, WALL_HEIGHT_FT / 2, wz);
             leftWall.castShadow = true;
             leftWall.receiveShadow = true;
+            leftWall.userData = { ...wallUserData };
             roomGroup.add(leftWall);
 
             const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, wd), wallMaterial);
             rightWall.position.set(wx + ww / 2 - sideW / 2, WALL_HEIGHT_FT / 2, wz);
             rightWall.castShadow = true;
             rightWall.receiveShadow = true;
+            rightWall.userData = { ...wallUserData };
             roomGroup.add(rightWall);
 
             const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, wd), wallMaterial);
             sillWall.position.set(wx, sillH / 2, wz);
             sillWall.castShadow = true;
             sillWall.receiveShadow = true;
+            sillWall.userData = { ...wallUserData };
             roomGroup.add(sillWall);
 
             const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
@@ -1827,6 +1854,7 @@ export default function Scene({
             const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, wd), wallMaterial);
             topWall.position.set(wx, sillH + winH + topH / 2, wz);
             topWall.castShadow = true;
+            topWall.userData = { ...wallUserData };
             roomGroup.add(topWall);
 
             if (!winProps.isDeleted) {
@@ -1857,18 +1885,21 @@ export default function Scene({
             topWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + sideD / 2);
             topWallSeg.castShadow = true;
             topWallSeg.receiveShadow = true;
+            topWallSeg.userData = { ...wallUserData };
             roomGroup.add(topWallSeg);
 
             const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, sideD), wallMaterial);
             botWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - sideD / 2);
             botWallSeg.castShadow = true;
             botWallSeg.receiveShadow = true;
+            botWallSeg.userData = { ...wallUserData };
             roomGroup.add(botWallSeg);
 
             const sillWall = new THREE.Mesh(new THREE.BoxGeometry(ww, sillH, winW), wallMaterial);
             sillWall.position.set(wx, sillH / 2, wz);
             sillWall.castShadow = true;
             sillWall.receiveShadow = true;
+            sillWall.userData = { ...wallUserData };
             roomGroup.add(sillWall);
 
             const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, wd), baseboardMaterial);
@@ -1878,6 +1909,7 @@ export default function Scene({
             const topWall = new THREE.Mesh(new THREE.BoxGeometry(ww, topH, winW), wallMaterial);
             topWall.position.set(wx, sillH + winH + topH / 2, wz);
             topWall.castShadow = true;
+            topWall.userData = { ...wallUserData };
             roomGroup.add(topWall);
 
             if (!winProps.isDeleted) {
@@ -1908,15 +1940,7 @@ export default function Scene({
           wall.position.set(wx, WALL_HEIGHT_FT / 2, wz);
           wall.castShadow = true;
           wall.receiveShadow = true;
-          wall.userData = {
-            isWall: true,
-            isRemoved: false,
-            id: `wall_${i}_${edge}`,
-            roomIndex: i,
-            roomName: room.name,
-            edge,
-            name: `${roomLabel} (${edge} Wall)`,
-          };
+          wall.userData = { ...wallUserData };
           roomGroup.add(wall);
 
           const baseboard = new THREE.Mesh(

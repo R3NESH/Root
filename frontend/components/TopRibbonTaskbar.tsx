@@ -794,8 +794,13 @@ export default function TopRibbonTaskbar({
                         onToggleRemoveWall &&
                         onToggleRemoveWall(selectedObject.roomIndex ?? 0, selectedObject.edge ?? "N")
                       }
+                      title={
+                        selectedObject.isWallRemoved
+                          ? "Rebuild solid wall partition"
+                          : "Delete this wall to merge both rooms into an open concept space"
+                      }
                     >
-                      {selectedObject.isWallRemoved ? "🧱 Rebuild Wall" : "🔨 Remove Wall (Open)"}
+                      {selectedObject.isWallRemoved ? "🧱 Rebuild Wall" : "🗑️ Delete Wall (Open Concept)"}
                     </button>
                     {!selectedObject.isWallRemoved && (
                       <button

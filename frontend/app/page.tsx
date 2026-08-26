@@ -19,7 +19,7 @@ import {
   Facing,
   PlotDims,
 } from "@/lib/plot";
-import { RoomName, ROOM_NAMES, ROOM_LABELS } from "@/lib/rooms";
+import { findAdjacentRoomEdge, RoomName, ROOM_NAMES, ROOM_LABELS } from "@/lib/rooms";
 import { useSolve } from "@/lib/useSolve";
 import { RoomOpening, RoomSpecIn } from "@/lib/solve";
 import { feetToInches, inchesToFeet } from "@/lib/units";
@@ -396,6 +396,9 @@ export default function Home() {
       const currentOps = customOpenings[id] !== undefined ? customOpenings[id] : (room.openings || []);
       const isAlreadyRemoved = currentOps.some((o) => o.kind === "opening" && o.edge === edge);
 
+      // Check if this wall is shared with an adjacent touching room
+      const adj = findAdjacentRoomEdge(rooms, roomIndex, edge);
+
       let nextOps: RoomOpening[];
       if (isAlreadyRemoved) {
         // Rebuild the solid wall by removing the full opening
@@ -415,14 +418,43 @@ export default function Home() {
         ];
       }
 
-      setCustomOpenings((prev) => ({
-        ...prev,
+      const nextCustomOpenings: Record<string, RoomOpening[]> = {
+        ...customOpenings,
         [id]: nextOps,
-      }));
+      };
+
+      // If this wall is shared with an adjacent room, synchronize the opening on the adjacent room too!
+      if (adj) {
+        const adjSpec = roomListWithSpecs[adj.adjIndex];
+        const adjId = adjSpec?.id || `${rooms[adj.adjIndex]?.name}_${adj.adjIndex}`;
+        const adjRoom = rooms[adj.adjIndex];
+        if (adjRoom) {
+          const adjCurrentOps = customOpenings[adjId] !== undefined ? customOpenings[adjId] : (adjRoom.openings || []);
+          let nextAdjOps: RoomOpening[];
+          if (isAlreadyRemoved) {
+            nextAdjOps = adjCurrentOps.filter((o) => !(o.kind === "opening" && o.edge === adj.adjEdge));
+          } else {
+            const adjWallLengthIn = adj.adjEdge === "N" || adj.adjEdge === "S" ? adjRoom.w_in : adjRoom.d_in;
+            nextAdjOps = [
+              ...adjCurrentOps.filter((o) => o.edge !== adj.adjEdge),
+              {
+                kind: "opening",
+                edge: adj.adjEdge,
+                offset_in: 0,
+                width_in: adjWallLengthIn,
+                height_in: 108,
+              },
+            ];
+          }
+          nextCustomOpenings[adjId] = nextAdjOps;
+        }
+      }
+
+      setCustomOpenings(nextCustomOpenings);
 
       // Update selectedObjectInfo in-place so ribbon button updates immediately
       setSelectedObjectInfo((prev) => {
-        if (!prev || prev.id !== `wall_${roomIndex}_${edge}`) return prev;
+        if (!prev || !prev.isWall) return prev;
         return {
           ...prev,
           isWallRemoved: !isAlreadyRemoved,
@@ -496,7 +528,10 @@ export default function Home() {
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedObjectInfo) {
-      if (selectedObjectInfo.isWindow) {
+      if (selectedObjectInfo.isWall) {
+        handleToggleRemoveWall(selectedObjectInfo.roomIndex ?? 0, selectedObjectInfo.edge ?? "N");
+        return;
+      } else if (selectedObjectInfo.isWindow) {
         handleDeleteIndividualWindow(selectedObjectInfo.id);
         return;
       } else if (selectedObjectInfo.isBuiltin) {
@@ -510,7 +545,7 @@ export default function Home() {
       setCustomObjects((prev) => prev.filter((o) => o.id !== selectedObjectId));
       setSelectedObjectId(null);
     }
-  }, [selectedObjectInfo, selectedObjectId, handleDeleteIndividualWindow]);
+  }, [selectedObjectInfo, selectedObjectId, handleDeleteIndividualWindow, handleToggleRemoveWall]);
 
   const handleReplaceSelected = useCallback((newType: string) => {
     const current = selectedObjectInfo;
