@@ -27,6 +27,13 @@ import { RoomOpening, RoomSpecIn } from "@/lib/solve";
 import { feetToInches, inchesToFeet } from "@/lib/units";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
 import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
+import MaterialCustomizerModal from "@/components/MaterialCustomizerModal";
+import {
+  DEFAULT_MATERIAL_CONFIG,
+  FLOOR_MATERIALS,
+  HouseMaterialConfig,
+  WALL_COLORS,
+} from "@/lib/materialsCatalog";
 import {
   detectCurrentRoom,
   EYE_LEVEL_FT,
@@ -54,8 +61,10 @@ export default function Home() {
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
   const [furnished, setFurnished] = useState(true);
+  const [materialConfig, setMaterialConfig] = useState<HouseMaterialConfig>(DEFAULT_MATERIAL_CONFIG);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isModelBlueprintsOpen, setIsModelBlueprintsOpen] = useState(false);
+  const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
   const [activeBlueprintName, setActiveBlueprintName] = useState<string | null>(null);
@@ -219,6 +228,15 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Materials & Finishes Studio Action */}
+          <button
+            className={styles.headerMaterialBtn}
+            onClick={() => setIsMaterialModalOpen(true)}
+            title="Customize luxury floor marbles, hardwoods, kitchen tiles, and wall designs"
+          >
+            🎨 Finishes & Materials
+          </button>
+
           {/* Model Blueprints Catalog Action */}
           <button
             className={styles.headerModelBtn}
@@ -275,6 +293,7 @@ export default function Home() {
                 teleportTarget={teleportTarget}
                 lightsOn={lightsOn}
                 furnished={furnished}
+                materialConfig={materialConfig}
                 onPlotChange={setPlot}
                 onPlayerUpdate={setPlayer}
                 onToggleLights={handleToggleLights}
@@ -344,7 +363,27 @@ export default function Home() {
             </div>
 
             <div className={styles.card}>
-              <h2 className={styles.cardHeading}>4. Interiors</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <h2 className={styles.cardHeading} style={{ margin: 0 }}>4. Materials & Finishes</h2>
+                <button
+                  className={styles.sidebarMaterialBtn}
+                  onClick={() => setIsMaterialModalOpen(true)}
+                >
+                  🎨 Customize
+                </button>
+              </div>
+              <div className={styles.materialPillsSummary}>
+                <div className={styles.summaryBadge}>
+                  <b>Flooring:</b> {FLOOR_MATERIALS.find((m) => m.id === materialConfig.globalFloor)?.name ?? "Carrara White Marble"}
+                </div>
+                <div className={styles.summaryBadge}>
+                  <b>Walls:</b> {WALL_COLORS.find((c) => c.id === materialConfig.globalWallColor)?.name ?? "Arctic White"}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>5. Interiors</h2>
               <label className={styles.toggleRow}>
                 <input
                   type="checkbox"
@@ -363,7 +402,7 @@ export default function Home() {
             </div>
 
             <div className={styles.card}>
-              <h2 className={styles.cardHeading}>5. Room Dimensions (Custom)</h2>
+              <h2 className={styles.cardHeading}>6. Room Dimensions (Custom)</h2>
               <RoomCustomizer
                 counts={counts}
                 rooms={rooms}
@@ -391,6 +430,15 @@ export default function Home() {
           </aside>
         )}
       </main>
+
+      {/* Materials & Finishes Studio Dialog Modal */}
+      <MaterialCustomizerModal
+        isOpen={isMaterialModalOpen}
+        onClose={() => setIsMaterialModalOpen(false)}
+        config={materialConfig}
+        onChangeConfig={setMaterialConfig}
+        activeRooms={Object.keys(counts).filter((k) => (counts[k as RoomName] || 0) > 0) as RoomName[]}
+      />
 
       {/* Architectural Blueprint Export Dialog Modal */}
       <BlueprintExportModal

@@ -42,6 +42,15 @@ import {
   FURNITURE_CATALOG,
   PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
+import {
+  DEFAULT_MATERIAL_CONFIG,
+  getFloorTexture,
+  getRoomFloorMaterial,
+  getRoomWallColorHex,
+  getRoomWallTextureId,
+  getWallTextureBumpMap,
+  HouseMaterialConfig,
+} from "@/lib/materialsCatalog";
 
 interface SceneProps {
   plot: PlotDims;
@@ -57,6 +66,7 @@ interface SceneProps {
   customObjects?: PlacedCustomObject[];
   placingItemType?: string | null;
   selectedObjectId?: string | null;
+  materialConfig?: HouseMaterialConfig;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
@@ -141,6 +151,7 @@ export default function Scene({
   customObjects = [],
   placingItemType = null,
   selectedObjectId = null,
+  materialConfig = DEFAULT_MATERIAL_CONFIG,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
@@ -222,6 +233,7 @@ export default function Scene({
   const customObjectsRef = useRef(customObjects);
   const placingItemTypeRef = useRef(placingItemType);
   const selectedObjectIdRef = useRef(selectedObjectId);
+  const materialConfigRef = useRef(materialConfig);
 
   useEffect(() => {
     plotRef.current = plot;
@@ -239,6 +251,7 @@ export default function Scene({
     customObjectsRef.current = customObjects;
     placingItemTypeRef.current = placingItemType;
     selectedObjectIdRef.current = selectedObjectId;
+    materialConfigRef.current = materialConfig;
 
     roomLightsRef.current.forEach((l) => {
       l.visible = lightsOn;
@@ -259,6 +272,7 @@ export default function Scene({
     customObjects,
     placingItemType,
     selectedObjectId,
+    materialConfig,
   ]);
 
   // 1. Scene & Renderer Initialization
@@ -1222,25 +1236,39 @@ export default function Scene({
 
       const roomGroup = new THREE.Group();
 
-      // Floor Mesh
-      let floorTexture: THREE.CanvasTexture;
-      if (room.name === "bedroom") floorTexture = getWoodFloorTexture();
-      else if (room.name === "hall") floorTexture = getMarbleFloorTexture(false);
-      else if (room.name === "pooja") floorTexture = getMarbleFloorTexture(true);
-      else if (room.name === "kitchen") floorTexture = getTileFloorTexture(true);
-      else floorTexture = getTileFloorTexture(false);
+      // Floor Mesh (Customized via Material & Finishes Studio)
+      const floorMatDef = getRoomFloorMaterial(room.name as RoomName, materialConfigRef.current);
+      const floorTexture = getFloorTexture(floorMatDef.id);
 
       const floorGeom = new THREE.PlaneGeometry(rw, rd);
       const floorMat = new THREE.MeshStandardMaterial({
         map: floorTexture,
-        roughness: room.name === "bedroom" ? 0.45 : 0.18,
-        metalness: room.name === "hall" || room.name === "pooja" ? 0.14 : 0.04,
+        roughness: floorMatDef.roughness,
+        metalness: floorMatDef.metalness,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
       floorMesh.rotation.x = -Math.PI / 2;
       floorMesh.position.set(rx + rw / 2, 0.04, rz + rd / 2);
       floorMesh.receiveShadow = true;
       roomGroup.add(floorMesh);
+
+      // Wall Materials & Textures (Customized via Material & Finishes Studio)
+      const wallColorHex = getRoomWallColorHex(room.name as RoomName, materialConfigRef.current);
+      const wallTextureId = getRoomWallTextureId(room.name as RoomName, materialConfigRef.current);
+      const wallBumpMap = getWallTextureBumpMap(wallTextureId);
+
+      const wallMaterial = new THREE.MeshStandardMaterial({
+        color: wallColorHex,
+        bumpMap: wallBumpMap,
+        bumpScale: wallBumpMap ? 0.05 : 0,
+        roughness:
+          wallTextureId === "wood_slat"
+            ? 0.45
+            : wallTextureId === "venetian_stucco"
+            ? 0.65
+            : 0.82,
+        metalness: 0.02,
+      });
 
       // Wall Builder
       const buildWall = (
@@ -1674,7 +1702,7 @@ export default function Scene({
 
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
     depthHandle.position.set(wFt / 2, HANDLE_RADIUS_FT, dFt);
-  }, [plot, facing, setback, rooms, furnished, customObjects, selectedObjectId]);
+  }, [plot, facing, setback, rooms, furnished, customObjects, selectedObjectId, materialConfig]);
 
   // Ghost Furniture Placement Preview Handler
   useEffect(() => {

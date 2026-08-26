@@ -1,0 +1,817 @@
+// Photorealistic Architectural Materials & Finishes Catalog
+// High-performance procedural Three.js canvas textures with singleton caching
+
+import * as THREE from "three";
+import { RoomName } from "./rooms";
+
+export type FloorCategory = "marble" | "wood" | "tile";
+export type WallCategory = "color" | "texture";
+
+export interface FloorMaterialDef {
+  id: string;
+  name: string;
+  category: FloorCategory;
+  description: string;
+  swatchColor: string;
+  roughness: number;
+  metalness: number;
+}
+
+export interface WallColorDef {
+  id: string;
+  name: string;
+  hex: string;
+  description: string;
+}
+
+export interface WallTextureDef {
+  id: string;
+  name: string;
+  description: string;
+  roughness: number;
+}
+
+export interface DesignPreset {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  globalFloor: string;
+  globalWallColor: string;
+  globalWallTexture: string;
+  roomFloors?: Partial<Record<RoomName, string>>;
+  roomWallColors?: Partial<Record<RoomName, string>>;
+}
+
+export interface HouseMaterialConfig {
+  globalFloor: string;
+  globalWallColor: string;
+  globalWallTexture: string;
+  roomFloors: Partial<Record<RoomName, string>>;
+  roomWallColors: Partial<Record<RoomName, string>>;
+  roomWallTextures: Partial<Record<RoomName, string>>;
+}
+
+export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
+  globalFloor: "carrara_white",
+  globalWallColor: "arctic_white",
+  globalWallTexture: "matte_paint",
+  roomFloors: {
+    hall: "carrara_white",
+    kitchen: "black_granite",
+    bedroom: "walnut_plank",
+    pooja: "botticino_gold",
+    bathroom: "terrazzo_venice",
+  },
+  roomWallColors: {
+    hall: "arctic_white",
+    kitchen: "warm_alabaster",
+    bedroom: "warm_alabaster",
+    pooja: "champagne_gold",
+    bathroom: "arctic_white",
+  },
+  roomWallTextures: {
+    hall: "venetian_stucco",
+    bedroom: "matte_paint",
+  },
+};
+
+// --------------------------------------------------------------------------------------
+// Catalog Definitions
+// --------------------------------------------------------------------------------------
+
+export const FLOOR_MATERIALS: FloorMaterialDef[] = [
+  // Marbles
+  {
+    id: "carrara_white",
+    name: "Italian Carrara White Marble",
+    category: "marble",
+    description: "Classic pristine white Italian marble with subtle smokey grey quartz veining and high specular sheen.",
+    swatchColor: "#f8fafc",
+    roughness: 0.16,
+    metalness: 0.08,
+  },
+  {
+    id: "marquina_black",
+    name: "Nero Marquina Black Marble",
+    category: "marble",
+    description: "Deep Spanish obsidian black marble with striking white crystalline lightning veining.",
+    swatchColor: "#0f172a",
+    roughness: 0.18,
+    metalness: 0.12,
+  },
+  {
+    id: "botticino_gold",
+    name: "Royal Botticino Gold Marble",
+    category: "marble",
+    description: "Warm Italian ivory stone with luminous golden-amber and terracotta mineral plumes.",
+    swatchColor: "#fef3c7",
+    roughness: 0.18,
+    metalness: 0.1,
+  },
+  {
+    id: "oasis_green",
+    name: "Verde Oasis Emerald Marble",
+    category: "marble",
+    description: "Extravagant Indian forest green serpentine marble with light jade crystalline waves.",
+    swatchColor: "#064e3b",
+    roughness: 0.19,
+    metalness: 0.08,
+  },
+  {
+    id: "travertine_beige",
+    name: "Classic Roman Travertine",
+    category: "marble",
+    description: "Honed cream Italian travertine with soft linear sedimentary banding.",
+    swatchColor: "#e8d6be",
+    roughness: 0.28,
+    metalness: 0.04,
+  },
+
+  // Hardwoods
+  {
+    id: "walnut_plank",
+    name: "American Dark Walnut Planks",
+    category: "wood",
+    description: "Rich chocolate brown wide-plank hardwood with deep grain texture and satin lacquer.",
+    swatchColor: "#593318",
+    roughness: 0.38,
+    metalness: 0.02,
+  },
+  {
+    id: "natural_oak",
+    name: "European Natural Oak",
+    category: "wood",
+    description: "Warm golden honey timber with natural knots and authentic cathedral grain lines.",
+    swatchColor: "#c99b5a",
+    roughness: 0.42,
+    metalness: 0.02,
+  },
+  {
+    id: "chevron_teak",
+    name: "Burma Teak Chevron Parquet",
+    category: "wood",
+    description: "Iconic diagonal 45° chevron parquet in warm golden-brown Burmese teak.",
+    swatchColor: "#935324",
+    roughness: 0.35,
+    metalness: 0.04,
+  },
+  {
+    id: "scandi_grey_ash",
+    name: "Scandinavian Grey Ash",
+    category: "wood",
+    description: "Light Nordic white-washed grey ash planks for clean, minimalist spaces.",
+    swatchColor: "#b8b9ba",
+    roughness: 0.45,
+    metalness: 0.02,
+  },
+  {
+    id: "herringbone_mahogany",
+    name: "Herringbone Royal Mahogany",
+    category: "wood",
+    description: "Deep reddish-brown interlocking herringbone weave with warm luster.",
+    swatchColor: "#662619",
+    roughness: 0.32,
+    metalness: 0.05,
+  },
+
+  // Kitchen & Bath Tiles / Stones
+  {
+    id: "hex_slate",
+    name: "Hexagonal Charcoal Slate Tile",
+    category: "tile",
+    description: "Modern matte geometric dark tiles with fine cement grout lines.",
+    swatchColor: "#1e293b",
+    roughness: 0.55,
+    metalness: 0.03,
+  },
+  {
+    id: "moroccan_talavera",
+    name: "Moroccan Geometric Talavera",
+    category: "tile",
+    description: "Artisanal Mediterranean star-and-cross encaustic tiles in cobalt blue & ivory.",
+    swatchColor: "#1e40af",
+    roughness: 0.3,
+    metalness: 0.06,
+  },
+  {
+    id: "black_granite",
+    name: "Polished Absolute Black Granite",
+    category: "tile",
+    description: "Ultra-sleek mirror-polished black granite with microscopic silver mineral flecks.",
+    swatchColor: "#111827",
+    roughness: 0.15,
+    metalness: 0.15,
+  },
+  {
+    id: "terrazzo_venice",
+    name: "Venetian Terrazzo Mosaic",
+    category: "tile",
+    description: "Chic cream aggregate base embedded with terracotta, sage, and obsidian marble chips.",
+    swatchColor: "#f1ede4",
+    roughness: 0.28,
+    metalness: 0.05,
+  },
+  {
+    id: "subway_ceramic",
+    name: "Glossy Ceramic Subway Tile",
+    category: "tile",
+    description: "Classic staggered brick-bond glossy ceramic tiles ideal for kitchens and baths.",
+    swatchColor: "#e2e8f0",
+    roughness: 0.22,
+    metalness: 0.06,
+  },
+  {
+    id: "quartzite_calacatta",
+    name: "Calacatta Quartzite Kitchen Slab",
+    category: "tile",
+    description: "Heavy-duty luxury kitchen stone with bold grey and gold dramatic river veins.",
+    swatchColor: "#f1f5f9",
+    roughness: 0.17,
+    metalness: 0.09,
+  },
+];
+
+export const WALL_COLORS: WallColorDef[] = [
+  { id: "arctic_white", name: "Crisp Arctic White", hex: "#f8fafc", description: "Modern, clean, luminous neutral white." },
+  { id: "warm_alabaster", name: "Warm Alabaster / Cream", hex: "#f5f0e8", description: "Cozy warm white with gentle golden undertones." },
+  { id: "sage_mist", name: "Nordic Sage Green", hex: "#b4c3b5", description: "Relaxing, earthy biophilic muted sage tone." },
+  { id: "royal_navy", name: "Deep Royal Navy", hex: "#1e293b", description: "Sophisticated, dramatic dark accent wall color." },
+  { id: "charcoal_slate", name: "Modern Charcoal Slate", hex: "#334155", description: "Contemporary urban industrial grey." },
+  { id: "terracotta", name: "Warm Indian Terracotta", hex: "#b85d38", description: "Rich sun-baked clay tone full of warmth." },
+  { id: "champagne_gold", name: "Soft Champagne Gold", hex: "#e4d6c4", description: "Luminous, elegant soft cream with gold tint." },
+  { id: "dusty_rose", name: "Pastel Dusty Rose", hex: "#d8b4b8", description: "Subtle, romantic muted rose blush tone." },
+];
+
+export const WALL_TEXTURES: WallTextureDef[] = [
+  { id: "matte_paint", name: "Smooth Matte Paint", description: "Seamless, velvety flat paint finish.", roughness: 0.85 },
+  { id: "venetian_stucco", name: "Venetian Plaster / Stucco", description: "Hand-troweled Italian plaster with subtle light depth.", roughness: 0.65 },
+  { id: "wood_slat", name: "Vertical Teak Wood Slats", description: "Modern architectural acoustic slatted wood paneling.", roughness: 0.45 },
+  { id: "exposed_brick", name: "Rustic White Brick", description: "Textured loft white-washed exposed brick.", roughness: 0.88 },
+  { id: "linen_wallpaper", name: "Natural Woven Linen", description: "Subtle woven textile wallpaper with tactile texture.", roughness: 0.92 },
+  { id: "concrete_loft", name: "Industrial Polished Concrete", description: "Sleek architectural concrete with formwork accents.", roughness: 0.72 },
+];
+
+export const DESIGN_PRESETS: DesignPreset[] = [
+  {
+    id: "modern_luxury",
+    name: "Ultra-Modern Luxury",
+    icon: "💎",
+    description: "Carrara White & Nero Marquina marble, Absolute Black Granite kitchen, Walnut bedroom, and Venetian Stucco walls.",
+    globalFloor: "carrara_white",
+    globalWallColor: "arctic_white",
+    globalWallTexture: "venetian_stucco",
+    roomFloors: {
+      hall: "carrara_white",
+      kitchen: "black_granite",
+      bedroom: "walnut_plank",
+      pooja: "botticino_gold",
+      bathroom: "marquina_black",
+    },
+    roomWallColors: {
+      hall: "arctic_white",
+      bedroom: "warm_alabaster",
+      kitchen: "arctic_white",
+      pooja: "champagne_gold",
+      bathroom: "royal_navy",
+    },
+  },
+  {
+    id: "scandinavian_warmth",
+    name: "Scandinavian Warmth",
+    icon: "🌿",
+    description: "European Natural Oak & Scandi Grey Ash, Subway Tile kitchen, and Nordic Sage Green & Linen walls.",
+    globalFloor: "natural_oak",
+    globalWallColor: "sage_mist",
+    globalWallTexture: "linen_wallpaper",
+    roomFloors: {
+      hall: "natural_oak",
+      kitchen: "subway_ceramic",
+      bedroom: "scandi_grey_ash",
+      pooja: "natural_oak",
+      bathroom: "hex_slate",
+    },
+    roomWallColors: {
+      hall: "warm_alabaster",
+      bedroom: "sage_mist",
+      kitchen: "warm_alabaster",
+      pooja: "warm_alabaster",
+      bathroom: "arctic_white",
+    },
+  },
+  {
+    id: "royal_indian_classic",
+    name: "Royal Indian Classic",
+    icon: "🏛️",
+    description: "Royal Botticino Gold marble, Burma Teak Chevron wood, Warm Terracotta & Champagne Gold walls.",
+    globalFloor: "botticino_gold",
+    globalWallColor: "warm_alabaster",
+    globalWallTexture: "venetian_stucco",
+    roomFloors: {
+      hall: "botticino_gold",
+      kitchen: "black_granite",
+      bedroom: "chevron_teak",
+      pooja: "botticino_gold",
+      bathroom: "terrazzo_venice",
+    },
+    roomWallColors: {
+      hall: "champagne_gold",
+      bedroom: "warm_alabaster",
+      kitchen: "terracotta",
+      pooja: "champagne_gold",
+      bathroom: "warm_alabaster",
+    },
+  },
+  {
+    id: "industrial_urban_loft",
+    name: "Industrial Urban Loft",
+    icon: "🏙️",
+    description: "Nero Marquina Black marble, Hexagonal Slate kitchen, Exposed Brick & Charcoal Slate walls.",
+    globalFloor: "hex_slate",
+    globalWallColor: "charcoal_slate",
+    globalWallTexture: "exposed_brick",
+    roomFloors: {
+      hall: "marquina_black",
+      kitchen: "hex_slate",
+      bedroom: "walnut_plank",
+      pooja: "carrara_white",
+      bathroom: "hex_slate",
+    },
+    roomWallColors: {
+      hall: "charcoal_slate",
+      bedroom: "royal_navy",
+      kitchen: "arctic_white",
+      pooja: "warm_alabaster",
+      bathroom: "charcoal_slate",
+    },
+  },
+  {
+    id: "mediterranean_coastal",
+    name: "Mediterranean Coastal",
+    icon: "🌊",
+    description: "Moroccan Talavera tiles in Kitchen, Travertine Beige hall, Oak bedroom, and Crisp Arctic White walls.",
+    globalFloor: "travertine_beige",
+    globalWallColor: "arctic_white",
+    globalWallTexture: "matte_paint",
+    roomFloors: {
+      hall: "travertine_beige",
+      kitchen: "moroccan_talavera",
+      bedroom: "natural_oak",
+      pooja: "travertine_beige",
+      bathroom: "terrazzo_venice",
+    },
+    roomWallColors: {
+      hall: "arctic_white",
+      bedroom: "sage_mist",
+      kitchen: "arctic_white",
+      pooja: "warm_alabaster",
+      bathroom: "royal_navy",
+    },
+  },
+];
+
+// --------------------------------------------------------------------------------------
+// Procedural Canvas Texture Generator & Caching Engine
+// --------------------------------------------------------------------------------------
+
+const textureCache = new Map<string, THREE.CanvasTexture>();
+
+function createAndCacheTexture(key: string, drawFn: (ctx: CanvasRenderingContext2D, size: number) => void, repeat: [number, number] = [2, 2]): THREE.CanvasTexture {
+  if (textureCache.has(key)) {
+    return textureCache.get(key)!;
+  }
+
+  const canvas = document.createElement("canvas");
+  const size = 512;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  if (ctx) {
+    drawFn(ctx, size);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeat[0], repeat[1]);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+/**
+ * Returns procedural high-res floor canvas texture for the given material ID.
+ */
+export function getFloorTexture(materialId: string): THREE.CanvasTexture {
+  switch (materialId) {
+    case "carrara_white":
+      return createAndCacheTexture("carrara_white", (ctx, size) => {
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.18)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 9; i++) {
+          ctx.beginPath();
+          let x = (i * 65 + 30) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.sin(y * 0.04 + i) + Math.cos(x * 0.03)) * 7;
+            y += 18;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        // Marble 4x4 ft tile grid
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "marquina_black":
+      return createAndCacheTexture("marquina_black", (ctx, size) => {
+        ctx.fillStyle = "#090d16";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          ctx.beginPath();
+          let x = (i * 70 + 40) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.sin(y * 0.05 + i * 2) - Math.cos(y * 0.03)) * 8;
+            y += 24;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(51, 65, 85, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "botticino_gold":
+      return createAndCacheTexture("botticino_gold", (ctx, size) => {
+        ctx.fillStyle = "#fcf8ee";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(180, 140, 60, 0.25)";
+        ctx.lineWidth = 3.5;
+        for (let i = 0; i < 9; i++) {
+          ctx.beginPath();
+          let x = (i * 60 + 25) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.sin(y * 0.04 + i) + Math.cos(x * 0.03)) * 6;
+            y += 18;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(190, 160, 100, 0.35)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "oasis_green":
+      return createAndCacheTexture("oasis_green", (ctx, size) => {
+        ctx.fillStyle = "#064e3b";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(52, 211, 153, 0.35)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 7; i++) {
+          ctx.beginPath();
+          let x = (i * 80 + 30) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.sin(y * 0.03 + i) * 10);
+            y += 20;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(4, 120, 87, 0.5)";
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "travertine_beige":
+      return createAndCacheTexture("travertine_beige", (ctx, size) => {
+        ctx.fillStyle = "#e8d6be";
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = "rgba(180, 160, 130, 0.25)";
+        for (let y = 0; y < size; y += 12) {
+          ctx.fillRect(0, y, size, 4);
+        }
+        ctx.strokeStyle = "rgba(150, 130, 100, 0.35)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "walnut_plank":
+      return createAndCacheTexture("walnut_plank", (ctx, size) => {
+        ctx.fillStyle = "#593318";
+        ctx.fillRect(0, 0, size, size);
+        const plankH = 64;
+        for (let y = 0; y < size; y += plankH) {
+          const tone = (y / plankH) % 2 === 0 ? "#4a2810" : "#5d371b";
+          ctx.fillStyle = tone;
+          ctx.fillRect(0, y, size, plankH);
+          ctx.strokeStyle = "rgba(35, 18, 8, 0.65)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, y, size, plankH);
+        }
+      }, [3, 3]);
+
+    case "natural_oak":
+      return createAndCacheTexture("natural_oak", (ctx, size) => {
+        ctx.fillStyle = "#c99b5a";
+        ctx.fillRect(0, 0, size, size);
+        const plankH = 56;
+        for (let y = 0; y < size; y += plankH) {
+          const tone = (y / plankH) % 2 === 0 ? "#bd8f4e" : "#d1a362";
+          ctx.fillStyle = tone;
+          ctx.fillRect(0, y, size, plankH);
+          ctx.strokeStyle = "rgba(120, 80, 30, 0.4)";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(0, y, size, plankH);
+        }
+      }, [3, 3]);
+
+    case "chevron_teak":
+      return createAndCacheTexture("chevron_teak", (ctx, size) => {
+        ctx.fillStyle = "#935324";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(60, 30, 10, 0.5)";
+        ctx.lineWidth = 2.5;
+        const step = 48;
+        for (let y = -size; y < size * 2; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size / 2, y + size / 2);
+          ctx.lineTo(size, y);
+          ctx.stroke();
+        }
+      }, [2, 2]);
+
+    case "scandi_grey_ash":
+      return createAndCacheTexture("scandi_grey_ash", (ctx, size) => {
+        ctx.fillStyle = "#b8b9ba";
+        ctx.fillRect(0, 0, size, size);
+        const plankH = 56;
+        for (let y = 0; y < size; y += plankH) {
+          const tone = (y / plankH) % 2 === 0 ? "#b0b1b2" : "#c0c1c2";
+          ctx.fillStyle = tone;
+          ctx.fillRect(0, y, size, plankH);
+          ctx.strokeStyle = "rgba(80, 80, 85, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(0, y, size, plankH);
+        }
+      }, [3, 3]);
+
+    case "herringbone_mahogany":
+      return createAndCacheTexture("herringbone_mahogany", (ctx, size) => {
+        ctx.fillStyle = "#662619";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(40, 12, 6, 0.6)";
+        ctx.lineWidth = 2.5;
+        const step = 40;
+        for (let y = -size; y < size * 2; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size / 2, y + size / 2);
+          ctx.lineTo(size, y);
+          ctx.stroke();
+        }
+      }, [3, 3]);
+
+    case "hex_slate":
+      return createAndCacheTexture("hex_slate", (ctx, size) => {
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.lineWidth = 2;
+        const r = 32;
+        const h = r * Math.sqrt(3);
+        for (let y = 0; y < size + h; y += h) {
+          for (let x = 0; x < size + r * 3; x += r * 3) {
+            ctx.beginPath();
+            for (let a = 0; a < 6; a++) {
+              const angle = (a * Math.PI) / 3;
+              const px = x + r * Math.cos(angle);
+              const py = y + r * Math.sin(angle);
+              if (a === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+      }, [3, 3]);
+
+    case "moroccan_talavera":
+      return createAndCacheTexture("moroccan_talavera", (ctx, size) => {
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(0, 0, size, size);
+        const tileSize = 128;
+        for (let y = 0; y < size; y += tileSize) {
+          for (let x = 0; x < size; x += tileSize) {
+            ctx.fillStyle = "#1e40af";
+            ctx.fillRect(x + 12, y + 12, tileSize - 24, tileSize - 24);
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.arc(x + tileSize / 2, y + tileSize / 2, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#0f172a";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, tileSize, tileSize);
+          }
+        }
+      }, [3, 3]);
+
+    case "black_granite":
+      return createAndCacheTexture("black_granite", (ctx, size) => {
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        for (let i = 0; i < 400; i++) {
+          const px = Math.random() * size;
+          const py = Math.random() * size;
+          ctx.fillRect(px, py, 2, 2);
+        }
+        ctx.strokeStyle = "rgba(51, 65, 85, 0.4)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "terrazzo_venice":
+      return createAndCacheTexture("terrazzo_venice", (ctx, size) => {
+        ctx.fillStyle = "#f1ede4";
+        ctx.fillRect(0, 0, size, size);
+        const colors = ["#c2593f", "#4b7a5a", "#1e293b", "#d97706", "#78716c"];
+        for (let i = 0; i < 350; i++) {
+          ctx.fillStyle = colors[i % colors.length];
+          const px = Math.random() * size;
+          const py = Math.random() * size;
+          const s = Math.random() * 8 + 3;
+          ctx.fillRect(px, py, s, s);
+        }
+        ctx.strokeStyle = "rgba(168, 162, 158, 0.4)";
+        ctx.strokeRect(0, 0, size / 2, size / 2);
+        ctx.strokeRect(size / 2, 0, size / 2, size / 2);
+        ctx.strokeRect(0, size / 2, size / 2, size / 2);
+        ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
+      }, [2, 2]);
+
+    case "subway_ceramic":
+      return createAndCacheTexture("subway_ceramic", (ctx, size) => {
+        ctx.fillStyle = "#f1f5f9";
+        ctx.fillRect(0, 0, size, size);
+        const tileW = 128;
+        const tileH = 64;
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.55)";
+        ctx.lineWidth = 3;
+        for (let y = 0; y < size; y += tileH) {
+          const shift = (y / tileH) % 2 === 0 ? 0 : tileW / 2;
+          for (let x = -tileW; x < size + tileW; x += tileW) {
+            ctx.strokeRect(x + shift, y, tileW, tileH);
+          }
+        }
+      }, [3, 3]);
+
+    case "quartzite_calacatta":
+      return createAndCacheTexture("quartzite_calacatta", (ctx, size) => {
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "rgba(71, 85, 105, 0.3)";
+        ctx.lineWidth = 5;
+        for (let i = 0; i < 6; i++) {
+          ctx.beginPath();
+          let x = (i * 90 + 20) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.sin(y * 0.03 + i) * 12);
+            y += 24;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(217, 119, 6, 0.25)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          let x = (i * 120 + 60) % size;
+          let y = 0;
+          ctx.moveTo(x, y);
+          while (y < size) {
+            x += (Math.cos(y * 0.04 + i) * 8);
+            y += 20;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      }, [2, 2]);
+
+    default:
+      return getFloorTexture("carrara_white");
+  }
+}
+
+/**
+ * Returns procedural bump map texture for wall architectural finishes.
+ */
+export function getWallTextureBumpMap(textureId: string): THREE.CanvasTexture | null {
+  if (textureId === "matte_paint") return null;
+
+  return createAndCacheTexture(`wall_bump_${textureId}`, (ctx, size) => {
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0, 0, size, size);
+
+    if (textureId === "venetian_stucco") {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      for (let i = 0; i < 120; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const w = Math.random() * 60 + 20;
+        const h = Math.random() * 30 + 10;
+        ctx.fillRect(x, y, w, h);
+      }
+    } else if (textureId === "wood_slat") {
+      const slatW = 24;
+      for (let x = 0; x < size; x += slatW) {
+        ctx.fillStyle = (x / slatW) % 2 === 0 ? "#ffffff" : "#333333";
+        ctx.fillRect(x, 0, slatW, size);
+      }
+    } else if (textureId === "exposed_brick") {
+      const bW = 80;
+      const bH = 36;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.strokeStyle = "#222222";
+      ctx.lineWidth = 4;
+      for (let y = 0; y < size; y += bH) {
+        const shift = (y / bH) % 2 === 0 ? 0 : bW / 2;
+        for (let x = -bW; x < size + bW; x += bW) {
+          ctx.strokeRect(x + shift, y, bW, bH);
+        }
+      }
+    } else if (textureId === "linen_wallpaper") {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      for (let y = 0; y < size; y += 4) ctx.fillRect(0, y, size, 2);
+      for (let x = 0; x < size; x += 4) ctx.fillRect(x, 0, 2, size);
+    } else if (textureId === "concrete_loft") {
+      ctx.fillStyle = "rgba(40, 40, 40, 0.25)";
+      for (let i = 0; i < 300; i++) {
+        ctx.fillRect(Math.random() * size, Math.random() * size, 3, 3);
+      }
+      ctx.strokeStyle = "rgba(20, 20, 20, 0.4)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, 0, size / 2, size);
+      ctx.strokeRect(size / 2, 0, size / 2, size);
+    }
+  }, [4, 4]);
+}
+
+/**
+ * Returns the effective floor material definition for a specific room.
+ */
+export function getRoomFloorMaterial(roomName: RoomName, config: HouseMaterialConfig): FloorMaterialDef {
+  const customId = config.roomFloors[roomName] || config.globalFloor;
+  return FLOOR_MATERIALS.find((m) => m.id === customId) || FLOOR_MATERIALS[0];
+}
+
+/**
+ * Returns the effective wall color hex for a specific room.
+ */
+export function getRoomWallColorHex(roomName: RoomName, config: HouseMaterialConfig): number {
+  const colorId = config.roomWallColors[roomName] || config.globalWallColor;
+  const def = WALL_COLORS.find((c) => c.id === colorId) || WALL_COLORS[0];
+  return parseInt(def.hex.replace("#", "0x"), 16);
+}
+
+/**
+ * Returns the effective wall texture ID for a specific room.
+ */
+export function getRoomWallTextureId(roomName: RoomName, config: HouseMaterialConfig): string {
+  return config.roomWallTextures[roomName] || config.globalWallTexture;
+}
