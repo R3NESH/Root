@@ -58,12 +58,13 @@ export default function MaterialCustomizerModal({
       onChangeConfig({
         ...config,
         globalFloor: matId,
+        roomFloors: {}, // Clear room overrides so Whole House instantly updates all rooms!
       });
     } else {
       onChangeConfig({
         ...config,
         roomFloors: {
-          ...config.roomFloors,
+          ...(config.roomFloors || {}),
           [selectedTarget]: matId,
         },
       });
@@ -75,12 +76,13 @@ export default function MaterialCustomizerModal({
       onChangeConfig({
         ...config,
         globalWallColor: colorId,
+        roomWallColors: {}, // Clear room overrides so Whole House instantly updates all rooms!
       });
     } else {
       onChangeConfig({
         ...config,
         roomWallColors: {
-          ...config.roomWallColors,
+          ...(config.roomWallColors || {}),
           [selectedTarget]: colorId,
         },
       });
@@ -92,16 +94,33 @@ export default function MaterialCustomizerModal({
       onChangeConfig({
         ...config,
         globalWallTexture: textureId,
+        roomWallTextures: {}, // Clear room overrides so Whole House instantly updates all rooms!
       });
     } else {
       onChangeConfig({
         ...config,
         roomWallTextures: {
-          ...config.roomWallTextures,
+          ...(config.roomWallTextures || {}),
           [selectedTarget]: textureId,
         },
       });
     }
+  };
+
+  const handleResetRoomToGlobal = (roomName: RoomName) => {
+    const nextFloors = { ...(config.roomFloors || {}) };
+    delete nextFloors[roomName];
+    const nextColors = { ...(config.roomWallColors || {}) };
+    delete nextColors[roomName];
+    const nextTextures = { ...(config.roomWallTextures || {}) };
+    delete nextTextures[roomName];
+
+    onChangeConfig({
+      ...config,
+      roomFloors: nextFloors,
+      roomWallColors: nextColors,
+      roomWallTextures: nextTextures,
+    });
   };
 
   const handleApplyPreset = (presetId: string) => {
@@ -207,21 +226,53 @@ export default function MaterialCustomizerModal({
             >
               🌐 Whole House
             </button>
-            {activeRooms.map((r) => (
-              <button
-                key={r}
-                className={`${styles.targetTab} ${selectedTarget === r ? styles.targetTabActive : ""}`}
-                onClick={() => setSelectedTarget(r)}
-              >
-                {r === "hall" && "🛋️ "}
-                {r === "kitchen" && "🍳 "}
-                {r === "bedroom" && "🛏️ "}
-                {r === "pooja" && "🪔 "}
-                {r === "bathroom" && "🚿 "}
-                {ROOM_LABELS[r] ?? r}
-              </button>
-            ))}
+            {activeRooms.map((r) => {
+              const hasOverride = Boolean(
+                config.roomFloors?.[r] ||
+                  config.roomWallColors?.[r] ||
+                  config.roomWallTextures?.[r]
+              );
+              return (
+                <button
+                  key={r}
+                  className={`${styles.targetTab} ${selectedTarget === r ? styles.targetTabActive : ""}`}
+                  onClick={() => setSelectedTarget(r)}
+                >
+                  {r === "hall" && "🛋️ "}
+                  {r === "kitchen" && "🍳 "}
+                  {r === "bedroom" && "🛏️ "}
+                  {r === "pooja" && "🪔 "}
+                  {r === "bathroom" && "🚿 "}
+                  {ROOM_LABELS[r] ?? r}
+                  {hasOverride && " *"}
+                </button>
+              );
+            })}
           </div>
+          {selectedTarget !== "global" &&
+            Boolean(
+              config.roomFloors?.[selectedTarget] ||
+                config.roomWallColors?.[selectedTarget] ||
+                config.roomWallTextures?.[selectedTarget]
+            ) && (
+              <button
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(56, 189, 248, 0.4)",
+                  color: "#38bdf8",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  alignSelf: "flex-start",
+                  marginTop: "4px",
+                }}
+                onClick={() => handleResetRoomToGlobal(selectedTarget)}
+              >
+                ↩️ Reset {ROOM_LABELS[selectedTarget] ?? selectedTarget} to Whole House Defaults
+              </button>
+            )}
         </div>
 
         {/* Category Tabs: Flooring vs Walls */}

@@ -56,24 +56,9 @@ export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
   globalFloor: "carrara_white",
   globalWallColor: "arctic_white",
   globalWallTexture: "matte_paint",
-  roomFloors: {
-    hall: "carrara_white",
-    kitchen: "black_granite",
-    bedroom: "walnut_plank",
-    pooja: "botticino_gold",
-    bathroom: "terrazzo_venice",
-  },
-  roomWallColors: {
-    hall: "arctic_white",
-    kitchen: "warm_alabaster",
-    bedroom: "warm_alabaster",
-    pooja: "champagne_gold",
-    bathroom: "arctic_white",
-  },
-  roomWallTextures: {
-    hall: "venetian_stucco",
-    bedroom: "matte_paint",
-  },
+  roomFloors: {},
+  roomWallColors: {},
+  roomWallTextures: {},
 };
 
 // --------------------------------------------------------------------------------------
