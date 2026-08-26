@@ -196,6 +196,8 @@ export default function Scene({
   const jumpVelocityY = useRef(0);
   const isJumping = useRef(false);
   const bobTimer = useRef(0);
+  const lastPlayerReportTime = useRef(0);
+  const lastReportedPos = useRef<{ x: number; z: number; yaw: number }>({ x: 0, z: 0, yaw: 0 });
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const isDraggingLook = useRef(false);
@@ -277,16 +279,16 @@ export default function Scene({
 
     const isMobileOrLowGPU =
       typeof window !== "undefined" &&
-      (/Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) ||
+      (/Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test(navigator.userAgent) ||
         window.innerWidth < 800 ||
         (navigator.hardwareConcurrency !== undefined && navigator.hardwareConcurrency <= 4));
 
     const targetDPR = isMobileOrLowGPU
-      ? Math.min(window.devicePixelRatio, 1.25)
-      : Math.min(window.devicePixelRatio, 1.75);
+      ? Math.min(window.devicePixelRatio, 1.0)
+      : Math.min(window.devicePixelRatio, 1.5);
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isMobileOrLowGPU,
       alpha: true,
       powerPreference: "high-performance",
       precision: isMobileOrLowGPU ? "mediump" : "highp",
@@ -296,7 +298,7 @@ export default function Scene({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = isMobileOrLowGPU ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
     mount.appendChild(renderer.domElement);
 
@@ -841,14 +843,26 @@ export default function Scene({
         });
 
         if (onPlayerUpdateRef.current) {
-          onPlayerUpdateRef.current({
-            ...p,
-            y: effectiveCameraY,
-            isSprinting,
-            isCrouched,
-            isMoving,
-            lightsOn: lightsOnRef.current,
-          });
+          const now = performance.now();
+          const distMoved = Math.hypot(
+            p.x - lastReportedPos.current.x,
+            p.z - lastReportedPos.current.z
+          );
+          const yawDiff = Math.abs(p.yaw - lastReportedPos.current.yaw);
+
+          // Throttle React state updates to 12 FPS or on movement to eliminate 60 FPS React re-renders
+          if (now - lastPlayerReportTime.current > 80 || distMoved > 0.15 || yawDiff > 0.08) {
+            lastPlayerReportTime.current = now;
+            lastReportedPos.current = { x: p.x, z: p.z, yaw: p.yaw };
+            onPlayerUpdateRef.current({
+              ...p,
+              y: effectiveCameraY,
+              isSprinting,
+              isCrouched,
+              isMoving,
+              lightsOn: lightsOnRef.current,
+            });
+          }
         }
       } else {
         controls.enabled = true;
@@ -1470,11 +1484,10 @@ export default function Scene({
       // East Wall
       buildWall("E", rx + rw - wt / 2, rz + rd / 2, wt, rd, false);
 
-      // Warm interior recessed spotlight
-      const roomLight = new THREE.PointLight(0xfff0dd, 1.1, 26, 1.2);
+      // Warm interior recessed spotlight (Non-shadowed to eliminate 30+ GPU shadow depth passes per frame)
+      const roomLight = new THREE.PointLight(0xfff0dd, 1.2, 28, 1.2);
       roomLight.position.set(rx + rw / 2, 8.2, rz + rd / 2);
-      roomLight.castShadow = true;
-      roomLight.shadow.bias = -0.001;
+      roomLight.castShadow = false;
       roomLight.visible = lightsOnRef.current;
       roomGroup.add(roomLight);
       roomLightsRef.current.push(roomLight);

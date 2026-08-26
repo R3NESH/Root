@@ -12,10 +12,19 @@ export interface RoomDoorInfo {
 }
 
 // --------------------------------------------------------------------------------------
-// 1. Procedural PBR Floor Texture Generators
+// 1. Procedural PBR Floor Texture Generators (Cached Singletons)
 // --------------------------------------------------------------------------------------
 
+let cachedMarbleNormal: THREE.CanvasTexture | null = null;
+let cachedMarblePooja: THREE.CanvasTexture | null = null;
+let cachedWoodFloor: THREE.CanvasTexture | null = null;
+let cachedTileKitchen: THREE.CanvasTexture | null = null;
+let cachedTileNormal: THREE.CanvasTexture | null = null;
+
 export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTexture {
+  if (isPooja && cachedMarblePooja) return cachedMarblePooja;
+  if (!isPooja && cachedMarbleNormal) return cachedMarbleNormal;
+
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -53,10 +62,16 @@ export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTex
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(2, 2);
+
+  if (isPooja) cachedMarblePooja = texture;
+  else cachedMarbleNormal = texture;
+
   return texture;
 }
 
 export function getWoodFloorTexture(): THREE.CanvasTexture {
+  if (cachedWoodFloor) return cachedWoodFloor;
+
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -102,10 +117,14 @@ export function getWoodFloorTexture(): THREE.CanvasTexture {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(3, 3);
+  cachedWoodFloor = texture;
   return texture;
 }
 
 export function getTileFloorTexture(isKitchen: boolean = false): THREE.CanvasTexture {
+  if (isKitchen && cachedTileKitchen) return cachedTileKitchen;
+  if (!isKitchen && cachedTileNormal) return cachedTileNormal;
+
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
@@ -126,6 +145,10 @@ export function getTileFloorTexture(isKitchen: boolean = false): THREE.CanvasTex
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(3, 3);
+
+  if (isKitchen) cachedTileKitchen = texture;
+  else cachedTileNormal = texture;
+
   return texture;
 }
 
@@ -184,13 +207,12 @@ export function buildWindowWithCurtains(
   isBathroom: boolean = false
 ) {
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.35 });
-  const glassMat = new THREE.MeshPhysicalMaterial({
+  const glassMat = new THREE.MeshStandardMaterial({
     color: 0x93c5fd,
     transparent: true,
-    opacity: isBathroom ? 0.65 : 0.3,
-    roughness: isBathroom ? 0.6 : 0.05,
-    metalness: 0.1,
-    transmission: 0.9,
+    opacity: isBathroom ? 0.65 : 0.35,
+    roughness: isBathroom ? 0.6 : 0.1,
+    metalness: 0.15,
   });
 
   const frameDepth = wallThick + 0.08;
