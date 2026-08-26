@@ -67,6 +67,8 @@ export interface SelectedObjectInfo {
   type?: string;
   isBuiltin?: boolean;
   isWindow?: boolean;
+  isWall?: boolean;
+  isWallRemoved?: boolean;
   windowShape?: WindowShapeId;
   windowFrameFinish?: WindowFrameFinishId;
   windowGlassTint?: WindowGlassTintId;
@@ -613,12 +615,14 @@ export default function Scene({
         for (const hit of intersects) {
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr !== groupRef.current) {
-            if (curr.userData && (curr.userData.isCustomObject || curr.userData.isFurniture || curr.userData.isWindow)) {
+            if (curr.userData && (curr.userData.isCustomObject || curr.userData.isFurniture || curr.userData.isWindow || curr.userData.isWall)) {
               const id = curr.userData.id;
               const isBuiltin = Boolean(curr.userData.isBuiltin);
               const isWindow = Boolean(curr.userData.isWindow);
-              const name = curr.userData.name || (isWindow ? "Window" : "Furniture");
-              const type = curr.userData.type || (isWindow ? "window" : "sofa_3seater");
+              const isWall = Boolean(curr.userData.isWall);
+              const isWallRemoved = Boolean(curr.userData.isRemoved);
+              const name = curr.userData.name || (isWindow ? "Window" : isWall ? "Wall" : "Furniture");
+              const type = curr.userData.type || (isWindow ? "window" : isWall ? "wall" : "sofa_3seater");
               const worldPos = new THREE.Vector3();
               curr.getWorldPosition(worldPos);
               return {
@@ -627,6 +631,8 @@ export default function Scene({
                 type,
                 isBuiltin,
                 isWindow,
+                isWall,
+                isWallRemoved,
                 windowShape: curr.userData.shape,
                 windowFrameFinish: curr.userData.frameFinish,
                 windowGlassTint: curr.userData.glassTint,
@@ -1601,11 +1607,32 @@ export default function Scene({
           (d) => (d.roomAIndex === i && d.edgeA === edge) || (d.roomBIndex === i && d.edgeB === edge)
         );
 
+        const openingSpec = (room.openings ?? []).find((o) => o.kind === "opening" && o.edge === edge);
+        const hasFullOpening = Boolean(openingSpec);
+
         const hasDoor = isMainEntrance || Boolean(assignedDoor);
-        const windowSpec = hasDoor ? undefined : windowOn(i, edge);
+        const windowSpec = hasDoor || hasFullOpening ? undefined : windowOn(i, edge);
         const hasWindow = Boolean(windowSpec);
 
-        if (hasDoor) {
+        const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
+
+        if (hasFullOpening) {
+          // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
+          const beamH = 0.75;
+          const beam = new THREE.Mesh(new THREE.BoxGeometry(ww, beamH, wd), wallMaterial);
+          beam.position.set(wx, WALL_HEIGHT_FT - beamH / 2, wz);
+          beam.castShadow = true;
+          beam.userData = {
+            isWall: true,
+            isRemoved: true,
+            id: `wall_${i}_${edge}`,
+            roomIndex: i,
+            roomName: room.name,
+            edge,
+            name: `${roomLabel} (${edge} Wall) [Open-Concept]`,
+          };
+          roomGroup.add(beam);
+        } else if (hasDoor) {
           const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : DOOR_WIDTH_FT;
           const doorH = DOOR_HEIGHT_FT;
           const lintelH = WALL_HEIGHT_FT - doorH;
@@ -1725,13 +1752,17 @@ export default function Scene({
             }
           }
         } else if (hasWindow) {
+          const winId = `win_${i}_${edge}`;
+          const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
+
+          const maxAllowedW = Math.max(1.8, (isEW ? ww : wd) - 0.8);
           const winW = Math.min(
-            windowSpec ? inchesToFeet(windowSpec.width_in) : WINDOW_W_FT,
-            (isEW ? ww : wd) - 1.8
+            winProps.widthFt ?? (windowSpec ? inchesToFeet(windowSpec.width_in) : WINDOW_W_FT),
+            maxAllowedW
           );
-          const winH = WINDOW_H_FT;
-          const sillH = WINDOW_SILL_Y_FT;
-          const topH = WALL_HEIGHT_FT - (sillH + winH);
+          const winH = winProps.heightFt ?? (windowSpec?.height_in ? inchesToFeet(windowSpec.height_in) : WINDOW_H_FT);
+          const sillH = winProps.sillHeightFt ?? (windowSpec?.sill_in != null ? inchesToFeet(windowSpec.sill_in) : WINDOW_SILL_Y_FT);
+          const topH = Math.max(0.1, WALL_HEIGHT_FT - (sillH + winH));
 
           if (isEW) {
             const sideW = Math.max(0.4, (ww - winW) / 2);
@@ -1762,9 +1793,6 @@ export default function Scene({
             topWall.position.set(wx, sillH + winH + topH / 2, wz);
             topWall.castShadow = true;
             roomGroup.add(topWall);
-
-            const winId = `win_${i}_${edge}`;
-            const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
 
             if (!winProps.isDeleted) {
               buildWindowWithCurtains(
@@ -1817,9 +1845,6 @@ export default function Scene({
             topWall.castShadow = true;
             roomGroup.add(topWall);
 
-            const winId = `win_${i}_${edge}`;
-            const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
-
             if (!winProps.isDeleted) {
               buildWindowWithCurtains(
                 roomGroup,
@@ -1848,6 +1873,15 @@ export default function Scene({
           wall.position.set(wx, WALL_HEIGHT_FT / 2, wz);
           wall.castShadow = true;
           wall.receiveShadow = true;
+          wall.userData = {
+            isWall: true,
+            isRemoved: false,
+            id: `wall_${i}_${edge}`,
+            roomIndex: i,
+            roomName: room.name,
+            edge,
+            name: `${roomLabel} (${edge} Wall)`,
+          };
           roomGroup.add(wall);
 
           const baseboard = new THREE.Mesh(

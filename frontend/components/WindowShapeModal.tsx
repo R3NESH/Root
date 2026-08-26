@@ -31,6 +31,7 @@ interface WindowShapeModalProps {
   onChangeConfig: (newConfig: WindowConfig) => void;
   rooms?: SolvedRoom[];
   selectedWindowId?: string | null;
+  onAddWindow?: (roomIndex: number, edge: "N" | "S" | "E" | "W") => void;
 }
 
 export default function WindowShapeModal({
@@ -40,10 +41,14 @@ export default function WindowShapeModal({
   onChangeConfig,
   rooms = [],
   selectedWindowId = null,
+  onAddWindow,
 }: WindowShapeModalProps) {
   const [selectedScope, setSelectedScope] = useState<"global" | RoomName | "individual">("global");
   const [activeWindowId, setActiveWindowId] = useState<string | null>(selectedWindowId);
   const [localConfig, setLocalConfig] = useState<WindowConfig>(config);
+
+  const [addRoomIdx, setAddRoomIdx] = useState<number>(0);
+  const [addEdge, setAddEdge] = useState<"N" | "S" | "E" | "W">("N");
 
   // Discover all architectural windows from room openings
   const discoveredWindows: DiscoveredWindowItem[] = useMemo(() => {
@@ -91,6 +96,16 @@ export default function WindowShapeModal({
       ? currentWinProps.glassTint
       : localConfig.globalGlassTint;
 
+  const activeWidthFt =
+    selectedScope === "individual" && currentWinProps
+      ? currentWinProps.widthFt ?? 4.0
+      : localConfig.globalWidthFt ?? 4.0;
+
+  const activeHeightFt =
+    selectedScope === "individual" && currentWinProps
+      ? currentWinProps.heightFt ?? 4.0
+      : localConfig.globalHeightFt ?? 4.0;
+
   const activeHasCurtains =
     selectedScope === "individual" && currentWinProps
       ? currentWinProps.hasCurtains
@@ -120,6 +135,48 @@ export default function WindowShapeModal({
           ...prev.roomWindowShapes,
           [selectedScope]: shapeId,
         },
+      }));
+    }
+  };
+
+  const handleChangeWidth = (delta: number) => {
+    const nextW = Math.max(2.0, Math.min(10.0, +(activeWidthFt + delta).toFixed(1)));
+    if (selectedScope === "individual" && targetWindowId) {
+      setLocalConfig((prev) => ({
+        ...prev,
+        individualOverrides: {
+          ...(prev.individualOverrides || {}),
+          [targetWindowId]: {
+            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            widthFt: nextW,
+          },
+        },
+      }));
+    } else {
+      setLocalConfig((prev) => ({
+        ...prev,
+        globalWidthFt: nextW,
+      }));
+    }
+  };
+
+  const handleChangeHeight = (delta: number) => {
+    const nextH = Math.max(1.5, Math.min(7.0, +(activeHeightFt + delta).toFixed(1)));
+    if (selectedScope === "individual" && targetWindowId) {
+      setLocalConfig((prev) => ({
+        ...prev,
+        individualOverrides: {
+          ...(prev.individualOverrides || {}),
+          [targetWindowId]: {
+            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            heightFt: nextH,
+          },
+        },
+      }));
+    } else {
+      setLocalConfig((prev) => ({
+        ...prev,
+        globalHeightFt: nextH,
       }));
     }
   };
@@ -208,6 +265,15 @@ export default function WindowShapeModal({
     });
   };
 
+  const handleInstallWindow = () => {
+    if (onAddWindow) {
+      onAddWindow(addRoomIdx, addEdge);
+      const newWinId = `win_${addRoomIdx}_${addEdge}`;
+      setActiveWindowId(newWinId);
+      setSelectedScope("individual");
+    }
+  };
+
   const handleApply = () => {
     onChangeConfig(localConfig);
     onClose();
@@ -238,7 +304,7 @@ export default function WindowShapeModal({
             <div>
               <h2 className={styles.modalTitle}>Architectural Window & Fenestration Studio</h2>
               <p className={styles.modalSubtitle}>
-                Customize individual windows, room-level profiles, luxury frame finishes, and glass glazing
+                Install new windows, customize window sizes (width/height), shapes, luxury frames, and glazing
               </p>
             </div>
           </div>
@@ -272,6 +338,43 @@ export default function WindowShapeModal({
             </div>
           </div>
 
+          {/* Quick Install Window Bar */}
+          {onAddWindow && rooms.length > 0 && (
+            <div className={styles.scopeSection}>
+              <span className={styles.sectionLabel}>➕ Install New Window on Any Room Wall</span>
+              <div className={styles.addWindowBar}>
+                <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Select Room:</span>
+                <select
+                  className={styles.modalSelect}
+                  value={addRoomIdx}
+                  onChange={(e) => setAddRoomIdx(Number(e.target.value))}
+                >
+                  {rooms.map((room, rIdx) => (
+                    <option key={rIdx} value={rIdx}>
+                      {ROOM_LABELS[room.name as RoomName] || room.name} (Room #{rIdx + 1})
+                    </option>
+                  ))}
+                </select>
+
+                <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Wall Edge:</span>
+                <select
+                  className={styles.modalSelect}
+                  value={addEdge}
+                  onChange={(e) => setAddEdge(e.target.value as "N" | "S" | "E" | "W")}
+                >
+                  <option value="N">North (Top Wall)</option>
+                  <option value="S">South (Bottom Wall)</option>
+                  <option value="E">East (Right Wall)</option>
+                  <option value="W">West (Left Wall)</option>
+                </select>
+
+                <button className={styles.installWinBtn} onClick={handleInstallWindow}>
+                  ➕ Install Window
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Individual Windows Picker (When in Individual Scope) */}
           {selectedScope === "individual" && (
             <div className={styles.scopeSection}>
@@ -291,7 +394,9 @@ export default function WindowShapeModal({
                     >
                       <div className={styles.windowCardName}>{win.label}</div>
                       <div className={styles.windowCardDetails}>
-                        <span>{shapeDef?.icon} {shapeDef?.name}</span>
+                        <span>
+                          {shapeDef?.icon} {shapeDef?.name} ({(winP.widthFt ?? 4.0).toFixed(1)}' × {(winP.heightFt ?? 4.0).toFixed(1)}')
+                        </span>
                         {winP.isDeleted ? (
                           <span className={styles.windowDeletedTag}>Removed</span>
                         ) : hasCustomOverride ? (
@@ -326,6 +431,38 @@ export default function WindowShapeModal({
               )}
             </div>
           )}
+
+          {/* Window Dimensions (Width & Height) */}
+          <div>
+            <span className={styles.sectionLabel}>📐 Window Dimensions (Size)</span>
+            <div className={styles.dimensionsRow} style={{ marginTop: "8px" }}>
+              <div className={styles.dimensionControl}>
+                <span className={styles.dimLabel}>Window Width (Opening Span)</span>
+                <div className={styles.dimSteppers}>
+                  <button className={styles.dimBtn} onClick={() => handleChangeWidth(-0.5)}>
+                    -
+                  </button>
+                  <span className={styles.dimValue}>{activeWidthFt.toFixed(1)} ft</span>
+                  <button className={styles.dimBtn} onClick={() => handleChangeWidth(+0.5)}>
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.dimensionControl}>
+                <span className={styles.dimLabel}>Window Height (Vertical Frame)</span>
+                <div className={styles.dimSteppers}>
+                  <button className={styles.dimBtn} onClick={() => handleChangeHeight(-0.5)}>
+                    -
+                  </button>
+                  <span className={styles.dimValue}>{activeHeightFt.toFixed(1)} ft</span>
+                  <button className={styles.dimBtn} onClick={() => handleChangeHeight(+0.5)}>
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Window Shapes Grid */}
           <div>

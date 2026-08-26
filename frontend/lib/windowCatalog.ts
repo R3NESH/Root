@@ -67,6 +67,7 @@ export interface IndividualWindowOverride {
   glassTint?: WindowGlassTintId;
   widthFt?: number;
   heightFt?: number;
+  sillHeightFt?: number;
   hasCurtains?: boolean;
 }
 
@@ -74,6 +75,8 @@ export interface WindowConfig {
   globalShape: WindowShapeId;
   globalFrameFinish: WindowFrameFinishId;
   globalGlassTint: WindowGlassTintId;
+  globalWidthFt?: number;
+  globalHeightFt?: number;
   roomWindowShapes: Partial<Record<RoomName, WindowShapeId>>;
   individualOverrides?: Record<string, IndividualWindowOverride>;
   deletedWindowIds?: string[];
@@ -308,6 +311,9 @@ export function getIndividualWindowProps(
   shape: WindowShapeId;
   frameFinish: WindowFrameFinishId;
   glassTint: WindowGlassTintId;
+  widthFt?: number;
+  heightFt?: number;
+  sillHeightFt?: number;
   hasCurtains: boolean;
   isDeleted: boolean;
 } {
@@ -319,6 +325,9 @@ export function getIndividualWindowProps(
     shape: override.shape ?? roomShape,
     frameFinish: override.frameFinish ?? config.globalFrameFinish,
     glassTint: override.glassTint ?? config.globalGlassTint,
+    widthFt: override.widthFt ?? config.globalWidthFt,
+    heightFt: override.heightFt ?? config.globalHeightFt,
+    sillHeightFt: override.sillHeightFt,
     hasCurtains: override.hasCurtains ?? config.hasCurtains,
     isDeleted,
   };

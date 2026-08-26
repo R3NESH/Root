@@ -21,7 +21,7 @@ import {
   Facing,
   PlotDims,
 } from "@/lib/plot";
-import { RoomName, ROOM_NAMES } from "@/lib/rooms";
+import { RoomName, ROOM_NAMES, ROOM_LABELS } from "@/lib/rooms";
 import { useSolve } from "@/lib/useSolve";
 import { RoomOpening, RoomSpecIn } from "@/lib/solve";
 import { feetToInches, inchesToFeet } from "@/lib/units";
@@ -284,6 +284,8 @@ export default function Home() {
         shape?: WindowShapeId;
         frameFinish?: WindowFrameFinishId;
         glassTint?: WindowGlassTintId;
+        widthFt?: number;
+        heightFt?: number;
         hasCurtains?: boolean;
       }
     ) => {
@@ -310,11 +312,120 @@ export default function Home() {
           windowShape: updates.shape !== undefined ? updates.shape : prev.windowShape,
           windowFrameFinish: updates.frameFinish !== undefined ? updates.frameFinish : prev.windowFrameFinish,
           windowGlassTint: updates.glassTint !== undefined ? updates.glassTint : prev.windowGlassTint,
+          windowWidthFt: updates.widthFt !== undefined ? updates.widthFt : prev.windowWidthFt,
+          windowHeightFt: updates.heightFt !== undefined ? updates.heightFt : prev.windowHeightFt,
           windowHasCurtains: updates.hasCurtains !== undefined ? updates.hasCurtains : prev.windowHasCurtains,
         };
       });
     },
     []
+  );
+
+  const handleToggleRemoveWall = useCallback(
+    (roomIndex: number, edge: "N" | "S" | "E" | "W") => {
+      const room = rooms[roomIndex];
+      if (!room) return;
+      const spec = roomListWithSpecs[roomIndex];
+      const id = spec?.id || `${room.name}_${roomIndex}`;
+      const currentOps = customOpenings[id] !== undefined ? customOpenings[id] : (room.openings || []);
+      const isAlreadyRemoved = currentOps.some((o) => o.kind === "opening" && o.edge === edge);
+
+      let nextOps: RoomOpening[];
+      if (isAlreadyRemoved) {
+        // Rebuild the solid wall by removing the full opening
+        nextOps = currentOps.filter((o) => !(o.kind === "opening" && o.edge === edge));
+      } else {
+        // Demolish the wall into an open-concept passage
+        const wallLengthIn = edge === "N" || edge === "S" ? room.w_in : room.d_in;
+        nextOps = [
+          ...currentOps.filter((o) => o.edge !== edge),
+          {
+            kind: "opening",
+            edge,
+            offset_in: 0,
+            width_in: wallLengthIn,
+            height_in: 108,
+          },
+        ];
+      }
+
+      setCustomOpenings((prev) => ({
+        ...prev,
+        [id]: nextOps,
+      }));
+
+      // Update selectedObjectInfo in-place so ribbon button updates immediately
+      setSelectedObjectInfo((prev) => {
+        if (!prev || prev.id !== `wall_${roomIndex}_${edge}`) return prev;
+        return {
+          ...prev,
+          isWallRemoved: !isAlreadyRemoved,
+          name: !isAlreadyRemoved
+            ? `${prev.name.replace(" [Open-Concept]", "")} [Open-Concept]`
+            : prev.name.replace(" [Open-Concept]", ""),
+        };
+      });
+    },
+    [rooms, roomListWithSpecs, customOpenings]
+  );
+
+  const handleAddWindowToWall = useCallback(
+    (roomIndex: number, edge: "N" | "S" | "E" | "W") => {
+      const room = rooms[roomIndex];
+      if (!room) return;
+      const spec = roomListWithSpecs[roomIndex];
+      const id = spec?.id || `${room.name}_${roomIndex}`;
+      const currentOps = customOpenings[id] !== undefined ? customOpenings[id] : (room.openings || []);
+
+      const wallLengthIn = edge === "N" || edge === "S" ? room.w_in : room.d_in;
+      const newWin: RoomOpening = {
+        kind: "window",
+        edge,
+        offset_in: Math.round(wallLengthIn / 2),
+        width_in: 48,
+        height_in: 48,
+        sill_in: 36,
+      };
+
+      const nextOps = [
+        ...currentOps.filter((o) => o.edge !== edge),
+        newWin,
+      ];
+
+      setCustomOpenings((prev) => ({
+        ...prev,
+        [id]: nextOps,
+      }));
+
+      const winId = `win_${roomIndex}_${edge}`;
+      setWindowConfig((prev) => ({
+        ...prev,
+        deletedWindowIds: (prev.deletedWindowIds || []).filter((dId) => dId !== winId),
+      }));
+
+      setSelectedObjectId(winId);
+      const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
+      setSelectedObjectInfo({
+        id: winId,
+        name: `${roomLabel} (${edge} Wall) Window`,
+        type: "window",
+        isWindow: true,
+        roomIndex,
+        roomName: room.name,
+        edge,
+        windowShape: "modern_slider",
+        windowFrameFinish: "black_aluminum",
+        windowGlassTint: "clear",
+        windowWidthFt: 4.0,
+        windowHeightFt: 4.0,
+        windowHasCurtains: true,
+        x: inchesToFeet(room.x_in + room.w_in / 2),
+        y: 0,
+        z: inchesToFeet(room.y_in + room.d_in / 2),
+        rotationY: 0,
+      });
+    },
+    [rooms, roomListWithSpecs, customOpenings]
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -447,6 +558,8 @@ export default function Home() {
         onDeleteSelected={handleDeleteSelected}
         onChangeIndividualWindow={handleChangeIndividualWindow}
         onDeleteIndividualWindow={handleDeleteIndividualWindow}
+        onToggleRemoveWall={handleToggleRemoveWall}
+        onAddWindowToWall={handleAddWindowToWall}
         onClearAllFurniture={handleClearAllFurniture}
         onDeselectObject={() => {
           setSelectedObjectId(null);
@@ -686,6 +799,7 @@ export default function Home() {
         onChangeConfig={setWindowConfig}
         rooms={rooms}
         selectedWindowId={selectedObject?.isWindow ? selectedObject.id : null}
+        onAddWindow={handleAddWindowToWall}
       />
 
       {/* Architectural Blueprint Export Dialog Modal */}

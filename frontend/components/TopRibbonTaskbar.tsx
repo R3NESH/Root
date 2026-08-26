@@ -23,6 +23,8 @@ export interface SelectedObjectItem {
   type?: string;
   isBuiltin?: boolean;
   isWindow?: boolean;
+  isWall?: boolean;
+  isWallRemoved?: boolean;
   windowShape?: WindowShapeId;
   windowFrameFinish?: WindowFrameFinishId;
   windowGlassTint?: WindowGlassTintId;
@@ -67,10 +69,14 @@ interface TopRibbonTaskbarProps {
       shape?: WindowShapeId;
       frameFinish?: WindowFrameFinishId;
       glassTint?: WindowGlassTintId;
+      widthFt?: number;
+      heightFt?: number;
       hasCurtains?: boolean;
     }
   ) => void;
   onDeleteIndividualWindow?: (windowId: string) => void;
+  onToggleRemoveWall?: (roomIndex: number, edge: "N" | "S" | "E" | "W") => void;
+  onAddWindowToWall?: (roomIndex: number, edge: "N" | "S" | "E" | "W") => void;
   onClearAllFurniture: () => void;
   onDeselectObject: () => void;
   totalPlacedCount: number;
@@ -101,6 +107,8 @@ export default function TopRibbonTaskbar({
   onDeleteSelected,
   onChangeIndividualWindow,
   onDeleteIndividualWindow,
+  onToggleRemoveWall,
+  onAddWindowToWall,
   onClearAllFurniture,
   onDeselectObject,
   totalPlacedCount,
@@ -305,7 +313,50 @@ export default function TopRibbonTaskbar({
             <span className={styles.sectionLabel}>OBJECT CONTROLS</span>
             {selectedObject ? (
               <div className={styles.selectedControls}>
-                {selectedObject.isWindow ? (
+                {selectedObject.isWall ? (
+                  /* Wall Controls: Demolition (Open-Concept) & Window Installation */
+                  <div className={styles.wallSelectedDeck}>
+                    <div className={styles.selectedTitleRow}>
+                      <div className={styles.selectedTitleWrapper}>
+                        <span className={styles.selectedObjName}>{selectedObject.name}</span>
+                        <span className={styles.wallBadge}>{selectedObject.isWallRemoved ? "Open Wall" : "Solid Wall"}</span>
+                      </div>
+                      <button className={styles.deselectBtn} onClick={onDeselectObject} title="Deselect">
+                        ✕
+                      </button>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
+                      <button
+                        className={selectedObject.isWallRemoved ? styles.rebuildWallBtn : styles.removeWallBtn}
+                        onClick={() =>
+                          onToggleRemoveWall &&
+                          selectedObject.roomIndex !== undefined &&
+                          selectedObject.edge &&
+                          onToggleRemoveWall(selectedObject.roomIndex, selectedObject.edge)
+                        }
+                        title={selectedObject.isWallRemoved ? "Rebuild into solid wall" : "Demolish wall to create open-concept space"}
+                      >
+                        {selectedObject.isWallRemoved ? "🧱 Rebuild Wall" : "🔨 Remove Wall (Open)"}
+                      </button>
+
+                      {!selectedObject.isWallRemoved && (
+                        <button
+                          className={styles.addWindowBtn}
+                          onClick={() =>
+                            onAddWindowToWall &&
+                            selectedObject.roomIndex !== undefined &&
+                            selectedObject.edge &&
+                            onAddWindowToWall(selectedObject.roomIndex, selectedObject.edge)
+                          }
+                          title="Install a window on this wall"
+                        >
+                          ➕ Add Window
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : selectedObject.isWindow ? (
                   <div className={styles.windowSelectedDeck}>
                     <div className={styles.selectedTitleRow}>
                       <div className={styles.selectedTitleWrapper}>
@@ -317,7 +368,7 @@ export default function TopRibbonTaskbar({
                       </button>
                     </div>
 
-                    {/* Shape Selector Dropdown */}
+                    {/* Shape Selector & Dimensions Row */}
                     <div className={styles.windowPropRow}>
                       <span className={styles.propLabel}>Shape:</span>
                       <select
@@ -336,6 +387,66 @@ export default function TopRibbonTaskbar({
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* Window Size Width & Height Steppers */}
+                    <div className={styles.windowPropRow}>
+                      <span className={styles.propLabel}>Size:</span>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div className={styles.stepperGroup} title="Window Width (feet)">
+                          <span style={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700 }}>W</span>
+                          <button
+                            className={styles.stepBtn}
+                            onClick={() => {
+                              const cur = selectedObject.windowWidthFt ?? 4.0;
+                              const next = Math.max(2.0, +(cur - 0.5).toFixed(1));
+                              onChangeIndividualWindow &&
+                                onChangeIndividualWindow(selectedObject.id, { widthFt: next });
+                            }}
+                          >
+                            -
+                          </button>
+                          <span className={styles.stepValue}>{(selectedObject.windowWidthFt ?? 4.0).toFixed(1)}'</span>
+                          <button
+                            className={styles.stepBtn}
+                            onClick={() => {
+                              const cur = selectedObject.windowWidthFt ?? 4.0;
+                              const next = Math.min(10.0, +(cur + 0.5).toFixed(1));
+                              onChangeIndividualWindow &&
+                                onChangeIndividualWindow(selectedObject.id, { widthFt: next });
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className={styles.stepperGroup} title="Window Height (feet)">
+                          <span style={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700 }}>H</span>
+                          <button
+                            className={styles.stepBtn}
+                            onClick={() => {
+                              const cur = selectedObject.windowHeightFt ?? 4.0;
+                              const next = Math.max(1.5, +(cur - 0.5).toFixed(1));
+                              onChangeIndividualWindow &&
+                                onChangeIndividualWindow(selectedObject.id, { heightFt: next });
+                            }}
+                          >
+                            -
+                          </button>
+                          <span className={styles.stepValue}>{(selectedObject.windowHeightFt ?? 4.0).toFixed(1)}'</span>
+                          <button
+                            className={styles.stepBtn}
+                            onClick={() => {
+                              const cur = selectedObject.windowHeightFt ?? 4.0;
+                              const next = Math.min(7.0, +(cur + 0.5).toFixed(1));
+                              onChangeIndividualWindow &&
+                                onChangeIndividualWindow(selectedObject.id, { heightFt: next });
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Frame Finish Swatches */}
