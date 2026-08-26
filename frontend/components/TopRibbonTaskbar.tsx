@@ -77,6 +77,7 @@ interface TopRibbonTaskbarProps {
   onDeleteIndividualWindow?: (windowId: string) => void;
   onToggleRemoveWall?: (roomIndex: number, edge: "N" | "S" | "E" | "W") => void;
   onAddWindowToWall?: (roomIndex: number, edge: "N" | "S" | "E" | "W") => void;
+  onMoveSelected?: (dx: number, dz: number) => void;
   onClearAllFurniture: () => void;
   onDeselectObject: () => void;
   totalPlacedCount: number;
@@ -109,6 +110,7 @@ export default function TopRibbonTaskbar({
   onDeleteIndividualWindow,
   onToggleRemoveWall,
   onAddWindowToWall,
+  onMoveSelected,
   onClearAllFurniture,
   onDeselectObject,
   totalPlacedCount,
@@ -561,6 +563,44 @@ export default function TopRibbonTaskbar({
                     >
                       🔄 Replace Object...
                     </button>
+
+                    {/* Directional Move / Nudge Controls */}
+                    <div className={styles.moveControlsRow} title="Nudge Object Position (or use Arrow Keys)">
+                      <span style={{ fontSize: "9.5px", color: "#38bdf8", fontWeight: 700 }}>Move:</span>
+                      <button
+                        className={styles.moveBtn}
+                        onClick={() => onMoveSelected && onMoveSelected(-1.0, 0)}
+                        title="Move West / Left (-X)"
+                      >
+                        ⬅️
+                      </button>
+                      <button
+                        className={styles.moveBtn}
+                        onClick={() => onMoveSelected && onMoveSelected(0, -1.0)}
+                        title="Move North / Up (-Z)"
+                      >
+                        ⬆️
+                      </button>
+                      <button
+                        className={styles.moveBtn}
+                        onClick={() => onMoveSelected && onMoveSelected(0, 1.0)}
+                        title="Move South / Down (+Z)"
+                      >
+                        ⬇️
+                      </button>
+                      <button
+                        className={styles.moveBtn}
+                        onClick={() => onMoveSelected && onMoveSelected(1.0, 0)}
+                        title="Move East / Right (+X)"
+                      >
+                        ➡️
+                      </button>
+                      {selectedObject.x !== undefined && selectedObject.z !== undefined && (
+                        <span className={styles.positionBadge}>
+                          {selectedObject.x.toFixed(1)}', {selectedObject.z.toFixed(1)}'
+                        </span>
+                      )}
+                    </div>
 
                     {/* Transform Buttons */}
                     <div className={styles.transformRow}>

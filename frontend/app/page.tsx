@@ -236,6 +236,73 @@ export default function Home() {
     setPlacingRotationY((prev) => (prev + angleDelta) % (Math.PI * 2));
   }, []);
 
+  const handleConvertBuiltinToCustom = useCallback(
+    (builtinObj: SelectedObjectInfo): PlacedCustomObject | null => {
+      if (!builtinObj || builtinObj.isWall || builtinObj.isWindow) return null;
+      const itemDef = FURNITURE_CATALOG.find((i) => i.type === builtinObj.type);
+      const newId = `custom_${builtinObj.type || "furniture"}_${Date.now()}`;
+      const newObj: PlacedCustomObject = {
+        id: newId,
+        type: builtinObj.type || "sofa_3seater",
+        name: builtinObj.name || itemDef?.name || "Furniture",
+        x: builtinObj.x,
+        y: 0,
+        z: builtinObj.z,
+        rotationY: builtinObj.rotationY || 0,
+        scale: builtinObj.scale || 1.0,
+        colorHex: builtinObj.colorHex,
+      };
+
+      setDeletedBuiltinIds((prev) => [...prev, builtinObj.id]);
+      setCustomObjects((prev) => [...prev, newObj]);
+      setSelectedObjectId(newId);
+      setSelectedObjectInfo({
+        ...builtinObj,
+        id: newId,
+        isBuiltin: false,
+      });
+      return newObj;
+    },
+    []
+  );
+
+  const handleUpdateCustomObjectPos = useCallback((id: string, x: number, z: number) => {
+    const snappedX = Math.round(x * 2) / 2;
+    const snappedZ = Math.round(z * 2) / 2;
+    setCustomObjects((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, x: snappedX, z: snappedZ } : o))
+    );
+    setSelectedObjectInfo((prev) =>
+      prev && prev.id === id ? { ...prev, x: snappedX, z: snappedZ } : prev
+    );
+  }, []);
+
+  const handleMoveSelected = useCallback(
+    (dx: number, dz: number) => {
+      if (selectedObjectInfo) {
+        if (selectedObjectInfo.isWall || selectedObjectInfo.isWindow) return;
+        if (selectedObjectInfo.isBuiltin) {
+          const converted = handleConvertBuiltinToCustom(selectedObjectInfo);
+          if (converted) {
+            handleUpdateCustomObjectPos(converted.id, converted.x + dx, converted.z + dz);
+          }
+          return;
+        } else {
+          handleUpdateCustomObjectPos(selectedObjectInfo.id, selectedObjectInfo.x + dx, selectedObjectInfo.z + dz);
+          return;
+        }
+      }
+
+      if (selectedObjectId) {
+        const custom = customObjects.find((o) => o.id === selectedObjectId);
+        if (custom) {
+          handleUpdateCustomObjectPos(custom.id, custom.x + dx, custom.z + dz);
+        }
+      }
+    },
+    [selectedObjectInfo, customObjects, selectedObjectId, handleConvertBuiltinToCustom, handleUpdateCustomObjectPos]
+  );
+
   const handleRotateSelected = useCallback((angleDelta: number) => {
     if (!selectedObjectId) return;
     setCustomObjects((prev) =>
@@ -521,13 +588,33 @@ export default function Home() {
         } else if (selectedObjectId || selectedObjectInfo) {
           handleRotateSelected(Math.PI / 4);
         }
+      } else if (e.code === "ArrowUp") {
+        if (selectedObjectId || selectedObjectInfo) {
+          e.preventDefault();
+          handleMoveSelected(0, -0.5);
+        }
+      } else if (e.code === "ArrowDown") {
+        if (selectedObjectId || selectedObjectInfo) {
+          e.preventDefault();
+          handleMoveSelected(0, 0.5);
+        }
+      } else if (e.code === "ArrowLeft") {
+        if (selectedObjectId || selectedObjectInfo) {
+          e.preventDefault();
+          handleMoveSelected(-0.5, 0);
+        }
+      } else if (e.code === "ArrowRight") {
+        if (selectedObjectId || selectedObjectInfo) {
+          e.preventDefault();
+          handleMoveSelected(0.5, 0);
+        }
       } else if (e.code === "KeyL") {
         handleToggleLayoutLock();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLayoutLock]);
+  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLayoutLock, handleMoveSelected]);
 
   return (
     <div className={styles.appContainer}>
@@ -560,6 +647,7 @@ export default function Home() {
         onDeleteIndividualWindow={handleDeleteIndividualWindow}
         onToggleRemoveWall={handleToggleRemoveWall}
         onAddWindowToWall={handleAddWindowToWall}
+        onMoveSelected={handleMoveSelected}
         onClearAllFurniture={handleClearAllFurniture}
         onDeselectObject={() => {
           setSelectedObjectId(null);
@@ -645,6 +733,8 @@ export default function Home() {
                     prev.map((o) => (o.id === updated.id ? updated : o))
                   );
                 }}
+                onUpdateCustomObjectPos={handleUpdateCustomObjectPos}
+                onConvertBuiltinToCustom={handleConvertBuiltinToCustom}
                 onRequestReplace={() => setIsReplaceModalOpen(true)}
                 onRequestDelete={handleDeleteSelected}
                 onRotateSelected={handleRotateSelected}

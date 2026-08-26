@@ -114,6 +114,8 @@ interface SceneProps {
   onAddCustomObject?: (obj: PlacedCustomObject) => void;
   onSelectObject?: (info: SelectedObjectInfo | null) => void;
   onUpdateCustomObject?: (obj: PlacedCustomObject) => void;
+  onUpdateCustomObjectPos?: (id: string, x: number, z: number) => void;
+  onConvertBuiltinToCustom?: (obj: SelectedObjectInfo) => PlacedCustomObject | null;
   onRequestReplace?: () => void;
   onRequestDelete?: () => void;
   onRotateSelected?: (angleDelta: number) => void;
@@ -209,6 +211,8 @@ export default function Scene({
   onAddCustomObject,
   onSelectObject,
   onUpdateCustomObject,
+  onUpdateCustomObjectPos,
+  onConvertBuiltinToCustom,
   onRequestReplace,
   onRequestDelete,
   onRotateSelected,
@@ -281,6 +285,8 @@ export default function Scene({
   const onAddCustomObjectRef = useRef(onAddCustomObject);
   const onSelectObjectRef = useRef(onSelectObject);
   const onUpdateCustomObjectRef = useRef(onUpdateCustomObject);
+  const onUpdateCustomObjectPosRef = useRef(onUpdateCustomObjectPos);
+  const onConvertBuiltinToCustomRef = useRef(onConvertBuiltinToCustom);
   const onRequestReplaceRef = useRef(onRequestReplace);
   const onRequestDeleteRef = useRef(onRequestDelete);
   const onRotateSelectedRef = useRef(onRotateSelected);
@@ -308,6 +314,8 @@ export default function Scene({
     onAddCustomObjectRef.current = onAddCustomObject;
     onSelectObjectRef.current = onSelectObject;
     onUpdateCustomObjectRef.current = onUpdateCustomObject;
+    onUpdateCustomObjectPosRef.current = onUpdateCustomObjectPos;
+    onConvertBuiltinToCustomRef.current = onConvertBuiltinToCustom;
     onRequestReplaceRef.current = onRequestReplace;
     onRequestDeleteRef.current = onRequestDelete;
     onRotateSelectedRef.current = onRotateSelected;
@@ -750,15 +758,35 @@ export default function Scene({
         if (hitObj && ev.button === 0) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();
-          dragKind = hitObj.isBuiltin ? null : "customObject";
-          draggedCustomObjectIdRef.current = hitObj.isBuiltin ? null : hitObj.id;
-          if (onSelectObjectRef.current) {
-            onSelectObjectRef.current(hitObj);
+
+          if (hitObj.isWall || hitObj.isWindow) {
+            if (onSelectObjectRef.current) {
+              onSelectObjectRef.current(hitObj);
+            }
+            return;
           }
-          if (!hitObj.isBuiltin) {
+
+          if (hitObj.isBuiltin) {
+            let targetId = hitObj.id;
+            if (onConvertBuiltinToCustomRef.current) {
+              const converted = onConvertBuiltinToCustomRef.current(hitObj);
+              if (converted) {
+                targetId = converted.id;
+              }
+            }
+            dragKind = "customObject";
+            draggedCustomObjectIdRef.current = targetId;
             controls.enabled = false;
+            return;
+          } else {
+            dragKind = "customObject";
+            draggedCustomObjectIdRef.current = hitObj.id;
+            if (onSelectObjectRef.current) {
+              onSelectObjectRef.current(hitObj);
+            }
+            controls.enabled = false;
+            return;
           }
-          return;
         }
 
         // Check room drag
@@ -968,13 +996,20 @@ export default function Scene({
 
       if (dragKind === "customObject" && draggedCustomObjectIdRef.current && draggedCustomObjPosRef.current) {
         const objId = draggedCustomObjectIdRef.current;
-        const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
-        if (obj && onUpdateCustomObjectRef.current) {
-          onUpdateCustomObjectRef.current({
-            ...obj,
-            x: draggedCustomObjPosRef.current.x,
-            z: draggedCustomObjPosRef.current.z,
-          });
+        const newX = draggedCustomObjPosRef.current.x;
+        const newZ = draggedCustomObjPosRef.current.z;
+
+        if (onUpdateCustomObjectPosRef.current) {
+          onUpdateCustomObjectPosRef.current(objId, newX, newZ);
+        } else {
+          const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
+          if (obj && onUpdateCustomObjectRef.current) {
+            onUpdateCustomObjectRef.current({
+              ...obj,
+              x: newX,
+              z: newZ,
+            });
+          }
         }
         draggedCustomObjPosRef.current = null;
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
