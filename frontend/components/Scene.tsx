@@ -79,6 +79,7 @@ interface SceneProps {
   customObjects?: PlacedCustomObject[];
   deletedBuiltinIds?: string[];
   placingItemType?: string | null;
+  placingRotationY?: number;
   selectedObjectId?: string | null;
   selectedObjectInfo?: SelectedObjectInfo | null;
   materialConfig?: HouseMaterialConfig;
@@ -92,6 +93,7 @@ interface SceneProps {
   onRequestReplace?: () => void;
   onRequestDelete?: () => void;
   onRotateSelected?: (angleDelta: number) => void;
+  onRotatePlacing?: (angleDelta: number) => void;
 }
 
 const PLOT_COLOR = 0xffffff;
@@ -169,6 +171,7 @@ export default function Scene({
   customObjects = [],
   deletedBuiltinIds = [],
   placingItemType = null,
+  placingRotationY = 0,
   selectedObjectId = null,
   selectedObjectInfo = null,
   materialConfig = DEFAULT_MATERIAL_CONFIG,
@@ -182,6 +185,7 @@ export default function Scene({
   onRequestReplace,
   onRequestDelete,
   onRotateSelected,
+  onRotatePlacing,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -250,6 +254,7 @@ export default function Scene({
   const onAddCustomObjectRef = useRef(onAddCustomObject);
   const onSelectObjectRef = useRef(onSelectObject);
   const onUpdateCustomObjectRef = useRef(onUpdateCustomObject);
+  const onRotatePlacingRef = useRef(onRotatePlacing);
   const modeRef = useRef(mode);
   const activeMoveCmdRef = useRef(activeMoveCmd);
   const lightsOnRef = useRef(lightsOn);
@@ -257,6 +262,7 @@ export default function Scene({
   const customObjectsRef = useRef(customObjects);
   const deletedBuiltinIdsRef = useRef(deletedBuiltinIds);
   const placingItemTypeRef = useRef(placingItemType);
+  const placingRotationYRef = useRef(placingRotationY);
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
 
@@ -269,6 +275,7 @@ export default function Scene({
     onAddCustomObjectRef.current = onAddCustomObject;
     onSelectObjectRef.current = onSelectObject;
     onUpdateCustomObjectRef.current = onUpdateCustomObject;
+    onRotatePlacingRef.current = onRotatePlacing;
     modeRef.current = mode;
     activeMoveCmdRef.current = activeMoveCmd;
     lightsOnRef.current = lightsOn;
@@ -276,6 +283,7 @@ export default function Scene({
     customObjectsRef.current = customObjects;
     deletedBuiltinIdsRef.current = deletedBuiltinIds;
     placingItemTypeRef.current = placingItemType;
+    placingRotationYRef.current = placingRotationY;
     selectedObjectIdRef.current = selectedObjectId;
     materialConfigRef.current = materialConfig;
 
@@ -291,6 +299,7 @@ export default function Scene({
     onAddCustomObject,
     onSelectObject,
     onUpdateCustomObject,
+    onRotatePlacing,
     mode,
     activeMoveCmd,
     lightsOn,
@@ -298,6 +307,7 @@ export default function Scene({
     customObjects,
     deletedBuiltinIds,
     placingItemType,
+    placingRotationY,
     selectedObjectId,
     materialConfig,
   ]);
@@ -604,7 +614,7 @@ export default function Scene({
             x: Math.round(hitPoint.x * 2) / 2,
             y: 0,
             z: Math.round(hitPoint.z * 2) / 2,
-            rotationY: 0,
+            rotationY: placingRotationYRef.current || 0,
             scale: 1.0,
           };
           if (onAddCustomObjectRef.current) {
@@ -694,6 +704,8 @@ export default function Scene({
           if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
             if (placingGhostGroupRef.current) {
               placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
+              placingGhostGroupRef.current.rotation.y =
+                playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0);
               placingGhostGroupRef.current.visible = true;
             }
             renderer.domElement.style.cursor = "crosshair";
@@ -716,6 +728,7 @@ export default function Scene({
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
           if (placingGhostGroupRef.current) {
             placingGhostGroupRef.current.position.set(hitPoint.x, 0, hitPoint.z);
+            placingGhostGroupRef.current.rotation.y = placingRotationYRef.current || 0;
             placingGhostGroupRef.current.visible = true;
           }
           renderer.domElement.style.cursor = "crosshair";
@@ -798,7 +811,7 @@ export default function Scene({
                 x: Math.round(hitPoint.x * 2) / 2,
                 y: 0,
                 z: Math.round(hitPoint.z * 2) / 2,
-                rotationY: playerRef.current.yaw + Math.PI,
+                rotationY: playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0),
                 scale: 1.0,
               };
               if (onAddCustomObjectRef.current) {
@@ -883,7 +896,16 @@ export default function Scene({
       keysPressed.current[ev.code] = false;
     }
 
+    function onWheel(ev: WheelEvent) {
+      if (placingItemTypeRef.current && onRotatePlacingRef.current) {
+        ev.preventDefault();
+        const delta = (ev.deltaY > 0 ? 1 : -1) * (Math.PI / 8);
+        onRotatePlacingRef.current(delta);
+      }
+    }
+
     renderer.domElement.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
+    renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("keydown", onKeyDown);
@@ -1062,6 +1084,7 @@ export default function Scene({
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
+      renderer.domElement.removeEventListener("wheel", onWheel);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("keydown", onKeyDown);
@@ -1871,6 +1894,9 @@ export default function Scene({
 
     if (placingItemType) {
       const ghost = createFurnitureMesh(placingItemType);
+      ghost.rotation.y = modeRef.current === "walkthrough"
+        ? playerRef.current.yaw + Math.PI + (placingRotationY || 0)
+        : (placingRotationY || 0);
       ghost.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           const mat = Array.isArray(child.material) ? child.material[0] : child.material;
@@ -1887,7 +1913,15 @@ export default function Scene({
       scene.add(ghost);
       placingGhostGroupRef.current = ghost;
     }
-  }, [placingItemType]);
+  }, [placingItemType, placingRotationY]);
+
+  useEffect(() => {
+    if (placingGhostGroupRef.current) {
+      placingGhostGroupRef.current.rotation.y = modeRef.current === "walkthrough"
+        ? playerRef.current.yaw + Math.PI + (placingRotationY || 0)
+        : (placingRotationY || 0);
+    }
+  }, [placingRotationY]);
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative" }}>

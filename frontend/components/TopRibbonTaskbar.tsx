@@ -31,7 +31,9 @@ interface TopRibbonTaskbarProps {
   onOpenModelBlueprintsModal: () => void;
   onOpenExportModal: () => void;
   placingItemType: string | null;
+  placingRotationY?: number;
   onSelectPlaceItem: (type: string | null) => void;
+  onRotatePlacing?: (angleDelta: number) => void;
   selectedObject: SelectedObjectItem | null;
   onOpenReplaceModal: () => void;
   onRotateSelected: (angleDelta: number) => void;
@@ -54,7 +56,9 @@ export default function TopRibbonTaskbar({
   onOpenModelBlueprintsModal,
   onOpenExportModal,
   placingItemType,
+  placingRotationY = 0,
   onSelectPlaceItem,
+  onRotatePlacing,
   selectedObject,
   onOpenReplaceModal,
   onRotateSelected,
@@ -347,8 +351,28 @@ export default function TopRibbonTaskbar({
         <div className={styles.placingHUD}>
           <span className={styles.placingPulse}>🎯</span>
           <span>
-            Click anywhere on the room floor to place <b>{activePlacingDef.name}</b>
+            Placing: <b>{activePlacingDef.name}</b>
           </span>
+          <span className={styles.placingAngleBadge}>
+            📐 {Math.round((((placingRotationY || 0) * 180) / Math.PI) % 360)}°
+          </span>
+
+          <button
+            className={styles.placeRotateBtn}
+            onClick={() => onRotatePlacing && onRotatePlacing(Math.PI / 4)}
+            title="Rotate 45° (Press 'R' or scroll wheel)"
+          >
+            🔄 45° (R)
+          </button>
+
+          <button
+            className={styles.placeRotateBtn}
+            onClick={() => onRotatePlacing && onRotatePlacing(Math.PI / 2)}
+            title="Rotate 90°"
+          >
+            🔄 90°
+          </button>
+
           <button className={styles.cancelPlaceBtn} onClick={() => onSelectPlaceItem(null)}>
             Cancel (ESC)
           </button>

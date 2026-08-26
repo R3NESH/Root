@@ -192,6 +192,7 @@ export default function Home() {
   const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
   const [deletedBuiltinIds, setDeletedBuiltinIds] = useState<string[]>([]);
   const [placingItemType, setPlacingItemType] = useState<string | null>(null);
+  const [placingRotationY, setPlacingRotationY] = useState<number>(0);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
   const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
@@ -215,6 +216,10 @@ export default function Home() {
     }
     return null;
   }, [customObjects, selectedObjectId, selectedObjectInfo]);
+
+  const handleRotatePlacing = useCallback((angleDelta: number) => {
+    setPlacingRotationY((prev) => (prev + angleDelta) % (Math.PI * 2));
+  }, []);
 
   const handleRotateSelected = useCallback((angleDelta: number) => {
     if (!selectedObjectId) return;
@@ -310,6 +315,7 @@ export default function Home() {
     setSelectedObjectId(null);
     setSelectedObjectInfo(null);
     setPlacingItemType(null);
+    setPlacingRotationY(0);
   }, []);
 
   // Global Keyboard shortcuts (Escape, Delete, Backspace, KeyR)
@@ -320,6 +326,7 @@ export default function Home() {
 
       if (e.code === "Escape") {
         setPlacingItemType(null);
+        setPlacingRotationY(0);
         setSelectedObjectId(null);
         setSelectedObjectInfo(null);
       } else if (e.code === "Delete" || e.code === "Backspace") {
@@ -327,14 +334,16 @@ export default function Home() {
           handleDeleteSelected();
         }
       } else if (e.code === "KeyR") {
-        if (selectedObjectId || selectedObjectInfo) {
+        if (placingItemType) {
+          handleRotatePlacing(Math.PI / 4);
+        } else if (selectedObjectId || selectedObjectInfo) {
           handleRotateSelected(Math.PI / 4);
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected]);
+  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing]);
 
   return (
     <div className={styles.appContainer}>
@@ -348,7 +357,12 @@ export default function Home() {
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         placingItemType={placingItemType}
-        onSelectPlaceItem={setPlacingItemType}
+        placingRotationY={placingRotationY}
+        onSelectPlaceItem={(type) => {
+          setPlacingItemType(type);
+          if (!type) setPlacingRotationY(0);
+        }}
+        onRotatePlacing={handleRotatePlacing}
         selectedObject={selectedObject}
         onOpenReplaceModal={() => setIsReplaceModalOpen(true)}
         onRotateSelected={handleRotateSelected}
@@ -405,6 +419,7 @@ export default function Home() {
                 customObjects={customObjects}
                 deletedBuiltinIds={deletedBuiltinIds}
                 placingItemType={placingItemType}
+                placingRotationY={placingRotationY}
                 selectedObjectId={selectedObjectId}
                 selectedObjectInfo={selectedObjectInfo}
                 onPlotChange={setPlot}
@@ -414,6 +429,7 @@ export default function Home() {
                 onAddCustomObject={(newObj) => {
                   setCustomObjects((prev) => [...prev, newObj]);
                   setPlacingItemType(null);
+                  setPlacingRotationY(0);
                   setSelectedObjectId(newObj.id);
                   setSelectedObjectInfo({
                     id: newObj.id,
@@ -438,6 +454,7 @@ export default function Home() {
                 onRequestReplace={() => setIsReplaceModalOpen(true)}
                 onRequestDelete={handleDeleteSelected}
                 onRotateSelected={handleRotateSelected}
+                onRotatePlacing={handleRotatePlacing}
               />
 
               {/* Orbit View HUD Overlay */}
