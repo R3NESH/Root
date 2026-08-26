@@ -11,7 +11,8 @@
     ".git/",
     ".venv/",
     "__pycache__/",
-    ".next/"
+    ".next/",
+    "graphify-out/"
   ],
   "defaultViewMode": "preview",
   "livePreview": true,

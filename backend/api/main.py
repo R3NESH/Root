@@ -3,6 +3,9 @@
 Stateless request/response, no database, no secrets — notes/architecture/environment-notes.md.
 Payload shape follows notes/architecture/output-schema.md.
 Supports per-room custom dimension overrides (e.g. 15x15 ft bedroom) and stable dragging.
+
+Ships the solver's derived `openings`, `wall_thickness_in`, `entrance_edge` and `rooms_reachable`
+rather than blanking them — notes/architecture/duplicated-geometry.md.
 """
 
 from typing import Union
@@ -55,6 +58,9 @@ class SolveRequest(BaseModel):
     setback: SetbackIn | None = None
     prev: list[PrevRoom] | None = None
     apply_vaastu: bool = True
+    # Index of the room the user just dragged. Only that room is released from its Vaastu
+    # quadrant — notes/solver/vaastu-and-connectivity-drop-on-edit.md.
+    moved_index: int | None = None
 
 
 class RoomOut(BaseModel):
@@ -66,6 +72,8 @@ class RoomOut(BaseModel):
     d_in: int
     wall_thickness_in: int | None
     openings: list[dict]
+    habitable: bool = True
+    wet: bool = False
 
 
 class SolveMeta(BaseModel):
@@ -77,6 +85,8 @@ class SolveMeta(BaseModel):
     envelope_w_in: int
     envelope_d_in: int
     unknown_room_names: list[str]
+    entrance_edge: str | None = None
+    rooms_reachable: int = 0
 
 
 class SolveResponse(BaseModel):
@@ -162,7 +172,14 @@ def solve(req: SolveRequest) -> SolveResponse:
         )
 
     prev = {p.index: (p.x_in, p.y_in) for p in req.prev} if req.prev else None
-    result = solve_layout(env.width_in, env.depth_in, rooms, prev=prev, apply_vaastu=req.apply_vaastu)
+    result = solve_layout(
+        env.width_in,
+        env.depth_in,
+        rooms,
+        prev=prev,
+        apply_vaastu=req.apply_vaastu,
+        moved_index=req.moved_index,
+    )
 
     return SolveResponse(
         rooms=[
@@ -173,8 +190,10 @@ def solve(req: SolveRequest) -> SolveResponse:
                 y_in=r.y_in + env.origin_z_in,
                 w_in=r.w_in,
                 d_in=r.d_in,
-                wall_thickness_in=None,
-                openings=[],
+                wall_thickness_in=r.wall_thickness_in,
+                openings=r.openings,
+                habitable=r.habitable,
+                wet=r.wet,
             )
             for r in result.rooms
         ],
@@ -187,5 +206,7 @@ def solve(req: SolveRequest) -> SolveResponse:
             envelope_w_in=env.width_in,
             envelope_d_in=env.depth_in,
             unknown_room_names=unknown,
+            entrance_edge=result.entrance_edge,
+            rooms_reachable=result.rooms_reachable,
         ),
     )

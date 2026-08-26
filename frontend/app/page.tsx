@@ -1,6 +1,6 @@
 "use client";
 
-// Phase 1 composition root + 3D First-Person Walkthrough Engine + Drag-and-Drop + Robust Room Customization
+// Phase 1 composition root + 3D First-Person Walkthrough Engine + 2D Architectural Blueprint & Export Engine
 // Plot geometry is instant and local; rooms arrive from POST /solve on a 400ms debounce.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,6 +11,8 @@ import RoomTray from "@/components/RoomTray";
 import RoomCustomizer, { CustomDim } from "@/components/RoomCustomizer";
 import Minimap from "@/components/Minimap";
 import WalkthroughOverlay from "@/components/WalkthroughOverlay";
+import Blueprint2DView from "@/components/Blueprint2DView";
+import BlueprintExportModal from "@/components/BlueprintExportModal";
 import {
   buildableDepthIn,
   buildableWidthIn,
@@ -32,10 +34,12 @@ import styles from "./page.module.css";
 
 const DEFAULT_COUNTS: Record<RoomName, number> = {
   hall: 1,
+  dining: 1,
   kitchen: 1,
   bedroom: 2,
   bathroom: 1,
   pooja: 0,
+  store: 0,
 };
 
 export default function Home() {
@@ -43,8 +47,10 @@ export default function Home() {
   const [facing, setFacing] = useState<Facing>("N");
   const [counts, setCounts] = useState<Record<RoomName, number>>(DEFAULT_COUNTS);
   const [customDims, setCustomDims] = useState<Record<string, CustomDim>>({});
-  const [mode, setMode] = useState<"orbit" | "walkthrough">("orbit");
+  const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
+  const [furnished, setFurnished] = useState(true);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
 
@@ -79,7 +85,7 @@ export default function Home() {
     return list;
   }, [counts, customDims]);
 
-  const { rooms, meta, pending, error, moveRoom } = useSolve({
+  const { rooms, meta, pending, error, staleBackend, moveRoom } = useSolve({
     plotWIn: plot.widthIn,
     plotDIn: plot.depthIn,
     facing,
@@ -126,10 +132,6 @@ export default function Home() {
     [rooms]
   );
 
-  const handleToggleMode = useCallback(() => {
-    setMode((prev) => (prev === "orbit" ? "walkthrough" : "orbit"));
-  }, []);
-
   const handleToggleLights = useCallback(() => {
     setLightsOn((prev) => !prev);
   }, []);
@@ -138,83 +140,137 @@ export default function Home() {
     <div className={styles.appContainer}>
       <header className={styles.header}>
         <div className={styles.logoGroup}>
-          <div className={styles.badge}>3D PLANNER</div>
+          <div className={styles.badge}>ARCHITECTURAL PLANNER</div>
           <h1 className={styles.title}>Plot to Plan</h1>
         </div>
         <div className={styles.headerControls}>
           {pending && <div className={styles.solvingPill}>⚡ Solving Layout...</div>}
           {error && <div className={styles.errorPill}>⚠️ {error}</div>}
+          {!error && staleBackend && (
+            <div className={styles.errorPill}>
+              ⚠️ Solver is out of date — no doors or windows returned. Restart the backend.
+            </div>
+          )}
 
-          {/* Mode Switcher Button */}
+          {/* 3-Way Mode Switcher Tabs */}
+          <div className={styles.modeTabsGroup}>
+            <button
+              className={`${styles.modeTab} ${mode === "orbit" ? styles.modeTabActive : ""}`}
+              onClick={() => setMode("orbit")}
+              title="Aerial 3D Orbit View"
+            >
+              🌐 3D Orbit
+            </button>
+            <button
+              className={`${styles.modeTab} ${mode === "walkthrough" ? styles.modeTabActive : ""}`}
+              onClick={() => setMode("walkthrough")}
+              title="First-Person Walkthrough (5'5' Eye Level)"
+            >
+              🚶 Walk Inside
+            </button>
+            <button
+              className={`${styles.modeTab} ${
+                mode === "blueprint" ? styles.modeTabActiveBlueprint : ""
+              }`}
+              onClick={() => setMode("blueprint")}
+              title="2D Architectural Blueprint & Measurement Plan"
+            >
+              📐 2D Blueprint
+            </button>
+          </div>
+
+          {/* Export Blueprint Sheet Action */}
           <button
-            className={`${styles.modeBtn} ${mode === "walkthrough" ? styles.modeBtnActive : ""}`}
-            onClick={handleToggleMode}
+            className={styles.headerExportBtn}
+            onClick={() => setIsExportModalOpen(true)}
+            title="Export Architectural Blueprint as 4K PNG, SVG, or Print PDF"
           >
-            {mode === "orbit" ? "🚶 Walk Inside (5'5\")" : "🌐 Aerial 3D Orbit"}
+            📥 Export Blueprint
           </button>
         </div>
       </header>
 
       <main className={styles.mainLayout}>
         <section className={styles.viewport}>
-          <Scene
-            plot={plot}
-            facing={facing}
-            rooms={rooms}
-            setback={DEFAULT_SETBACK}
-            mode={mode}
-            teleportTarget={teleportTarget}
-            lightsOn={lightsOn}
-            onPlotChange={setPlot}
-            onPlayerUpdate={setPlayer}
-            onToggleLights={handleToggleLights}
-            onRoomMove={moveRoom}
-          />
-
-          {/* Orbit View HUD Overlay */}
-          {mode === "orbit" && (
-            <>
-              <div className={styles.plotMetaOverlay}>
-                <span className={styles.metaLabel}>Plot:</span>
-                <span className={styles.metaValue}>
-                  {inchesToFeet(plot.widthIn)}′ × {inchesToFeet(plot.depthIn)}′ ft
-                </span>
-                <span className={styles.metaDivider}>•</span>
-                <span className={styles.metaLabel}>Buildable:</span>
-                <span className={styles.metaValue}>
-                  {inchesToFeet(buildableW)}′ × {inchesToFeet(buildableD)}′ ft
-                </span>
-              </div>
-            </>
-          )}
-
-          {/* 3D Minimap Radar */}
-          <Minimap
-            plot={plot}
-            facing={facing}
-            rooms={rooms}
-            player={player}
-            currentRoomIndex={currentRoomIndex}
-            onTeleport={handleTeleport}
-          />
-
-          {/* First-Person Walkthrough HUD Overlay */}
-          {mode === "walkthrough" && (
-            <WalkthroughOverlay
-              currentRoom={currentRoom}
-              currentRoomIndex={currentRoomIndex}
+          {mode === "blueprint" ? (
+            /* 2D Architectural Blueprint View */
+            <Blueprint2DView
+              plot={plot}
+              facing={facing}
+              setback={DEFAULT_SETBACK}
               rooms={rooms}
-              player={player}
-              lightsOn={lightsOn}
-              onExit={() => setMode("orbit")}
-              onToggleLights={handleToggleLights}
-              onTeleport={handleTeleportToRoomIndex}
+              meta={meta}
+              counts={counts}
+              customDims={customDims}
+              onChangeCounts={setCounts}
+              onChangeCustomDims={setCustomDims}
+              onRoomMove={moveRoom}
+              onOpenExportModal={() => setIsExportModalOpen(true)}
             />
+          ) : (
+            /* 3D Three.js Scene Viewport */
+            <>
+              <Scene
+                plot={plot}
+                facing={facing}
+                rooms={rooms}
+                setback={DEFAULT_SETBACK}
+                mode={mode}
+                teleportTarget={teleportTarget}
+                lightsOn={lightsOn}
+                furnished={furnished}
+                onPlotChange={setPlot}
+                onPlayerUpdate={setPlayer}
+                onToggleLights={handleToggleLights}
+                onRoomMove={moveRoom}
+              />
+
+              {/* Orbit View HUD Overlay */}
+              {mode === "orbit" && (
+                <>
+                  <div className={styles.plotMetaOverlay}>
+                    <span className={styles.metaLabel}>Plot:</span>
+                    <span className={styles.metaValue}>
+                      {inchesToFeet(plot.widthIn)}′ × {inchesToFeet(plot.depthIn)}′ ft
+                    </span>
+                    <span className={styles.metaDivider}>•</span>
+                    <span className={styles.metaLabel}>Buildable:</span>
+                    <span className={styles.metaValue}>
+                      {inchesToFeet(buildableW)}′ × {inchesToFeet(buildableD)}′ ft
+                    </span>
+                  </div>
+
+                  {/* 3D Minimap Radar */}
+                  <Minimap
+                    plot={plot}
+                    facing={facing}
+                    rooms={rooms}
+                    player={player}
+                    currentRoomIndex={currentRoomIndex}
+                    onTeleport={handleTeleport}
+                  />
+                </>
+              )}
+
+              {/* First-Person Walkthrough HUD Overlay */}
+              {mode === "walkthrough" && (
+                <WalkthroughOverlay
+                  currentRoom={currentRoom}
+                  currentRoomIndex={currentRoomIndex}
+                  rooms={rooms}
+                  player={player}
+                  lightsOn={lightsOn}
+                  onExit={() => setMode("orbit")}
+                  onToggleLights={handleToggleLights}
+                  onTeleport={handleTeleportToRoomIndex}
+                />
+              )}
+            </>
           )}
         </section>
 
-        {/* Sidebar Controls (Visible in Orbit Mode) */}
-        {mode === "orbit" && (
+        {/* Sidebar Controls (Active in Orbit and Blueprint Modes) */}
+        {mode !== "walkthrough" && (
           <aside className={styles.sidebar}>
             <div className={styles.card}>
               <h2 className={styles.cardHeading}>1. Plot Dimensions</h2>
@@ -232,7 +288,26 @@ export default function Home() {
             </div>
 
             <div className={styles.card}>
-              <h2 className={styles.cardHeading}>4. Room Dimensions (Custom)</h2>
+              <h2 className={styles.cardHeading}>4. Interiors</h2>
+              <label className={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  className={styles.toggleBox}
+                  checked={furnished}
+                  onChange={(e) => setFurnished(e.target.checked)}
+                />
+                <span className={styles.toggleText}>
+                  <span className={styles.toggleTitle}>Auto-Furnish Interiors</span>
+                  <span className={styles.toggleHint}>
+                    Beds, sofas, counters, wardrobes, fans and curtains, placed clear of every
+                    doorway. Uncheck for the bare shell.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div className={styles.card}>
+              <h2 className={styles.cardHeading}>5. Room Dimensions (Custom)</h2>
               <RoomCustomizer
                 counts={counts}
                 rooms={rooms}
@@ -260,6 +335,17 @@ export default function Home() {
           </aside>
         )}
       </main>
+
+      {/* Architectural Blueprint Export Dialog Modal */}
+      <BlueprintExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        plot={plot}
+        facing={facing}
+        setback={DEFAULT_SETBACK}
+        rooms={rooms}
+        meta={meta}
+      />
     </div>
   );
 }

@@ -29,6 +29,10 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
   const [meta, setMeta] = useState<SolveMeta | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True when the API answers without any openings at all. The renderer draws doors and windows
+  // from `openings` now, so an out-of-date backend yields a house with solid walls and no way
+  // in — which looks like a rendering bug and is not one. Fail loudly instead.
+  const [staleBackend, setStaleBackend] = useState(false);
 
   // Persistent instance-level position map: roomId -> { x_in, y_in } (envelope relative)
   const savedPositionsRef = useRef<Map<string, { x_in: number; y_in: number }>>(new Map());
@@ -67,6 +71,9 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
         setRooms(res.rooms);
         setMeta(res.meta);
         setError(null);
+        setStaleBackend(
+          res.rooms.length > 0 && res.rooms.every((r) => !r.openings?.length)
+        );
 
         // Update persistent positions for every placed room
         res.rooms.forEach((r, i) => {
@@ -136,6 +143,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
           rooms: roomList,
           setback,
           prev: nextPrev,
+          movedIndex: roomIndex,
         });
         setRooms(res.rooms);
         setMeta(res.meta);
@@ -159,5 +167,5 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
     [meta, plotWIn, plotDIn, facing, roomList, setback]
   );
 
-  return { rooms, meta, pending, error, moveRoom };
+  return { rooms, meta, pending, error, staleBackend, moveRoom };
 }

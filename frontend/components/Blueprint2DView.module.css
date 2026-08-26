@@ -1,0 +1,458 @@
+/* 2D Architectural Blueprint Container */
+.blueprintContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #061224;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Floating Top CAD Toolbar */
+.toolbar {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 20;
+  pointer-events: none;
+  flex-wrap: wrap;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 25, 48, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 6px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+
+.toolButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0f2fe;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toolButton:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.toolButtonActive {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+/* Add Room Quick Selector in Top Bar */
+.addRoomGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 25, 48, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 5px 10px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+
+.addRoomLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7dd3fc;
+  margin-right: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.addRoomChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f0f9ff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.addRoomChip:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  border: 1px solid #7dd3fc;
+  color: #ffffff;
+  padding: 7px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.exportBtn:hover {
+  background: linear-gradient(135deg, #0369a1, #0ea5e9);
+  box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
+  transform: translateY(-1px);
+}
+
+/* SVG Blueprint Canvas Viewport */
+.canvasViewport {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  outline: none;
+}
+
+.canvasViewportPanning {
+  cursor: grabbing;
+}
+
+/* Floating Zoom & Fit Controls */
+.navControls {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(10, 25, 48, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 6px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.navBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0f2fe;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.navBtn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* Floating Inspector Card for Selected Room */
+.inspectorCard {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: rgba(10, 25, 48, 0.94);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  padding-bottom: 8px;
+}
+
+.inspectorTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.inspectorClose {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.inspectorClose:hover {
+  color: #ffffff;
+}
+
+.inspectorRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.inspectorLabel {
+  color: #93c5fd;
+  font-weight: 500;
+}
+
+.inspectorValue {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.inspectorVaastuBadge {
+  background: rgba(232, 145, 45, 0.2);
+  border: 1px solid rgba(232, 145, 45, 0.4);
+  color: #fb923c;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Dimension Editor Section inside Inspector */
+.dimEditorSection {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dimEditorTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stepperRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.stepperGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepperBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stepperBtn:hover {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.stepperValue {
+  font-family: monospace;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Quick Dimension Preset Chips */
+.presetsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.presetChip {
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #93c5fd;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presetChip:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+/* Delete Room Button */
+.deleteRoomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: all 0.15s ease;
+}
+
+.deleteRoomBtn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.openingsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.openingItem {
+  font-size: 11px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Legend & Hint Overlay */
+.legendOverlay {
+  position: absolute;
+  top: 76px;
+  left: 20px;
+  background: rgba(10, 25, 48, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  padding: 8px 14px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: #93c5fd;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendColorBox {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.editTipOverlay {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 25, 48, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7dd3fc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

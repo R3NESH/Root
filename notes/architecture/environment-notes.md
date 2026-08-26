@@ -15,6 +15,15 @@ date: 2026-08-23
 > Keep them in one data module with the source cited per value, so replacing them is a data edit
 > rather than a hunt.
 
+## Tooling installed for this repo
+
+| Tool | Where | Why |
+|---|---|---|
+| `graphifyy` 0.9.49 | **system Python 3.14**, not `backend/.venv` | Knowledge graph over code + notes — [[knowledge-graph]]. Kept out of the venv deliberately: `requirements.txt` is the solver's reproducible environment and a dev tool does not belong in it. |
+
+`graphify-out/` is gitignored and excluded from the vault's `userIgnoreFilters`; it is
+regenerable and churns on every run.
+
 ## This machine (checked 2026-08-23)
 
 | Tool | State |

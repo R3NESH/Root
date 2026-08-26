@@ -44,6 +44,8 @@ interface SceneProps {
   activeMoveCmd?: string | null;
   teleportTarget?: { x: number; z: number } | null;
   lightsOn?: boolean;
+  /** Place beds, sofas, counters, fans and curtains. Off gives the bare shell. */
+  furnished?: boolean;
   onPlotChange?: (next: PlotDims) => void;
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
@@ -121,6 +123,7 @@ export default function Scene({
   activeMoveCmd = null,
   teleportTarget = null,
   lightsOn = true,
+  furnished = true,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
@@ -145,6 +148,8 @@ export default function Scene({
   const fanBladesRef = useRef<THREE.Group[]>([]);
   // Room interior lights references
   const roomLightsRef = useRef<THREE.PointLight[]>([]);
+  // The roof hides the plan from above, so it is only shown in first person.
+  const roofGroupRef = useRef<THREE.Group | null>(null);
 
   // Player walkthrough state (5'5" eye level)
   const playerRef = useRef<PlayerTransform>({
@@ -673,6 +678,13 @@ export default function Scene({
   useEffect(() => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
+
+    // Roof on inside, off outside: a slab is what makes first person feel like a building,
+    // and exactly what stops orbit from showing the plan.
+    if (roofGroupRef.current) {
+      roofGroupRef.current.visible = mode === "walkthrough";
+    }
+
     if (!camera || !controls) return;
 
     if (mode === "walkthrough") {
@@ -764,6 +776,8 @@ export default function Scene({
     const dist = (houseRadius * 1.35) / Math.sin(fovRad / 2);
     camera.position.copy(houseCenter).addScaledVector(dir, dist);
     controls.update();
+    // Deliberately not keyed on `furnished`: toggling furniture must not yank the camera out
+    // from under someone mid-orbit. Same reasoning as the 2026-08-24 reframe fix.
   }, [plot, facing, setback, rooms]);
 
   // Sync effect: Rebuild Architectural 3D Geometry
@@ -867,44 +881,18 @@ export default function Scene({
     // 4. Find Circulation Hub (Hall or fallback room 0)
     const hallIdx = rooms.findIndex((r) => r.name === "hall");
     const hubIndex = hallIdx >= 0 ? hallIdx : 0;
-    const hubRoom = rooms[hubIndex];
 
-    const getSharedOverlapBetween = (
-      rA: SolvedRoom,
-      rB: SolvedRoom,
-      edgeA: "N" | "S" | "E" | "W"
-    ): { touches: boolean; overlap: number; center: number } => {
-      const ax = inchesToFeet(rA.x_in);
-      const az = inchesToFeet(rA.y_in);
-      const aw = inchesToFeet(rA.w_in);
-      const ad = inchesToFeet(rA.d_in);
-
-      const bx = inchesToFeet(rB.x_in);
-      const bz = inchesToFeet(rB.y_in);
-      const bw = inchesToFeet(rB.w_in);
-      const bd = inchesToFeet(rB.d_in);
-
-      if (edgeA === "N" && Math.abs(az - (bz + bd)) < 0.15) {
-        const s0 = Math.max(ax, bx);
-        const s1 = Math.min(ax + aw, bx + bw);
-        if (s1 - s0 >= DOOR_WIDTH_FT - 0.2) return { touches: true, overlap: s1 - s0, center: (s0 + s1) / 2 };
-      } else if (edgeA === "S" && Math.abs(az + ad - bz) < 0.15) {
-        const s0 = Math.max(ax, bx);
-        const s1 = Math.min(ax + aw, bx + bw);
-        if (s1 - s0 >= DOOR_WIDTH_FT - 0.2) return { touches: true, overlap: s1 - s0, center: (s0 + s1) / 2 };
-      } else if (edgeA === "W" && Math.abs(ax - (bx + bw)) < 0.15) {
-        const s0 = Math.max(az, bz);
-        const s1 = Math.min(az + ad, bz + bd);
-        if (s1 - s0 >= DOOR_WIDTH_FT - 0.2) return { touches: true, overlap: s1 - s0, center: (s0 + s1) / 2 };
-      } else if (edgeA === "E" && Math.abs(ax + aw - bx) < 0.15) {
-        const s0 = Math.max(az, bz);
-        const s1 = Math.min(az + ad, bz + bd);
-        if (s1 - s0 >= DOOR_WIDTH_FT - 0.2) return { touches: true, overlap: s1 - s0, center: (s0 + s1) / 2 };
-      }
-      return { touches: false, overlap: 0, center: 0 };
-    };
-
-    // 5. Build Architectural Door Assignment Map (Door pairs: roomA <-> roomB)
+    // 5. Doors, windows and the front door come from the solver.
+    //
+    // They used to be re-derived here from the room rectangles alone, which meant the renderer
+    // and the solver held two different opinions about the same house — see
+    // notes/architecture/duplicated-geometry.md. The backend now ships `openings` on every
+    // room (door / window / entrance, with edge, offset and width) and this reads them.
+    //
+    // It matters beyond tidiness: the client's own rule attached a bathroom to whichever
+    // bedroom it happened to touch, while the solver *constrains* the ensuite to open off the
+    // master bedroom and the second bath off the hall. The doors drawn were not the doors the
+    // plan was solved for.
     interface Doorway {
       roomAIndex: number;
       roomBIndex: number;
@@ -913,7 +901,6 @@ export default function Scene({
       center: number;
     }
 
-    const assignedDoorways: Doorway[] = [];
     const oppositeEdge: Record<"N" | "S" | "E" | "W", "N" | "S" | "E" | "W"> = {
       N: "S",
       S: "N",
@@ -921,108 +908,39 @@ export default function Scene({
       W: "E",
     };
 
-    for (let i = 0; i < rooms.length; i++) {
-      if (i === hubIndex) continue;
-      const room = rooms[i];
+    // Offsets run along the edge from the room's minimum corner on that edge's axis, matching
+    // _edge_origin() in backend/solver/connectivity.py. N/S edges run along X, E/W along Z.
+    const openingCentreFt = (
+      r: SolvedRoom,
+      o: { edge: "N" | "S" | "E" | "W"; offset_in: number; width_in: number }
+    ): number => {
+      const originIn = o.edge === "N" || o.edge === "S" ? r.x_in : r.y_in;
+      return inchesToFeet(originIn + o.offset_in + o.width_in / 2);
+    };
 
-      if (room.name === "bathroom") {
-        let bestBedroomIdx: number | null = null;
-        let bestEdge: "N" | "S" | "E" | "W" | null = null;
-        let bestOverlap = 0;
-        let bestCenter = 0;
-
-        for (let j = 0; j < rooms.length; j++) {
-          if (rooms[j].name === "bedroom") {
-            for (const e of ["N", "S", "E", "W"] as const) {
-              const info = getSharedOverlapBetween(room, rooms[j], e);
-              if (info.touches && info.overlap > bestOverlap) {
-                bestOverlap = info.overlap;
-                bestBedroomIdx = j;
-                bestEdge = e;
-                bestCenter = info.center;
-              }
-            }
-          }
-        }
-
-        if (bestBedroomIdx !== null && bestEdge !== null) {
-          assignedDoorways.push({
-            roomAIndex: i,
-            roomBIndex: bestBedroomIdx,
-            edgeA: bestEdge,
-            edgeB: oppositeEdge[bestEdge],
-            center: bestCenter,
-          });
-          continue;
-        }
-      }
-
-      if (hubRoom) {
-        let bestEdge: "N" | "S" | "E" | "W" | null = null;
-        let bestOverlap = 0;
-        let bestCenter = 0;
-
-        for (const e of ["N", "S", "E", "W"] as const) {
-          const info = getSharedOverlapBetween(room, hubRoom, e);
-          if (info.touches && info.overlap > bestOverlap) {
-            bestOverlap = info.overlap;
-            bestEdge = e;
-            bestCenter = info.center;
-          }
-        }
-
-        if (bestEdge !== null) {
-          assignedDoorways.push({
-            roomAIndex: i,
-            roomBIndex: hubIndex,
-            edgeA: bestEdge,
-            edgeB: oppositeEdge[bestEdge],
-            center: bestCenter,
-          });
-          continue;
-        }
-      }
-
-      for (let j = 0; j < rooms.length; j++) {
-        if (j === i) continue;
-        let found = false;
-        for (const e of ["N", "S", "E", "W"] as const) {
-          const info = getSharedOverlapBetween(room, rooms[j], e);
-          if (info.touches) {
-            assignedDoorways.push({
-              roomAIndex: i,
-              roomBIndex: j,
-              edgeA: e,
-              edgeB: oppositeEdge[e],
-              center: info.center,
-            });
-            found = true;
-            break;
-          }
-        }
-        if (found) break;
-      }
-    }
-
+    const assignedDoorways: Doorway[] = [];
+    let entranceRoomIndex = -1;
     let chosenEntranceEdge: "N" | "S" | "E" | "W" = getPrimaryCardinalEdge(facing);
-    if (hubRoom) {
-      const isExterior = (edge: "N" | "S" | "E" | "W"): boolean => {
-        for (let j = 0; j < rooms.length; j++) {
-          if (j === hubIndex) continue;
-          if (getSharedOverlapBetween(hubRoom, rooms[j], edge).touches) return false;
-        }
-        return true;
-      };
 
-      const primaryEdge = getPrimaryCardinalEdge(facing);
-      if (!isExterior(primaryEdge)) {
-        const candidateEdges: ("N" | "E" | "W" | "S")[] = ["N", "E", "W", "S"];
-        const found = candidateEdges.find((e) => isExterior(e));
-        if (found) chosenEntranceEdge = found;
-      } else {
-        chosenEntranceEdge = primaryEdge;
+    rooms.forEach((r, i) => {
+      for (const o of r.openings ?? []) {
+        if (o.kind === "entrance") {
+          entranceRoomIndex = i;
+          chosenEntranceEdge = o.edge;
+        } else if (o.kind === "door" && o.to_room != null && o.to_room > i) {
+          assignedDoorways.push({
+            roomAIndex: i,
+            roomBIndex: o.to_room,
+            edgeA: o.edge,
+            edgeB: oppositeEdge[o.edge],
+            center: openingCentreFt(r, o),
+          });
+        }
       }
-    }
+    });
+
+    const windowOn = (i: number, edge: "N" | "S" | "E" | "W") =>
+      (rooms[i].openings ?? []).find((o) => o.kind === "window" && o.edge === edge);
 
     // 6. Build Architectural Rooms
     for (let i = 0; i < rooms.length; i++) {
@@ -1032,7 +950,6 @@ export default function Scene({
       const rx = inchesToFeet(room.x_in);
       const rz = inchesToFeet(room.y_in);
       const isHub = i === hubIndex;
-      const isBathroom = room.name === "bathroom";
 
       // Floor Mesh
       let floorTexture: THREE.CanvasTexture;
@@ -1054,14 +971,6 @@ export default function Scene({
       floorMesh.receiveShadow = true;
       group.add(floorMesh);
 
-      const touchesAnyRoom = (edge: "N" | "S" | "E" | "W"): boolean => {
-        for (let j = 0; j < rooms.length; j++) {
-          if (j === i) continue;
-          if (getSharedOverlapBetween(room, rooms[j], edge).touches) return true;
-        }
-        return false;
-      };
-
       // Wall Builder
       const buildWall = (
         edge: "N" | "S" | "E" | "W",
@@ -1071,14 +980,17 @@ export default function Scene({
         wd: number,
         isEW: boolean
       ) => {
-        const isMainEntrance = isHub && edge === chosenEntranceEdge;
+        const isMainEntrance = i === entranceRoomIndex && edge === chosenEntranceEdge;
 
         const assignedDoor = assignedDoorways.find(
           (d) => (d.roomAIndex === i && d.edgeA === edge) || (d.roomBIndex === i && d.edgeB === edge)
         );
 
         const hasDoor = isMainEntrance || Boolean(assignedDoor);
-        const hasWindow = !hasDoor && !touchesAnyRoom(edge) && !isBathroom && (isEW ? ww >= 7 : wd >= 7);
+        // The solver decides which walls carry glass. The old rule excluded bathrooms outright,
+        // which left every wet room unventilated — see derive_windows() in connectivity.py.
+        const windowSpec = hasDoor ? undefined : windowOn(i, edge);
+        const hasWindow = Boolean(windowSpec);
 
         if (hasDoor) {
           const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : DOOR_WIDTH_FT;
@@ -1200,7 +1112,10 @@ export default function Scene({
             }
           }
         } else if (hasWindow) {
-          const winW = Math.min(WINDOW_W_FT, (isEW ? ww : wd) - 1.8);
+          const winW = Math.min(
+            windowSpec ? inchesToFeet(windowSpec.width_in) : WINDOW_W_FT,
+            (isEW ? ww : wd) - 1.8
+          );
           const winH = WINDOW_H_FT;
           const sillH = WINDOW_SILL_Y_FT;
           const topH = WALL_HEIGHT_FT - (sillH + winH);
@@ -1244,7 +1159,7 @@ export default function Scene({
               winH,
               wd,
               true,
-              room.name === "bedroom" || room.name === "hall",
+              furnished && (room.name === "bedroom" || room.name === "hall"),
               false
             );
           } else {
@@ -1286,7 +1201,7 @@ export default function Scene({
               winH,
               ww,
               false,
-              room.name === "bedroom" || room.name === "hall",
+              furnished && (room.name === "bedroom" || room.name === "hall"),
               false
             );
           }
@@ -1307,14 +1222,21 @@ export default function Scene({
         }
       };
 
+      // Wall thickness comes from the solver: 9 in load-bearing on the building's perimeter,
+      // 4.5 in partitions inside. The renderer used to draw 4.5 in everywhere while the solver
+      // reserved 5 in — notes/architecture/duplicated-geometry.md.
+      const wt = room.wall_thickness_in != null
+        ? inchesToFeet(room.wall_thickness_in)
+        : WALL_THICK_INT_FT;
+
       // North Wall
-      buildWall("N", rx + rw / 2, rz + WALL_THICK_INT_FT / 2, rw, WALL_THICK_INT_FT, true);
+      buildWall("N", rx + rw / 2, rz + wt / 2, rw, wt, true);
       // South Wall
-      buildWall("S", rx + rw / 2, rz + rd - WALL_THICK_INT_FT / 2, rw, WALL_THICK_INT_FT, true);
+      buildWall("S", rx + rw / 2, rz + rd - wt / 2, rw, wt, true);
       // West Wall
-      buildWall("W", rx + WALL_THICK_INT_FT / 2, rz + rd / 2, WALL_THICK_INT_FT, rd, false);
+      buildWall("W", rx + wt / 2, rz + rd / 2, wt, rd, false);
       // East Wall
-      buildWall("E", rx + rw - WALL_THICK_INT_FT / 2, rz + rd / 2, WALL_THICK_INT_FT, rd, false);
+      buildWall("E", rx + rw - wt / 2, rz + rd / 2, wt, rd, false);
 
       // Warm interior recessed spotlight
       const roomLight = new THREE.PointLight(0xfff0dd, 1.1, 26, 1.2);
@@ -1336,7 +1258,7 @@ export default function Scene({
       group.add(fixture);
 
       // Ceiling Fan in Living Hall & Bedrooms
-      if (room.name === "hall" || room.name === "bedroom") {
+      if (furnished && (room.name === "hall" || room.name === "bedroom")) {
         const fan = addCeilingFan(group, rx + rw / 2, rz + rd / 2, 8.1);
         fanBladesRef.current.push(fan);
       }
@@ -1354,8 +1276,11 @@ export default function Scene({
         }
       }
 
-      // Intelligent, Door-Aware Furniture Placement
-      addRoomInteriorDetails(group, room.name as RoomName, rx, rz, rw, rd, roomDoors);
+      // Intelligent, Door-Aware Furniture Placement. Unchecked leaves the bare shell, which is
+      // also the honest view of what the solver actually decided.
+      if (furnished) {
+        addRoomInteriorDetails(group, room.name as RoomName, rx, rz, rw, rd, roomDoors);
+      }
 
       // 3D Floating Room Badge
       const badge = createRoomBadge(
@@ -1367,9 +1292,89 @@ export default function Scene({
       group.add(badge);
     }
 
+    // 7. Roof — RCC slab, parapet, and sunshades over exterior openings.
+    //
+    // The walls used to stop at 9 ft and stop. An Indian house is a flat reinforced-concrete
+    // slab with a parapet round the terrace and a chajja over every window and door to keep
+    // monsoon rain off the opening; without them this reads as a massing diagram, not a
+    // building. Hidden in orbit so the plan stays readable from above, shown in walkthrough
+    // where you would otherwise be standing in a roofless room.
+    if (rooms.length > 0) {
+      const roof = new THREE.Group();
+      roof.visible = modeRef.current === "walkthrough";
+      roofGroupRef.current = roof;
+      group.add(roof);
+
+      const slabMat = new THREE.MeshStandardMaterial({ color: 0xb8b3aa, roughness: 0.92 });
+      const SLAB_T = 0.55;
+      const CHAJJA_T = 0.28;
+      const CHAJJA_OUT = 1.9;      // ~22 in projection, a standard sunshade
+      const PARAPET_H = 3.2;
+
+      // One slab per room, so the roof follows an L- or T-shaped footprint rather than
+      // bridging the gaps a rectangular slab would invent.
+      for (const room of rooms) {
+        const rw = inchesToFeet(room.w_in);
+        const rd = inchesToFeet(room.d_in);
+        const rx = inchesToFeet(room.x_in);
+        const rz = inchesToFeet(room.y_in);
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(rw, SLAB_T, rd), slabMat);
+        slab.position.set(rx + rw / 2, WALL_HEIGHT_FT + SLAB_T / 2, rz + rd / 2);
+        slab.castShadow = true;
+        slab.receiveShadow = true;
+        roof.add(slab);
+      }
+
+      // Parapet around the outside of the built footprint.
+      const fx0 = Math.min(...rooms.map((r) => inchesToFeet(r.x_in)));
+      const fz0 = Math.min(...rooms.map((r) => inchesToFeet(r.y_in)));
+      const fx1 = Math.max(...rooms.map((r) => inchesToFeet(r.x_in + r.w_in)));
+      const fz1 = Math.max(...rooms.map((r) => inchesToFeet(r.y_in + r.d_in)));
+      const parapetY = WALL_HEIGHT_FT + SLAB_T + PARAPET_H / 2;
+      const PT = 0.4;
+      for (const [px, pz, pw, pd] of [
+        [(fx0 + fx1) / 2, fz0 + PT / 2, fx1 - fx0, PT],
+        [(fx0 + fx1) / 2, fz1 - PT / 2, fx1 - fx0, PT],
+        [fx0 + PT / 2, (fz0 + fz1) / 2, PT, fz1 - fz0],
+        [fx1 - PT / 2, (fz0 + fz1) / 2, PT, fz1 - fz0],
+      ]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(pw, PARAPET_H, pd), slabMat);
+        wall.position.set(px, parapetY, pz);
+        wall.castShadow = true;
+        roof.add(wall);
+      }
+
+      // Chajja over each exterior opening. These stay visible in orbit — they are part of how
+      // the building reads from outside, and they do not hide the plan.
+      rooms.forEach((room) => {
+        const rw = inchesToFeet(room.w_in);
+        const rd = inchesToFeet(room.d_in);
+        const rx = inchesToFeet(room.x_in);
+        const rz = inchesToFeet(room.y_in);
+        for (const o of room.openings ?? []) {
+          if (o.to_room != null) continue; // interior door, no weather to keep off
+          const width = inchesToFeet(o.width_in) + 1.2;
+          const head = inchesToFeet((o.sill_in ?? 0) + o.height_in) + 0.35;
+          const isEW = o.edge === "N" || o.edge === "S";
+          const centre = openingCentreFt(room, o);
+          const geom = isEW
+            ? new THREE.BoxGeometry(width, CHAJJA_T, CHAJJA_OUT)
+            : new THREE.BoxGeometry(CHAJJA_OUT, CHAJJA_T, width);
+          const shade = new THREE.Mesh(geom, slabMat);
+          const off = CHAJJA_OUT / 2;
+          if (o.edge === "N") shade.position.set(centre, head, rz - off + 0.3);
+          else if (o.edge === "S") shade.position.set(centre, head, rz + rd + off - 0.3);
+          else if (o.edge === "W") shade.position.set(rx - off + 0.3, head, centre);
+          else shade.position.set(rx + rw + off - 0.3, head, centre);
+          shade.castShadow = true;
+          group.add(shade);
+        }
+      });
+    }
+
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
     depthHandle.position.set(wFt / 2, HANDLE_RADIUS_FT, dFt);
-  }, [plot, facing, setback, rooms]);
+  }, [plot, facing, setback, rooms, furnished]);
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative" }}>

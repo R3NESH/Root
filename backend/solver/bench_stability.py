@@ -9,6 +9,16 @@ the differentiator evaporates.
 
 Runs the same 10-edit sequence with the objective off and on, and prints total displacement
 (in inches) and solve time for each.
+
+Re-scoped 2026-08-25. The original 5-room / 30x40 scenario stopped being informative once
+notes/solver/realism-gaps.md landed: the adjacency tree, the daylight rule and the area
+objective between them pin that particular mix so tightly that it reproduces itself with the
+drift objective switched OFF. A null hypothesis that reads zero cannot detect a regression,
+and read casually it looks like the claim died.
+
+It has not. On a plot with slack the effect is larger than it was in August: 7 rooms on a 40x60
+drift 13,641 in without the objective and 0 in with it. So the benchmark now runs a scenario
+with room to move. The tight case is kept as a second row, labelled for what it is.
 """
 
 import random
@@ -16,9 +26,16 @@ import random
 from .model import solve_layout
 from .rooms import ROOM_CATALOG
 
-ENV_W_IN = 360
-ENV_D_IN = 480
-MIX = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]
+# The measuring scenario: enough plot that the constraints do not determine the layout by
+# themselves, so the drift objective is actually the thing under test.
+ENV_W_IN = 480
+ENV_D_IN = 720
+MIX = ["hall", "dining", "kitchen", "bedroom", "bedroom", "bathroom", "bathroom"]
+
+# The old scenario, kept to show why it was retired.
+TIGHT_ENV_W_IN = 360
+TIGHT_ENV_D_IN = 480
+TIGHT_MIX = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]
 
 
 def positions(result) -> dict[int, tuple[int, int]]:
@@ -29,19 +46,25 @@ def displacement(a, b) -> int:
     return sum(abs(a[i][0] - b[i][0]) + abs(a[i][1] - b[i][1]) for i in a if i in b)
 
 
-def edit_sequence(n: int = 10) -> list[int]:
+def edit_sequence(base_w: int, n: int = 10) -> list[int]:
     rng = random.Random(7)
-    return [ENV_W_IN + rng.choice([-12, -6, 0, 6, 12]) for _ in range(n)]
+    return [base_w + rng.choice([-12, -6, 0, 6, 12]) for _ in range(n)]
 
 
-def run(use_drift: bool, apply_vaastu: bool) -> tuple[list[int], list[float]]:
-    rooms = [ROOM_CATALOG[n] for n in MIX]
-    base = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=apply_vaastu)
+def run(
+    use_drift: bool,
+    apply_vaastu: bool,
+    mix: list[str] | None = None,
+    env_w: int = ENV_W_IN,
+    env_d: int = ENV_D_IN,
+) -> tuple[list[int], list[float]]:
+    rooms = [ROOM_CATALOG[n] for n in (mix or MIX)]
+    base = solve_layout(env_w, env_d, rooms, apply_vaastu=apply_vaastu)
     prev = positions(base)
     drifts, times = [], []
-    for env_w in edit_sequence():
+    for edit_w in edit_sequence(env_w):
         result = solve_layout(
-            env_w, ENV_D_IN, rooms, prev=prev if use_drift else None, apply_vaastu=apply_vaastu
+            edit_w, env_d, rooms, prev=prev if use_drift else None, apply_vaastu=apply_vaastu
         )
         current = positions(result)
         drifts.append(displacement(prev, current))
@@ -55,12 +78,15 @@ def report(label: str, drifts: list[int], times: list[float]) -> None:
     print(f"  displacement per edit (in): {drifts}")
     print(f"  total displacement:         {sum(drifts)} in")
     print(f"  max single-edit jump:       {max(drifts)} in")
-    print(f"  solve ms  min/mean/max:     {min(times):.1f} / {sum(times) / len(times):.1f} / {max(times):.1f}")
+    if any(times):
+        print(f"  solve ms  min/mean/max:     "
+              f"{min(times):.1f} / {sum(times) / len(times):.1f} / {max(times):.1f}")
 
 
 def main() -> None:
     print("=" * 68)
-    print("Layout stability benchmark — 5 rooms, 10 perturbed edits, 30x40ft envelope")
+    print(f"Layout stability benchmark - {len(MIX)} rooms, 10 perturbed edits, "
+          f"{ENV_W_IN // 12}x{ENV_D_IN // 12}ft envelope")
     print("=" * 68)
 
     off_d, off_t = run(use_drift=False, apply_vaastu=False)

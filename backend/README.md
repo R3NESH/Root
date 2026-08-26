@@ -1,29 +1,40 @@
 # backend
 
-FastAPI + OR-Tools CP-SAT service. Single endpoint (planned): `POST /solve`.
+FastAPI + OR-Tools CP-SAT service. Single endpoint: `POST /solve`.
 
 Implements: [[architecture]], [[output-schema]], [[environment-notes]].
 
-Phase 1 in progress. See [[project-phases]] for the Phase 1 / Phase 2 split and [[codebase-map]]
-for the module ↔ note convention this README follows.
+Phase 1 complete. See [[project-phases]] for the Phase 1 / Phase 2 split, [[codebase-map]]
+for the module ↔ note convention this README follows, and [[project-status]] for current state.
+
+> [!success] Both blocking defects fixed 2026-08-25
+> Only a *dragged* room is released from its Vaastu quadrant, and connectivity is never dropped
+> — [[vaastu-and-connectivity-drop-on-edit]]. The API ships the solver's `openings`,
+> `wall_thickness_in`, `entrance_edge` and `rooms_reachable` — [[duplicated-geometry]].
 
 ## Modules
 
 | Module | Implements | Status |
 |---|---|---|
-| `solver/` | [[cp-sat-api]], [[cp-sat-gotchas]] | **done** — [[step-2-solver-core]] |
-| `vaastu/` | [[vaastu-as-constraints]] | not started — [[step-5-vaastu]] |
-| `envelope/` | setbacks — hardcoded gap, see [[environment-notes]] | not started |
-| `api/` | `POST /solve`, [[output-schema]] | not started — [[step-3-wire-together]] |
-| `tests/` | [[test-baseline]] | **5/5 passing**, see [[step-2-solver-core]] |
+| `solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — [[step-2-solver-core]], [[step-4-drift-objective]], plus the relaxation ladder |
+| `solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation, area objective |
+| `solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, openings, windows, entrance, footprint, reachability |
+| `vaastu/` | [[vaastu-as-constraints]] | **done** — [[step-5-vaastu]] |
+| `envelope/` | setbacks — hardcoded gap, see [[environment-notes]] | **done** — duplicates `frontend/lib/plot.ts`, see [[duplicated-geometry]] |
+| `api/` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
+| `tests/` | [[test-baseline]] | **40/40 passing** (api 11, solver 6, stability 4, vaastu 8, realism 11) |
 
 ## Dev
 
 ```
 .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.venv\Scripts\python.exe -m pytest -v
+.venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m solver.demo
+.venv\Scripts\python.exe -m solver.bench_stability
 ```
+
+Run the suite on an otherwise-idle machine: the 0.4 s interactive solve cap is wall-clock, so
+CPU contention makes `test_stability.py` fail spuriously. See [[test-baseline]].
 
 ## Environment
 

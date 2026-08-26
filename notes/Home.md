@@ -6,26 +6,33 @@ tags: [moc]
 Vault for **plot-to-plan** — a CP-SAT house layout generator for Indian plot owners.
 Canonical source of truth is [[HANDOFF]] at the repo root. Every note here points back into it.
 
-> [!success] Status as of 2026-08-24 — **Phase 1 complete**
-> All five build steps done. The app generates a real 3D house model from plot dimensions +
-> facing, with Vaastu constraints and a stable layout across edits. **23/23 tests green.**
-> [[claim-most-likely-wrong]] is **settled and the claim held** — layout stability is a real
-> problem, measured, and solved.
+> [!success] Status as of 2026-08-25 — **regressions fixed, realism landed**
+> Full review: [[project-status]]. How the project is run: [[workflow]].
 >
-> Still true: no commit, **no paying user**, and [[q-competitor-defects]] and
-> [[q-does-anyone-pay]] remain unanswered. Those now outrank all further building.
+> **41/41 tests pass.** Both blocking defects are closed
+> ([[vaastu-and-connectivity-drop-on-edit]], [[duplicated-geometry]]) and [[realism-gaps]] is
+> implemented: 7 room kinds, daylight and proportion as constraints, a parent tree with a
+> master ensuite, and a roof. The output now reads as a house rather than a legal rectangle
+> packing, and **Auto-Furnish Interiors** can be switched off for the bare shell.
+>
+> Still true: **no paying user**, and [[q-competitor-defects]] and [[q-does-anyone-pay]] have
+> been unanswered for ten days while the code kept growing. Those now outrank everything.
 
 ## Start here
+- [[project-status]] — **current state, re-measured 2026-08-25**
+- [[workflow]] — how this project is run, and where that broke down
 - [[HANDOFF]] — the full brief, unedited, plus a dated addendum (§13)
 - [[project-phases]] — **read this first**: Phase 1 (3D model, single storey) vs Phase 2+ (multi-level, fire exits/egress/staircase rules hardcoded)
 - [[what-the-product-is]]
 - [[build-order]] — Phase 1's two-week plan with done-conditions
-- [[test-baseline]] — **23/23 passing** as of 2026-08-24
+- [[test-baseline]] — **41/41 passing** as of 2026-08-25
 - [[project-name]] — `plot-to-plan` is provisional; settle it before the first commit
 
 ## Build steps — Phase 1, all done
 [[step-1-threejs-shell]] → [[step-2-solver-core]] → [[step-3-wire-together]] →
-[[step-4-drift-objective]] → [[step-5-vaastu]] (one gap: entrance N/E, needs `openings`)
+[[step-4-drift-objective]] → [[step-5-vaastu]] (entrance gap now **closed** — see
+[[realism-gaps]]) → [[step-6-walkthrough]] (**unplanned**, no done-condition, source of both
+regressions, fixed 2026-08-25)
 
 ## Decisions (locked — need new evidence, not reasoning, to reverse)
 - [[india-only]]
@@ -51,6 +58,10 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 - [[cp-sat-api]] · [[cp-sat-gotchas]]
 - [[layout-stability]] — the claimed moat
 - [[claim-most-likely-wrong]] — and the claim that it is not
+- [[rooms-do-not-form-a-house]] — the packing-vs-dwelling finding, and its fix
+- [[realism-gaps]] — what made the packing not a house, and the six families that fixed it
+- [[vaastu-and-connectivity-drop-on-edit]] — the drag regression, **fixed**
+- [[duplicated-geometry]] — renderer vs solver geometry, **closed**
 
 ## UI
 - [[ui-principles]]
@@ -64,3 +75,4 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 ## Working notes
 - [[daily-log]] — findings, entries, timings
 - [[codebase-map]] — code ↔ note index, filled in as files land
+- [[knowledge-graph]] — queryable graph over code + notes (435 nodes, 898 edges)

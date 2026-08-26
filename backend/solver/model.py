@@ -21,15 +21,28 @@ from .connectivity import (
     EXTERIOR_WALL_IN,
     INTERIOR_WALL_IN,
     add_entrance,
-    add_hub_adjacency,
     add_room_separation,
+    footprint,
+    add_tree_adjacency,
+    assign_parents,
     derive_openings,
+    derive_windows,
     hub_index,
     reachable_count,
 )
+from .realism import (
+    AREA_WEIGHT,
+    DRIFT_WEIGHT,
+    add_aspect_constraints,
+    add_daylight_constraints,
+    area_terms,
+)
 from .rooms import ROOM_CATALOG, Room
 
-SOLVE_TIME_LIMIT_SECONDS = 5.0
+# Cold solve budget. Measured 2026-08-25 across a 3BHK and a twelve-room program: raising this
+# from 2 s to 5 s moved envelope fill by about one point on the common case and never changed
+# reachability or Vaastu. Three extra seconds of blank screen bought nothing anyone can see.
+SOLVE_TIME_LIMIT_SECONDS = 2.0
 INTERACTIVE_TIME_LIMIT_SECONDS = 0.4
 
 
@@ -42,6 +55,10 @@ class PlacedRoom:
     d_in: int
     openings: list[dict] = field(default_factory=list)
     wall_thickness_in: int = INTERIOR_WALL_IN
+    # Carried through from the catalog so post-solve code and the renderer do not have to
+    # re-look-up room semantics by name — notes/solver/realism-gaps.md.
+    habitable: bool = True
+    wet: bool = False
 
 
 @dataclass(frozen=True)
@@ -52,6 +69,21 @@ class SolveResult:
     vaastu_constraints_applied: list[str] = field(default_factory=list)
     entrance_edge: str | None = None
     rooms_reachable: int = 0
+
+
+def _on_exterior(room, bounds: tuple[int, int, int, int]) -> bool:
+    """Does this room own any of the building's outside face?
+
+    Indian brick convention is 9 in load-bearing outside, 4.5 in partitions inside — a room on
+    the perimeter carries the thicker wall. connectivity.py holds the constants.
+    """
+    fx0, fz0, fx1, fz1 = bounds
+    return (
+        room.x_in == fx0
+        or room.y_in == fz0
+        or room.x_in + room.w_in == fx1
+        or room.y_in + room.d_in == fz1
+    )
 
 
 def _vaastu_targets(rooms: list[Room]) -> dict[int, str]:
@@ -74,6 +106,9 @@ def _build_and_solve(
     apply_vaastu: bool,
     connect_rooms: bool,
     time_limit: float,
+    vaastu_exempt: frozenset[int] = frozenset(),
+    require_daylight: bool = True,
+    maximise_area: bool = True,
 ) -> tuple[int, cp_model.CpSolver, list[tuple[Room, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar]], list[str]]:
     model = cp_model.CpModel()
 
@@ -102,12 +137,22 @@ def _build_and_solve(
 
     hub = hub_index(rooms)
     if connect_rooms and len(rooms) > 1:
-        add_hub_adjacency(model, var_dicts, hub)
+        add_tree_adjacency(model, var_dicts, assign_parents(rooms))
         add_room_separation(model, var_dicts, rooms, hub)
+
+    # notes/solver/realism-gaps.md — proportion is free, daylight costs four booleans a room.
+    add_aspect_constraints(model, var_dicts, rooms)
+    if require_daylight:
+        add_daylight_constraints(model, var_dicts, rooms, env_w_in, env_d_in)
 
     applied: list[str] = []
     if apply_vaastu:
         for i, description in _vaastu_targets(rooms).items():
+            # A room the user dragged is released from its quadrant — but only that room.
+            # notes/solver/vaastu-and-connectivity-drop-on-edit.md: releasing the whole rule set
+            # because `prev` was supplied is what silently un-Vaastu'd every edit.
+            if i in vaastu_exempt:
+                continue
             room, x, y, w, d = placements[i]
             rule = applies_to(room.name)
             assert rule is not None
@@ -126,11 +171,27 @@ def _build_and_solve(
             model.add_abs_equality(dy, y - py)
             objective_terms.extend([dx, dy])
 
-    if objective_terms:
-        model.minimize(sum(objective_terms))
+    # Drift outranks area by more than a whole envelope is worth, so a larger room is only ever
+    # chosen between layouts that are equally stable — notes/solver/layout-stability.md stays
+    # the differentiator. With no `prev` there is no drift term and this is pure area.
+    objective = DRIFT_WEIGHT * sum(objective_terms) if objective_terms else 0
+    if maximise_area:
+        objective = objective - AREA_WEIGHT * sum(
+            area_terms(model, var_dicts, rooms, env_w_in, env_d_in)
+        )
+    if objective_terms or maximise_area:
+        model.minimize(objective)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit
+    # notes/build/step-4-drift-objective.md found the cost is CP-SAT *proving* optimality, not
+    # finding a layout — 1490 ms to prove against a 500 ms budget. The area objective made that
+    # worse: a twelve-room program burned the whole 5 s cold budget closing the last few percent
+    # of a gap nobody can see. Stop once the incumbent is within 2% of the bound.
+    solver.parameters.relative_gap_limit = 0.02
+    # CP-SAT's portfolio search parallelises well and this model is a packing problem, which is
+    # exactly what its parallel workers are good at. Left at the default it runs single-threaded.
+    solver.parameters.num_workers = 8
     status = solver.solve(model)
     return status, solver, placements, applied
 
@@ -142,6 +203,7 @@ def solve_layout(
     prev: dict[int, tuple[int, int]] | None = None,
     apply_vaastu: bool = False,
     connect_rooms: bool = True,
+    moved_index: int | None = None,
 ) -> SolveResult:
     if not rooms or env_w_in <= 0 or env_d_in <= 0:
         return SolveResult(status="EMPTY", rooms=[], solve_ms=0.0)
@@ -153,53 +215,55 @@ def solve_layout(
 
     time_limit = INTERACTIVE_TIME_LIMIT_SECONDS if prev else SOLVE_TIME_LIMIT_SECONDS
 
-    # If prev is provided (user drag-and-drop or manual placement),
-    # prioritize placing rooms at the user's specified positions without fighting Vaastu quadrants.
-    effective_vaastu = apply_vaastu if not prev else False
-    effective_connect = connect_rooms if not prev else False
+    # Only the room the user actually dragged is released from its Vaastu quadrant. Having
+    # `prev` at all means "we have previous positions", which is true on every solve after the
+    # first — see notes/solver/vaastu-and-connectivity-drop-on-edit.md for what that cost.
+    vaastu_exempt = frozenset({moved_index}) if moved_index is not None else frozenset()
 
-    # 1. Primary solve: requested dimensions + user positions / constraints
-    status, solver, placements, applied = _build_and_solve(
-        env_w_in, env_d_in, rooms, prev, effective_vaastu, effective_connect, time_limit
-    )
-
-    # 2. If infeasible and vaastu was active, retry without Vaastu
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and effective_vaastu:
-        status, solver, placements, applied = _build_and_solve(
-            env_w_in, env_d_in, rooms, prev, False, effective_connect, time_limit
+    # The relaxation ladder. Each rung drops the least important thing still standing.
+    #
+    # Connectivity is never dropped. A layout whose rooms do not open onto each other is not a
+    # worse house, it is not a house — notes/solver/rooms-do-not-form-a-house.md. The previous
+    # ladder shed it as a last resort and produced exactly that: 1 of 8 rooms reachable, from a
+    # solve reported as OPTIMAL. If nothing on this ladder fits, INFEASIBLE is the honest answer
+    # and the UI can say "too many rooms for this plot", which is at least actionable.
+    def attempt(rs, vaastu, daylight, area):
+        return _build_and_solve(
+            env_w_in, env_d_in, rs, prev, vaastu, connect_rooms, time_limit,
+            vaastu_exempt, require_daylight=daylight, maximise_area=area,
         )
 
-    # 3. If still infeasible with custom dimensions, relax minimums down to catalog minimums
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and any(r.name in ROOM_CATALOG for r in rooms):
-        flexible_rooms = [
-            Room(
-                name=r.name,
-                min_w_in=ROOM_CATALOG.get(r.name, r).min_w_in,
-                max_w_in=r.max_w_in,
-                min_d_in=ROOM_CATALOG.get(r.name, r).min_d_in,
-                max_d_in=r.max_d_in,
-            )
-            for r in rooms
-        ]
-        status, solver, placements, applied = _build_and_solve(
-            env_w_in, env_d_in, flexible_rooms, prev, False, effective_connect, time_limit
-        )
+    def ok(st) -> bool:
+        return st in (cp_model.OPTIMAL, cp_model.FEASIBLE)
 
-    # 4. If still infeasible, solve flexible rooms without strict hub connectivity
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and len(rooms) > 1:
-        flexible_rooms = [
-            Room(
-                name=r.name,
-                min_w_in=ROOM_CATALOG.get(r.name, r).min_w_in,
-                max_w_in=r.max_w_in,
-                min_d_in=ROOM_CATALOG.get(r.name, r).min_d_in,
-                max_d_in=r.max_d_in,
-            )
-            for r in rooms
-        ]
-        status, solver, placements, applied = _build_and_solve(
-            env_w_in, env_d_in, flexible_rooms, prev, False, False, time_limit
+    flexible_rooms = [
+        Room(
+            name=r.name,
+            min_w_in=ROOM_CATALOG.get(r.name, r).min_w_in,
+            max_w_in=r.max_w_in,
+            min_d_in=ROOM_CATALOG.get(r.name, r).min_d_in,
+            max_d_in=r.max_d_in,
+            habitable=r.habitable,
+            wet=r.wet,
+            max_aspect_x10=r.max_aspect_x10,
         )
+        for r in rooms
+    ]
+
+    ladder = [
+        # rooms,          vaastu,       daylight, area   — what this rung gives up
+        (rooms,           apply_vaastu, True,     True),   # nothing
+        (flexible_rooms,  apply_vaastu, True,     True),   # custom sizes
+        (flexible_rooms,  apply_vaastu, False,    True),   # daylight
+        (flexible_rooms,  False,        False,    True),   # Vaastu
+        (flexible_rooms,  False,        False,    False),  # the area preference, for speed
+    ]
+
+    status = solver = placements = applied = None
+    for rs, vaastu, daylight, area in ladder:
+        status, solver, placements, applied = attempt(rs, vaastu, daylight, area)
+        if ok(status):
+            break
 
     solve_ms = solver.wall_time * 1000
     status_name = solver.status_name(status)
@@ -214,13 +278,18 @@ def solve_layout(
             y_in=solver.value(y),
             w_in=solver.value(w),
             d_in=solver.value(d),
+            habitable=room.habitable,
+            wet=room.wet,
         )
         for room, x, y, w, d in placements
     ]
 
     hub = hub_index(rooms)
-    openings = derive_openings(placed, hub)
-    entrance_edge = add_entrance(placed, openings, hub, env_w_in, env_d_in)
+    parents = assign_parents(rooms)
+    bounds = footprint(placed)
+    openings = derive_openings(placed, parents)
+    entrance_edge = add_entrance(placed, openings, hub)
+    derive_windows(placed, openings)
 
     placed = [
         PlacedRoom(
@@ -230,22 +299,18 @@ def solve_layout(
             w_in=p.w_in,
             d_in=p.d_in,
             openings=openings[i],
-            wall_thickness_in=p.wall_thickness_in,
+            wall_thickness_in=EXTERIOR_WALL_IN if _on_exterior(p, bounds) else INTERIOR_WALL_IN,
+            habitable=p.habitable,
+            wet=p.wet,
         )
         for i, p in enumerate(placed)
     ]
-
-    # When vaastu was requested on initial generation, record applied constraints
-    if apply_vaastu and not prev:
-        applied_names = list(_vaastu_targets(rooms).values())
-    else:
-        applied_names = applied
 
     return SolveResult(
         status=status_name,
         rooms=placed,
         solve_ms=solve_ms,
-        vaastu_constraints_applied=applied_names,
+        vaastu_constraints_applied=applied,
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub),
     )

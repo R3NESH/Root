@@ -46,4 +46,21 @@ Rationale for constraining rather than scoring: [[vaastu-as-constraints]].
 >
 > This is the one done-condition of steps 3–5 not fully met. It needs `openings` to exist first.
 
-Prev: [[step-4-drift-objective]] · Plan: [[build-order]]
+> [!info] Update 2026-08-25 — half-closed on the backend, still open in the product
+> `openings` now exists. [[rooms-do-not-form-a-house]] forced it, and
+> `connectivity.py::add_entrance()` cuts a front door in the hub's outermost wall with an
+> explicit **N → E → W → S** preference — the Vaastu rule this callout said could not be built.
+>
+> It is still not delivered, for two separate reasons, both measured:
+>
+> 1. **It fires in only 38% of layouts** (9 of 24 random Vaastu-on mixes). `add_entrance()`
+>    returns `None` when the hub touches no exterior wall, which is the common case once the
+>    quadrant half-planes push rooms outward.
+> 2. **The renderer never reads it.** `entrance_edge` and `openings` are consumed nowhere in
+>    the frontend — see [[duplicated-geometry]]. The door the customer walks through in
+>    [[step-6-walkthrough]] is one `Scene.tsx` picked for itself.
+>
+> So the rule is implemented and reaches the user 0% of the time. Closing it is mostly
+> frontend work now, not solver work.
+
+Prev: [[step-4-drift-objective]] · Next (unplanned): [[step-6-walkthrough]] · Plan: [[build-order]]

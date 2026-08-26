@@ -40,6 +40,12 @@ Both of these outrank steps 3–5 in decision value. Neither blocks step 1 or 2.
 > north-facing plot in **Kandi, Telangana**. Everything so far has been synthetic. Competing
 > tools reportedly fail on real plots, not toy ones — so this is still an open validation gap.
 
+## What actually happened after the plan completed
+
+Not Phase 2 — an unplanned [[step-6-walkthrough]], built the same day with no done-condition
+written first. It produced the project's most valuable finding ([[rooms-do-not-form-a-house]])
+and both of its current blocking defects. See [[workflow]] for why that is not a coincidence.
+
 ## After this plan completes
 
 [[project-phases|Phase 2]]: multi-level (G+1, G+2, ...) with fire exits, egress paths and

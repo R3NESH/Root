@@ -22,9 +22,21 @@ Then fill the table below and date it. Every later step reports its delta agains
 |---|---|---|---|---|
 | 2026-08-24 | 5 | 0 | none | baseline established at [[step-2-solver-core]] |
 | 2026-08-24 | **23** | 0 | none | after steps 3–5; `pytest -q`, backend/, 5.51s wall |
+| 2026-08-25 | **25** | 0 | none | re-measured at review; `pytest -q`, quiet machine, 11.5s wall |
+| 2026-08-25 | **41** | 0 | none | after the regression fix and [[realism-gaps]]; `pytest -q`, 29.8s wall |
+| 2026-08-25 | **40** | 0 | none | after removing four room kinds; `pytest -q`, 21.3s wall |
 
-**Delta: +18 tests, 0 failures.** `test_solver.py` 5 · `test_stability.py` 4 ([[step-4-drift-objective]])
-· `test_vaastu.py` 5 ([[step-5-vaastu]]) · `test_api.py` 9 ([[step-3-wire-together]]).
+**Delta: +15 tests, 0 failures.** Composition as of 2026-08-25, end of day: `test_api.py` **11** ·
+`test_solver.py` 6 · `test_stability.py` 4 ([[step-4-drift-objective]]) · `test_vaastu.py` **8**
+([[step-5-vaastu]] + the three regression invariants) · `test_realism.py` **11**
+([[realism-gaps]]). The 2026-08-24 row recorded 23; two tests had landed unrecorded.
+
+The count went 41 -> 40 when the open-sided room test was removed along with the porch and
+sit-out. A dropped test is only healthy when the behaviour it guarded is also gone; that is the
+case here.
+
+The suite is also faster — 86 s to 30 s — because the cold solve budget dropped from 5 s to 2 s
+once it was measured that the extra three seconds moved envelope fill by about one point.
 
 `test_20_random_room_mixes` uses seed 42 — deliberately fixed, reproducible rather than flaky.
 
@@ -35,6 +47,25 @@ Then fill the table below and date it. Every later step reports its delta agains
 > meet the latency budget made hard 6-room packings return `UNKNOWN` — no valid layout at all.
 > A latency fix had quietly broken correctness. Without this row, "still fast" would have read
 > as "still working".
+
+> [!danger] And it has a blind spot, found 2026-08-25
+> 25 green tests do not notice that Vaastu and connectivity are switched off on every solve
+> after the first — see [[vaastu-and-connectivity-drop-on-edit]]. `test_vaastu.py` never passes
+> `prev`; `test_stability.py:80` passes `prev` with Vaastu on but asserts only status and time.
+> **Two invariants were missing.** Both were added on 2026-08-25 and both now pass:
+> `test_vaastu_still_holds_when_prev_is_supplied` and
+> `test_rooms_stay_reachable_when_prev_is_supplied`, plus
+> `test_only_the_dragged_room_is_released_from_its_quadrant`.
+
+> [!warning] The suite is wall-clock flaky under CPU load
+> Measured 2026-08-25. On a loaded machine: **2 failed, 23 passed in 44.4 s**, both failures in
+> `test_stability.py` with `status == 'UNKNOWN'`. On a quiet machine, immediately after:
+> **25 passed in 11.5 s and 15.2 s**, and `test_stability.py` alone passed 3 runs out of 3.
+>
+> Cause: `INTERACTIVE_TIME_LIMIT_SECONDS` (0.4 s) is a **wall-clock** cap, so contention turns a
+> latency budget into a correctness failure. Nothing is wrong with the code — but record the
+> machine state with the row, and re-run before believing a red result. A suite that goes red
+> under load is a suite that gets ignored.
 
 ## Fixture rule
 

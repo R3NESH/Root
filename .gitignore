@@ -18,6 +18,10 @@ dist/
 .obsidian/cache
 .obsidian/plugins/*/data.json
 
+# graphify — generated knowledge graph. Rebuildable from the corpus, ~950KB,
+# and graph.json churns on every run. See notes/codebase/knowledge-graph.md.
+graphify-out/
+
 # OS
 Thumbs.db
 .DS_Store

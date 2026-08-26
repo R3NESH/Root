@@ -64,11 +64,27 @@ def test_custom_room_dimensions_are_honoured():
     assert custom_bed["d_in"] == 180
 
 
-def test_schema_placeholders_present():
-    room = client.post("/solve", json=BASE).json()["rooms"][0]
+def test_schema_fields_are_populated_not_placeholders():
+    # These three started as HANDOFF.md §10 placeholders so that v2 would not need a schema
+    # migration. They are real now — the solver derives them and the API ships them.
+    # notes/architecture/duplicated-geometry.md is why blanking them was a defect.
+    body = client.post("/solve", json=BASE).json()
+    room = body["rooms"][0]
     assert room["floor"] == 0
-    assert room["wall_thickness_in"] is None
-    assert room["openings"] == []
+    assert isinstance(room["wall_thickness_in"], int) and room["wall_thickness_in"] > 0
+    assert room["openings"], "openings must be derived, not left empty"
+    assert all(o["kind"] in ("door", "window", "opening", "entrance") for o in room["openings"])
+    assert body["meta"]["rooms_reachable"] == len(body["rooms"])
+
+
+def test_every_room_is_reachable_and_the_house_has_a_front_door():
+    body = client.post("/solve", json=BASE).json()
+    assert body["meta"]["rooms_reachable"] == len(body["rooms"])
+    assert body["meta"]["entrance_edge"] in ("N", "S", "E", "W")
+    entrances = [
+        o for r in body["rooms"] for o in r["openings"] if o["kind"] == "entrance"
+    ]
+    assert len(entrances) == 1, "exactly one front door"
 
 
 def test_prev_positions_are_honoured():

@@ -5,8 +5,13 @@ a legal, buildable floor plan out.
 
 **Working name is provisional** — see [notes/project-name.md](notes/project-name.md).
 
-> **Status: nothing is built.** No product code, no test baseline, no commit history worth
-> trusting. Read [HANDOFF.md](HANDOFF.md) first — it is the source of truth.
+> **Status (2026-08-25): Phase 1 is built, and two of its guarantees are currently broken.**
+> The app generates a 3D house from plot dimensions and facing, with a first-person walkthrough.
+> 25/25 backend tests pass — but Vaastu and connectivity constraints are enforced on the *first*
+> solve only, invisibly to the suite.
+>
+> Read [notes/project-status.md](notes/project-status.md) for the current state and
+> [HANDOFF.md](HANDOFF.md) for the original brief (unedited source of truth).
 
 ## This repo is also an Obsidian vault
 
@@ -26,23 +31,37 @@ Convention for keeping code in the graph: [notes/codebase/codebase-map.md](notes
 
 ```
 HANDOFF.md            source of truth, unedited
+backend/              FastAPI + OR-Tools CP-SAT — POST /solve
+frontend/             Next.js 16 + Three.js — orbit view and walkthrough
 notes/
   Home.md             hub
+  project-status.md   current state, re-measured
+  workflow.md         how the project is run
   decisions/          7 locked decisions + rejected list
   market/             6 verified market facts
   architecture/       split, output schema, environment
   solver/             CP-SAT API, gotchas, stability, the risky claim
   ui/                 input patterns
   open-questions/     4 open, 2 of them blocking
-  build/              5 steps + test baseline
+  build/              5 planned steps + an unplanned step 6 + test baseline
   codebase/           code ↔ note index
   daily/              working notes
   templates/
 ```
 
-## Before writing solver code
+## Running it
 
-Two zero-code questions outrank every build step:
+```
+# backend
+cd backend && .venv\Scripts\python.exe -m uvicorn api.main:app --reload
+# frontend
+cd frontend && npm run dev
+```
+
+## Before writing more solver code
+
+Two zero-code questions have outranked every build step since 2026-08-23, and both are still
+unanswered while the code kept growing:
 
 1. [What was actually wrong with Forjit and GrehYug?](notes/open-questions/q-competitor-defects.md)
 2. [Does anyone pay?](notes/open-questions/q-does-anyone-pay.md)

@@ -22,14 +22,22 @@ export interface SolvedRoom {
   w_in: number;
   d_in: number;
   wall_thickness_in: number | null;
-  openings: {
-    kind: "door" | "window" | "opening" | "entrance";
-    edge: "N" | "S" | "E" | "W";
-    offset_in: number;
-    width_in: number;
-    height_in: number;
-    to_room?: number | null;
-  }[];
+  // Room semantics carried through from the solver catalog so the renderer does not have to
+  // re-derive them from the name — notes/solver/realism-gaps.md.
+  habitable: boolean;
+  wet: boolean;
+  openings: RoomOpening[];
+}
+
+export interface RoomOpening {
+  kind: "door" | "window" | "opening" | "entrance";
+  edge: "N" | "S" | "E" | "W";
+  offset_in: number;
+  width_in: number;
+  height_in: number;
+  // Height of the sill above finished floor. Absent on doors, which start at the floor.
+  sill_in?: number;
+  to_room?: number | null;
 }
 
 export interface SolveMeta {
@@ -41,6 +49,8 @@ export interface SolveMeta {
   envelope_w_in: number;
   envelope_d_in: number;
   unknown_room_names: string[];
+  entrance_edge: "N" | "S" | "E" | "W" | null;
+  rooms_reachable: number;
 }
 
 export interface SolveResponse {
@@ -61,6 +71,9 @@ export interface SolveRequestArgs {
   rooms: (RoomName | RoomSpecIn)[];
   setback?: Setback;
   prev?: PrevRoomIn[];
+  // Index of the room the user just dragged — only that room is released from its Vaastu
+  // quadrant. See notes/solver/vaastu-and-connectivity-drop-on-edit.md.
+  movedIndex?: number;
 }
 
 const SOLVER_API_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000";
@@ -85,6 +98,7 @@ export async function requestSolve(
       right_in: rightIn,
     },
     prev: args.prev,
+    moved_index: args.movedIndex,
     apply_vaastu: true,
   };
 

@@ -22,6 +22,8 @@ sharing a vertical edge, `overlap >= DOOR` is exactly the pair of linear constra
 
 from ortools.sat.python import cp_model
 
+from vaastu import applies_to
+
 # 2'8" clear — a standard Indian internal door leaf. Anything narrower is not a doorway, and a
 # "shared wall" of 2 in (observed in real solver output) is a coincidence, not a connection.
 DOOR_MIN_IN = 32
@@ -33,6 +35,64 @@ EXTERIOR_WALL_IN = 9
 INTERIOR_WALL_IN = 5  # 4.5 rounded up — integer inches only, per integer-inches.md
 
 HUB_ROOM = "hall"
+
+# Which room kinds a given kind prefers to open off, best first. A pure star — every room onto
+# the hall — is how notes/solver/rooms-do-not-form-a-house.md first fixed reachability, and it
+# works, but it is not how a house is laid out and it makes the hall's perimeter the binding
+# constraint once there are more than five or six rooms. A utility opens off the kitchen; a
+# second bathroom is an ensuite off the master bedroom, not another door onto the living room.
+#
+# The result is still connected *by construction*: every room attaches to a room that is
+# already attached, so the door graph is a tree rooted at the hub. No reachability search is
+# needed inside the model, which is the property CP-SAT expresses badly.
+PARENT_PREFERENCE: dict[str, tuple[str, ...]] = {
+    "bathroom": ("bedroom", "hall", "dining"),
+    "store": ("kitchen", "hall"),
+    "dining": ("hall", "kitchen"),
+    "pooja": ("hall", "dining"),
+    "kitchen": ("hall", "dining"),
+    "bedroom": ("hall", "dining"),
+}
+
+# How many rooms may open off one room. Without a cap the hall collects every child, and at
+# nine rooms the model goes INFEASIBLE in 17 ms: seven rooms cannot all sit flush against one
+# hall *and* all reach an exterior wall for light. Overflow lands on the dining space, which is
+# how Indian plans actually distribute circulation once the house is bigger than a 2BHK.
+MAX_CHILDREN = 5
+
+# Sharing a partition between these is a construction and cultural taboo in Indian building.
+# Hoisted to module scope because assign_parents() must respect it too: handing the kitchen a
+# bathroom as its parent asks add_room_separation() to forbid the very wall the door needs,
+# and the model goes INFEASIBLE in 13 ms with no diagnosis.
+FORBIDDEN_PAIRS = {("kitchen", "bathroom"), ("pooja", "bathroom")}
+
+
+def _may_share_a_wall(a, b) -> bool:
+    return (a.name, b.name) not in FORBIDDEN_PAIRS and (b.name, a.name) not in FORBIDDEN_PAIRS
+
+
+def _quadrants_conflict(a, b) -> bool:
+    """Do Vaastu rules pin these two rooms to regions that do not touch?
+
+    Making one the parent of the other forces them to share a wall. If their quadrants are
+    disjoint on either axis, that is a contradiction the solver can only report as INFEASIBLE.
+
+    Measured: on the real buildable envelope of a 30x40 plot (24x30 ft), the fan-out cap pushed
+    the pooja room onto the kitchen as its parent — north-east and south-east, opposite corners
+    — and Vaastu went from three rules applied to zero, because the whole model became
+    infeasible and the ladder walked down to a rung with Vaastu switched off. On the plot size
+    this product is aimed at, and on the constraint the market treats as mandatory.
+    """
+    ra, rb = applies_to(a.name), applies_to(b.name)
+    if ra is None or rb is None:
+        return False
+    x_disjoint = ra.x_max_frac <= rb.x_min_frac or rb.x_max_frac <= ra.x_min_frac
+    z_disjoint = ra.z_max_frac <= rb.z_min_frac or rb.z_max_frac <= ra.z_min_frac
+    return x_disjoint or z_disjoint
+
+
+def _may_be_parent(child, parent) -> bool:
+    return _may_share_a_wall(child, parent) and not _quadrants_conflict(child, parent)
 
 
 def hub_index(rooms) -> int:
@@ -46,37 +106,124 @@ def hub_index(rooms) -> int:
     return 0
 
 
-def add_hub_adjacency(model: cp_model.CpModel, vars_by_index: list[dict], hub: int) -> None:
-    """Force every non-hub room to share >= DOOR_MIN_IN of wall with the hub."""
-    h = vars_by_index[hub]
+def assign_parents(rooms) -> list[int | None]:
+    """Pick one concrete parent room per room, forming a tree rooted at the hub.
+
+    Assignment is static — decided before the model is built — so adjacency is a constraint
+    against a specific room rather than a choice among kinds. That keeps the encoding the same
+    size as the old star while producing a realistic plan.
+
+    Three rules beyond the preference table:
+      - **Master ensuite.** With two or more bathrooms, the first opens off the first bedroom.
+        That is the standard Indian 2BHK arrangement. A lone bathroom stays common, off the
+        hall, because an ensuite-only house leaves guests nowhere to go.
+      - **Fan-out cap.** No room takes more than MAX_CHILDREN doors.
+    """
+    hub = hub_index(rooms)
+    parents: list[int | None] = [None] * len(rooms)
+    children: dict[int, int] = {}
+
+    baths = [i for i, r in enumerate(rooms) if r.name == "bathroom"]
+    beds = [i for i, r in enumerate(rooms) if r.name == "bedroom"]
+    ensuite = baths[0] if (len(baths) >= 2 and beds and beds[0] != hub) else None
+
+    def preference(i: int) -> tuple[str, ...]:
+        # A lone bathroom must not become an ensuite, so it skips the "bedroom" preference.
+        if rooms[i].name == "bathroom" and i != ensuite:
+            return ("hall", "dining", "bedroom")
+        return PARENT_PREFERENCE.get(rooms[i].name, ("hall",))
+
+    attached = {hub}
+    remaining = [i for i in range(len(rooms)) if i != hub]
+
+    def take(i: int, parent: int) -> None:
+        parents[i] = parent
+        children[parent] = children.get(parent, 0) + 1
+        attached.add(i)
+        remaining.remove(i)
+
+    while remaining:
+        progress = False
+        for i in list(remaining):
+            chosen: int | None = None
+            if i == ensuite and beds[0] in attached and children.get(beds[0], 0) < MAX_CHILDREN:
+                chosen = beds[0]
+            else:
+                for kind in preference(i):
+                    for j, r in enumerate(rooms):
+                        if (
+                            j != i
+                            and j in attached
+                            and r.name == kind
+                            and children.get(j, 0) < MAX_CHILDREN
+                            and _may_be_parent(rooms[i], r)
+                        ):
+                            chosen = j
+                            break
+                    if chosen is not None:
+                        break
+            if chosen is not None:
+                take(i, chosen)
+                progress = True
+        if not progress:
+            # Every preferred parent is full, absent, or forbidden. Attach ONE room to whichever
+            # legal attached room has the fewest doors, then go round again — attaching it may
+            # be exactly what unblocks the others' preferences. Attaching them all at once here
+            # is what left a kitchen parentless in a hall-less mix, because the dining room it
+            # could legally have opened off was not attached yet when its turn came.
+            best: tuple[int, int] | None = None
+            for i in remaining:
+                candidates = [
+                    j for j in attached if j != i and _may_be_parent(rooms[i], rooms[j])
+                ]
+                if not candidates:
+                    continue
+                parent = min(candidates, key=lambda j: children.get(j, 0))
+                if best is None or children.get(parent, 0) < children.get(best[1], 0):
+                    best = (i, parent)
+            if best is None:
+                # Nothing legal is left to attach to — e.g. a kitchen in a house of nothing but
+                # bathrooms. Leave the rest parentless rather than encoding a contradiction.
+                break
+            take(*best)
+
+    return parents
+
+
+def add_tree_adjacency(
+    model: cp_model.CpModel, vars_by_index: list[dict], parents: list[int | None]
+) -> None:
+    """Force every room to share >= DOOR_MIN_IN of wall with its assigned parent."""
     for i, v in enumerate(vars_by_index):
-        if i == hub:
+        parent = parents[i]
+        if parent is None:
             continue
+        h = vars_by_index[parent]
         options = []
 
-        # v west of hub: v's east edge meets hub's west edge, with vertical overlap.
-        b = model.new_bool_var(f"adj_w_{i}")
+        # v west of parent: v's east edge meets parent's west edge, with vertical overlap.
+        b = model.new_bool_var(f"adj_w_{i}_{parent}")
         model.add(v["xe"] == h["x"]).only_enforce_if(b)
         model.add(v["y"] + DOOR_MIN_IN <= h["ye"]).only_enforce_if(b)
         model.add(h["y"] + DOOR_MIN_IN <= v["ye"]).only_enforce_if(b)
         options.append(b)
 
-        # v east of hub.
-        b = model.new_bool_var(f"adj_e_{i}")
+        # v east of parent.
+        b = model.new_bool_var(f"adj_e_{i}_{parent}")
         model.add(h["xe"] == v["x"]).only_enforce_if(b)
         model.add(v["y"] + DOOR_MIN_IN <= h["ye"]).only_enforce_if(b)
         model.add(h["y"] + DOOR_MIN_IN <= v["ye"]).only_enforce_if(b)
         options.append(b)
 
-        # v north of hub (smaller Z), horizontal overlap.
-        b = model.new_bool_var(f"adj_n_{i}")
+        # v north of parent (smaller Z), horizontal overlap.
+        b = model.new_bool_var(f"adj_n_{i}_{parent}")
         model.add(v["ye"] == h["y"]).only_enforce_if(b)
         model.add(v["x"] + DOOR_MIN_IN <= h["xe"]).only_enforce_if(b)
         model.add(h["x"] + DOOR_MIN_IN <= v["xe"]).only_enforce_if(b)
         options.append(b)
 
-        # v south of hub.
-        b = model.new_bool_var(f"adj_s_{i}")
+        # v south of parent.
+        b = model.new_bool_var(f"adj_s_{i}_{parent}")
         model.add(h["ye"] == v["y"]).only_enforce_if(b)
         model.add(v["x"] + DOOR_MIN_IN <= h["xe"]).only_enforce_if(b)
         model.add(h["x"] + DOOR_MIN_IN <= v["xe"]).only_enforce_if(b)
@@ -91,8 +238,6 @@ def add_room_separation(model: cp_model.CpModel, vars_by_index: list[dict], room
     Sharing a common partition between Kitchen and Bathroom (or Pooja and Bathroom) is a strict
     construction and cultural taboo in Indian architecture.
     """
-    FORBIDDEN_PAIRS = {("kitchen", "bathroom"), ("pooja", "bathroom")}
-
     for i, r_i in enumerate(rooms):
         for j, r_j in enumerate(rooms):
             if j <= i:
@@ -179,59 +324,173 @@ def _edge_origin(room, edge: str) -> int:
     return room.y_in if edge in ("E", "W") else room.x_in
 
 
-def derive_openings(rooms, hub: int) -> list[list[dict]]:
+def derive_openings(rooms, parents: list[int | None]) -> list[list[dict]]:
     """One list of openings per room, mirrored so both sides of a shared wall carry the door.
+
+    Doors follow the parent tree from assign_parents(), not a star onto the hub — so a utility
+    opens off the kitchen and an ensuite off its bedroom, which is where those doors belong.
 
     Doors are centred on the shared run, which keeps them off the corners where two walls meet.
     """
     openings: list[list[dict]] = [[] for _ in rooms]
-    for i, a in enumerate(rooms):
-        for j, b in enumerate(rooms):
-            if j <= i:
+    for i, parent in enumerate(parents):
+        if parent is None:
+            continue
+        a, b = rooms[i], rooms[parent]
+        shared = _shared_run(a, b)
+        if shared is None:
+            continue
+        edge, s0, s1 = shared
+        centre = (s0 + s1) // 2
+        width = min(DOOR_WIDTH_IN, s1 - s0)
+        start = centre - width // 2
+
+        openings[i].append({
+            "kind": "door",
+            "edge": edge,
+            "offset_in": start - _edge_origin(a, edge),
+            "width_in": width,
+            "height_in": DOOR_HEIGHT_IN,
+            "to_room": parent,
+        })
+        openings[parent].append({
+            "kind": "door",
+            "edge": _opposite(edge),
+            "offset_in": start - _edge_origin(b, _opposite(edge)),
+            "width_in": width,
+            "height_in": DOOR_HEIGHT_IN,
+            "to_room": i,
+        })
+    return openings
+
+
+def footprint(rooms) -> tuple[int, int, int, int]:
+    """Bounding box of the built area: (x0, z0, x1, z1).
+
+    The house rarely fills its envelope — room maximums see to that — so "exterior wall" means
+    the outside face of *this* box, not the plot boundary. realism.add_daylight_constraints()
+    constrains against the same box; windows and the front door have to agree with it or the
+    solver guarantees a wall that the geometry then refuses to put a hole in.
+    """
+    return (
+        min(r.x_in for r in rooms),
+        min(r.y_in for r in rooms),
+        max(r.x_in + r.w_in for r in rooms),
+        max(r.y_in + r.d_in for r in rooms),
+    )
+
+
+WINDOW_SILL_IN = 36
+WINDOW_HEIGHT_IN = 48
+WINDOW_MIN_WALL_IN = 60          # below this the wall is too short to take a window
+WINDOW_MAX_WIDTH_IN = 72         # 6 ft, a large-but-buildable opening
+# Indian bye-laws generally require openable area of roughly a tenth of the floor area for a
+# habitable room. Approximated here as a target window width per exterior wall.
+LIGHT_AREA_FRACTION = 0.10
+
+
+def _free_gaps(room, edge: str, openings_on_edge: list[dict]) -> list[tuple[int, int]]:
+    """Runs of wall on `edge` not already occupied by a door or another opening.
+
+    Offsets are measured along the edge from the room's minimum corner, matching the
+    convention in _edge_origin().
+    """
+    run = room.d_in if edge in ("E", "W") else room.w_in
+    taken = sorted(
+        (o["offset_in"], o["offset_in"] + o["width_in"]) for o in openings_on_edge
+    )
+    gaps: list[tuple[int, int]] = []
+    cursor = 0
+    for start_in, end_in in taken:
+        if start_in - cursor > 0:
+            gaps.append((cursor, start_in))
+        cursor = max(cursor, end_in)
+    if run - cursor > 0:
+        gaps.append((cursor, run))
+    return gaps
+
+
+def derive_windows(rooms, openings: list[list[dict]]) -> None:
+    """Cut a window in each room's free exterior wall. Mutates `openings` in place.
+
+    Runs post-solve, like the doors. realism.add_daylight_constraints() is what guarantees a
+    habitable room actually *has* an exterior wall to cut into; this decides how big the hole is
+    and where it goes.
+
+    Placement is gap-aware rather than edge-exclusive. A hall whose only outside wall carries
+    the front door still needs a window, and a 15 ft wall holds both comfortably — refusing one
+    because the edge was "taken" left the main room of the house dark.
+
+    Bathrooms and utilities get a small high vent rather than nothing: an unventilated wet room
+    is not buildable, and the renderer previously refused them a window outright.
+    """
+    fx0, fz0, fx1, fz1 = footprint(rooms)
+    for i, room in enumerate(rooms):
+        habitable = getattr(room, "habitable", True)
+        wet = getattr(room, "wet", False)
+        if not (habitable or wet):
+            continue
+
+        exterior = {
+            "N": room.y_in == fz0,
+            "S": room.y_in + room.d_in == fz1,
+            "W": room.x_in == fx0,
+            "E": room.x_in + room.w_in == fx1,
+        }
+
+        floor_area = room.w_in * room.d_in
+        wanted = int((floor_area * LIGHT_AREA_FRACTION) / max(WINDOW_HEIGHT_IN, 1))
+
+        for edge, is_exterior in exterior.items():
+            if not is_exterior:
                 continue
-            if hub not in (i, j):
+            if any(o["kind"] == "window" and o["edge"] == edge for o in openings[i]):
                 continue
-            shared = _shared_run(a, b)
-            if shared is None:
+
+            on_edge = [o for o in openings[i] if o["edge"] == edge]
+            gaps = _free_gaps(room, edge, on_edge)
+            if not gaps:
                 continue
-            edge, s0, s1 = shared
-            centre = (s0 + s1) // 2
-            width = min(DOOR_WIDTH_IN, s1 - s0)
-            start = centre - width // 2
+            g0, g1 = max(gaps, key=lambda g: g[1] - g[0])
+            free = g1 - g0
+            if free < WINDOW_MIN_WALL_IN:
+                continue
+
+            # Leave a pier of at least a wall thickness at each end of the gap.
+            usable = free - 2 * EXTERIOR_WALL_IN
+            if habitable:
+                width = min(max(wanted, DOOR_WIDTH_IN), WINDOW_MAX_WIDTH_IN, usable)
+            else:
+                width = min(DOOR_WIDTH_IN, usable)  # a vent, not a view
+            if width < 18:
+                continue
 
             openings[i].append({
-                "kind": "door",
+                "kind": "window",
                 "edge": edge,
-                "offset_in": start - _edge_origin(a, edge),
-                "width_in": width,
-                "height_in": DOOR_HEIGHT_IN,
-                "to_room": j,
+                "offset_in": g0 + (free - width) // 2,
+                "width_in": int(width),
+                "height_in": WINDOW_HEIGHT_IN,
+                "sill_in": WINDOW_SILL_IN if habitable else WINDOW_SILL_IN + 18,
+                "to_room": None,
             })
-            openings[j].append({
-                "kind": "door",
-                "edge": _opposite(edge),
-                "offset_in": start - _edge_origin(b, _opposite(edge)),
-                "width_in": width,
-                "height_in": DOOR_HEIGHT_IN,
-                "to_room": i,
-            })
-    return openings
 
 
 ENTRANCE_EDGE_PREFERENCE = ["N", "E", "W", "S"]
 
 
-def add_entrance(rooms, openings: list[list[dict]], hub: int, env_w_in: int, env_d_in: int) -> str | None:
+def add_entrance(rooms, openings: list[list[dict]], hub: int) -> str | None:
     """Cut the front door in the hub's outermost wall, preferring N then E per Vaastu.
 
     Returns the edge used, or None if the hub touches no exterior wall.
     """
     room = rooms[hub]
+    fx0, fz0, fx1, fz1 = footprint(rooms)
     on_exterior = {
-        "N": room.y_in == 0,
-        "S": room.y_in + room.d_in == env_d_in,
-        "W": room.x_in == 0,
-        "E": room.x_in + room.w_in == env_w_in,
+        "N": room.y_in == fz0,
+        "S": room.y_in + room.d_in == fz1,
+        "W": room.x_in == fx0,
+        "E": room.x_in + room.w_in == fx1,
     }
     for edge in ENTRANCE_EDGE_PREFERENCE:
         if not on_exterior[edge]:

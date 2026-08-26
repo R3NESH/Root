@@ -14,6 +14,16 @@ date: 2026-08-23
 | Chatbot / conversational input | a questionnaire with more typing and no visual feedback | [[zero-keyboard-events]] |
 | `add_hint` as the stability mechanism | unreliable in practice | [[layout-stability]] |
 | The word "architect" anywhere in copy | Architects Act §37 protects the title | [[architects-act-legal-lane]] |
+| Time-of-day sun / solar path in the 3D view | built and working for 17.4N, removed the same day on the user's call | [[realism-gaps]] |
+| Parking porch, sit-out, staircase, utility as room kinds | added by [[realism-gaps]], removed the same day on the user's call | [[realism-gaps]] |
+| `open_sided` rooms (roofed but unwalled) | the only two were the porch and sit-out; with those gone the concept had no users, so it went rather than sit unreachable | [[realism-gaps]] |
+| Client-side fallback when the API returns no `openings` | a fallback *is* the duplication that was just deleted; fail loudly instead | [[duplicated-geometry]] |
+
+> [!note] On the sun
+> It was not rejected for being wrong — the solar model was correct and cheap, and it made plot
+> facing visible for the first time. It was rejected because it was not asked for. If daylight
+> ever becomes a selling argument rather than a demo, `lib/sun.ts` is in the git history at the
+> 2026-08-25 realism work.
 
 ## Not rejected — unverified
 
