@@ -172,6 +172,8 @@ export default function Scene({
   // Custom 3D Furniture Placement & Selection References
   const placingGhostGroupRef = useRef<THREE.Group | null>(null);
   const draggedCustomObjectIdRef = useRef<string | null>(null);
+  const customObjectMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
+  const draggedCustomObjPosRef = useRef<{ x: number; z: number } | null>(null);
 
   // Animated Ceiling Fan references
   const fanBladesRef = useRef<THREE.Group[]>([]);
@@ -587,6 +589,8 @@ export default function Scene({
       }
     }
 
+    let lastHoverCheckTime = 0;
+
     function onPointerMove(ev: PointerEvent) {
       if (modeRef.current === "walkthrough") {
         if (isDraggingLook.current) {
@@ -617,10 +621,14 @@ export default function Scene({
       }
 
       if (!dragKind) {
-        const isOverHandle = pickHandle(ev) !== null;
-        const isOverCustomObj = pickCustomObject(ev) !== null;
-        const isOverRoom = pickRoom(ev) !== null;
-        renderer.domElement.style.cursor = isOverHandle || isOverCustomObj || isOverRoom ? "grab" : "auto";
+        const now = performance.now();
+        if (now - lastHoverCheckTime > 50) {
+          lastHoverCheckTime = now;
+          const isOverHandle = pickHandle(ev) !== null;
+          const isOverCustomObj = pickCustomObject(ev) !== null;
+          const isOverRoom = pickRoom(ev) !== null;
+          renderer.domElement.style.cursor = isOverHandle || isOverCustomObj || isOverRoom ? "grab" : "auto";
+        }
         return;
       }
 
@@ -638,16 +646,17 @@ export default function Scene({
           onPlotChangeRef.current({ ...current, depthIn: nextIn });
         }
       } else if (dragKind === "customObject" && draggedCustomObjectIdRef.current) {
+        // Direct Three.js GPU transform (0 React re-renders, 0 latency!)
         const objId = draggedCustomObjectIdRef.current;
-        const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
-        if (obj && onUpdateCustomObjectRef.current) {
-          onUpdateCustomObjectRef.current({
-            ...obj,
-            x: Math.round(hitPoint.x * 2) / 2,
-            z: Math.round(hitPoint.z * 2) / 2,
-          });
+        const mesh = customObjectMeshesRef.current.get(objId);
+        const snappedX = Math.round(hitPoint.x * 2) / 2;
+        const snappedZ = Math.round(hitPoint.z * 2) / 2;
+        if (mesh) {
+          mesh.position.set(snappedX, 0, snappedZ);
         }
+        draggedCustomObjPosRef.current = { x: snappedX, z: snappedZ };
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
+        // Direct Three.js ghost transform (0 React setState during drag)
         const rIdx = draggedRoomIdxRef.current;
         const r = roomsRef.current[rIdx];
         if (r) {
@@ -656,14 +665,24 @@ export default function Scene({
           const snappedCornerX = Math.round(hitPoint.x - rw / 2);
           const snappedCornerZ = Math.round(hitPoint.z - rd / 2);
           ghostMesh.position.set(snappedCornerX + rw / 2, WALL_HEIGHT_FT / 2, snappedCornerZ + rd / 2);
-          setDraggedRoomInfo({ name: r.name, x: snappedCornerX + rw / 2, z: snappedCornerZ + rd / 2 });
         }
       }
     }
 
     function onPointerUp() {
       isDraggingLook.current = false;
-      if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
+      if (dragKind === "customObject" && draggedCustomObjectIdRef.current && draggedCustomObjPosRef.current) {
+        const objId = draggedCustomObjectIdRef.current;
+        const obj = (customObjectsRef.current || []).find((o) => o.id === objId);
+        if (obj && onUpdateCustomObjectRef.current) {
+          onUpdateCustomObjectRef.current({
+            ...obj,
+            x: draggedCustomObjPosRef.current.x,
+            z: draggedCustomObjPosRef.current.z,
+          });
+        }
+        draggedCustomObjPosRef.current = null;
+      } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
         const rIdx = draggedRoomIdxRef.current;
         const r = roomsRef.current[rIdx];
         if (r && onRoomMoveRef.current) {
@@ -1045,6 +1064,7 @@ export default function Scene({
     roomLightsRef.current = [];
     roomGroupsRef.current.clear();
     roomLightsByRoomRef.current.clear();
+    customObjectMeshesRef.current.clear();
 
     group.children.forEach((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Sprite || child instanceof THREE.PointLight || child instanceof THREE.Group) {
@@ -1649,6 +1669,7 @@ export default function Scene({
       }
 
       group.add(objGroup);
+      customObjectMeshesRef.current.set(obj.id, objGroup);
     }
 
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
