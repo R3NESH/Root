@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   WindowConfig,
   WindowShapeId,
@@ -49,6 +49,16 @@ export default function WindowShapeModal({
 
   const [addRoomIdx, setAddRoomIdx] = useState<number>(0);
   const [addEdge, setAddEdge] = useState<"N" | "S" | "E" | "W">("N");
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalConfig(config);
+      if (selectedWindowId) {
+        setActiveWindowId(selectedWindowId);
+        setSelectedScope("individual");
+      }
+    }
+  }, [isOpen, config, selectedWindowId]);
 
   // Discover all architectural windows from room openings
   const discoveredWindows: DiscoveredWindowItem[] = useMemo(() => {
@@ -112,159 +122,187 @@ export default function WindowShapeModal({
       : localConfig.hasCurtains;
 
   const handleSelectShape = (shapeId: WindowShapeId) => {
-    if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
-        individualOverrides: {
-          ...(prev.individualOverrides || {}),
-          [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
-            shape: shapeId,
+    let nextConfig: WindowConfig;
+    if (selectedScope === "individual") {
+      const winId = targetWindowId || activeWindowId || discoveredWindows[0]?.id;
+      if (winId) {
+        nextConfig = {
+          ...localConfig,
+          individualOverrides: {
+            ...(localConfig.individualOverrides || {}),
+            [winId]: {
+              ...(localConfig.individualOverrides?.[winId] || {}),
+              shape: shapeId,
+            },
           },
-        },
-      }));
+        };
+      } else {
+        nextConfig = {
+          ...localConfig,
+          globalShape: shapeId,
+          roomWindowShapes: {},
+          individualOverrides: {},
+        };
+      }
     } else if (selectedScope === "global") {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         globalShape: shapeId,
         roomWindowShapes: {}, // Apply uniform shape across all rooms
         individualOverrides: {}, // Reset overrides so all windows are uniform
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         roomWindowShapes: {
-          ...prev.roomWindowShapes,
+          ...(localConfig.roomWindowShapes || {}),
           [selectedScope]: shapeId,
         },
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleChangeWidth = (delta: number) => {
     const nextW = Math.max(2.0, Math.min(10.0, +(activeWidthFt + delta).toFixed(1)));
+    let nextConfig: WindowConfig;
     if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         individualOverrides: {
-          ...(prev.individualOverrides || {}),
+          ...(localConfig.individualOverrides || {}),
           [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            ...(localConfig.individualOverrides?.[targetWindowId] || {}),
             widthFt: nextW,
           },
         },
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         globalWidthFt: nextW,
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleChangeHeight = (delta: number) => {
     const nextH = Math.max(1.5, Math.min(7.0, +(activeHeightFt + delta).toFixed(1)));
+    let nextConfig: WindowConfig;
     if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         individualOverrides: {
-          ...(prev.individualOverrides || {}),
+          ...(localConfig.individualOverrides || {}),
           [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            ...(localConfig.individualOverrides?.[targetWindowId] || {}),
             heightFt: nextH,
           },
         },
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         globalHeightFt: nextH,
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleSelectFrame = (finishId: WindowFrameFinishId) => {
+    let nextConfig: WindowConfig;
     if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         individualOverrides: {
-          ...(prev.individualOverrides || {}),
+          ...(localConfig.individualOverrides || {}),
           [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            ...(localConfig.individualOverrides?.[targetWindowId] || {}),
             frameFinish: finishId,
           },
         },
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         globalFrameFinish: finishId,
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleSelectTint = (tintId: WindowGlassTintId) => {
+    let nextConfig: WindowConfig;
     if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         individualOverrides: {
-          ...(prev.individualOverrides || {}),
+          ...(localConfig.individualOverrides || {}),
           [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            ...(localConfig.individualOverrides?.[targetWindowId] || {}),
             glassTint: tintId,
           },
         },
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         globalGlassTint: tintId,
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleToggleCurtains = (enabled: boolean) => {
+    let nextConfig: WindowConfig;
     if (selectedScope === "individual" && targetWindowId) {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         individualOverrides: {
-          ...(prev.individualOverrides || {}),
+          ...(localConfig.individualOverrides || {}),
           [targetWindowId]: {
-            ...(prev.individualOverrides?.[targetWindowId] || {}),
+            ...(localConfig.individualOverrides?.[targetWindowId] || {}),
             hasCurtains: enabled,
           },
         },
-      }));
+      };
     } else {
-      setLocalConfig((prev) => ({
-        ...prev,
+      nextConfig = {
+        ...localConfig,
         hasCurtains: enabled,
-      }));
+      };
     }
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleResetIndividualWindow = (winId: string) => {
-    setLocalConfig((prev) => {
-      const nextOverrides = { ...(prev.individualOverrides || {}) };
-      delete nextOverrides[winId];
-      return {
-        ...prev,
-        individualOverrides: nextOverrides,
-        deletedWindowIds: (prev.deletedWindowIds || []).filter((id) => id !== winId),
-      };
-    });
+    const nextOverrides = { ...(localConfig.individualOverrides || {}) };
+    delete nextOverrides[winId];
+    const nextConfig: WindowConfig = {
+      ...localConfig,
+      individualOverrides: nextOverrides,
+      deletedWindowIds: (localConfig.deletedWindowIds || []).filter((id) => id !== winId),
+    };
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleToggleDeleteWindow = (winId: string) => {
-    setLocalConfig((prev) => {
-      const isDeleted = prev.deletedWindowIds?.includes(winId);
-      return {
-        ...prev,
-        deletedWindowIds: isDeleted
-          ? (prev.deletedWindowIds || []).filter((id) => id !== winId)
-          : [...(prev.deletedWindowIds || []), winId],
-      };
-    });
+    const isDeleted = localConfig.deletedWindowIds?.includes(winId);
+    const nextConfig: WindowConfig = {
+      ...localConfig,
+      deletedWindowIds: isDeleted
+        ? (localConfig.deletedWindowIds || []).filter((id) => id !== winId)
+        : [...(localConfig.deletedWindowIds || []), winId],
+    };
+    setLocalConfig(nextConfig);
+    onChangeConfig(nextConfig);
   };
 
   const handleInstallWindow = () => {
@@ -536,8 +574,26 @@ export default function WindowShapeModal({
                 return (
                   <div
                     key={shape.id}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        "application/json",
+                        JSON.stringify({
+                          type: "window_style",
+                          shapeId: shape.id,
+                          name: shape.name,
+                          icon: shape.icon,
+                          aspectRatio: shape.aspectRatio,
+                          widthIn: Math.round(activeWidthFt * 12),
+                          heightIn: Math.round(activeHeightFt * 12),
+                        })
+                      );
+                      e.dataTransfer.setData("text/plain", shape.id);
+                      e.dataTransfer.effectAllowed = "copy";
+                    }}
                     className={`${styles.shapeCard} ${isSelected ? styles.shapeCardSelected : ""}`}
                     onClick={() => handleSelectShape(shape.id)}
+                    title={`Drag & drop directly onto any window/wall in 3D or 2D: ${shape.name}`}
                   >
                     <div className={styles.shapeTopRow}>
                       <span className={styles.shapeIcon}>{shape.icon}</span>

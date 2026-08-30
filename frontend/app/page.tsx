@@ -1037,6 +1037,10 @@ export default function Home() {
               activeWallType={activeWallType}
               onChangeWallType={setActiveWallType}
               activeBlueprintName={activeBlueprintName}
+              windowConfig={windowConfig}
+              onChangeWindowConfig={setWindowConfig}
+              placingOpeningDef={placingOpeningDef}
+              onSelectPlaceOpening={handleSelectPlaceOpening}
               onChangeCounts={setCounts}
               onChangeCustomDims={setCustomDims}
               onChangeCustomOpenings={setCustomOpenings}
@@ -1075,6 +1079,9 @@ export default function Home() {
                 furnished={furnished}
                 materialConfig={materialConfig}
                 windowConfig={windowConfig}
+                onChangeWindowConfig={setWindowConfig}
+                placingOpeningDef={placingOpeningDef}
+                onSelectPlaceOpening={handleSelectPlaceOpening}
                 isLayoutLocked={isLayoutLocked}
                 onToggleLayoutLock={handleToggleLayoutLock}
                 customObjects={customObjects}

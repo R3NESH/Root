@@ -107,6 +107,25 @@ export default function DoorsWindowsDrawer({
               return (
                 <div
                   key={item.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(
+                      "application/json",
+                      JSON.stringify({
+                        type: item.category === "window" ? "window_style" : "opening",
+                        shapeId: item.windowShape || "modern_slider",
+                        kind: item.kind,
+                        category: item.category,
+                        widthIn: item.widthIn,
+                        heightIn: item.heightIn,
+                        sillIn: item.sillIn,
+                        name: item.name,
+                        icon: item.icon,
+                      })
+                    );
+                    e.dataTransfer.setData("text/plain", item.windowShape || item.kind);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
                   className={`${styles.itemCard} ${isSelected ? styles.itemCardActive : ""}`}
                   onClick={() => {
                     if (isSelected) {
@@ -115,7 +134,7 @@ export default function DoorsWindowsDrawer({
                       onSelectPlaceOpening(item);
                     }
                   }}
-                  title={`Click to arm and drop on any 2D/3D wall: ${item.name} (${item.description})`}
+                  title={`Drag & drop or click to place on any 2D/3D wall: ${item.name} (${item.description})`}
                 >
                   <div className={styles.itemCardTop}>
                     <span className={styles.itemIcon}>{item.icon}</span>

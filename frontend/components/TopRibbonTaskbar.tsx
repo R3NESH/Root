@@ -11,7 +11,9 @@ import {
   FLOOR_MATERIALS,
   HouseMaterialConfig,
   WALL_COLORS,
+  DOOR_COLORS,
   getWallColorHexStr,
+  getDoorColorHexStr,
 } from "@/lib/materialsCatalog";
 import { Facing, PLOT_PRESETS, PlotDims } from "@/lib/plot";
 import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName } from "@/lib/rooms";
@@ -238,8 +240,18 @@ export default function TopRibbonTaskbar({
       onChangeWindowConfig({
         ...windowConfig,
         globalShape: shapeId,
+        roomWindowShapes: {},
+        individualOverrides: {},
       });
     }
+  };
+
+  const handleSelectQuickDoorColor = (colorIdOrHex: string) => {
+    onChangeMaterialConfig({
+      ...materialConfig,
+      globalDoorColor: colorIdOrHex,
+      roomDoorColors: {},
+    });
   };
 
   return (
@@ -823,6 +835,57 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupLabel}>Wall Colors & Wheel</div>
               </div>
 
+              {/* Door Colors & Wheel */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.quickColorsGrid}>
+                    {DOOR_COLORS.slice(0, 5).map((c) => {
+                      const isSelected =
+                        (materialConfig.globalDoorColor || "dark_walnut") === c.id ||
+                        getDoorColorHexStr(materialConfig.globalDoorColor).toLowerCase() === c.hex.toLowerCase();
+                      return (
+                        <button
+                          key={c.id}
+                          className={`${styles.quickColorBtn} ${isSelected ? styles.quickColorActive : ""}`}
+                          style={{ backgroundColor: c.hex }}
+                          onClick={() => handleSelectQuickDoorColor(c.id)}
+                          title={`Set Door Hardwood / Color to ${c.name}`}
+                        />
+                      );
+                    })}
+                    {/* Interactive Door Color Wheel Picker */}
+                    <label
+                      className={`${styles.colorWheelBtn} ${
+                        !DOOR_COLORS.some(
+                          (c) =>
+                            c.id === materialConfig.globalDoorColor ||
+                            c.hex.toLowerCase() === getDoorColorHexStr(materialConfig.globalDoorColor).toLowerCase()
+                        )
+                          ? styles.colorWheelBtnActive
+                          : ""
+                      }`}
+                      title="Custom Door Color Wheel: Pick any hardwood or door color"
+                    >
+                      <input
+                        type="color"
+                        value={getDoorColorHexStr(materialConfig.globalDoorColor)}
+                        onChange={(e) => handleSelectQuickDoorColor(e.target.value)}
+                        className={styles.hiddenColorInput}
+                      />
+                      <span
+                        className={styles.colorWheelDot}
+                        style={{
+                          backgroundColor: getDoorColorHexStr(materialConfig.globalDoorColor),
+                        }}
+                      >
+                        🚪
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Door Colors & Wheel</div>
+              </div>
+
               {/* Quick 1-Click Design Themes */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
@@ -986,9 +1049,23 @@ export default function TopRibbonTaskbar({
                       return (
                         <button
                           key={shape.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(
+                              "application/json",
+                              JSON.stringify({
+                                type: "window_style",
+                                shapeId: shape.id,
+                                name: shape.name,
+                                icon: shape.icon,
+                              })
+                            );
+                            e.dataTransfer.setData("text/plain", shape.id);
+                            e.dataTransfer.effectAllowed = "copy";
+                          }}
                           className={`${styles.windowShapeBtn} ${isSelected ? styles.windowShapeBtnActive : ""}`}
                           onClick={() => handleSelectQuickWindowShape(shape.id)}
-                          title={shape.description}
+                          title={`Drag & drop onto any 3D/2D window or wall: ${shape.description}`}
                         >
                           <span className={styles.windowShapeIcon}>{shape.icon}</span>
                           <span className={styles.windowShapeName}>{shape.name.split(" ")[0]}</span>

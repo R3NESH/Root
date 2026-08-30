@@ -8,7 +8,9 @@ import {
   HouseMaterialConfig,
   WALL_COLORS,
   WALL_TEXTURES,
+  DOOR_COLORS,
   getWallColorHexStr,
+  getDoorColorHexStr,
 } from "@/lib/materialsCatalog";
 import { ROOM_LABELS, RoomName } from "@/lib/rooms";
 import styles from "./MaterialCustomizerModal.module.css";
@@ -29,7 +31,7 @@ export default function MaterialCustomizerModal({
   activeRooms = ["hall", "kitchen", "bedroom", "pooja", "bathroom"],
 }: MaterialCustomizerModalProps) {
   const [selectedTarget, setSelectedTarget] = useState<"global" | RoomName>("global");
-  const [activeTab, setActiveTab] = useState<"floor" | "wall" | "presets">("floor");
+  const [activeTab, setActiveTab] = useState<"floor" | "wall" | "doors" | "presets">("floor");
   const [floorCategoryFilter, setFloorCategoryFilter] = useState<"all" | FloorCategory>("all");
 
   if (!isOpen) return null;
@@ -51,6 +53,12 @@ export default function MaterialCustomizerModal({
     selectedTarget === "global"
       ? config.globalWallTexture
       : config.roomWallTextures[selectedTarget] || config.globalWallTexture;
+
+  // Active Door Color for current target
+  const currentDoorColorId =
+    selectedTarget === "global"
+      ? config.globalDoorColor || "dark_walnut"
+      : config.roomDoorColors?.[selectedTarget] || config.globalDoorColor || "dark_walnut";
 
   const handleSelectFloor = (matId: string) => {
     if (selectedTarget === "global") {
@@ -106,6 +114,24 @@ export default function MaterialCustomizerModal({
     }
   };
 
+  const handleSelectDoorColor = (colorIdOrHex: string) => {
+    if (selectedTarget === "global") {
+      onChangeConfig({
+        ...config,
+        globalDoorColor: colorIdOrHex,
+        roomDoorColors: {}, // Clear room overrides so Whole House instantly updates all rooms!
+      });
+    } else {
+      onChangeConfig({
+        ...config,
+        roomDoorColors: {
+          ...(config.roomDoorColors || {}),
+          [selectedTarget]: colorIdOrHex,
+        },
+      });
+    }
+  };
+
   const handleResetRoomToGlobal = (roomName: RoomName) => {
     const nextFloors = { ...(config.roomFloors || {}) };
     delete nextFloors[roomName];
@@ -113,12 +139,15 @@ export default function MaterialCustomizerModal({
     delete nextColors[roomName];
     const nextTextures = { ...(config.roomWallTextures || {}) };
     delete nextTextures[roomName];
+    const nextDoors = { ...(config.roomDoorColors || {}) };
+    delete nextDoors[roomName];
 
     onChangeConfig({
       ...config,
       roomFloors: nextFloors,
       roomWallColors: nextColors,
       roomWallTextures: nextTextures,
+      roomDoorColors: nextDoors,
     });
   };
 
@@ -274,7 +303,7 @@ export default function MaterialCustomizerModal({
             )}
         </div>
 
-        {/* Category Tabs: Flooring vs Walls */}
+        {/* Category Tabs: Flooring vs Walls vs Doors */}
         <div className={styles.tabsRow}>
           <button
             className={`${styles.mainTab} ${activeTab === "floor" ? styles.mainTabActive : ""}`}
@@ -287,6 +316,12 @@ export default function MaterialCustomizerModal({
             onClick={() => setActiveTab("wall")}
           >
             🧱 Walls & Finishes
+          </button>
+          <button
+            className={`${styles.mainTab} ${activeTab === "doors" ? styles.mainTabActive : ""}`}
+            onClick={() => setActiveTab("doors")}
+          >
+            🚪 Doors & Color Wheel
           </button>
         </div>
 
@@ -466,6 +501,96 @@ export default function MaterialCustomizerModal({
                         {isSelected && <span className={styles.activePill}>Active</span>}
                       </div>
                       <p className={styles.textureDesc}>{tex.description}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "doors" && (
+            <div className={styles.wallSection}>
+              {/* Door Colors & Color Wheel */}
+              <div className={styles.sectionHeading}>🚪 Door Colors & Hardwood Finishes</div>
+
+              {/* Door Color Wheel & Custom Color Picker Card */}
+              <div className={styles.customColorWheelCard}>
+                <div className={styles.wheelLeft}>
+                  <label className={styles.colorWheelPickerWrapper} title="Click to open Color Wheel spectrum">
+                    <input
+                      type="color"
+                      className={styles.colorWheelInput}
+                      value={getDoorColorHexStr(currentDoorColorId)}
+                      onChange={(e) => handleSelectDoorColor(e.target.value)}
+                    />
+                    <div
+                      className={styles.colorWheelPreviewCircle}
+                      style={{
+                        backgroundColor: getDoorColorHexStr(currentDoorColorId),
+                      }}
+                    >
+                      <span className={styles.colorWheelIcon}>🚪</span>
+                    </div>
+                  </label>
+                  <div className={styles.wheelInfo}>
+                    <div className={styles.wheelTitle}>Custom Door Color Wheel</div>
+                    <div className={styles.wheelSubtitle}>Pick any custom hardwood or paint finish for doors</div>
+                  </div>
+                </div>
+
+                <div className={styles.wheelRight}>
+                  <div className={styles.hexInputWrapper}>
+                    <span className={styles.hexPrefix}>#</span>
+                    <input
+                      type="text"
+                      className={styles.hexInput}
+                      maxLength={6}
+                      value={getDoorColorHexStr(currentDoorColorId).replace("#", "").toUpperCase()}
+                      onChange={(e) => {
+                        const val = e.target.value.trim().replace("#", "");
+                        if (/^[0-9a-fA-F]{0,6}$/.test(val)) {
+                          if (val.length === 6) {
+                            handleSelectDoorColor(`#${val}`);
+                          }
+                        }
+                      }}
+                      placeholder="2B1E16"
+                    />
+                  </div>
+                  <label className={styles.pickColorBtn}>
+                    <input
+                      type="color"
+                      className={styles.colorWheelInput}
+                      value={getDoorColorHexStr(currentDoorColorId)}
+                      onChange={(e) => handleSelectDoorColor(e.target.value)}
+                    />
+                    🎨 Pick Door Color
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.paletteHeading}>Curated Hardwood & Architectural Door Finishes</div>
+              <div className={styles.colorsGrid}>
+                {DOOR_COLORS.map((col) => {
+                  const isSelected =
+                    currentDoorColorId === col.id ||
+                    getDoorColorHexStr(currentDoorColorId).toLowerCase() === col.hex.toLowerCase();
+                  return (
+                    <div
+                      key={col.id}
+                      className={`${styles.colorCard} ${isSelected ? styles.colorCardActive : ""}`}
+                      onClick={() => handleSelectDoorColor(col.id)}
+                    >
+                      <div
+                        className={styles.colorCircle}
+                        style={{
+                          backgroundColor: col.hex,
+                          boxShadow: isSelected ? "0 0 0 3px #e8912d" : "none",
+                        }}
+                      >
+                        {isSelected && <span className={styles.colorCheck}>✓</span>}
+                      </div>
+                      <div className={styles.colorName}>{col.name}</div>
                     </div>
                   );
                 })}

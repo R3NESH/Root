@@ -39,26 +39,32 @@ export interface DesignPreset {
   globalFloor: string;
   globalWallColor: string;
   globalWallTexture: string;
+  globalDoorColor?: string;
   roomFloors?: Partial<Record<RoomName, string>>;
   roomWallColors?: Partial<Record<RoomName, string>>;
+  roomDoorColors?: Partial<Record<RoomName, string>>;
 }
 
 export interface HouseMaterialConfig {
   globalFloor: string;
   globalWallColor: string;
   globalWallTexture: string;
+  globalDoorColor?: string;
   roomFloors: Partial<Record<RoomName, string>>;
   roomWallColors: Partial<Record<RoomName, string>>;
   roomWallTextures: Partial<Record<RoomName, string>>;
+  roomDoorColors?: Partial<Record<RoomName, string>>;
 }
 
 export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
   globalFloor: "carrara_white",
   globalWallColor: "arctic_white",
   globalWallTexture: "matte_paint",
+  globalDoorColor: "dark_walnut",
   roomFloors: {},
   roomWallColors: {},
   roomWallTextures: {},
+  roomDoorColors: {},
 };
 
 // --------------------------------------------------------------------------------------
@@ -245,6 +251,26 @@ export const WALL_TEXTURES: WallTextureDef[] = [
   { id: "exposed_brick", name: "Rustic White Brick", description: "Textured loft white-washed exposed brick.", roughness: 0.88 },
   { id: "linen_wallpaper", name: "Natural Woven Linen", description: "Subtle woven textile wallpaper with tactile texture.", roughness: 0.92 },
   { id: "concrete_loft", name: "Industrial Polished Concrete", description: "Sleek architectural concrete with formwork accents.", roughness: 0.72 },
+];
+
+export interface DoorColorDef {
+  id: string;
+  name: string;
+  hex: string;
+  description: string;
+}
+
+export const DOOR_COLORS: DoorColorDef[] = [
+  { id: "dark_walnut", name: "Rich Dark Walnut", hex: "#2b1e16", description: "Deep classic dark walnut hardwood" },
+  { id: "natural_teak", name: "Burmese Golden Teak", hex: "#8c531b", description: "Warm golden-amber natural teak grain" },
+  { id: "nordic_oak", name: "Nordic White Oak", hex: "#c29b68", description: "Light modern Scandinavian bleached oak" },
+  { id: "pure_white", name: "Architectural Pure White", hex: "#f8fafc", description: "Clean minimalist modern satin white" },
+  { id: "matte_black", name: "Industrial Matte Black", hex: "#1e293b", description: "Sleek contemporary obsidian black" },
+  { id: "mahogany_red", name: "Royal Mahogany", hex: "#4a1515", description: "Lustrous deep reddish-brown mahogany" },
+  { id: "sage_green", name: "Modern Sage Green", hex: "#475569", description: "Sophisticated muted earthy green" },
+  { id: "navy_blue", name: "Colonial Navy Blue", hex: "#1e3a5f", description: "Regal classic deep navy blue" },
+  { id: "rosewood", name: "Brazilian Rosewood", hex: "#3b1c11", description: "Exotic dark purplish-brown rosewood" },
+  { id: "charcoal_grey", name: "Urban Charcoal Grey", hex: "#334155", description: "Modern architectural slate grey" },
 ];
 
 export const DESIGN_PRESETS: DesignPreset[] = [
@@ -947,4 +973,36 @@ export function getRoomWallColorHex(roomName: RoomName, config: HouseMaterialCon
  */
 export function getRoomWallTextureId(roomName: RoomName, config: HouseMaterialConfig): string {
   return config.roomWallTextures[roomName] || config.globalWallTexture;
+}
+
+/**
+ * Resolves a door color ID or custom hex string to a valid 6-digit hex string like "#2b1e16".
+ */
+export function getDoorColorHexStr(colorId?: string): string {
+  if (!colorId) return "#2b1e16";
+  if (colorId.startsWith("#")) {
+    return colorId;
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(colorId)) {
+    return `#${colorId}`;
+  }
+  const def = DOOR_COLORS.find((c) => c.id === colorId);
+  return def ? def.hex : "#2b1e16";
+}
+
+/**
+ * Returns the effective door color hex for a specific room.
+ */
+export function getRoomDoorColorHex(roomName: RoomName, config: HouseMaterialConfig): number {
+  const colorId = config.roomDoorColors?.[roomName] || config.globalDoorColor;
+  const hexStr = getDoorColorHexStr(colorId);
+  const parsed = parseInt(hexStr.replace("#", "0x"), 16);
+  return isNaN(parsed) ? 0x2b1e16 : parsed;
+}
+
+/**
+ * General helper to resolve door color ID or hex string to a hex string.
+ */
+export function resolveDoorColorHex(colorIdOrHex?: string): string {
+  return getDoorColorHexStr(colorIdOrHex);
 }

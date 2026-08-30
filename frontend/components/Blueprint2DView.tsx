@@ -14,6 +14,12 @@ import {
   VAASTU_ZONE_LABELS,
 } from "@/lib/blueprintExport";
 import {
+  WindowConfig,
+  WindowShapeId,
+  DEFAULT_WINDOW_CONFIG,
+} from "@/lib/windowCatalog";
+import { OpeningItemDef } from "@/lib/openingsCatalog";
+import {
   CustomDrawnWall,
   CustomRoomZone,
   CustomWallOpening,
@@ -74,6 +80,10 @@ interface Blueprint2DViewProps {
   onStartFromScratch?: () => void;
   activeFloor?: number;
   onChangeActiveFloor?: (floor: number) => void;
+  windowConfig?: WindowConfig;
+  onChangeWindowConfig?: (config: WindowConfig) => void;
+  placingOpeningDef?: OpeningItemDef | null;
+  onSelectPlaceOpening?: (def: OpeningItemDef | null) => void;
 }
 
 export default function Blueprint2DView({
@@ -91,6 +101,10 @@ export default function Blueprint2DView({
   onChangeCustomRoomZones,
   activeFloor = 0,
   onChangeActiveFloor,
+  windowConfig,
+  onChangeWindowConfig,
+  placingOpeningDef = null,
+  onSelectPlaceOpening,
   activeCadTool = "select",
   onChangeCadTool,
   activeWallType = "exterior",
@@ -459,13 +473,13 @@ export default function Blueprint2DView({
     }
 
     // CAD Tool 2 & 3: Place Door or Window on Wall (Custom CAD Wall or Solved Room Wall)
-    if (activeCadTool === "place_door" || activeCadTool === "place_window") {
+    if (activeCadTool === "place_door" || activeCadTool === "place_window" || placingOpeningDef) {
       if (hoveredWallInfo) {
-        const isWindow = activeCadTool === "place_window";
-        const widthIn = isWindow ? 48 : 36;
-        const heightIn = isWindow ? 48 : 84;
-        const sillIn = isWindow ? 36 : 0;
-        const kind: "door" | "window" = isWindow ? "window" : "door";
+        const isWindow = placingOpeningDef ? placingOpeningDef.category === "window" : activeCadTool === "place_window";
+        const widthIn = placingOpeningDef?.widthIn || (isWindow ? 48 : 36);
+        const heightIn = placingOpeningDef?.heightIn || (isWindow ? 48 : 84);
+        const sillIn = placingOpeningDef?.sillIn !== undefined ? placingOpeningDef.sillIn : (isWindow ? 36 : 0);
+        const kind: RoomOpening["kind"] = placingOpeningDef?.kind || (isWindow ? "window" : "door");
 
         if (hoveredWallInfo.wallId) {
           const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
@@ -511,7 +525,7 @@ export default function Blueprint2DView({
             };
 
             const adj = findAdjacentRoomEdge(rooms, hoveredWallInfo.roomIndex, hoveredWallInfo.edge);
-            if (adj && kind === "door") {
+            if (adj && (kind === "door" || kind === "opening")) {
               const adjId = `${rooms[adj.adjIndex]?.name}_${adj.adjIndex}`;
               const adjRoom = rooms[adj.adjIndex];
               if (adjRoom) {
@@ -528,10 +542,25 @@ export default function Blueprint2DView({
             }
 
             onChangeCustomOpenings?.(nextCustomOpenings);
+
+            if (placingOpeningDef?.windowShape) {
+              const winId = `win_${hoveredWallInfo.roomIndex}_${hoveredWallInfo.edge}`;
+              const nextWindowConfig: WindowConfig = {
+                ...(windowConfig ?? DEFAULT_WINDOW_CONFIG),
+                individualOverrides: {
+                  ...(windowConfig?.individualOverrides || {}),
+                  [winId]: {
+                    ...(windowConfig?.individualOverrides?.[winId] || {}),
+                    shape: placingOpeningDef.windowShape,
+                  },
+                },
+              };
+              onChangeWindowConfig?.(nextWindowConfig);
+            }
           }
         }
+        return;
       }
-      return;
     }
 
     // CAD Tool 4: Tag Room Zone / Floor Slab
@@ -918,7 +947,248 @@ export default function Blueprint2DView({
     setCropPreview(null);
   };
 
+  const handle2DDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handle2DDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rawData = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+    if (!rawData) return;
+
+    let payload: {
+      type?: string;
+      shapeId?: WindowShapeId;
+      kind?: "door" | "window" | "entrance" | "opening";
+      category?: "door" | "window";
+      widthIn?: number;
+      heightIn?: number;
+      sillIn?: number;
+      name?: string;
+      icon?: string;
+    } | null = null;
+
+    try {
+      payload = JSON.parse(rawData);
+    } catch {
+      if (typeof rawData === "string" && rawData.length > 0) {
+        payload = {
+          type: "window_style",
+          shapeId: rawData as WindowShapeId,
+        };
+      }
+    }
+
+    if (!payload) return;
+
+    const coords = getSvgInchesCoords(e as unknown as React.MouseEvent);
+
+    // 1. Check if dropped near an existing window in 2D blueprint:
+    if (payload.shapeId) {
+      for (let rIdx = 0; rIdx < rooms.length; rIdx++) {
+        const r = rooms[rIdx];
+        if ((r.floor ?? 0) !== activeFloor) continue;
+        const roomId = `${r.name}_${rIdx}`;
+        const ops = customOpenings?.[roomId] ?? (r.openings || []);
+        for (const op of ops) {
+          if (op.kind === "window") {
+            let winMidXIn = r.x_in;
+            let winMidYIn = r.y_in;
+            if (op.edge === "N") {
+              winMidXIn = r.x_in + op.offset_in + op.width_in / 2;
+              winMidYIn = r.y_in;
+            } else if (op.edge === "S") {
+              winMidXIn = r.x_in + op.offset_in + op.width_in / 2;
+              winMidYIn = r.y_in + r.d_in;
+            } else if (op.edge === "W") {
+              winMidXIn = r.x_in;
+              winMidYIn = r.y_in + op.offset_in + op.width_in / 2;
+            } else if (op.edge === "E") {
+              winMidXIn = r.x_in + r.w_in;
+              winMidYIn = r.y_in + op.offset_in + op.width_in / 2;
+            }
+
+            const distIn = Math.hypot(coords.xIn - winMidXIn, coords.yIn - winMidYIn);
+            if (distIn < 36) {
+              const winId = `win_${rIdx}_${op.edge}`;
+              const nextConfig: WindowConfig = {
+                ...(windowConfig ?? DEFAULT_WINDOW_CONFIG),
+                individualOverrides: {
+                  ...(windowConfig?.individualOverrides || {}),
+                  [winId]: {
+                    ...(windowConfig?.individualOverrides?.[winId] || {}),
+                    shape: payload.shapeId,
+                  },
+                },
+              };
+              onChangeWindowConfig?.(nextConfig);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Check if dropped on a wall (custom wall or room wall):
+    let closestHit: {
+      wallId?: string;
+      roomIndex?: number;
+      edge?: "N" | "S" | "E" | "W";
+      offsetIn: number;
+    } | null = null;
+    let closestDistPx = 40;
+
+    // Check Custom Walls
+    for (const w of customWalls.filter((cw) => (cw.floor ?? 0) === activeFloor)) {
+      const dx = w.endXIn - w.startXIn;
+      const dy = w.endYIn - w.startYIn;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+
+      const t = Math.max(0, Math.min(1, ((coords.xIn - w.startXIn) * dx + (coords.yIn - w.startYIn) * dy) / (len * len)));
+      const projXIn = w.startXIn + t * dx;
+      const projYIn = w.startYIn + t * dy;
+      const distPx = Math.hypot(coords.pxX - toPxX(projXIn), coords.pxY - toPxY(projYIn));
+
+      if (distPx < closestDistPx) {
+        closestDistPx = distPx;
+        closestHit = {
+          wallId: w.id,
+          offsetIn: Math.round(t * len),
+        };
+      }
+    }
+
+    // Check Solved Room Perimeter Walls
+    for (let rIdx = 0; rIdx < rooms.length; rIdx++) {
+      const r = rooms[rIdx];
+      if ((r.floor ?? 0) !== activeFloor) continue;
+
+      const wallEdges: Array<{ edge: "N" | "S" | "E" | "W"; x1: number; y1: number; x2: number; y2: number; len: number }> = [
+        { edge: "N", x1: r.x_in, y1: r.y_in, x2: r.x_in + r.w_in, y2: r.y_in, len: r.w_in },
+        { edge: "S", x1: r.x_in, y1: r.y_in + r.d_in, x2: r.x_in + r.w_in, y2: r.y_in + r.d_in, len: r.w_in },
+        { edge: "W", x1: r.x_in, y1: r.y_in, x2: r.x_in, y2: r.y_in + r.d_in, len: r.d_in },
+        { edge: "E", x1: r.x_in + r.w_in, y1: r.y_in, x2: r.x_in + r.w_in, y2: r.y_in + r.d_in, len: r.d_in },
+      ];
+
+      for (const we of wallEdges) {
+        const dx = we.x2 - we.x1;
+        const dy = we.y2 - we.y1;
+        const len = we.len;
+        if (len < 1) continue;
+
+        const t = Math.max(0, Math.min(1, ((coords.xIn - we.x1) * dx + (coords.yIn - we.y1) * dy) / (len * len)));
+        const projXIn = we.x1 + t * dx;
+        const projYIn = we.y1 + t * dy;
+        const distPx = Math.hypot(coords.pxX - toPxX(projXIn), coords.pxY - toPxY(projYIn));
+
+        if (distPx < closestDistPx) {
+          closestDistPx = distPx;
+          closestHit = {
+            roomIndex: rIdx,
+            edge: we.edge,
+            offsetIn: Math.round(t * len),
+          };
+        }
+      }
+    }
+
+    if (closestHit) {
+      const isWindow = payload.category === "window" || payload.type === "window_style" || payload.kind === "window" || Boolean(payload.shapeId);
+      const widthIn = payload.widthIn || (isWindow ? 48 : 36);
+      const heightIn = payload.heightIn || (isWindow ? 48 : 84);
+      const sillIn = payload.sillIn !== undefined ? payload.sillIn : (isWindow ? 36 : 0);
+      const kind: "door" | "window" | "entrance" | "opening" = payload.kind || (isWindow ? "window" : "door");
+
+      if (closestHit.wallId) {
+        const wall = customWalls.find((w) => w.id === closestHit!.wallId);
+        if (wall) {
+          const newOpening: CustomWallOpening = {
+            id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            kind,
+            offsetIn: Math.max(0, closestHit.offsetIn - widthIn / 2),
+            widthIn,
+            heightIn,
+            sillIn,
+          };
+          const updated = customWalls.map((cw) =>
+            cw.id === wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+          );
+          onChangeCustomWalls?.(updated);
+        }
+      } else if (closestHit.roomIndex !== undefined && closestHit.edge) {
+        const rIdx = closestHit.roomIndex;
+        const room = rooms[rIdx];
+        if (room) {
+          const roomId = `${room.name}_${rIdx}`;
+          const currentOps = customOpenings?.[roomId] !== undefined ? customOpenings[roomId] : (room.openings || []);
+          const wallLengthIn = closestHit.edge === "N" || closestHit.edge === "S" ? room.w_in : room.d_in;
+          const offsetIn = Math.max(0, Math.min(wallLengthIn - widthIn, closestHit.offsetIn - widthIn / 2));
+
+          const newOp: RoomOpening = {
+            kind,
+            edge: closestHit.edge,
+            offset_in: offsetIn,
+            width_in: widthIn,
+            height_in: heightIn,
+            sill_in: sillIn,
+          };
+
+          const nextOps = [
+            ...currentOps.filter((o) => !(o.edge === closestHit!.edge && Math.abs(o.offset_in - offsetIn) < 12)),
+            newOp,
+          ];
+
+          const nextCustomOpenings: Record<string, RoomOpening[]> = {
+            ...(customOpenings ?? {}),
+            [roomId]: nextOps,
+          };
+
+          const adj = findAdjacentRoomEdge(rooms, rIdx, closestHit.edge);
+          if (adj && (kind === "door" || kind === "opening")) {
+            const adjId = `${rooms[adj.adjIndex]?.name}_${adj.adjIndex}`;
+            const adjRoom = rooms[adj.adjIndex];
+            if (adjRoom) {
+              const adjOps = customOpenings?.[adjId] !== undefined ? customOpenings[adjId] : (adjRoom.openings || []);
+              const adjNextOps = [
+                ...adjOps.filter((o) => !(o.edge === adj.adjEdge && Math.abs(o.offset_in - offsetIn) < 12)),
+                {
+                  ...newOp,
+                  edge: adj.adjEdge,
+                },
+              ];
+              nextCustomOpenings[adjId] = adjNextOps;
+            }
+          }
+
+          onChangeCustomOpenings?.(nextCustomOpenings);
+
+          if (payload.shapeId) {
+            const winId = `win_${rIdx}_${closestHit.edge}`;
+            const nextWindowConfig: WindowConfig = {
+              ...(windowConfig ?? DEFAULT_WINDOW_CONFIG),
+              individualOverrides: {
+                ...(windowConfig?.individualOverrides || {}),
+                [winId]: {
+                  ...(windowConfig?.individualOverrides?.[winId] || {}),
+                  shape: payload.shapeId,
+                },
+              },
+            };
+            onChangeWindowConfig?.(nextWindowConfig);
+          }
+        }
+      }
+    }
+  };
+
   const handleRoomMouseDown = (e: React.MouseEvent, idx: number) => {
+    if (activeCadTool === "place_door" || activeCadTool === "place_window" || placingOpeningDef) {
+      handleMouseDown(e);
+      return;
+    }
+
     e.stopPropagation();
     if (e.button !== 0) return;
     const room = rooms[idx];
@@ -953,6 +1223,11 @@ export default function Blueprint2DView({
     roomIdx: number,
     edge: "N" | "S" | "E" | "W"
   ) => {
+    if (activeCadTool === "place_door" || activeCadTool === "place_window" || placingOpeningDef) {
+      handleMouseDown(e);
+      return;
+    }
+
     e.stopPropagation();
     if (e.button !== 0) return;
     setSelectedWallEdge(edge);
@@ -1674,6 +1949,8 @@ export default function Blueprint2DView({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDragOver={handle2DDragOver}
+        onDrop={handle2DDrop}
       >
         <defs>
           <pattern id="gridPattern" width="24" height="24" patternUnits="userSpaceOnUse">

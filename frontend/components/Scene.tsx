@@ -67,8 +67,10 @@ import {
   getRoomWallColorHex,
   getRoomWallTextureId,
   getWallTextureBumpMap,
+  resolveDoorColorHex,
   HouseMaterialConfig,
 } from "@/lib/materialsCatalog";
+import { OpeningItemDef } from "@/lib/openingsCatalog";
 import {
   DEFAULT_WINDOW_CONFIG,
   getIndividualWindowProps,
@@ -143,6 +145,9 @@ interface SceneProps {
   selectedObjectInfo?: SelectedObjectInfo | null;
   materialConfig?: HouseMaterialConfig;
   windowConfig?: WindowConfig;
+  onChangeWindowConfig?: (config: WindowConfig) => void;
+  placingOpeningDef?: OpeningItemDef | null;
+  onSelectPlaceOpening?: (def: OpeningItemDef | null) => void;
   isLayoutLocked?: boolean;
   onToggleLayoutLock?: () => void;
   onPlotChange?: (next: PlotDims) => void;
@@ -188,6 +193,9 @@ export default function Scene({
   selectedObjectInfo = null,
   materialConfig = DEFAULT_MATERIAL_CONFIG,
   windowConfig = DEFAULT_WINDOW_CONFIG,
+  onChangeWindowConfig,
+  placingOpeningDef = null,
+  onSelectPlaceOpening,
   isLayoutLocked = false,
   onToggleLayoutLock,
   activeCadTool = "select",
@@ -346,6 +354,9 @@ export default function Scene({
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
   const windowConfigRef = useRef(windowConfig);
+  const onChangeWindowConfigRef = useRef(onChangeWindowConfig);
+  const placingOpeningDefRef = useRef(placingOpeningDef);
+  const onSelectPlaceOpeningRef = useRef(onSelectPlaceOpening);
   const onChangeCustomOpeningsRef = useRef(onChangeCustomOpenings);
   const isLayoutLockedRef = useRef(isLayoutLocked);
   const onToggleLayoutLockRef = useRef(onToggleLayoutLock);
@@ -386,6 +397,9 @@ export default function Scene({
     selectedObjectIdRef.current = selectedObjectId;
     materialConfigRef.current = materialConfig;
     windowConfigRef.current = windowConfig;
+    onChangeWindowConfigRef.current = onChangeWindowConfig;
+    placingOpeningDefRef.current = placingOpeningDef;
+    onSelectPlaceOpeningRef.current = onSelectPlaceOpening;
     isLayoutLockedRef.current = isLayoutLocked;
     onToggleLayoutLockRef.current = onToggleLayoutLock;
     activeCadToolRef.current = activeCadTool;
@@ -913,11 +927,27 @@ export default function Scene({
       }
 
       // 0b. CAD Tool 2 & 3: Place 3D Door or Window directly onto 3D Walls (Custom Walls + Solved Room Walls)
-      if ((activeCadToolRef.current === "place_door" || activeCadToolRef.current === "place_window") && ev.button === 0) {
-        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+      if ((activeCadToolRef.current === "place_door" || activeCadToolRef.current === "place_window" || placingOpeningDefRef.current) && ev.button === 0) {
+        let hasHit = false;
+        // 1. Raycast against scene objects (walls, rooms) in groupRef.current
+        if (groupRef.current) {
+          const hits = raycaster.intersectObjects(groupRef.current.children, true);
+          for (const h of hits) {
+            if (h.point.y <= 12.0) {
+              hitPoint.copy(h.point);
+              hasHit = true;
+              break;
+            }
+          }
+        }
+        if (!hasHit && raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          hasHit = true;
+        }
+
+        if (hasHit) {
           let closestCustomHit: { wall: CustomDrawnWall; offsetIn: number } | null = null;
           let closestRoomHit: { roomIndex: number; edge: "N" | "S" | "E" | "W"; offsetIn: number } | null = null;
-          let closestDist = 3.0; // feet
+          let closestDist = 8.0; // feet (generous snap)
 
           // 1. Check Custom Drawn Walls (Build from Scratch)
           for (const w of (customWallsRef.current || [])) {
@@ -980,11 +1010,12 @@ export default function Scene({
             }
           }
 
-          const isWindow = activeCadToolRef.current === "place_window";
-          const widthIn = isWindow ? 48 : 36;
-          const heightIn = isWindow ? 48 : 84;
-          const sillIn = isWindow ? 36 : 0;
-          const kind: "door" | "window" = isWindow ? "window" : "door";
+          const placingDef = placingOpeningDefRef.current;
+          const isWindow = placingDef ? placingDef.category === "window" : activeCadToolRef.current === "place_window";
+          const widthIn = placingDef?.widthIn || (isWindow ? 48 : 36);
+          const heightIn = placingDef?.heightIn || (isWindow ? 48 : 84);
+          const sillIn = placingDef?.sillIn !== undefined ? placingDef.sillIn : (isWindow ? 36 : 0);
+          const kind: RoomOpening["kind"] = placingDef?.kind || (isWindow ? "window" : "door");
 
           if (closestCustomHit) {
             ev.stopPropagation();
@@ -1002,7 +1033,8 @@ export default function Scene({
             );
             customWallsRef.current = updated;
             onChangeCustomWallsRef.current?.(updated);
-            setDrafting3DDescription(`✨ Inserted 3D ${isWindow ? "Window" : "Door"} onto Wall!`);
+            setDrafting3DDescription(`✨ Inserted 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} onto Wall!`);
+            setTimeout(() => setDrafting3DDescription(null), 3000);
             return;
           }
 
@@ -1037,7 +1069,7 @@ export default function Scene({
               };
 
               const adj = findAdjacentRoomEdge(roomsRef.current, rIdx, closestRoomHit.edge);
-              if (adj && kind === "door") {
+              if (adj && (kind === "door" || kind === "opening")) {
                 const adjId = `${roomsRef.current[adj.adjIndex]?.name}_${adj.adjIndex}`;
                 const adjRoom = roomsRef.current[adj.adjIndex];
                 if (adjRoom) {
@@ -1055,7 +1087,25 @@ export default function Scene({
 
               customOpeningsRef.current = nextCustomOpenings;
               onChangeCustomOpeningsRef.current?.(nextCustomOpenings);
-              setDrafting3DDescription(`✨ Installed 3D ${isWindow ? "Window" : "Door"} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+
+              if (placingDef?.windowShape) {
+                const winId = `win_${rIdx}_${closestRoomHit.edge}`;
+                const nextWindowConfig: WindowConfig = {
+                  ...windowConfigRef.current,
+                  individualOverrides: {
+                    ...(windowConfigRef.current.individualOverrides || {}),
+                    [winId]: {
+                      ...(windowConfigRef.current.individualOverrides?.[winId] || {}),
+                      shape: placingDef.windowShape,
+                    },
+                  },
+                };
+                windowConfigRef.current = nextWindowConfig;
+                onChangeWindowConfigRef.current?.(nextWindowConfig);
+              }
+
+              setDrafting3DDescription(`✨ Installed 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+              setTimeout(() => setDrafting3DDescription(null), 3000);
               return;
             }
           }
@@ -2453,6 +2503,20 @@ export default function Scene({
         metalness: 0.02,
       });
 
+      // Door Frame & Entrance Materials (Customized via Door Colors & Color Wheel)
+      const roomDoorColorHex = resolveDoorColorHex(
+        materialConfigRef.current.roomDoorColors?.[room.name as RoomName] ||
+        materialConfigRef.current.globalDoorColor
+      );
+      const roomDoorFrameMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(roomDoorColorHex),
+        roughness: 0.45,
+      });
+      const roomMainEntranceMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(roomDoorColorHex).multiplyScalar(0.85),
+        roughness: 0.35,
+      });
+
       // Wall Builder
       const buildWall = (
         edge: "N" | "S" | "E" | "W",
@@ -2662,7 +2726,7 @@ export default function Scene({
               lintel.userData = { ...wallUserData };
               roomGroup.add(lintel);
 
-              const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
+              const fMat = isMainEntrance ? roomMainEntranceMat : roomDoorFrameMat;
               const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, seg_wd + 0.08), fMat);
               frameL.position.set(doorPos - doorW / 2 + 0.11, doorH / 2, seg_wz);
               roomGroup.add(frameL);
@@ -2733,7 +2797,7 @@ export default function Scene({
               lintel.userData = { ...wallUserData };
               roomGroup.add(lintel);
 
-              const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
+              const fMat = isMainEntrance ? roomMainEntranceMat : roomDoorFrameMat;
               const frameN = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.08, doorH, 0.22), fMat);
               frameN.position.set(seg_wx, doorH / 2, doorPos - doorW / 2 + 0.11);
               roomGroup.add(frameN);
@@ -3405,7 +3469,11 @@ export default function Scene({
                 revDrum.position.set(opCenterFt, opHeightFt / 2, 0);
                 wallGroup.add(revDrum);
               } else if (op.kind === "door" || op.kind === "entrance") {
-                const doorLeafMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.5 });
+                const globalDoorColorHex = resolveDoorColorHex(materialConfigRef.current.globalDoorColor);
+                const doorLeafMat = new THREE.MeshStandardMaterial({
+                  color: new THREE.Color(globalDoorColorHex),
+                  roughness: 0.45,
+                });
                 const doorLeaf = new THREE.Mesh(
                   new THREE.BoxGeometry(opWidthFt - 0.1, opHeightFt - 0.1, 0.15),
                   doorLeafMat
@@ -3559,8 +3627,255 @@ export default function Scene({
     }
   }, [placingRotationY]);
 
+  const handle3DDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handle3DDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rawData = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+    if (!rawData) return;
+
+    let payload: {
+      type?: string;
+      shapeId?: WindowShapeId;
+      kind?: "door" | "window" | "entrance" | "opening";
+      category?: "door" | "window";
+      widthIn?: number;
+      heightIn?: number;
+      sillIn?: number;
+      name?: string;
+      icon?: string;
+    } | null = null;
+
+    try {
+      payload = JSON.parse(rawData);
+    } catch {
+      if (typeof rawData === "string" && rawData.length > 0) {
+        payload = {
+          type: "window_style",
+          shapeId: rawData as WindowShapeId,
+        };
+      }
+    }
+
+    if (!payload) return;
+
+    if (!rendererRef.current || !cameraRef.current) return;
+    const rect = rendererRef.current.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, cameraRef.current);
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hitPoint = new THREE.Vector3();
+
+    // 1. If dropping a window style onto an EXISTING 3D window:
+    if (payload.shapeId && groupRef.current) {
+      const intersects = raycaster.intersectObjects(groupRef.current.children, true);
+      for (const hit of intersects) {
+        let curr: THREE.Object3D | null = hit.object;
+        while (curr && curr !== groupRef.current) {
+          if (curr.userData && (curr.userData.isWindow || curr.userData.type === "window")) {
+            const winId = curr.userData.id;
+            if (winId) {
+              const nextConfig: WindowConfig = {
+                ...windowConfigRef.current,
+                individualOverrides: {
+                  ...(windowConfigRef.current.individualOverrides || {}),
+                  [winId]: {
+                    ...(windowConfigRef.current.individualOverrides?.[winId] || {}),
+                    shape: payload.shapeId,
+                  },
+                },
+              };
+              windowConfigRef.current = nextConfig;
+              onChangeWindowConfigRef.current?.(nextConfig);
+              setDrafting3DDescription(`✨ Applied ${payload.name || payload.shapeId} shape to ${curr.userData.name || "Window"}!`);
+              setTimeout(() => setDrafting3DDescription(null), 3000);
+              return;
+            }
+          }
+          curr = curr.parent;
+        }
+      }
+    }
+
+    // 2. If dropping onto a wall (custom wall or room wall):
+    if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+      let closestCustomHit: { wall: CustomDrawnWall; offsetIn: number } | null = null;
+      let closestRoomHit: { roomIndex: number; edge: "N" | "S" | "E" | "W"; offsetIn: number } | null = null;
+      let closestDist = 4.0; // feet
+
+      // Check Custom Walls
+      for (const w of (customWallsRef.current || [])) {
+        const x1 = inchesToFeet(w.startXIn);
+        const z1 = inchesToFeet(w.startYIn);
+        const x2 = inchesToFeet(w.endXIn);
+        const z2 = inchesToFeet(w.endYIn);
+        const dx = x2 - x1;
+        const dz = z2 - z1;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.5) continue;
+
+        const t = Math.max(0, Math.min(1, ((hitPoint.x - x1) * dx + (hitPoint.z - z1) * dz) / (len * len)));
+        const projX = x1 + t * dx;
+        const projZ = z1 + t * dz;
+        const dist = Math.hypot(hitPoint.x - projX, hitPoint.z - projZ);
+
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestCustomHit = {
+            wall: w,
+            offsetIn: Math.round(t * len * 12),
+          };
+          closestRoomHit = null;
+        }
+      }
+
+      // Check Solved Room Perimeter Walls
+      for (let rIdx = 0; rIdx < roomsRef.current.length; rIdx++) {
+        const r = roomsRef.current[rIdx];
+        if ((r.floor ?? 0) !== (activeFloorRef.current || 0)) continue;
+
+        const wallEdges: Array<{ edge: "N" | "S" | "E" | "W"; x1: number; z1: number; x2: number; z2: number; lenIn: number }> = [
+          { edge: "N", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in), lenIn: r.w_in },
+          { edge: "S", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in + r.d_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.w_in },
+          { edge: "W", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.d_in },
+          { edge: "E", x1: inchesToFeet(r.x_in + r.w_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.d_in },
+        ];
+
+        for (const we of wallEdges) {
+          const dx = we.x2 - we.x1;
+          const dz = we.z2 - we.z1;
+          const lenFt = Math.hypot(dx, dz);
+          if (lenFt < 0.5) continue;
+
+          const t = Math.max(0, Math.min(1, ((hitPoint.x - we.x1) * dx + (hitPoint.z - we.z1) * dz) / (lenFt * lenFt)));
+          const projX = we.x1 + t * dx;
+          const projZ = we.z1 + t * dz;
+          const dist = Math.hypot(hitPoint.x - projX, hitPoint.z - projZ);
+
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestRoomHit = {
+              roomIndex: rIdx,
+              edge: we.edge,
+              offsetIn: Math.round(t * we.lenIn),
+            };
+            closestCustomHit = null;
+          }
+        }
+      }
+
+      const isWindow = payload.category === "window" || payload.type === "window_style" || payload.kind === "window" || Boolean(payload.shapeId);
+      const kind: "door" | "window" | "entrance" | "opening" = payload.kind || (isWindow ? "window" : "door");
+      const widthIn = payload.widthIn || (isWindow ? 48 : 36);
+      const heightIn = payload.heightIn || (isWindow ? 48 : 84);
+      const sillIn = payload.sillIn !== undefined ? payload.sillIn : (isWindow ? 36 : 0);
+
+      if (closestCustomHit) {
+        const newOpening: CustomWallOpening = {
+          id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          kind,
+          offsetIn: Math.max(0, closestCustomHit.offsetIn - widthIn / 2),
+          widthIn,
+          heightIn,
+          sillIn,
+        };
+        const updated = (customWallsRef.current || []).map((cw) =>
+          cw.id === closestCustomHit!.wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+        );
+        customWallsRef.current = updated;
+        onChangeCustomWallsRef.current?.(updated);
+        setDrafting3DDescription(`✨ Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} onto Wall!`);
+        setTimeout(() => setDrafting3DDescription(null), 3000);
+        return;
+      }
+
+      if (closestRoomHit) {
+        const rIdx = closestRoomHit.roomIndex;
+        const room = roomsRef.current[rIdx];
+        if (room) {
+          const roomId = `${room.name}_${rIdx}`;
+          const currentOps = customOpeningsRef.current[roomId] !== undefined ? customOpeningsRef.current[roomId] : (room.openings || []);
+          const wallLengthIn = closestRoomHit.edge === "N" || closestRoomHit.edge === "S" ? room.w_in : room.d_in;
+          const offsetIn = Math.max(0, Math.min(wallLengthIn - widthIn, closestRoomHit.offsetIn - widthIn / 2));
+
+          const newOp: RoomOpening = {
+            kind,
+            edge: closestRoomHit.edge,
+            offset_in: offsetIn,
+            width_in: widthIn,
+            height_in: heightIn,
+            sill_in: sillIn,
+          };
+
+          const nextOps = [
+            ...currentOps.filter((o) => !(o.edge === closestRoomHit!.edge && Math.abs(o.offset_in - offsetIn) < 12)),
+            newOp,
+          ];
+
+          const nextCustomOpenings: Record<string, RoomOpening[]> = {
+            ...(customOpeningsRef.current || {}),
+            [roomId]: nextOps,
+          };
+
+          const adj = findAdjacentRoomEdge(roomsRef.current, rIdx, closestRoomHit.edge);
+          if (adj && (kind === "door" || kind === "opening")) {
+            const adjId = `${roomsRef.current[adj.adjIndex]?.name}_${adj.adjIndex}`;
+            const adjRoom = roomsRef.current[adj.adjIndex];
+            if (adjRoom) {
+              const adjOps = customOpeningsRef.current[adjId] !== undefined ? customOpeningsRef.current[adjId] : (adjRoom.openings || []);
+              const adjNextOps = [
+                ...adjOps.filter((o) => !(o.edge === adj.adjEdge && Math.abs(o.offset_in - offsetIn) < 12)),
+                {
+                  ...newOp,
+                  edge: adj.adjEdge,
+                },
+              ];
+              nextCustomOpenings[adjId] = adjNextOps;
+            }
+          }
+
+          customOpeningsRef.current = nextCustomOpenings;
+          onChangeCustomOpeningsRef.current?.(nextCustomOpenings);
+
+          if (payload.shapeId) {
+            const winId = `win_${rIdx}_${closestRoomHit.edge}`;
+            const nextWindowConfig: WindowConfig = {
+              ...windowConfigRef.current,
+              individualOverrides: {
+                ...(windowConfigRef.current.individualOverrides || {}),
+                [winId]: {
+                  ...(windowConfigRef.current.individualOverrides?.[winId] || {}),
+                  shape: payload.shapeId,
+                },
+              },
+            };
+            windowConfigRef.current = nextWindowConfig;
+            onChangeWindowConfigRef.current?.(nextWindowConfig);
+          }
+
+          setDrafting3DDescription(`✨ Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+          setTimeout(() => setDrafting3DDescription(null), 3000);
+          return;
+        }
+      }
+    }
+  };
+
   return (
-    <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div
+      ref={mountRef}
+      style={{ width: "100%", height: "100%", position: "relative" }}
+      onDragOver={handle3DDragOver}
+      onDrop={handle3DDrop}
+    >
       {/* Floating 3D Object Quick Action Menu */}
       {selectedObjectInfo && (
         <div
