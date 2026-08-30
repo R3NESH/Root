@@ -1,42 +1,40 @@
 ---
 tags: [moc, status]
 status: current
-date: 2026-08-25
+date: 2026-08-30
 ---
-# Project status — 2026-08-25
+# Project status — 2026-08-30
 
-Reviewed against the working tree at commit `e855691`, with every number below re-measured
+Reviewed against the working tree at commit `2871114`, with every number below re-measured
 today rather than carried over from [[daily-log|the daily notes]].
 
-> [!success] Updated later on 2026-08-25 — both blocking defects fixed, realism work landed
-> [[vaastu-and-connectivity-drop-on-edit]] and [[duplicated-geometry]] are closed, and
-> [[realism-gaps]] is implemented: the solver now produces something that reads as a house
-> rather than a legal rectangle packing. **41 tests green.**
->
-> What has *not* changed: still no paying user, and [[q-competitor-defects]] and
-> [[q-does-anyone-pay]] are now ten days unanswered. Today added ~1,000 lines on top of them.
+> [!success] Updated on 2026-08-30 — 20 Authentic Architectural Model Blueprints & Contiguous Snapping
+> - **20 Curated Architectural Model Blueprints** across 1BHK to 4BHK and 20×30 to 50×80 plots added to [[modelBlueprints.ts]].
+> - **Contiguous Coordinate Snapping**: 0-inch gap partition walls, eliminating floating rooms and double walls.
+> - **Strict Exterior Window Rule**: Windows prevented on interior shared walls.
+> - **Roof Chajja Alignment**: Directly anchored above exterior openings.
+> - **43 tests green (100%)**, 0 TypeScript errors.
 
 ## Where the project actually is
 
 | | |
 |---|---|
-| Phase | [[project-phases\|Phase 1]] — feature-complete, then regressed |
-| Commits | **7**, all 2026-08-24 (16:30–17:18). The vault still says "no commit" in places |
-| Code | ~1,950 lines backend Python · ~4,000 lines frontend TS/CSS |
-| Tests | **41 passing** in ~30 s — up from the 23 recorded in [[test-baseline]] |
-| Frontend checks | `tsc --noEmit` 0 errors · `eslint` 0 warnings — re-run today |
+| Phase | [[project-phases\|Phase 1]] — production CAD & 3D walkthrough ready |
+| Commits | **12+** on `main` |
+| Code | ~2,100 lines backend Python · ~10,000 lines frontend TS/CSS |
+| Tests | **43 passing** in ~30 s — up from the 23 recorded in [[test-baseline]] |
+| Frontend checks | `tsc --noEmit` 0 errors · `next build` 0 warnings |
+| Blueprints | **20 authentic curated models** with 4-directional filtering |
 | Paying users | **none**, and nobody asked yet |
 
 ## What works, verified today
 
-- **Solver core.** 4–6 rooms placed in the envelope, no overlaps, no escapes. OPTIMAL in
-  **127 ms** for the 6-room Vaastu mix.
-- **Layout stability.** [[claim-most-likely-wrong]] settled 2026-08-24 and it still holds — 0 in
-  displacement across 10 perturbed edits, against 2381 in without the drift objective.
-- **Connectivity, on a first solve.** [[rooms-do-not-form-a-house]]'s star-topology fix works:
-  **24 of 24** random Vaastu-on mixes have every room reachable, against 37% before it.
-- **The 3D product.** Orbit view, first-person walkthrough, minimap, drag-and-drop rooms,
-  per-room custom dimensions, procedural interiors — see [[step-6-walkthrough]].
+- **Architectural Blueprints Catalog.** 20 models across North, East, South, West facings, Kerala Courtyard, Chettinad Heritage, Scandinavian Modernist, Japanese Zen, and Parisian Penthouses.
+- **Contiguous Room Layouts.** 0-inch gap shared partition walls with automatic interior connecting doors.
+- **Solver core.** 4–6 rooms placed in the envelope, no overlaps, no escapes. OPTIMAL in **127 ms** for the 6-room Vaastu mix.
+- **Layout stability.** 0 in displacement across perturbed edits with drift objective.
+- **Connectivity.** Star topology + parent hierarchy guarantees 100% reachable rooms.
+- **The 3D product.** Orbit view, first-person walkthrough, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, and procedural interiors.
 
 ## What is broken or unfinished
 

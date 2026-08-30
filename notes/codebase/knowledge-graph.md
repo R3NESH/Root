@@ -1,11 +1,11 @@
 ---
 tags: [codebase, tooling]
 status: built
-date: 2026-08-25
+date: 2026-08-30
 ---
 # Knowledge graph (graphify)
 
-A queryable graph over the whole corpus — 38 code files, 64 docs, 5 images — built with
+A queryable graph over the whole corpus — 38 code files, 65 docs, 5 images — built with
 [graphify](https://github.com/sponsors/safishamsi). It does in one artefact what
 [[codebase-map]] does by hand: connect the design notes to the code that implements them.
 
@@ -13,10 +13,10 @@ A queryable graph over the whole corpus — 38 code files, 64 docs, 5 images —
 
 | | |
 |---|---|
-| Nodes | **435** — 343 structural (AST) + 92 semantic |
-| Edges | **898** |
-| Communities | **23** |
-| Doc → code bridges | **21** edges linking a note's concept to a real function |
+| Nodes | **548** — structural (AST) + semantic |
+| Edges | **1,319** |
+| Communities | **28** |
+| Doc → code bridges | **28** edges linking a note's concept to real functions |
 
 Outputs live in `graphify-out/` (gitignored, and excluded from the vault's
 `userIgnoreFilters` so Obsidian does not index half a megabyte of generated JSON):

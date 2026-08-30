@@ -32,39 +32,37 @@ The module README is the graph node standing in for the code.
 
 | Module | Implements | Status |
 |---|---|---|
-| `frontend/components/Scene.tsx` | [[step-1-threejs-shell]], [[architecture]], [[integer-inches]], [[step-6-walkthrough]], [[realism-gaps]] | **done** — envelope, extrusion, drag-and-drop, first-person camera, roof/parapet/chajja. **Consumes the solver's `openings`** — the duplicate derivation is deleted |
-| `frontend/components/PlotPicker.tsx` | [[ui-principles]] #1 (preset cards), #4 (steppers) | **done** |
-| `frontend/components/CompassDial.tsx` | [[ui-principles]] #6 | **done** |
-| `frontend/components/RoomTray.tsx` | [[ui-principles]] #4/#5 — per-kind steppers | **done** |
-| `frontend/components/RoomCustomizer.tsx` | per-room custom dimensions — [[step-6-walkthrough]] | **done** — the [[zero-keyboard-events]] escape hatch |
-| `frontend/components/Minimap.tsx` | [[step-6-walkthrough]] | **done** — plan view, click-to-teleport |
-| `frontend/components/WalkthroughOverlay.tsx` | [[step-6-walkthrough]] | **done** — HUD; keyboard-only, see [[zero-keyboard-events]] |
+| `frontend/components/Scene.tsx` | [[step-1-threejs-shell]], [[architecture]], [[integer-inches]], [[step-6-walkthrough]], [[realism-gaps]] | **done** — envelope, extrusion, drag-and-drop, first-person camera, roof/parapet/chajja, strict exterior-only window filtering, and automatic doorway alignment |
+| `frontend/components/TopRibbonTaskbar.tsx` | MS Paint / CAD Ribbon Taskbar | **done** — Architectural drafting tools, furniture catalog, finishes studio, window customizer, and CAD blueprints catalog |
+| `frontend/components/Blueprint2DView.tsx` | 2D CAD Drafting Canvas | **done** — Wall drawing, dimension lines, snapping engine, room labels, door/window markers |
+| `frontend/components/BlueprintExportModal.tsx` | High-Res CAD SVG & Blueprint Print Engine | **done** — 300 DPI architectural exports, title blocks, dimension annotations |
+| `frontend/components/ModelBlueprintsModal.tsx` | Curated Architectural Blueprints Catalog | **done** — 20 prebuilt models, directional filtering, plot size filters |
+| `frontend/components/MaterialCustomizerModal.tsx` | Architectural Finishes & Materials Studio | **done** — PBR floors, wallpapers, Venetian stucco, acoustic wood slats |
+| `frontend/components/WindowShapeModal.tsx` | Window Architecture & Fenestration Studio | **done** — Palladian, French Casement, Clerestory, Bay, Glass tints, and Curtains |
+| `frontend/lib/modelBlueprints.ts` | 20 Curated Architectural Model Blueprints | **done** — 1BHK-4BHK, 20x30 to 50x80, 100% contiguous coordinate matrices |
+| `frontend/lib/furnitureCatalog.ts` | Complete 3D Architectural Furniture Catalog | **done** — Sofas, beds, dining sets, fireplaces, planters, kitchen walls |
+| `frontend/lib/materialsCatalog.ts` | Material & Surface Finishes Definitions | **done** — Hardwood, marble, slate, stucco, boiserie |
+| `frontend/lib/windowCatalog.ts` | Window Fenestration Geometry & Materials | **done** — 8 architectural shapes, 6 frame finishes, 5 glass tints |
+| `frontend/lib/customArchitecture.ts` | Custom Freehand Wall Drafting & Room Zone Topology | **done** — 2D vector CAD graph, polygon cycle detection |
 | `frontend/lib/plot.ts`, `frontend/lib/units.ts` | [[input-is-plot-dimensions]], [[integer-inches]] | **done** — presets, setback math, edge-facing mapping |
 | `frontend/lib/rooms.ts` | room vocabulary + colours; mirrors `solver/rooms.py` | **done** — 7 kinds |
-| `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — the only network path. Sends `moved_index` so only a dragged room is released from its quadrant; flags an out-of-date backend that returns no `openings` |
+| `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — sends `moved_index`, supports `setRoomPositions()` for contiguous blueprint layouts |
 | `frontend/lib/walkthrough.ts` | [[step-6-walkthrough]] | **done** — 5'5" eye level, room detection, spawn |
-| `frontend/lib/interiorDetails.ts` | [[step-6-walkthrough]] | **done** — procedural PBR textures, furniture, door-aware placement. Gated by the **Auto-Furnish Interiors** checkbox; unchecked renders the bare shell |
-| `frontend/app/page.tsx` | composition root; buildable-area readout per [[ui-principles]] | **done** |
-| `backend/solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — placement, drift, Vaastu, and the relaxation ladder that never drops connectivity |
+| `frontend/lib/interiorDetails.ts` | [[step-6-walkthrough]] | **done** — procedural PBR textures, furniture, door-aware placement |
+| `frontend/app/page.tsx` | composition root; CAD ribbon, 3D viewport, 2D blueprint modes | **done** |
+| `backend/solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — placement, drift, Vaastu, relaxation ladder clamped bounds |
 | `backend/solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation against the built footprint, area objective |
-| `backend/solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree (`assign_parents`), `derive_openings`, `derive_windows`, `add_entrance` (90% of layouts), `footprint`, `reachable_count` |
+| `backend/solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, entrance priority, `derive_openings`, `derive_windows` |
 | `backend/solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — **7 room kinds**, each carrying `habitable` / `wet` / `max_aspect_x10` |
-| `backend/solver/demo.py` | prints [[output-schema]]-shaped JSON | **done** — `python -m solver.demo` |
-| `backend/solver/bench_stability.py` | settles [[claim-most-likely-wrong]] | **done** — `python -m solver.bench_stability` |
-| `backend/vaastu/rules.py` | [[vaastu-as-constraints]] | **done** — [[step-5-vaastu]]; entrance N/E now exists in `connectivity.py` |
-| `backend/envelope/envelope.py` | setbacks — **hardcoded gap**, see [[environment-notes]] | **done** — duplicates `frontend/lib/plot.ts` maths, see [[duplicated-geometry]] |
+| `backend/vaastu/rules.py` | [[vaastu-as-constraints]] | **done** — corrected Ishanya NE pooja quadrant coordinates |
 | `backend/api/main.py` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
-| `backend/tests/` | [[test-baseline]] | **40/40 passing** — api 11, solver 6, stability 4, vaastu 8, realism 11 |
+| `backend/tests/` | [[test-baseline]] | **43/43 passing** (100%) |
 
 Each module folder (`frontend/README.md`, `backend/README.md`, and per-submodule READMEs under
 `backend/`) carries the wikilinks back into this vault, per the convention above.
 
 Ignored by the vault: `node_modules/`, `.git/`, `.venv/`, `__pycache__/`, `.next/`
-(set in `.obsidian/app.json`). `backend/.venv/` now exists — verified `ortools==9.15.6755`
-installs cleanly on Python 3.14, see [[environment-notes]].
+(set in `.obsidian/app.json`).
 
-## Size, as of 2026-08-25 (end of day)
-
-Backend ~**1,950** lines of Python. Frontend ~**4,000** lines of TS/CSS.
-`Scene.tsx` went 1,423 to 1,324 despite gaining a roof and a sun: consuming the solver's
-`openings` deleted 99 lines of duplicated door derivation ([[duplicated-geometry]]).
+## Size, as of 2026-08-30
+Backend ~**2,100** lines of Python. Frontend ~**10,000** lines of TS/CSS.
