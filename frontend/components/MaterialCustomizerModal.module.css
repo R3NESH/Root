@@ -398,6 +398,153 @@
   margin-bottom: 12px;
 }
 
+.paletteHeading {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 16px 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.customColorWheelCard {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(232, 145, 45, 0.35);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  flex-wrap: wrap;
+}
+
+.wheelLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.colorWheelPickerWrapper {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.colorWheelInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.colorWheelPreviewCircle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 3px rgba(232, 145, 45, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.colorWheelPreviewCircle:hover {
+  transform: scale(1.08);
+}
+
+.colorWheelIcon {
+  font-size: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.wheelInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wheelTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.wheelSubtitle {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.wheelRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hexInputWrapper {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 4px 10px;
+  transition: border-color 0.15s ease;
+}
+
+.hexInputWrapper:focus-within {
+  border-color: #e8912d;
+  box-shadow: 0 0 0 2px rgba(232, 145, 45, 0.25);
+}
+
+.hexPrefix {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e8912d;
+  margin-right: 2px;
+}
+
+.hexInput {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  width: 65px;
+  outline: none;
+  letter-spacing: 0.05em;
+}
+
+.pickColorBtn {
+  position: relative;
+  background: linear-gradient(135deg, #e8912d 0%, #d97706 100%);
+  color: #051119;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(232, 145, 45, 0.4);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pickColorBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(232, 145, 45, 0.6);
+}
+
 .colorsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

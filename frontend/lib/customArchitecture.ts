@@ -1,6 +1,16 @@
 // Custom Architecture Data Models for "Build From Scratch" Freeform CAD Studio
 import { RoomName } from "./rooms";
 
+// The drafting tool the CAD ribbon has armed. Declared here rather than inline because the
+// same union was written out verbatim in page.tsx, Scene.tsx, Blueprint2DView.tsx and
+// TopRibbonTaskbar.tsx — four copies that had to be edited together to add a tool.
+export type CadTool =
+  | "select"
+  | "draw_wall"
+  | "place_door"
+  | "place_window"
+  | "tag_room";
+
 export type CustomWallType =
   | "exterior"
   | "interior"

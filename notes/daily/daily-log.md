@@ -8,7 +8,7 @@ Index of daily notes. New one: `Ctrl+P` → *Daily notes: Open today's daily not
 
 ## Entries
 
-- [[2026-08-30]] — 20 authentic prebuilt blueprints, contiguous snapping matrix, exterior window constraint, awning alignment
+- [[2026-08-30]] — 20 authentic prebuilt blueprints, contiguous snapping matrix, exterior window constraint, awning alignment; then structurize pass (5 modules out of the 3 biggest files, 2 duplications killed), graph 548→651 nodes, root `CLAUDE.md`, and [[client-side-fallback]] found
 - [[2026-08-25]] — full project review: two blocking regressions found, vault drift corrected
 - [[2026-08-24]] — step 2: CP-SAT solver core built, test baseline established (5/5 passing)
 - [[2026-08-23]] — vault created; phasing corrected; step 1: Three.js shell built and verified

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   FURNITURE_CATALOG,
   FurnitureCategory,
-  FurnitureItemDef,
 } from "@/lib/furnitureCatalog";
 import styles from "./ReplaceObjectModal.module.css";
 

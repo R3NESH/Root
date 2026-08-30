@@ -45,6 +45,11 @@ The module README is the graph node standing in for the code.
 | `frontend/lib/windowCatalog.ts` | Window Fenestration Geometry & Materials | **done** — 8 architectural shapes, 6 frame finishes, 5 glass tints |
 | `frontend/lib/customArchitecture.ts` | Custom Freehand Wall Drafting & Room Zone Topology | **done** — 2D vector CAD graph, polygon cycle detection |
 | `frontend/lib/plot.ts`, `frontend/lib/units.ts` | [[input-is-plot-dimensions]], [[integer-inches]] | **done** — presets, setback math, edge-facing mapping |
+| `frontend/lib/sceneConstants.ts` | fixed 3D geometry, in feet | **done** — extracted from `Scene.tsx` 2026-08-30 |
+| `frontend/lib/sceneBadges.ts` | canvas→sprite room labels | **done** — extracted from `Scene.tsx` 2026-08-30 |
+| `frontend/lib/sceneDoorways.ts` | door edge arithmetic; mirrors `_edge_origin()` in [[connectivity.py]] | **done** — extracted from `Scene.tsx` 2026-08-30 |
+| `frontend/lib/blueprint2dPresets.ts` | SVG viewport + drafting preset pills | **done** — extracted from `Blueprint2DView.tsx` 2026-08-30 |
+| `frontend/lib/projectStorage.ts` | `localStorage` persistence — see [[environment-notes]] | **done** — extracted from `page.tsx` 2026-08-30 |
 | `frontend/lib/rooms.ts` | room vocabulary + colours; mirrors `solver/rooms.py` | **done** — 7 kinds |
 | `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — sends `moved_index`, supports `setRoomPositions()` for contiguous blueprint layouts |
 | `frontend/lib/walkthrough.ts` | [[step-6-walkthrough]] | **done** — 5'5" eye level, room detection, spawn |
@@ -64,5 +69,37 @@ Each module folder (`frontend/README.md`, `backend/README.md`, and per-submodule
 Ignored by the vault: `node_modules/`, `.git/`, `.venv/`, `__pycache__/`, `.next/`
 (set in `.obsidian/app.json`).
 
-## Size, as of 2026-08-30
-Backend ~**2,100** lines of Python. Frontend ~**10,000** lines of TS/CSS.
+## Size, re-measured 2026-08-30
+
+Backend **2,274** lines of Python (including 672 of tests). Frontend **20,617** lines of
+TS/TSX plus **6,005** of CSS. The earlier "~10,000 lines frontend" figure was roughly half the
+real number.
+
+The weight is lopsided and worth stating plainly: **93% of the code is frontend, and 100% of
+the tests are backend.**
+
+## Structurize pass, 2026-08-30
+
+Five modules were lifted out of the three largest files. Every move was mechanical — cut
+verbatim, add `export`, add an import — and verified three ways: `tsc --noEmit` clean,
+`next build` clean, and `eslint` problem counts *identical* to the pre-change baseline
+(20 for `Scene.tsx`+`page.tsx`, 17 for `Blueprint2DView.tsx`).
+
+| File | Before | After |
+|---|---|---|
+| `components/Scene.tsx` | 3,972 | 3,878 |
+| `components/Blueprint2DView.tsx` | 3,273 | 3,263 |
+| `app/page.tsx` | 1,229 | 1,210 |
+
+Two duplications died with it:
+
+- `Scene.tsx` carried its own `snapToFoot()` and `clampInches()`, byte-equivalent to the ones
+  already exported from `lib/units.ts` — a file `Scene.tsx` already imported from.
+- The CAD tool union `"select" | "draw_wall" | "place_door" | "place_window" | "tag_room"` was
+  written out verbatim in **four** files. It is now `CadTool` in `lib/customArchitecture.ts`.
+
+> [!warning] This was a seam pass, not a decomposition
+> `Scene.tsx` and `Blueprint2DView.tsx` are still one ~3,900-line component each. The bulk of
+> both is welded to local renderer state and ~50 refs, so nothing else can be cut verbatim —
+> splitting further means authoring props interfaces, which is a rewrite, and there are **no
+> frontend tests** to catch a mistake. See [[project-status]].

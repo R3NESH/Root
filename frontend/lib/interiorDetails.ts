@@ -1130,7 +1130,6 @@ export function addRoomInteriorDetails(
     const diningId = `builtin_${roomIndex}_dining`;
     if (!deletedIds?.has(diningId)) {
       const tableMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.45 });
-      const chairMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.8 });
       const diningGroup = new THREE.Group();
 
       const tableTop = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.55, 6.0), 0.2, Math.min(rd * 0.45, 3.4)), tableMat);

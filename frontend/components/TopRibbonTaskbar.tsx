@@ -11,21 +11,20 @@ import {
   FLOOR_MATERIALS,
   HouseMaterialConfig,
   WALL_COLORS,
+  getWallColorHexStr,
 } from "@/lib/materialsCatalog";
 import { Facing, PLOT_PRESETS, PlotDims } from "@/lib/plot";
 import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName } from "@/lib/rooms";
 import { SolveMeta, SolvedRoom } from "@/lib/solve";
 import { clampInches, feetToInches, inchesToFeet } from "@/lib/units";
 import {
-  WINDOW_FRAME_FINISHES,
-  WINDOW_GLASS_TINTS,
   WINDOW_SHAPES,
   WindowConfig,
   WindowFrameFinishId,
   WindowGlassTintId,
   WindowShapeId,
 } from "@/lib/windowCatalog";
-import { CustomWallType } from "@/lib/customArchitecture";
+import { CadTool, CustomWallType } from "@/lib/customArchitecture";
 import { CustomDim } from "./RoomCustomizer";
 import styles from "./TopRibbonTaskbar.module.css";
 
@@ -65,7 +64,6 @@ interface TopRibbonTaskbarProps {
   onChangeCounts: (counts: Record<RoomName, number>) => void;
   furnished: boolean;
   onToggleFurnished: (val: boolean) => void;
-  rooms?: SolvedRoom[];
   customDims?: Record<string, CustomDim>;
   onChangeCustomDims?: (next: Record<string, CustomDim>) => void;
   meta?: SolveMeta | null;
@@ -83,9 +81,7 @@ interface TopRibbonTaskbarProps {
   onOpenExportModal: () => void;
   onOpenRoomDimensionsModal: () => void;
   placingItemType: string | null;
-  placingRotationY?: number;
   onSelectPlaceItem: (type: string | null) => void;
-  onRotatePlacing?: (angleDelta: number) => void;
   selectedObject: SelectedObjectItem | null;
   onOpenReplaceModal: () => void;
   onRotateSelected: (angleDelta: number) => void;
@@ -117,10 +113,12 @@ interface TopRibbonTaskbarProps {
   lastSavedTime?: number | null;
   activeFloor?: number;
   onChangeActiveFloor?: (floor: number) => void;
-  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
-  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeCadTool?: CadTool;
+  onChangeCadTool?: (tool: CadTool) => void;
   activeWallType?: CustomWallType;
   onChangeWallType?: (type: CustomWallType) => void;
+  onToggleDoorsWindowsDrawer?: () => void;
+  isDoorsWindowsDrawerOpen?: boolean;
 }
 
 type RibbonTab = "architecture" | "furniture" | "materials" | "windows" | "blueprints";
@@ -136,7 +134,6 @@ export default function TopRibbonTaskbar({
   onChangeCounts,
   furnished,
   onToggleFurnished,
-  rooms = [],
   meta,
   materialConfig,
   onChangeMaterialConfig,
@@ -152,9 +149,7 @@ export default function TopRibbonTaskbar({
   onOpenExportModal,
   onOpenRoomDimensionsModal,
   placingItemType,
-  placingRotationY = 0,
   onSelectPlaceItem,
-  onRotatePlacing,
   selectedObject,
   onOpenReplaceModal,
   onRotateSelected,
@@ -180,6 +175,8 @@ export default function TopRibbonTaskbar({
   onChangeCadTool,
   activeWallType = "exterior",
   onChangeWallType,
+  onToggleDoorsWindowsDrawer,
+  isDoorsWindowsDrawerOpen = false,
 }: TopRibbonTaskbarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("architecture");
   const [activeCategory, setActiveCategory] = useState<FurnitureCategory | "all">("living");
@@ -635,6 +632,13 @@ export default function TopRibbonTaskbar({
                     >
                       🏷️ Tag
                     </button>
+                    <button
+                      className={`${styles.cadToolBtn} ${isDoorsWindowsDrawerOpen ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => onToggleDoorsWindowsDrawer?.()}
+                      title="Open Doors & Windows Catalog Shelf (Drag & Drop onto any wall)"
+                    >
+                      🚪 Openings Catalog
+                    </button>
                     {onStartFromScratch && (
                       <button
                         className={styles.scratchBtn}
@@ -768,12 +772,14 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupLabel}>House Flooring</div>
               </div>
 
-              {/* Quick Wall Colors */}
+              {/* Quick Wall Colors & Color Wheel */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.swatchesRow}>
-                    {WALL_COLORS.slice(0, 7).map((c) => {
-                      const isSelected = materialConfig.globalWallColor === c.id;
+                    {WALL_COLORS.slice(0, 6).map((c) => {
+                      const isSelected =
+                        materialConfig.globalWallColor === c.id ||
+                        getWallColorHexStr(materialConfig.globalWallColor).toLowerCase() === c.hex.toLowerCase();
                       return (
                         <button
                           key={c.id}
@@ -784,9 +790,37 @@ export default function TopRibbonTaskbar({
                         />
                       );
                     })}
+                    {/* Interactive Color Wheel Picker */}
+                    <label
+                      className={`${styles.colorWheelBtn} ${
+                        !WALL_COLORS.some(
+                          (c) =>
+                            c.id === materialConfig.globalWallColor ||
+                            c.hex.toLowerCase() === getWallColorHexStr(materialConfig.globalWallColor).toLowerCase()
+                        )
+                          ? styles.colorWheelBtnActive
+                          : ""
+                      }`}
+                      title="Custom Color Wheel: Pick any wall color"
+                    >
+                      <input
+                        type="color"
+                        value={getWallColorHexStr(materialConfig.globalWallColor)}
+                        onChange={(e) => handleSelectQuickWallColor(e.target.value)}
+                        className={styles.hiddenColorInput}
+                      />
+                      <span
+                        className={styles.colorWheelDot}
+                        style={{
+                          backgroundColor: getWallColorHexStr(materialConfig.globalWallColor),
+                        }}
+                      >
+                        🎨
+                      </span>
+                    </label>
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Wall Colors</div>
+                <div className={styles.groupLabel}>Wall Colors & Wheel</div>
               </div>
 
               {/* Quick 1-Click Design Themes */}

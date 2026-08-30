@@ -5,11 +5,10 @@ import {
   DESIGN_PRESETS,
   FLOOR_MATERIALS,
   FloorCategory,
-  FloorMaterialDef,
   HouseMaterialConfig,
   WALL_COLORS,
   WALL_TEXTURES,
-  WallTextureDef,
+  getWallColorHexStr,
 } from "@/lib/materialsCatalog";
 import { ROOM_LABELS, RoomName } from "@/lib/rooms";
 import styles from "./MaterialCustomizerModal.module.css";
@@ -363,11 +362,71 @@ export default function MaterialCustomizerModal({
 
           {activeTab === "wall" && (
             <div className={styles.wallSection}>
-              {/* Wall Colors */}
-              <div className={styles.sectionHeading}>🎨 Wall Colors</div>
+              {/* Wall Colors & Color Wheel */}
+              <div className={styles.sectionHeading}>🎨 Wall Colors & Color Wheel</div>
+
+              {/* Color Wheel & Custom Color Picker Card */}
+              <div className={styles.customColorWheelCard}>
+                <div className={styles.wheelLeft}>
+                  <label className={styles.colorWheelPickerWrapper} title="Click to open Color Wheel spectrum">
+                    <input
+                      type="color"
+                      className={styles.colorWheelInput}
+                      value={getWallColorHexStr(currentWallColorId)}
+                      onChange={(e) => handleSelectWallColor(e.target.value)}
+                    />
+                    <div
+                      className={styles.colorWheelPreviewCircle}
+                      style={{
+                        backgroundColor: getWallColorHexStr(currentWallColorId),
+                      }}
+                    >
+                      <span className={styles.colorWheelIcon}>🌈</span>
+                    </div>
+                  </label>
+                  <div className={styles.wheelInfo}>
+                    <div className={styles.wheelTitle}>Custom Color Wheel</div>
+                    <div className={styles.wheelSubtitle}>Pick any RGB / Hex paint color</div>
+                  </div>
+                </div>
+
+                <div className={styles.wheelRight}>
+                  <div className={styles.hexInputWrapper}>
+                    <span className={styles.hexPrefix}>#</span>
+                    <input
+                      type="text"
+                      className={styles.hexInput}
+                      maxLength={6}
+                      value={getWallColorHexStr(currentWallColorId).replace("#", "").toUpperCase()}
+                      onChange={(e) => {
+                        const val = e.target.value.trim().replace("#", "");
+                        if (/^[0-9a-fA-F]{0,6}$/.test(val)) {
+                          if (val.length === 6) {
+                            handleSelectWallColor(`#${val}`);
+                          }
+                        }
+                      }}
+                      placeholder="FFFFFF"
+                    />
+                  </div>
+                  <label className={styles.pickColorBtn}>
+                    <input
+                      type="color"
+                      className={styles.colorWheelInput}
+                      value={getWallColorHexStr(currentWallColorId)}
+                      onChange={(e) => handleSelectWallColor(e.target.value)}
+                    />
+                    🎨 Pick Color
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.paletteHeading}>Curated Architectural Paint Swatches</div>
               <div className={styles.colorsGrid}>
                 {WALL_COLORS.map((col) => {
-                  const isSelected = currentWallColorId === col.id;
+                  const isSelected =
+                    currentWallColorId === col.id ||
+                    getWallColorHexStr(currentWallColorId).toLowerCase() === col.hex.toLowerCase();
                   return (
                     <div
                       key={col.id}

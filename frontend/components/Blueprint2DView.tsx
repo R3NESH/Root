@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { PlotDims, Facing, Setback, edgeSetbacksIn, frontCardinalIndex } from "@/lib/plot";
 import { RoomOpening, SolvedRoom, SolveMeta } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
-import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName } from "@/lib/rooms";
+import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName, findAdjacentRoomEdge } from "@/lib/rooms";
 import { CustomDim } from "./RoomCustomizer";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
 import {
@@ -18,10 +18,24 @@ import {
   CustomRoomZone,
   CustomWallOpening,
   CustomWallType,
+  CadTool,
   WALL_TYPE_CONFIGS,
-  getWallAngleRad,
   getWallLengthIn,
 } from "@/lib/customArchitecture";
+import {
+  drawH,
+  drawW,
+  FACING_NAMES,
+  FLOOR_LEVEL_PILLS,
+  OPENING_HEIGHT_PRESETS,
+  OPENING_KINDS,
+  OPENING_WIDTH_PRESETS,
+  PADDING,
+  VIEW_H,
+  VIEW_W,
+  WALL_EDGES,
+  WALL_LENGTH_PRESETS_FT,
+} from "@/lib/blueprint2dPresets";
 import styles from "./Blueprint2DView.module.css";
 
 type CropHandle = "N" | "S" | "E" | "W" | "NW" | "NE" | "SW" | "SE";
@@ -40,8 +54,8 @@ interface Blueprint2DViewProps {
   onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
   customRoomZones?: CustomRoomZone[];
   onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
-  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
-  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeCadTool?: CadTool;
+  onChangeCadTool?: (tool: CadTool) => void;
   activeWallType?: CustomWallType;
   onChangeWallType?: (type: CustomWallType) => void;
   activeBlueprintName?: string | null;
@@ -189,10 +203,14 @@ export default function Blueprint2DView({
   const [selectedCustomWallId, setSelectedCustomWallId] = useState<string | null>(null);
   const [selectedCustomZoneId, setSelectedCustomZoneId] = useState<string | null>(null);
   const [hoveredWallInfo, setHoveredWallInfo] = useState<{
-    wallId: string;
+    wallId?: string;
+    roomIndex?: number;
+    edge?: "N" | "S" | "E" | "W";
     offsetIn: number;
     px: number;
     py: number;
+    wallLenIn?: number;
+    wallAngleDeg?: number;
   } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -257,19 +275,10 @@ export default function Blueprint2DView({
   // Measurements
   const [setbackN, setbackE, setbackS, setbackW] = edgeSetbacksIn(facing, setback);
   const frontIdx = frontCardinalIndex(facing);
-  const facingNames = ["NORTH", "EAST", "SOUTH", "WEST"];
-  const roadLabel = `ROAD / FRONT (${facingNames[frontIdx]})`;
+  const roadLabel = `ROAD / FRONT (${FACING_NAMES[frontIdx]})`;
 
   const envW = Math.max(0, plot.widthIn - setbackW - setbackE);
   const envD = Math.max(0, plot.depthIn - setbackN - setbackS);
-
-  // Base SVG dimensions for coordinate system
-  const VIEW_W = 1200;
-  const VIEW_H = 850;
-  const PADDING = 140;
-
-  const drawW = VIEW_W - PADDING * 2;
-  const drawH = VIEW_H - PADDING * 2;
 
   const baseScale = Math.min(drawW / Math.max(plot.widthIn, 1), drawH / Math.max(plot.depthIn, 1));
   const originX = PADDING + (drawW - plot.widthIn * baseScale) / 2;
@@ -449,25 +458,77 @@ export default function Blueprint2DView({
       return;
     }
 
-    // CAD Tool 2 & 3: Place Door or Window on Wall
+    // CAD Tool 2 & 3: Place Door or Window on Wall (Custom CAD Wall or Solved Room Wall)
     if (activeCadTool === "place_door" || activeCadTool === "place_window") {
       if (hoveredWallInfo) {
-        const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
-        if (wall) {
-          const isWindow = activeCadTool === "place_window";
-          const widthIn = isWindow ? 48 : 36;
-          const newOpening: CustomWallOpening = {
-            id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            kind: isWindow ? "window" : "door",
-            offsetIn: Math.max(0, hoveredWallInfo.offsetIn - widthIn / 2),
-            widthIn,
-            heightIn: isWindow ? 48 : 84,
-            sillIn: isWindow ? 34 : 0,
-          };
-          const updated = customWalls.map((cw) =>
-            cw.id === wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
-          );
-          onChangeCustomWalls?.(updated);
+        const isWindow = activeCadTool === "place_window";
+        const widthIn = isWindow ? 48 : 36;
+        const heightIn = isWindow ? 48 : 84;
+        const sillIn = isWindow ? 36 : 0;
+        const kind: "door" | "window" = isWindow ? "window" : "door";
+
+        if (hoveredWallInfo.wallId) {
+          const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
+          if (wall) {
+            const newOpening: CustomWallOpening = {
+              id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              kind,
+              offsetIn: Math.max(0, hoveredWallInfo.offsetIn - widthIn / 2),
+              widthIn,
+              heightIn,
+              sillIn,
+            };
+            const updated = customWalls.map((cw) =>
+              cw.id === wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+            );
+            onChangeCustomWalls?.(updated);
+          }
+        } else if (hoveredWallInfo.roomIndex !== undefined && hoveredWallInfo.edge) {
+          const room = rooms[hoveredWallInfo.roomIndex];
+          if (room) {
+            const roomId = `${room.name}_${hoveredWallInfo.roomIndex}`;
+            const currentOps = customOpenings?.[roomId] !== undefined ? customOpenings[roomId] : (room.openings || []);
+            const wallLengthIn = hoveredWallInfo.edge === "N" || hoveredWallInfo.edge === "S" ? room.w_in : room.d_in;
+            const offsetIn = Math.max(0, Math.min(wallLengthIn - widthIn, hoveredWallInfo.offsetIn - widthIn / 2));
+
+            const newOp: RoomOpening = {
+              kind,
+              edge: hoveredWallInfo.edge,
+              offset_in: offsetIn,
+              width_in: widthIn,
+              height_in: heightIn,
+              sill_in: sillIn,
+            };
+
+            const nextOps = [
+              ...currentOps.filter((o) => !(o.edge === hoveredWallInfo.edge && Math.abs(o.offset_in - offsetIn) < 12)),
+              newOp,
+            ];
+
+            const nextCustomOpenings: Record<string, RoomOpening[]> = {
+              ...(customOpenings ?? {}),
+              [roomId]: nextOps,
+            };
+
+            const adj = findAdjacentRoomEdge(rooms, hoveredWallInfo.roomIndex, hoveredWallInfo.edge);
+            if (adj && kind === "door") {
+              const adjId = `${rooms[adj.adjIndex]?.name}_${adj.adjIndex}`;
+              const adjRoom = rooms[adj.adjIndex];
+              if (adjRoom) {
+                const adjOps = customOpenings?.[adjId] !== undefined ? customOpenings[adjId] : (adjRoom.openings || []);
+                const adjNextOps = [
+                  ...adjOps.filter((o) => !(o.edge === adj.adjEdge && Math.abs(o.offset_in - offsetIn) < 12)),
+                  {
+                    ...newOp,
+                    edge: adj.adjEdge,
+                  },
+                ];
+                nextCustomOpenings[adjId] = adjNextOps;
+              }
+            }
+
+            onChangeCustomOpenings?.(nextCustomOpenings);
+          }
         }
       }
       return;
@@ -549,12 +610,22 @@ export default function Blueprint2DView({
       return;
     }
 
-    // 0b. CAD Door / Window Hover Wall Projection
+    // 0b. CAD Door / Window Hover Wall Projection (Custom Walls + Solved Room Walls)
     if (activeCadTool === "place_door" || activeCadTool === "place_window") {
-      let closestHit: { wallId: string; offsetIn: number; px: number; py: number } | null = null;
-      let closestDist = 30; // max snap distance in px
+      let closestHit: {
+        wallId?: string;
+        roomIndex?: number;
+        edge?: "N" | "S" | "E" | "W";
+        offsetIn: number;
+        px: number;
+        py: number;
+        wallLenIn: number;
+        wallAngleDeg?: number;
+      } | null = null;
+      let closestDist = 35; // max snap distance in px
 
-      for (const w of customWalls) {
+      // Check Custom Drawn Walls (Build From Scratch)
+      for (const w of customWalls.filter((cw) => (cw.floor ?? 0) === activeFloor)) {
         const dx = w.endXIn - w.startXIn;
         const dy = w.endYIn - w.startYIn;
         const len = Math.hypot(dx, dy);
@@ -575,9 +646,50 @@ export default function Blueprint2DView({
             offsetIn: Math.round(t * len),
             px: toPxX(projXIn),
             py: toPxY(projYIn),
+            wallLenIn: Math.round(len),
+            wallAngleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
           };
         }
       }
+
+      // Check Solved Room Perimeter Walls (2D Blueprint)
+      for (let rIdx = 0; rIdx < rooms.length; rIdx++) {
+        const r = rooms[rIdx];
+        if ((r.floor ?? 0) !== activeFloor) continue;
+
+        const wallEdges: Array<{ edge: "N" | "S" | "E" | "W"; x1: number; y1: number; x2: number; y2: number; len: number }> = [
+          { edge: "N", x1: r.x_in, y1: r.y_in, x2: r.x_in + r.w_in, y2: r.y_in, len: r.w_in },
+          { edge: "S", x1: r.x_in, y1: r.y_in + r.d_in, x2: r.x_in + r.w_in, y2: r.y_in + r.d_in, len: r.w_in },
+          { edge: "W", x1: r.x_in, y1: r.y_in, x2: r.x_in, y2: r.y_in + r.d_in, len: r.d_in },
+          { edge: "E", x1: r.x_in + r.w_in, y1: r.y_in, x2: r.x_in + r.w_in, y2: r.y_in + r.d_in, len: r.d_in },
+        ];
+
+        for (const we of wallEdges) {
+          const dx = we.x2 - we.x1;
+          const dy = we.y2 - we.y1;
+          const len = we.len;
+          if (len < 1) continue;
+
+          const t = Math.max(0, Math.min(1, ((coords.xIn - we.x1) * dx + (coords.yIn - we.y1) * dy) / (len * len)));
+          const projXIn = we.x1 + t * dx;
+          const projYIn = we.y1 + t * dy;
+          const distPx = Math.hypot(coords.pxX - toPxX(projXIn), coords.pxY - toPxY(projYIn));
+
+          if (distPx < closestDist) {
+            closestDist = distPx;
+            closestHit = {
+              roomIndex: rIdx,
+              edge: we.edge,
+              offsetIn: Math.round(t * len),
+              px: toPxX(projXIn),
+              py: toPxY(projYIn),
+              wallLenIn: Math.round(len),
+              wallAngleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
+            };
+          }
+        }
+      }
+
       setHoveredWallInfo(closestHit);
       return;
     }
@@ -1220,12 +1332,7 @@ export default function Blueprint2DView({
       <div className={styles.cadDraftingToolbar}>
         {/* Floor Level Switcher Pills */}
         <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "rgba(0,0,0,0.35)", borderRadius: "8px", padding: "2px 4px", marginRight: "4px" }}>
-          {[
-            { floor: 0, short: "G 🏡", title: "Ground Floor" },
-            { floor: 1, short: "1F 🏢", title: "1st Floor" },
-            { floor: 2, short: "2F 🏙️", title: "2nd Floor" },
-            { floor: 3, short: "Roof ☀️", title: "Terrace / Roof" },
-          ].map((fl) => (
+          {FLOOR_LEVEL_PILLS.map((fl) => (
             <button
               key={fl.floor}
               style={{
@@ -2693,10 +2800,14 @@ export default function Blueprint2DView({
           {/* ── Hovered Opening Snap Preview ── */}
           {(activeCadTool === "place_door" || activeCadTool === "place_window") && hoveredWallInfo && (
             <g pointerEvents="none" transform={`translate(${hoveredWallInfo.px}, ${hoveredWallInfo.py})`}>
-              <circle cx="0" cy="0" r="8" fill="#f59e0b" opacity="0.85" />
-              <text x="12" y="4" fill="#f59e0b" fontSize="10" fontWeight="bold" fontFamily="monospace">
-                {activeCadTool === "place_door" ? "🚪 Click to Add Door" : "🪟 Click to Add Window"}
-              </text>
+              <circle cx="0" cy="0" r="10" fill="#f59e0b" opacity="0.3" />
+              <circle cx="0" cy="0" r="5" fill="#f59e0b" />
+              <g transform="translate(14, -12)">
+                <rect x="-6" y="-12" width="165" height="24" rx="5" fill="rgba(15, 23, 42, 0.95)" stroke="#f59e0b" strokeWidth="1" />
+                <text x="4" y="4" fill="#fbbf24" fontSize="10.5" fontWeight="bold" fontFamily="monospace">
+                  {activeCadTool === "place_door" ? "🚪 Click to Install Door" : "🪟 Click to Install Window"}
+                </text>
+              </g>
             </g>
           )}
 
@@ -2910,7 +3021,7 @@ export default function Blueprint2DView({
               <div className={styles.wallEdgeSelector}>
                 <span className={styles.sectionHeading}>Select Wall Edge:</span>
                 <div className={styles.edgeButtonsGroup}>
-                  {(["N", "E", "S", "W"] as const).map((edge) => (
+                  {WALL_EDGES.map((edge) => (
                     <button
                       key={edge}
                       className={`${styles.edgeBtn} ${
@@ -3013,7 +3124,7 @@ export default function Blueprint2DView({
 
                 <div className={styles.presetsRow}>
                   <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
-                  {[10, 12, 14, 16, 18, 20].map((len) => (
+                  {WALL_LENGTH_PRESETS_FT.map((len) => (
                     <button
                       key={len}
                       className={styles.presetChip}
@@ -3062,7 +3173,7 @@ export default function Blueprint2DView({
                   <div className={styles.kindSelectorSection}>
                     <span className={styles.sectionHeading}>Opening Type:</span>
                     <div className={styles.kindButtonsGroup}>
-                      {(["door", "entrance", "window", "opening"] as const).map((kind) => (
+                      {OPENING_KINDS.map((kind) => (
                         <button
                           key={kind}
                           className={`${styles.kindBtn} ${
@@ -3118,14 +3229,7 @@ export default function Blueprint2DView({
 
                     <div className={styles.presetsRow}>
                       <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
-                      {[
-                        { label: "2′6″ (30″)", w: 30 },
-                        { label: "2′8″ (32″)", w: 32 },
-                        { label: "3′0″ (36″)", w: 36 },
-                        { label: "3′6″ (42″)", w: 42 },
-                        { label: "4′0″ (48″)", w: 48 },
-                        { label: "5′0″ (60″)", w: 60 },
-                      ].map((p) => (
+                      {OPENING_WIDTH_PRESETS.map((p) => (
                         <button
                           key={p.w}
                           className={`${styles.presetChip} ${
@@ -3173,12 +3277,7 @@ export default function Blueprint2DView({
 
                     <div className={styles.presetsRow}>
                       <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
-                      {[
-                        { label: "6′6″", h: 78 },
-                        { label: "7′0″ (Std)", h: 84 },
-                        { label: "7′6″", h: 90 },
-                        { label: "8′0″", h: 96 },
-                      ].map((p) => (
+                      {OPENING_HEIGHT_PRESETS.map((p) => (
                         <button
                           key={p.h}
                           className={`${styles.presetChip} ${

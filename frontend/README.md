@@ -16,6 +16,11 @@ Next.js 16 + TypeScript + Three.js. Owns everything continuous — see
 | `lib/plot.ts`, `lib/units.ts` | [[input-is-plot-dimensions]], [[integer-inches]] |
 | `lib/solve.ts`, `lib/useSolve.ts` | [[step-3-wire-together]] — the only network path |
 | `lib/walkthrough.ts`, `lib/interiorDetails.ts` | [[step-6-walkthrough]] |
+| `lib/sceneConstants.ts` | fixed 3D geometry in feet; solver-sent opening dimensions still win |
+| `lib/sceneBadges.ts` | canvas→sprite room labels lifted out of `Scene.tsx` |
+| `lib/sceneDoorways.ts` | edge arithmetic for doors — mirrors `_edge_origin()` in `connectivity.py` |
+| `lib/blueprint2dPresets.ts` | SVG viewport + drafting preset pills for the 2D view |
+| `lib/projectStorage.ts` | the whole design in `localStorage`; no accounts, no database |
 | `app/page.tsx` | composition root |
 
 `lib/solve.ts` / `lib/useSolve.ts` hold the only `fetch()` in the app — `POST /solve` on a
@@ -31,10 +36,16 @@ Next.js 16 + TypeScript + Three.js. Owns everything continuous — see
 [[realism-gaps]].
 
 > [!important] The renderer depends on the API for all doors and windows
-> There is deliberately no client-side fallback; a fallback is what [[duplicated-geometry]] was.
 > **An out-of-date backend renders a house with solid walls and no doors.** `useSolve` detects
 > an all-empty `openings` response and the header says so. If you see no doors, restart
 > `uvicorn`.
+
+> [!danger] There *is* a client-side fallback now, and it lies — [[client-side-fallback]]
+> This README used to say "there is deliberately no client-side fallback". That is no longer
+> true: `solve.ts` grew `solveClientSide()`, a grid layout that reports
+> `status: "Vastu Solved (Optimal)"` and four Vaastu rule names it never enforces. It fires on
+> any failed *or non-`ok`* response, and because `NEXT_PUBLIC_SOLVER_URL` is unset in the
+> deploy, it is what a Netlify visitor actually gets. `staleBackend` cannot catch it.
 
 See [[project-status]] for the full picture.
 

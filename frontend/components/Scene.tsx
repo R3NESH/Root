@@ -14,7 +14,27 @@ import {
 } from "@/lib/plot";
 import { findAdjacentRoomEdge, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { RoomOpening, SolvedRoom } from "@/lib/solve";
-import { inchesToFeet, feetToInches } from "@/lib/units";
+import { clampInches, inchesToFeet, snapToFoot } from "@/lib/units";
+import {
+  ACCENT,
+  BASEBOARD_H_FT,
+  DOOR_HEIGHT_FT,
+  DOOR_WIDTH_FT,
+  HANDLE_RADIUS_FT,
+  PLOT_COLOR,
+  WALL_HEIGHT_FT,
+  WALL_THICK_INT_FT,
+  WINDOW_H_FT,
+  WINDOW_SILL_Y_FT,
+  WINDOW_W_FT,
+} from "@/lib/sceneConstants";
+import { createRoomBadge, makeRoomBadgeSprite } from "@/lib/sceneBadges";
+import {
+  Doorway,
+  getPrimaryCardinalEdge,
+  openingCentreFt,
+  oppositeEdge,
+} from "@/lib/sceneDoorways";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import {
   clampPlayerPosition,
@@ -33,9 +53,6 @@ import {
   addCeilingFan,
   addRoomInteriorDetails,
   buildWindowWithCurtains,
-  getMarbleFloorTexture,
-  getTileFloorTexture,
-  getWoodFloorTexture,
   RoomDoorInfo,
 } from "@/lib/interiorDetails";
 import {
@@ -55,7 +72,6 @@ import {
 import {
   DEFAULT_WINDOW_CONFIG,
   getIndividualWindowProps,
-  getRoomWindowShape,
   WindowConfig,
   WindowFrameFinishId,
   WindowGlassTintId,
@@ -66,7 +82,7 @@ import {
   CustomRoomZone,
   CustomWallOpening,
   CustomWallType,
-  getWallLengthIn,
+  CadTool,
   getCurvedWallArcPoints,
 } from "@/lib/customArchitecture";
 
@@ -112,12 +128,13 @@ interface SceneProps {
   customRoomZones?: CustomRoomZone[];
   activeFloor?: number;
   onChangeActiveFloor?: (floor: number) => void;
-  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
-  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeCadTool?: CadTool;
+  onChangeCadTool?: (tool: CadTool) => void;
   activeWallType?: CustomWallType;
   onChangeWallType?: (type: CustomWallType) => void;
   onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
   onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
+  onChangeCustomOpenings?: (openings: Record<string, RoomOpening[]>) => void;
   onStartFromScratch?: () => void;
   deletedBuiltinIds?: string[];
   placingItemType?: string | null;
@@ -150,99 +167,6 @@ interface SceneProps {
   onRotatePlacing?: (angleDelta: number) => void;
 }
 
-const PLOT_COLOR = 0xffffff;
-const ACCENT = 0xe8912d;
-const HANDLE_RADIUS_FT = 0.55;
-const WALL_HEIGHT_FT = 9.0;
-const WALL_THICK_INT_FT = 4.5 / 12; // 0.375 ft
-const DOOR_WIDTH_FT = 32 / 12; // 2.67 ft
-const DOOR_HEIGHT_FT = 84 / 12; // 7.0 ft
-const BASEBOARD_H_FT = 4 / 12; // 0.33 ft
-const WINDOW_W_FT = 4.0;
-const WINDOW_H_FT = 4.2;
-const WINDOW_SILL_Y_FT = 2.8;
-
-function snapToFoot(inches: number): number {
-  return Math.round(inches / 12) * 12;
-}
-
-function clampInches(val: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, val));
-}
-
-function makeRoomBadgeSprite(text: string): THREE.Sprite {
-  if (typeof document === "undefined") return new THREE.Sprite();
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "rgba(10, 25, 48, 0.88)";
-    if (ctx.roundRect) {
-      ctx.roundRect(4, 4, 248, 56, 10);
-    } else {
-      ctx.rect(4, 4, 248, 56);
-    }
-    ctx.fill();
-    ctx.strokeStyle = "#38bdf8";
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 20px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, 128, 32);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(4.5, 1.1, 1);
-  return sprite;
-}
-
-function getPrimaryCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
-  if (facing === "N" || facing === "NE" || facing === "NW") return "N";
-  if (facing === "S" || facing === "SE" || facing === "SW") return "S";
-  if (facing === "E") return "E";
-  if (facing === "W") return "W";
-  return "N";
-}
-
-function createRoomBadge(name: string, wFt: number, dFt: number, isLocked: boolean = false): THREE.Sprite {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
-    ctx.roundRect(8, 12, 240, 104, 16);
-    ctx.fill();
-    ctx.strokeStyle = isLocked ? "rgba(56, 189, 248, 0.85)" : "rgba(232, 145, 45, 0.85)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(name.toUpperCase(), 128, 52);
-
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(`${wFt}' × ${dFt}' ft`, 128, 84);
-
-    ctx.fillStyle = isLocked ? "#38bdf8" : "#e8912d";
-    ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(isLocked ? "🔒 View-Only Mode" : "✋ Drag to Reposition", 128, 106);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
-  const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(4.4, 2.2, 1);
-  return sprite;
-}
-
 export default function Scene({
   plot,
   facing,
@@ -272,6 +196,7 @@ export default function Scene({
   onChangeWallType,
   onChangeCustomWalls,
   onChangeCustomRoomZones,
+  onChangeCustomOpenings,
   activeFloor = 0,
   onChangeActiveFloor,
   onStartFromScratch,
@@ -306,7 +231,9 @@ export default function Scene({
     initialXIn: number;
     initialYIn: number;
   } | null>(null);
-  const [draftWallStartFt, setDraftWallStartFt] = useState<{ x: number; z: number } | null>(null);
+  // Value is never read — only the ref below is. Kept as a setter-only binding because the
+  // setter drives re-renders that the 3D draft overlay depends on.
+  const [, setDraftWallStartFt] = useState<{ x: number; z: number } | null>(null);
   const draftWallStartFtRef = useRef<{ x: number; z: number } | null>(null);
   const draftGhost3DWallRef = useRef<THREE.Mesh | null>(null);
   const [drafting3DDescription, setDrafting3DDescription] = useState<string | null>(null);
@@ -419,6 +346,7 @@ export default function Scene({
   const selectedObjectIdRef = useRef(selectedObjectId);
   const materialConfigRef = useRef(materialConfig);
   const windowConfigRef = useRef(windowConfig);
+  const onChangeCustomOpeningsRef = useRef(onChangeCustomOpenings);
   const isLayoutLockedRef = useRef(isLayoutLocked);
   const onToggleLayoutLockRef = useRef(onToggleLayoutLock);
 
@@ -464,6 +392,7 @@ export default function Scene({
     activeWallTypeRef.current = activeWallType;
     onChangeCustomWallsRef.current = onChangeCustomWalls;
     onChangeCustomRoomZonesRef.current = onChangeCustomRoomZones;
+    onChangeCustomOpeningsRef.current = onChangeCustomOpenings;
 
     if (widthHandleRef.current) widthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
     if (depthHandleRef.current) depthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
@@ -983,13 +912,15 @@ export default function Scene({
         }
       }
 
-      // 0b. CAD Tool 2 & 3: Place 3D Door or Window directly onto 3D Walls
+      // 0b. CAD Tool 2 & 3: Place 3D Door or Window directly onto 3D Walls (Custom Walls + Solved Room Walls)
       if ((activeCadToolRef.current === "place_door" || activeCadToolRef.current === "place_window") && ev.button === 0) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-          let closestHit: { wall: CustomDrawnWall; offsetIn: number } | null = null;
+          let closestCustomHit: { wall: CustomDrawnWall; offsetIn: number } | null = null;
+          let closestRoomHit: { roomIndex: number; edge: "N" | "S" | "E" | "W"; offsetIn: number } | null = null;
           let closestDist = 3.0; // feet
 
-          for (const w of customWallsRef.current) {
+          // 1. Check Custom Drawn Walls (Build from Scratch)
+          for (const w of (customWallsRef.current || [])) {
             const x1 = inchesToFeet(w.startXIn);
             const z1 = inchesToFeet(w.startYIn);
             const x2 = inchesToFeet(w.endXIn);
@@ -1006,32 +937,127 @@ export default function Scene({
 
             if (dist < closestDist) {
               closestDist = dist;
-              closestHit = {
+              closestCustomHit = {
                 wall: w,
                 offsetIn: Math.round(t * len * 12),
               };
+              closestRoomHit = null;
             }
           }
 
-          if (closestHit) {
+          // 2. Check Solved Room Perimeter Walls (3D House Model)
+          for (let rIdx = 0; rIdx < roomsRef.current.length; rIdx++) {
+            const r = roomsRef.current[rIdx];
+            if ((r.floor ?? 0) !== (activeFloorRef.current || 0)) continue;
+
+            const wallEdges: Array<{ edge: "N" | "S" | "E" | "W"; x1: number; z1: number; x2: number; z2: number; lenIn: number }> = [
+              { edge: "N", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in), lenIn: r.w_in },
+              { edge: "S", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in + r.d_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.w_in },
+              { edge: "W", x1: inchesToFeet(r.x_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.d_in },
+              { edge: "E", x1: inchesToFeet(r.x_in + r.w_in), z1: inchesToFeet(r.y_in), x2: inchesToFeet(r.x_in + r.w_in), z2: inchesToFeet(r.y_in + r.d_in), lenIn: r.d_in },
+            ];
+
+            for (const we of wallEdges) {
+              const dx = we.x2 - we.x1;
+              const dz = we.z2 - we.z1;
+              const lenFt = Math.hypot(dx, dz);
+              if (lenFt < 0.5) continue;
+
+              const t = Math.max(0, Math.min(1, ((hitPoint.x - we.x1) * dx + (hitPoint.z - we.z1) * dz) / (lenFt * lenFt)));
+              const projX = we.x1 + t * dx;
+              const projZ = we.z1 + t * dz;
+              const dist = Math.hypot(hitPoint.x - projX, hitPoint.z - projZ);
+
+              if (dist < closestDist) {
+                closestDist = dist;
+                closestRoomHit = {
+                  roomIndex: rIdx,
+                  edge: we.edge,
+                  offsetIn: Math.round(t * we.lenIn),
+                };
+                closestCustomHit = null;
+              }
+            }
+          }
+
+          const isWindow = activeCadToolRef.current === "place_window";
+          const widthIn = isWindow ? 48 : 36;
+          const heightIn = isWindow ? 48 : 84;
+          const sillIn = isWindow ? 36 : 0;
+          const kind: "door" | "window" = isWindow ? "window" : "door";
+
+          if (closestCustomHit) {
             ev.stopPropagation();
             ev.stopImmediatePropagation();
-            const isWindow = activeCadToolRef.current === "place_window";
-            const widthIn = isWindow ? 48 : 36;
             const newOpening: CustomWallOpening = {
               id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              kind: isWindow ? "window" : "door",
-              offsetIn: Math.max(0, closestHit.offsetIn - widthIn / 2),
+              kind,
+              offsetIn: Math.max(0, closestCustomHit.offsetIn - widthIn / 2),
               widthIn,
-              heightIn: isWindow ? 48 : 84,
-              sillIn: isWindow ? 34 : 0,
+              heightIn,
+              sillIn,
             };
-            const updated = customWallsRef.current.map((cw) =>
-              cw.id === closestHit.wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+            const updated = (customWallsRef.current || []).map((cw) =>
+              cw.id === closestCustomHit!.wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
             );
+            customWallsRef.current = updated;
             onChangeCustomWallsRef.current?.(updated);
             setDrafting3DDescription(`✨ Inserted 3D ${isWindow ? "Window" : "Door"} onto Wall!`);
             return;
+          }
+
+          if (closestRoomHit) {
+            ev.stopPropagation();
+            ev.stopImmediatePropagation();
+            const rIdx = closestRoomHit.roomIndex;
+            const room = roomsRef.current[rIdx];
+            if (room) {
+              const roomId = `${room.name}_${rIdx}`;
+              const currentOps = customOpeningsRef.current[roomId] !== undefined ? customOpeningsRef.current[roomId] : (room.openings || []);
+              const wallLengthIn = closestRoomHit.edge === "N" || closestRoomHit.edge === "S" ? room.w_in : room.d_in;
+              const offsetIn = Math.max(0, Math.min(wallLengthIn - widthIn, closestRoomHit.offsetIn - widthIn / 2));
+
+              const newOp: RoomOpening = {
+                kind,
+                edge: closestRoomHit.edge,
+                offset_in: offsetIn,
+                width_in: widthIn,
+                height_in: heightIn,
+                sill_in: sillIn,
+              };
+
+              const nextOps = [
+                ...currentOps.filter((o) => !(o.edge === closestRoomHit!.edge && Math.abs(o.offset_in - offsetIn) < 12)),
+                newOp,
+              ];
+
+              const nextCustomOpenings: Record<string, RoomOpening[]> = {
+                ...(customOpeningsRef.current || {}),
+                [roomId]: nextOps,
+              };
+
+              const adj = findAdjacentRoomEdge(roomsRef.current, rIdx, closestRoomHit.edge);
+              if (adj && kind === "door") {
+                const adjId = `${roomsRef.current[adj.adjIndex]?.name}_${adj.adjIndex}`;
+                const adjRoom = roomsRef.current[adj.adjIndex];
+                if (adjRoom) {
+                  const adjOps = customOpeningsRef.current[adjId] !== undefined ? customOpeningsRef.current[adjId] : (adjRoom.openings || []);
+                  const adjNextOps = [
+                    ...adjOps.filter((o) => !(o.edge === adj.adjEdge && Math.abs(o.offset_in - offsetIn) < 12)),
+                    {
+                      ...newOp,
+                      edge: adj.adjEdge,
+                    },
+                  ];
+                  nextCustomOpenings[adjId] = adjNextOps;
+                }
+              }
+
+              customOpeningsRef.current = nextCustomOpenings;
+              onChangeCustomOpeningsRef.current?.(nextCustomOpenings);
+              setDrafting3DDescription(`✨ Installed 3D ${isWindow ? "Window" : "Door"} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+              return;
+            }
           }
         }
       }
@@ -2277,11 +2303,6 @@ export default function Scene({
     }
 
     // 3. Materials
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.82,
-      metalness: 0.02,
-    });
     const baseboardMaterial = new THREE.MeshStandardMaterial({
       color: 0x1e1b18,
       roughness: 0.5,
@@ -2303,29 +2324,6 @@ export default function Scene({
     // 4. Find Circulation Hub (Hall or fallback room 0)
     const hallIdx = rooms.findIndex((r) => r.name === "hall");
     const hubIndex = hallIdx >= 0 ? hallIdx : 0;
-
-    interface Doorway {
-      roomAIndex: number;
-      roomBIndex: number;
-      edgeA: "N" | "S" | "E" | "W";
-      edgeB: "N" | "S" | "E" | "W";
-      center: number;
-    }
-
-    const oppositeEdge: Record<"N" | "S" | "E" | "W", "N" | "S" | "E" | "W"> = {
-      N: "S",
-      S: "N",
-      E: "W",
-      W: "E",
-    };
-
-    const openingCentreFt = (
-      r: SolvedRoom,
-      o: { edge: "N" | "S" | "E" | "W"; offset_in: number; width_in: number }
-    ): number => {
-      const originIn = o.edge === "N" || o.edge === "S" ? r.x_in : r.y_in;
-      return inchesToFeet(originIn + o.offset_in + o.width_in / 2);
-    };
 
     const assignedDoorways: Doorway[] = [];
     let entranceRoomIndex = -1;
@@ -2464,388 +2462,487 @@ export default function Scene({
         wd: number,
         isEW: boolean
       ) => {
-        // Detect if this wall edge is shared with an adjacent touching room
-        const adj = findAdjacentRoomEdge(rooms, i, edge);
-        // If this edge is shared with another room that already built the partition wall (adjIndex < i), skip to avoid duplicate overlapping walls!
-        if (adj && adj.adjIndex < i) {
-          return;
+        interface TouchingSegment {
+          start: number;
+          end: number;
+          adjIndex: number;
+          adjEdge: "N" | "S" | "E" | "W";
+        }
+        const touchingSegments: TouchingSegment[] = [];
+
+        for (let j = 0; j < rooms.length; j++) {
+          if (j === i) continue;
+          const rj = rooms[j];
+          const rjx = inchesToFeet(rj.x_in);
+          const rjz = inchesToFeet(rj.y_in);
+          const rjw = inchesToFeet(rj.w_in);
+          const rjd = inchesToFeet(rj.d_in);
+
+          if (edge === "N") {
+            if (Math.abs((rjz + rjd) - rz) <= 0.35) {
+              const ovStart = Math.max(rx, rjx);
+              const ovEnd = Math.min(rx + rw, rjx + rjw);
+              if (ovEnd - ovStart > 0.4) {
+                touchingSegments.push({ start: ovStart, end: ovEnd, adjIndex: j, adjEdge: "S" });
+              }
+            }
+          } else if (edge === "S") {
+            if (Math.abs(rjz - (rz + rd)) <= 0.35) {
+              const ovStart = Math.max(rx, rjx);
+              const ovEnd = Math.min(rx + rw, rjx + rjw);
+              if (ovEnd - ovStart > 0.4) {
+                touchingSegments.push({ start: ovStart, end: ovEnd, adjIndex: j, adjEdge: "N" });
+              }
+            }
+          } else if (edge === "W") {
+            if (Math.abs((rjx + rjw) - rx) <= 0.35) {
+              const ovStart = Math.max(rz, rjz);
+              const ovEnd = Math.min(rz + rd, rjz + rjd);
+              if (ovEnd - ovStart > 0.4) {
+                touchingSegments.push({ start: ovStart, end: ovEnd, adjIndex: j, adjEdge: "E" });
+              }
+            }
+          } else if (edge === "E") {
+            if (Math.abs(rjx - (rx + rw)) <= 0.35) {
+              const ovStart = Math.max(rz, rjz);
+              const ovEnd = Math.min(rz + rd, rjz + rjd);
+              if (ovEnd - ovStart > 0.4) {
+                touchingSegments.push({ start: ovStart, end: ovEnd, adjIndex: j, adjEdge: "W" });
+              }
+            }
+          }
         }
 
-        const isShared = Boolean(adj);
-        const adjRoom = adj ? rooms[adj.adjIndex] : null;
-        const adjLabel = adjRoom ? (ROOM_LABELS[adjRoom.name as RoomName] || adjRoom.name) : "";
+        touchingSegments.sort((a, b) => a.start - b.start);
 
-        const isMainEntrance = i === entranceRoomIndex && edge === chosenEntranceEdge;
+        interface WallSegment {
+          start: number;
+          end: number;
+          adj: { adjIndex: number; adjEdge: "N" | "S" | "E" | "W" } | null;
+        }
+        const wallSegments: WallSegment[] = [];
 
-        const assignedDoor = assignedDoorways.find(
-          (d) => (d.roomAIndex === i && d.edgeA === edge) || (d.roomBIndex === i && d.edgeB === edge)
-        );
+        let curPos = isEW ? rx : rz;
+        const totalEnd = isEW ? rx + rw : rz + rd;
 
-        const openingSpec = (room.openings ?? []).find((o) => o.kind === "opening" && o.edge === edge);
-        const adjOpeningSpec = adj && adjRoom ? (adjRoom.openings ?? []).find((o) => o.kind === "opening" && o.edge === adj.adjEdge) : null;
-        const hasFullOpening = Boolean(openingSpec || adjOpeningSpec);
+        for (const seg of touchingSegments) {
+          const s = Math.max(curPos, seg.start);
+          const e = Math.min(totalEnd, seg.end);
+          if (s > curPos + 0.1) {
+            wallSegments.push({ start: curPos, end: s, adj: null });
+          }
+          if (e > s + 0.1) {
+            wallSegments.push({ start: s, end: e, adj: { adjIndex: seg.adjIndex, adjEdge: seg.adjEdge } });
+            curPos = e;
+          }
+        }
+        if (curPos < totalEnd - 0.1) {
+          wallSegments.push({ start: curPos, end: totalEnd, adj: null });
+        }
+        if (wallSegments.length === 0) {
+          wallSegments.push({ start: isEW ? rx : rz, end: totalEnd, adj: null });
+        }
 
-        const hasDoor = !hasFullOpening && (isMainEntrance || Boolean(assignedDoor));
-        const windowSpec = !isShared && !hasDoor && !hasFullOpening ? windowOn(i, edge) : undefined;
-        const hasWindow = Boolean(windowSpec);
+        for (let sIdx = 0; sIdx < wallSegments.length; sIdx++) {
+          const seg = wallSegments[sIdx];
+          const segLen = seg.end - seg.start;
+          if (segLen < 0.2) continue;
 
-        const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
-
-        const wallTitle = isShared
-          ? `${roomLabel} / ${adjLabel} Partition Wall${hasFullOpening ? " [Open-Concept]" : ""}`
-          : `${roomLabel} (${edge} Wall)${hasFullOpening ? " [Open-Concept]" : ""}`;
-
-        const wallUserData = {
-          isWall: true,
-          isRemoved: hasFullOpening,
-          id: `wall_${i}_${edge}`,
-          roomIndex: i,
-          adjRoomIndex: adj?.adjIndex,
-          edge,
-          adjEdge: adj?.adjEdge,
-          name: wallTitle,
-        };
-
-        if (hasFullOpening) {
-          // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
-          const beamH = 0.75;
-          const beam = new THREE.Mesh(new THREE.BoxGeometry(ww, beamH, wd), wallMaterial);
-          beam.position.set(wx, WALL_HEIGHT_FT - beamH / 2, wz);
-          beam.castShadow = true;
-          beam.userData = { ...wallUserData };
-          roomGroup.add(beam);
-        } else if (hasDoor) {
-          const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : DOOR_WIDTH_FT;
-          const doorH = DOOR_HEIGHT_FT;
-          const lintelH = WALL_HEIGHT_FT - doorH;
-
-          let doorPos = isEW ? wx : wz;
-          if (assignedDoor && assignedDoor.center > 0) {
-            doorPos = assignedDoor.center;
+          const isShared = Boolean(seg.adj);
+          // If this segment is shared with another room that already built this partition segment (adjIndex < i), skip this segment!
+          if (isShared && seg.adj && seg.adj.adjIndex < i) {
+            continue;
           }
 
-          if (isEW) {
-            doorPos = Math.max(rx + doorW / 2 + 0.2, Math.min(rx + rw - doorW / 2 - 0.2, doorPos));
-          } else {
-            doorPos = Math.max(rz + doorW / 2 + 0.2, Math.min(rz + rd - doorW / 2 - 0.2, doorPos));
-          }
+          const adjRoom = seg.adj ? rooms[seg.adj.adjIndex] : null;
+          const adjLabel = adjRoom ? (ROOM_LABELS[adjRoom.name as RoomName] || adjRoom.name) : "";
 
-          if (isEW) {
-            const leftW = Math.max(0.1, doorPos - (wx - ww / 2) - doorW / 2);
-            const rightW = Math.max(0.1, (wx + ww / 2) - (doorPos + doorW / 2));
+          const segCenter = (seg.start + seg.end) / 2;
+          const seg_wx = isEW ? segCenter : wx;
+          const seg_wz = isEW ? wz : segCenter;
+          const seg_ww = isEW ? segLen : ww;
+          const seg_wd = isEW ? wd : segLen;
 
-            if (leftW > 0.1) {
-              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, WALL_HEIGHT_FT, wd), wallMaterial);
-              leftWall.position.set(wx - ww / 2 + leftW / 2, WALL_HEIGHT_FT / 2, wz);
+          const isMainEntrance = !isShared && i === entranceRoomIndex && edge === chosenEntranceEdge;
+
+          const assignedDoor = assignedDoorways.find(
+            (d) =>
+              ((d.roomAIndex === i && d.edgeA === edge && (seg.adj ? d.roomBIndex === seg.adj.adjIndex : true)) ||
+                (d.roomBIndex === i && d.edgeB === edge && (seg.adj ? d.roomAIndex === seg.adj.adjIndex : true))) &&
+              (isShared ? d.center >= seg.start - 0.5 && d.center <= seg.end + 0.5 : true)
+          );
+
+          const openingSpec = (room.openings ?? []).find((o) => o.kind === "opening" && o.edge === edge);
+          const adjOpeningSpec =
+            seg.adj && adjRoom
+              ? (adjRoom.openings ?? []).find((o) => o.kind === "opening" && o.edge === seg.adj?.adjEdge)
+              : null;
+          const hasFullOpening = Boolean(openingSpec || adjOpeningSpec);
+
+          const hasDoor = !hasFullOpening && (isMainEntrance || Boolean(assignedDoor));
+          const windowSpec = !isShared && !hasDoor && !hasFullOpening ? windowOn(i, edge) : undefined;
+          const hasWindow = Boolean(windowSpec);
+
+          const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
+
+          const wallTitle = isShared
+            ? `${roomLabel} / ${adjLabel} Partition Wall${hasFullOpening ? " [Open-Concept]" : ""}`
+            : `${roomLabel} (${edge} Wall)${hasFullOpening ? " [Open-Concept]" : ""}`;
+
+          const wallUserData = {
+            isWall: true,
+            isRemoved: hasFullOpening,
+            id: `wall_${i}_${edge}_${sIdx}`,
+            roomIndex: i,
+            adjRoomIndex: seg.adj?.adjIndex,
+            edge,
+            adjEdge: seg.adj?.adjEdge,
+            name: wallTitle,
+          };
+
+          if (hasFullOpening) {
+            // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
+            const beamH = 0.75;
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
+            beam.position.set(seg_wx, WALL_HEIGHT_FT - beamH / 2, seg_wz);
+            beam.castShadow = true;
+            beam.userData = { ...wallUserData };
+            roomGroup.add(beam);
+          } else if (hasDoor) {
+            const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : Math.min(DOOR_WIDTH_FT, segLen - 0.2);
+            const doorH = DOOR_HEIGHT_FT;
+            const lintelH = WALL_HEIGHT_FT - doorH;
+
+            let doorPos = isEW ? seg_wx : seg_wz;
+            if (assignedDoor && assignedDoor.center >= seg.start + doorW / 2 && assignedDoor.center <= seg.end - doorW / 2) {
+              doorPos = assignedDoor.center;
+            } else {
+              doorPos = isEW ? seg_wx : seg_wz;
+            }
+
+            if (isEW) {
+              doorPos = Math.max(seg.start + doorW / 2 + 0.1, Math.min(seg.end - doorW / 2 - 0.1, doorPos));
+            } else {
+              doorPos = Math.max(seg.start + doorW / 2 + 0.1, Math.min(seg.end - doorW / 2 - 0.1, doorPos));
+            }
+
+            if (isEW) {
+              const leftW = Math.max(0.05, doorPos - (seg_wx - seg_ww / 2) - doorW / 2);
+              const rightW = Math.max(0.05, (seg_wx + seg_ww / 2) - (doorPos + doorW / 2));
+
+              if (leftW > 0.08) {
+                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
+                leftWall.position.set(seg_wx - seg_ww / 2 + leftW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+                leftWall.castShadow = true;
+                leftWall.receiveShadow = true;
+                leftWall.userData = { ...wallUserData };
+                roomGroup.add(leftWall);
+
+                const leftBase = new THREE.Mesh(new THREE.BoxGeometry(leftW, BASEBOARD_H_FT, seg_wd + 0.04), baseboardMaterial);
+                leftBase.position.set(seg_wx - seg_ww / 2 + leftW / 2, BASEBOARD_H_FT / 2, seg_wz);
+                roomGroup.add(leftBase);
+              }
+
+              if (rightW > 0.08) {
+                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
+                rightWall.position.set(seg_wx + seg_ww / 2 - rightW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+                rightWall.castShadow = true;
+                rightWall.receiveShadow = true;
+                rightWall.userData = { ...wallUserData };
+                roomGroup.add(rightWall);
+
+                const rightBase = new THREE.Mesh(new THREE.BoxGeometry(rightW, BASEBOARD_H_FT, seg_wd + 0.04), baseboardMaterial);
+                rightBase.position.set(seg_wx + seg_ww / 2 - rightW / 2, BASEBOARD_H_FT / 2, seg_wz);
+                roomGroup.add(rightBase);
+              }
+
+              const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, seg_wd), wallMaterial);
+              lintel.position.set(doorPos, doorH + lintelH / 2, seg_wz);
+              lintel.castShadow = true;
+              lintel.userData = { ...wallUserData };
+              roomGroup.add(lintel);
+
+              const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
+              const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, seg_wd + 0.08), fMat);
+              frameL.position.set(doorPos - doorW / 2 + 0.11, doorH / 2, seg_wz);
+              roomGroup.add(frameL);
+
+              const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, seg_wd + 0.08), fMat);
+              frameR.position.set(doorPos + doorW / 2 - 0.11, doorH / 2, seg_wz);
+              roomGroup.add(frameR);
+
+              const frameTop = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.22, seg_wd + 0.08), fMat);
+              frameTop.position.set(doorPos, doorH - 0.11, seg_wz);
+              roomGroup.add(frameTop);
+
+              if (isMainEntrance) {
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
+                handle.position.set(doorPos + doorW / 2 - 0.4, doorH * 0.48, seg_wz + 0.15);
+                roomGroup.add(handle);
+
+                // Exterior Front Door Canopy / Sunshade
+                if (!isShared) {
+                  const canopyW = doorW + 1.2;
+                  const canopyT = 0.28;
+                  const canopyOut = 1.8;
+                  const canopyY = doorH + canopyT / 2 + 0.12;
+
+                  const canopyGeom = new THREE.BoxGeometry(canopyW, canopyT, canopyOut);
+                  const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
+                  canopyMesh.castShadow = true;
+                  canopyMesh.receiveShadow = true;
+
+                  if (edge === "N") canopyMesh.position.set(doorPos, canopyY, seg_wz - canopyOut / 2 + seg_wd / 2);
+                  else if (edge === "S") canopyMesh.position.set(doorPos, canopyY, seg_wz + canopyOut / 2 - seg_wd / 2);
+                  roomGroup.add(canopyMesh);
+                }
+              }
+            } else {
+              const topD = Math.max(0.05, doorPos - (seg_wz - seg_wd / 2) - doorW / 2);
+              const bottomD = Math.max(0.05, (seg_wz + seg_wd / 2) - (doorPos + doorW / 2));
+
+              if (topD > 0.08) {
+                const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, topD), wallMaterial);
+                topWall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz - seg_wd / 2 + topD / 2);
+                topWall.castShadow = true;
+                topWall.receiveShadow = true;
+                topWall.userData = { ...wallUserData };
+                roomGroup.add(topWall);
+
+                const topBase = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.04, BASEBOARD_H_FT, topD), baseboardMaterial);
+                topBase.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz - seg_wd / 2 + topD / 2);
+                roomGroup.add(topBase);
+              }
+
+              if (bottomD > 0.08) {
+                const botWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, bottomD), wallMaterial);
+                botWall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz + seg_wd / 2 - bottomD / 2);
+                botWall.castShadow = true;
+                botWall.receiveShadow = true;
+                botWall.userData = { ...wallUserData };
+                roomGroup.add(botWall);
+
+                const botBase = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.04, BASEBOARD_H_FT, bottomD), baseboardMaterial);
+                botBase.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz + seg_wd / 2 - bottomD / 2);
+                roomGroup.add(botBase);
+              }
+
+              const lintel = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, lintelH, doorW), wallMaterial);
+              lintel.position.set(seg_wx, doorH + lintelH / 2, doorPos);
+              lintel.castShadow = true;
+              lintel.userData = { ...wallUserData };
+              roomGroup.add(lintel);
+
+              const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
+              const frameN = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.08, doorH, 0.22), fMat);
+              frameN.position.set(seg_wx, doorH / 2, doorPos - doorW / 2 + 0.11);
+              roomGroup.add(frameN);
+
+              const frameS = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.08, doorH, 0.22), fMat);
+              frameS.position.set(seg_wx, doorH / 2, doorPos + doorW / 2 - 0.11);
+              roomGroup.add(frameS);
+
+              const frameTop = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.08, 0.22, doorW), fMat);
+              frameTop.position.set(seg_wx, doorH - 0.11, doorPos);
+              roomGroup.add(frameTop);
+
+              if (isMainEntrance) {
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
+                handle.position.set(seg_wx + 0.15, doorH * 0.48, doorPos + doorW / 2 - 0.4);
+                roomGroup.add(handle);
+
+                // Exterior Front Door Canopy / Sunshade
+                if (!isShared) {
+                  const canopyW = doorW + 1.2;
+                  const canopyT = 0.28;
+                  const canopyOut = 1.8;
+                  const canopyY = doorH + canopyT / 2 + 0.12;
+
+                  const canopyGeom = new THREE.BoxGeometry(canopyOut, canopyT, canopyW);
+                  const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
+                  canopyMesh.castShadow = true;
+                  canopyMesh.receiveShadow = true;
+
+                  if (edge === "W") canopyMesh.position.set(seg_wx - canopyOut / 2 + seg_ww / 2, canopyY, doorPos);
+                  else if (edge === "E") canopyMesh.position.set(seg_wx + canopyOut / 2 - seg_ww / 2, canopyY, doorPos);
+                  roomGroup.add(canopyMesh);
+                }
+              }
+            }
+          } else if (hasWindow && segLen >= 2.0) {
+            const winId = `win_${i}_${edge}`;
+            const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
+
+            const maxAllowedW = Math.max(1.5, (isEW ? seg_ww : seg_wd) - 0.6);
+            const winW = Math.min(
+              winProps.widthFt ?? (windowSpec ? inchesToFeet(windowSpec.width_in) : WINDOW_W_FT),
+              maxAllowedW
+            );
+            const winH = winProps.heightFt ?? (windowSpec?.height_in ? inchesToFeet(windowSpec.height_in) : WINDOW_H_FT);
+            const sillH = winProps.sillHeightFt ?? (windowSpec?.sill_in != null ? inchesToFeet(windowSpec.sill_in) : WINDOW_SILL_Y_FT);
+            const topH = Math.max(0.1, WALL_HEIGHT_FT - (sillH + winH));
+
+            if (isEW) {
+              const sideW = Math.max(0.2, (seg_ww - winW) / 2);
+
+              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
+              leftWall.position.set(seg_wx - seg_ww / 2 + sideW / 2, WALL_HEIGHT_FT / 2, seg_wz);
               leftWall.castShadow = true;
               leftWall.receiveShadow = true;
               leftWall.userData = { ...wallUserData };
               roomGroup.add(leftWall);
 
-              const leftBase = new THREE.Mesh(new THREE.BoxGeometry(leftW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
-              leftBase.position.set(wx - ww / 2 + leftW / 2, BASEBOARD_H_FT / 2, wz);
-              roomGroup.add(leftBase);
-            }
-
-            if (rightW > 0.1) {
-              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, WALL_HEIGHT_FT, wd), wallMaterial);
-              rightWall.position.set(wx + ww / 2 - rightW / 2, WALL_HEIGHT_FT / 2, wz);
+              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
+              rightWall.position.set(seg_wx + seg_ww / 2 - sideW / 2, WALL_HEIGHT_FT / 2, seg_wz);
               rightWall.castShadow = true;
               rightWall.receiveShadow = true;
               rightWall.userData = { ...wallUserData };
               roomGroup.add(rightWall);
 
-              const rightBase = new THREE.Mesh(new THREE.BoxGeometry(rightW, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
-              rightBase.position.set(wx + ww / 2 - rightW / 2, BASEBOARD_H_FT / 2, wz);
-              roomGroup.add(rightBase);
-            }
+              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, seg_wd), wallMaterial);
+              sillWall.position.set(seg_wx, sillH / 2, seg_wz);
+              sillWall.castShadow = true;
+              sillWall.receiveShadow = true;
+              sillWall.userData = { ...wallUserData };
+              roomGroup.add(sillWall);
 
-            const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, wd), wallMaterial);
-            lintel.position.set(doorPos, doorH + lintelH / 2, wz);
-            lintel.castShadow = true;
-            lintel.userData = { ...wallUserData };
-            roomGroup.add(lintel);
+              const baseboard = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, BASEBOARD_H_FT, seg_wd + 0.04), baseboardMaterial);
+              baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
+              roomGroup.add(baseboard);
 
-            const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
-            const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, wd + 0.08), fMat);
-            frameL.position.set(doorPos - doorW / 2 + 0.11, doorH / 2, wz);
-            roomGroup.add(frameL);
-
-            const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.22, doorH, wd + 0.08), fMat);
-            frameR.position.set(doorPos + doorW / 2 - 0.11, doorH / 2, wz);
-            roomGroup.add(frameR);
-
-            const frameTop = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.22, wd + 0.08), fMat);
-            frameTop.position.set(doorPos, doorH - 0.11, wz);
-            roomGroup.add(frameTop);
-
-            if (isMainEntrance) {
-              const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
-              handle.position.set(doorPos + doorW / 2 - 0.4, doorH * 0.48, wz + 0.15);
-              roomGroup.add(handle);
-
-              // Exterior Front Door Canopy / Sunshade (Cleanly aligned above door)
-              if (!isShared) {
-                const canopyW = doorW + 1.2;
-                const canopyT = 0.28;
-                const canopyOut = 1.8;
-                const canopyY = doorH + canopyT / 2 + 0.12;
-
-                const canopyGeom = new THREE.BoxGeometry(canopyW, canopyT, canopyOut);
-                const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
-                canopyMesh.castShadow = true;
-                canopyMesh.receiveShadow = true;
-
-                if (edge === "N") canopyMesh.position.set(doorPos, canopyY, wz - canopyOut / 2 + wd / 2);
-                else if (edge === "S") canopyMesh.position.set(doorPos, canopyY, wz + canopyOut / 2 - wd / 2);
-                roomGroup.add(canopyMesh);
-              }
-            }
-          } else {
-            const topD = Math.max(0.1, doorPos - (wz - wd / 2) - doorW / 2);
-            const bottomD = Math.max(0.1, (wz + wd / 2) - (doorPos + doorW / 2));
-
-            if (topD > 0.1) {
-              const topWall = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, topD), wallMaterial);
-              topWall.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + topD / 2);
+              const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, seg_wd), wallMaterial);
+              topWall.position.set(seg_wx, sillH + winH + topH / 2, seg_wz);
               topWall.castShadow = true;
-              topWall.receiveShadow = true;
               topWall.userData = { ...wallUserData };
               roomGroup.add(topWall);
 
-              const topBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, topD), baseboardMaterial);
-              topBase.position.set(wx, BASEBOARD_H_FT / 2, wz - wd / 2 + topD / 2);
-              roomGroup.add(topBase);
-            }
+              if (!winProps.isDeleted) {
+                buildWindowWithCurtains(
+                  roomGroup,
+                  seg_wx,
+                  sillH + winH / 2,
+                  seg_wz,
+                  winW,
+                  winH,
+                  seg_wd,
+                  true,
+                  winProps.hasCurtains,
+                  room.name === "bathroom",
+                  winProps.shape,
+                  winProps.frameFinish,
+                  winProps.glassTint,
+                  winId,
+                  room.name,
+                  i,
+                  edge
+                );
 
-            if (bottomD > 0.1) {
-              const botWall = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, bottomD), wallMaterial);
-              botWall.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - bottomD / 2);
-              botWall.castShadow = true;
-              botWall.receiveShadow = true;
-              botWall.userData = { ...wallUserData };
-              roomGroup.add(botWall);
+                // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
+                if (!isShared) {
+                  const chajjaW = winW + 0.8;
+                  const chajjaT = 0.24;
+                  const chajjaOut = 1.5;
+                  const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
 
-              const botBase = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, bottomD), baseboardMaterial);
-              botBase.position.set(wx, BASEBOARD_H_FT / 2, wz + wd / 2 - bottomD / 2);
-              roomGroup.add(botBase);
-            }
+                  const chajjaGeom = new THREE.BoxGeometry(chajjaW, chajjaT, chajjaOut);
+                  const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
+                  chajjaMesh.castShadow = true;
+                  chajjaMesh.receiveShadow = true;
 
-            const lintel = new THREE.Mesh(new THREE.BoxGeometry(ww, lintelH, doorW), wallMaterial);
-            lintel.position.set(wx, doorH + lintelH / 2, doorPos);
-            lintel.castShadow = true;
-            lintel.userData = { ...wallUserData };
-            roomGroup.add(lintel);
-
-            const fMat = isMainEntrance ? mainEntranceFrameMat : doorFrameMaterial;
-            const frameN = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, doorH, 0.22), fMat);
-            frameN.position.set(wx, doorH / 2, doorPos - doorW / 2 + 0.11);
-            roomGroup.add(frameN);
-
-            const frameS = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, doorH, 0.22), fMat);
-            frameS.position.set(wx, doorH / 2, doorPos + doorW / 2 - 0.11);
-            roomGroup.add(frameS);
-
-            const frameTop = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.08, 0.22, doorW), fMat);
-            frameTop.position.set(wx, doorH - 0.11, doorPos);
-            roomGroup.add(frameTop);
-
-            if (isMainEntrance) {
-              const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
-              handle.position.set(wx + 0.15, doorH * 0.48, doorPos + doorW / 2 - 0.4);
-              roomGroup.add(handle);
-
-              // Exterior Front Door Canopy / Sunshade (Cleanly aligned above door)
-              if (!isShared) {
-                const canopyW = doorW + 1.2;
-                const canopyT = 0.28;
-                const canopyOut = 1.8;
-                const canopyY = doorH + canopyT / 2 + 0.12;
-
-                const canopyGeom = new THREE.BoxGeometry(canopyOut, canopyT, canopyW);
-                const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
-                canopyMesh.castShadow = true;
-                canopyMesh.receiveShadow = true;
-
-                if (edge === "W") canopyMesh.position.set(wx - canopyOut / 2 + ww / 2, canopyY, doorPos);
-                else if (edge === "E") canopyMesh.position.set(wx + canopyOut / 2 - ww / 2, canopyY, doorPos);
-                roomGroup.add(canopyMesh);
+                  if (edge === "N") chajjaMesh.position.set(seg_wx, chajjaY, seg_wz - chajjaOut / 2 + seg_wd / 2);
+                  else if (edge === "S") chajjaMesh.position.set(seg_wx, chajjaY, seg_wz + chajjaOut / 2 - seg_wd / 2);
+                  roomGroup.add(chajjaMesh);
+                }
               }
-            }
-          }
-        } else if (hasWindow) {
-          const winId = `win_${i}_${edge}`;
-          const winProps = getIndividualWindowProps(winId, room.name as RoomName, windowConfigRef.current);
+            } else {
+              const sideD = Math.max(0.2, (seg_wd - winW) / 2);
 
-          const maxAllowedW = Math.max(1.8, (isEW ? ww : wd) - 0.8);
-          const winW = Math.min(
-            winProps.widthFt ?? (windowSpec ? inchesToFeet(windowSpec.width_in) : WINDOW_W_FT),
-            maxAllowedW
-          );
-          const winH = winProps.heightFt ?? (windowSpec?.height_in ? inchesToFeet(windowSpec.height_in) : WINDOW_H_FT);
-          const sillH = winProps.sillHeightFt ?? (windowSpec?.sill_in != null ? inchesToFeet(windowSpec.sill_in) : WINDOW_SILL_Y_FT);
-          const topH = Math.max(0.1, WALL_HEIGHT_FT - (sillH + winH));
+              const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, sideD), wallMaterial);
+              topWallSeg.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz - seg_wd / 2 + sideD / 2);
+              topWallSeg.castShadow = true;
+              topWallSeg.receiveShadow = true;
+              topWallSeg.userData = { ...wallUserData };
+              roomGroup.add(topWallSeg);
 
-          if (isEW) {
-            const sideW = Math.max(0.4, (ww - winW) / 2);
+              const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, sideD), wallMaterial);
+              botWallSeg.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz + seg_wd / 2 - sideD / 2);
+              botWallSeg.castShadow = true;
+              botWallSeg.receiveShadow = true;
+              botWallSeg.userData = { ...wallUserData };
+              roomGroup.add(botWallSeg);
 
-            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, wd), wallMaterial);
-            leftWall.position.set(wx - ww / 2 + sideW / 2, WALL_HEIGHT_FT / 2, wz);
-            leftWall.castShadow = true;
-            leftWall.receiveShadow = true;
-            leftWall.userData = { ...wallUserData };
-            roomGroup.add(leftWall);
+              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, sillH, winW), wallMaterial);
+              sillWall.position.set(seg_wx, sillH / 2, seg_wz);
+              sillWall.castShadow = true;
+              sillWall.receiveShadow = true;
+              sillWall.userData = { ...wallUserData };
+              roomGroup.add(sillWall);
 
-            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, wd), wallMaterial);
-            rightWall.position.set(wx + ww / 2 - sideW / 2, WALL_HEIGHT_FT / 2, wz);
-            rightWall.castShadow = true;
-            rightWall.receiveShadow = true;
-            rightWall.userData = { ...wallUserData };
-            roomGroup.add(rightWall);
+              const baseboard = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.04, BASEBOARD_H_FT, seg_wd), baseboardMaterial);
+              baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
+              roomGroup.add(baseboard);
 
-            const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, wd), wallMaterial);
-            sillWall.position.set(wx, sillH / 2, wz);
-            sillWall.castShadow = true;
-            sillWall.receiveShadow = true;
-            sillWall.userData = { ...wallUserData };
-            roomGroup.add(sillWall);
+              const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, topH, winW), wallMaterial);
+              topWall.position.set(seg_wx, sillH + winH + topH / 2, seg_wz);
+              topWall.castShadow = true;
+              topWall.userData = { ...wallUserData };
+              roomGroup.add(topWall);
 
-            const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww, BASEBOARD_H_FT, wd + 0.04), baseboardMaterial);
-            baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
-            roomGroup.add(baseboard);
+              if (!winProps.isDeleted) {
+                buildWindowWithCurtains(
+                  roomGroup,
+                  seg_wx,
+                  sillH + winH / 2,
+                  seg_wz,
+                  winW,
+                  winH,
+                  seg_ww,
+                  false,
+                  winProps.hasCurtains,
+                  room.name === "bathroom",
+                  winProps.shape,
+                  winProps.frameFinish,
+                  winProps.glassTint,
+                  winId,
+                  room.name,
+                  i,
+                  edge
+                );
 
-            const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, wd), wallMaterial);
-            topWall.position.set(wx, sillH + winH + topH / 2, wz);
-            topWall.castShadow = true;
-            topWall.userData = { ...wallUserData };
-            roomGroup.add(topWall);
+                // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
+                if (!isShared) {
+                  const chajjaW = winW + 0.8;
+                  const chajjaT = 0.24;
+                  const chajjaOut = 1.5;
+                  const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
 
-            if (!winProps.isDeleted) {
-              buildWindowWithCurtains(
-                roomGroup,
-                wx,
-                sillH + winH / 2,
-                wz,
-                winW,
-                winH,
-                wd,
-                true,
-                winProps.hasCurtains && (room.name === "bedroom" || room.name === "hall" || winProps.hasCurtains),
-                room.name === "bathroom",
-                winProps.shape,
-                winProps.frameFinish,
-                winProps.glassTint,
-                winId,
-                room.name,
-                i,
-                edge
-              );
+                  const chajjaGeom = new THREE.BoxGeometry(chajjaOut, chajjaT, chajjaW);
+                  const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
+                  chajjaMesh.castShadow = true;
+                  chajjaMesh.receiveShadow = true;
 
-              // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
-              if (!isShared) {
-                const chajjaW = winW + 0.8;
-                const chajjaT = 0.24;
-                const chajjaOut = 1.5;
-                const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
-
-                const chajjaGeom = new THREE.BoxGeometry(chajjaW, chajjaT, chajjaOut);
-                const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
-                chajjaMesh.castShadow = true;
-                chajjaMesh.receiveShadow = true;
-
-                if (edge === "N") chajjaMesh.position.set(wx, chajjaY, wz - chajjaOut / 2 + wd / 2);
-                else if (edge === "S") chajjaMesh.position.set(wx, chajjaY, wz + chajjaOut / 2 - wd / 2);
-                roomGroup.add(chajjaMesh);
+                  if (edge === "W") chajjaMesh.position.set(seg_wx - chajjaOut / 2 + seg_ww / 2, chajjaY, seg_wz);
+                  else if (edge === "E") chajjaMesh.position.set(seg_wx + chajjaOut / 2 - seg_ww / 2, chajjaY, seg_wz);
+                  roomGroup.add(chajjaMesh);
+                }
               }
             }
           } else {
-            const sideD = Math.max(0.4, (wd - winW) / 2);
+            // Solid Wall
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, seg_wd), wallMaterial);
+            wall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            wall.userData = { ...wallUserData };
+            roomGroup.add(wall);
 
-            const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, sideD), wallMaterial);
-            topWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz - wd / 2 + sideD / 2);
-            topWallSeg.castShadow = true;
-            topWallSeg.receiveShadow = true;
-            topWallSeg.userData = { ...wallUserData };
-            roomGroup.add(topWallSeg);
-
-            const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, sideD), wallMaterial);
-            botWallSeg.position.set(wx, WALL_HEIGHT_FT / 2, wz + wd / 2 - sideD / 2);
-            botWallSeg.castShadow = true;
-            botWallSeg.receiveShadow = true;
-            botWallSeg.userData = { ...wallUserData };
-            roomGroup.add(botWallSeg);
-
-            const sillWall = new THREE.Mesh(new THREE.BoxGeometry(ww, sillH, winW), wallMaterial);
-            sillWall.position.set(wx, sillH / 2, wz);
-            sillWall.castShadow = true;
-            sillWall.receiveShadow = true;
-            sillWall.userData = { ...wallUserData };
-            roomGroup.add(sillWall);
-
-            const baseboard = new THREE.Mesh(new THREE.BoxGeometry(ww + 0.04, BASEBOARD_H_FT, wd), baseboardMaterial);
-            baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
+            const baseboard = new THREE.Mesh(
+              new THREE.BoxGeometry(isEW ? seg_ww : seg_ww + 0.04, BASEBOARD_H_FT, isEW ? seg_wd + 0.04 : seg_wd),
+              baseboardMaterial
+            );
+            baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
             roomGroup.add(baseboard);
-
-            const topWall = new THREE.Mesh(new THREE.BoxGeometry(ww, topH, winW), wallMaterial);
-            topWall.position.set(wx, sillH + winH + topH / 2, wz);
-            topWall.castShadow = true;
-            topWall.userData = { ...wallUserData };
-            roomGroup.add(topWall);
-
-            if (!winProps.isDeleted) {
-              buildWindowWithCurtains(
-                roomGroup,
-                wx,
-                sillH + winH / 2,
-                wz,
-                winW,
-                winH,
-                ww,
-                false,
-                winProps.hasCurtains && (room.name === "bedroom" || room.name === "hall" || winProps.hasCurtains),
-                room.name === "bathroom",
-                winProps.shape,
-                winProps.frameFinish,
-                winProps.glassTint,
-                winId,
-                room.name,
-                i,
-                edge
-              );
-
-              // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
-              if (!isShared) {
-                const chajjaW = winW + 0.8;
-                const chajjaT = 0.24;
-                const chajjaOut = 1.5;
-                const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
-
-                const chajjaGeom = new THREE.BoxGeometry(chajjaOut, chajjaT, chajjaW);
-                const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
-                chajjaMesh.castShadow = true;
-                chajjaMesh.receiveShadow = true;
-
-                if (edge === "W") chajjaMesh.position.set(wx - chajjaOut / 2 + ww / 2, chajjaY, wz);
-                else if (edge === "E") chajjaMesh.position.set(wx + chajjaOut / 2 - ww / 2, chajjaY, wz);
-                roomGroup.add(chajjaMesh);
-              }
-            }
           }
-        } else {
-          // Solid Wall
-          const wall = new THREE.Mesh(new THREE.BoxGeometry(ww, WALL_HEIGHT_FT, wd), wallMaterial);
-          wall.position.set(wx, WALL_HEIGHT_FT / 2, wz);
-          wall.castShadow = true;
-          wall.receiveShadow = true;
-          wall.userData = { ...wallUserData };
-          roomGroup.add(wall);
-
-          const baseboard = new THREE.Mesh(
-            new THREE.BoxGeometry(isEW ? ww : ww + 0.04, BASEBOARD_H_FT, isEW ? wd + 0.04 : wd),
-            baseboardMaterial
-          );
-          baseboard.position.set(wx, BASEBOARD_H_FT / 2, wz);
-          roomGroup.add(baseboard);
         }
       };
 

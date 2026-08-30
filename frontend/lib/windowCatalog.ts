@@ -281,14 +281,7 @@ export const DEFAULT_WINDOW_CONFIG: WindowConfig = {
   globalShape: "modern_slider",
   globalFrameFinish: "black_aluminum",
   globalGlassTint: "clear",
-  roomWindowShapes: {
-    hall: "modern_slider",
-    bedroom: "modern_slider",
-    kitchen: "modern_slider",
-    pooja: "circle_porthole",
-    dining: "french_grid",
-    bathroom: "clerestory_slit",
-  },
+  roomWindowShapes: {},
   hasCurtains: true,
   hasWindowGrille: false,
 };

@@ -29,14 +29,14 @@ import MaterialCustomizerModal from "@/components/MaterialCustomizerModal";
 import WindowShapeModal from "@/components/WindowShapeModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
+import DoorsWindowsDrawer from "@/components/DoorsWindowsDrawer";
+import { OpeningItemDef } from "@/lib/openingsCatalog";
 import { SelectedObjectInfo } from "@/components/Scene";
 import { PlacedCustomObject, FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import {
   DEFAULT_MATERIAL_CONFIG,
-  FLOOR_MATERIALS,
   HouseMaterialConfig,
-  WALL_COLORS,
 } from "@/lib/materialsCatalog";
 import {
   DEFAULT_WINDOW_CONFIG,
@@ -54,7 +54,9 @@ import {
   CustomDrawnWall,
   CustomRoomZone,
   CustomWallType,
+  CadTool,
 } from "@/lib/customArchitecture";
+import { clearProject, loadProject, saveProject } from "@/lib/projectStorage";
 import styles from "./page.module.css";
 
 const DEFAULT_COUNTS: Record<RoomName, number> = {
@@ -88,9 +90,7 @@ export default function Home() {
   const [activeFloor, setActiveFloor] = useState<number>(0);
   const [isLoadedFromStorage, setIsLoadedFromStorage] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
-  const [activeCadTool, setActiveCadTool] = useState<
-    "select" | "draw_wall" | "place_door" | "place_window" | "tag_room"
-  >("select");
+  const [activeCadTool, setActiveCadTool] = useState<CadTool>("select");
   const [activeWallType, setActiveWallType] = useState<CustomWallType>("exterior");
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
@@ -101,7 +101,18 @@ export default function Home() {
   const [isModelBlueprintsOpen, setIsModelBlueprintsOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
+  const [isDoorsWindowsDrawerOpen, setIsDoorsWindowsDrawerOpen] = useState(false);
+  const [placingOpeningDef, setPlacingOpeningDef] = useState<OpeningItemDef | null>(null);
   const [isLayoutLocked, setIsLayoutLocked] = useState(false);
+
+  const handleSelectPlaceOpening = useCallback((def: OpeningItemDef | null) => {
+    setPlacingOpeningDef(def);
+    if (def) {
+      setActiveCadTool(def.category === "door" ? "place_door" : "place_window");
+    } else {
+      setActiveCadTool("select");
+    }
+  }, []);
 
   const handleToggleLayoutLock = useCallback(() => {
     setIsLayoutLocked((prev) => !prev);
@@ -112,33 +123,27 @@ export default function Home() {
 
   // Load design state from LocalStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("vastu_builder_project_data_v1");
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.plot) setPlot(data.plot);
-        if (data.facing) setFacing(data.facing);
-        if (data.counts) setCounts(data.counts);
-        if (data.customDims) setCustomDims(data.customDims);
-        if (data.customOpenings) setCustomOpenings(data.customOpenings);
-        if (data.customWallThickness) setCustomWallThickness(data.customWallThickness);
-        if (Array.isArray(data.customWalls)) setCustomWalls(data.customWalls);
-        if (Array.isArray(data.customRoomZones)) setCustomRoomZones(data.customRoomZones);
-        if (Array.isArray(data.customObjects)) setCustomObjects(data.customObjects);
-        if (Array.isArray(data.deletedBuiltinIds)) setDeletedBuiltinIds(data.deletedBuiltinIds);
-        if (typeof data.lightsOn === "boolean") setLightsOn(data.lightsOn);
-        if (typeof data.furnished === "boolean") setFurnished(data.furnished);
-        if (data.materialConfig) setMaterialConfig(data.materialConfig);
-        if (data.windowConfig) setWindowConfig(data.windowConfig);
-        if (typeof data.activeFloor === "number") setActiveFloor(data.activeFloor);
-        if (data.activeBlueprintName) setActiveBlueprintName(data.activeBlueprintName);
-        if (data.savedAt) setLastSavedTime(data.savedAt);
-      }
-    } catch (e) {
-      console.warn("Failed to load saved house build from localStorage", e);
-    } finally {
-      setIsLoadedFromStorage(true);
+    const data = loadProject();
+    if (data) {
+      if (data.plot) setPlot(data.plot);
+      if (data.facing) setFacing(data.facing);
+      if (data.counts) setCounts(data.counts);
+      if (data.customDims) setCustomDims(data.customDims);
+      if (data.customOpenings) setCustomOpenings(data.customOpenings);
+      if (data.customWallThickness) setCustomWallThickness(data.customWallThickness);
+      if (Array.isArray(data.customWalls)) setCustomWalls(data.customWalls);
+      if (Array.isArray(data.customRoomZones)) setCustomRoomZones(data.customRoomZones);
+      if (Array.isArray(data.customObjects)) setCustomObjects(data.customObjects);
+      if (Array.isArray(data.deletedBuiltinIds)) setDeletedBuiltinIds(data.deletedBuiltinIds);
+      if (typeof data.lightsOn === "boolean") setLightsOn(data.lightsOn);
+      if (typeof data.furnished === "boolean") setFurnished(data.furnished);
+      if (data.materialConfig) setMaterialConfig(data.materialConfig);
+      if (data.windowConfig) setWindowConfig(data.windowConfig);
+      if (typeof data.activeFloor === "number") setActiveFloor(data.activeFloor);
+      if (data.activeBlueprintName) setActiveBlueprintName(data.activeBlueprintName);
+      if (data.savedAt) setLastSavedTime(data.savedAt);
     }
+    setIsLoadedFromStorage(true);
   }, []);
 
   // Player location (5'5" perspective)
@@ -350,9 +355,7 @@ export default function Home() {
   // Reset entire design to pristine defaults
   const handleResetDesign = useCallback(() => {
     if (confirm("Reset entire design and start with default layout?")) {
-      try {
-        localStorage.removeItem("vastu_builder_project_data_v1");
-      } catch {}
+      clearProject();
       setPlot(DEFAULT_PLOT);
       setFacing("N");
       setCounts(DEFAULT_COUNTS);
@@ -373,32 +376,27 @@ export default function Home() {
   useEffect(() => {
     if (!isLoadedFromStorage) return;
     const timeout = setTimeout(() => {
-      try {
-        const now = Date.now();
-        const payload = {
-          plot,
-          facing,
-          counts,
-          customDims,
-          customOpenings,
-          customWallThickness,
-          customWalls,
-          customRoomZones,
-          customObjects,
-          deletedBuiltinIds,
-          lightsOn,
-          furnished,
-          materialConfig,
-          windowConfig,
-          activeFloor,
-          activeBlueprintName,
-          savedAt: now,
-        };
-        localStorage.setItem("vastu_builder_project_data_v1", JSON.stringify(payload));
-        setLastSavedTime(now);
-      } catch (e) {
-        console.warn("Auto-save to localStorage failed", e);
-      }
+      const now = Date.now();
+      const saved = saveProject({
+        plot,
+        facing,
+        counts,
+        customDims,
+        customOpenings,
+        customWallThickness,
+        customWalls,
+        customRoomZones,
+        customObjects,
+        deletedBuiltinIds,
+        lightsOn,
+        furnished,
+        materialConfig,
+        windowConfig,
+        activeFloor,
+        activeBlueprintName,
+        savedAt: now,
+      });
+      if (saved) setLastSavedTime(now);
     }, 500);
 
     return () => clearTimeout(timeout);
@@ -961,7 +959,6 @@ export default function Home() {
         onChangeCounts={setCounts}
         furnished={furnished}
         onToggleFurnished={setFurnished}
-        rooms={rooms}
         customDims={customDims}
         onChangeCustomDims={setCustomDims}
         meta={meta}
@@ -979,12 +976,10 @@ export default function Home() {
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
         placingItemType={placingItemType}
-        placingRotationY={placingRotationY}
         onSelectPlaceItem={(type) => {
           setPlacingItemType(type);
           if (!type) setPlacingRotationY(0);
         }}
-        onRotatePlacing={handleRotatePlacing}
         selectedObject={selectedObject}
         onOpenReplaceModal={() => setIsReplaceModalOpen(true)}
         onRotateSelected={handleRotateSelected}
@@ -1013,6 +1008,8 @@ export default function Home() {
         onChangeCadTool={setActiveCadTool}
         activeWallType={activeWallType}
         onChangeWallType={setActiveWallType}
+        onToggleDoorsWindowsDrawer={() => setIsDoorsWindowsDrawerOpen((prev) => !prev)}
+        isDoorsWindowsDrawerOpen={isDoorsWindowsDrawerOpen}
       />
 
       <main className={styles.mainLayout}>
@@ -1069,6 +1066,7 @@ export default function Home() {
                 onChangeWallType={setActiveWallType}
                 onChangeCustomWalls={setCustomWalls}
                 onChangeCustomRoomZones={setCustomRoomZones}
+                onChangeCustomOpenings={setCustomOpenings}
                 onStartFromScratch={handleStartFromScratch}
                 setback={DEFAULT_SETBACK}
                 mode={mode}
@@ -1223,6 +1221,15 @@ export default function Home() {
         targetObjectName={selectedObjectInfo?.name || "Selected Object"}
         targetItemType={selectedObjectInfo?.type}
         onConfirmReplace={handleReplaceSelected}
+      />
+
+      {/* Doors & Windows Drag & Drop Catalog Shelf */}
+      <DoorsWindowsDrawer
+        isOpen={isDoorsWindowsDrawerOpen}
+        onToggleOpen={() => setIsDoorsWindowsDrawerOpen((prev) => !prev)}
+        placingOpeningDef={placingOpeningDef}
+        onSelectPlaceOpening={handleSelectPlaceOpening}
+        onOpenWindowShapeModal={() => setIsWindowModalOpen(true)}
       />
     </div>
   );

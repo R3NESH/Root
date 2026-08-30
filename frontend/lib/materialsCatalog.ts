@@ -918,12 +918,28 @@ export function getRoomFloorMaterial(roomName: RoomName, config: HouseMaterialCo
 }
 
 /**
+ * Resolves a wall color ID or custom hex string to a valid 6-digit hex string like "#f8fafc".
+ */
+export function getWallColorHexStr(colorId: string): string {
+  if (!colorId) return "#f8fafc";
+  if (colorId.startsWith("#")) {
+    return colorId;
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(colorId)) {
+    return `#${colorId}`;
+  }
+  const def = WALL_COLORS.find((c) => c.id === colorId);
+  return def ? def.hex : "#f8fafc";
+}
+
+/**
  * Returns the effective wall color hex for a specific room.
  */
 export function getRoomWallColorHex(roomName: RoomName, config: HouseMaterialConfig): number {
   const colorId = config.roomWallColors[roomName] || config.globalWallColor;
-  const def = WALL_COLORS.find((c) => c.id === colorId) || WALL_COLORS[0];
-  return parseInt(def.hex.replace("#", "0x"), 16);
+  const hexStr = getWallColorHexStr(colorId);
+  const parsed = parseInt(hexStr.replace("#", "0x"), 16);
+  return isNaN(parsed) ? 0xf8fafc : parsed;
 }
 
 /**

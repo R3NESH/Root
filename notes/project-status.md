@@ -21,7 +21,7 @@ today rather than carried over from [[daily-log|the daily notes]].
 |---|---|
 | Phase | [[project-phases\|Phase 1]] — production CAD & 3D walkthrough ready |
 | Commits | **12+** on `main` |
-| Code | ~2,100 lines backend Python · ~10,000 lines frontend TS/CSS |
+| Code | **2,274** lines backend Python · **20,617** TS/TSX + **6,005** CSS frontend — re-measured, the old figure was half |
 | Tests | **43 passing** in ~30 s — up from the 23 recorded in [[test-baseline]] |
 | Frontend checks | `tsc --noEmit` 0 errors · `next build` 0 warnings |
 | Blueprints | **20 authentic curated models** with 4-directional filtering |
@@ -47,6 +47,8 @@ today rather than carried over from [[daily-log|the daily notes]].
 | Walkthrough is keyboard-only; audience is on phones | medium | [[step-6-walkthrough]], [[zero-keyboard-events]] |
 | Setbacks still hardcoded | known gap | [[environment-notes]] |
 | Test suite is wall-clock flaky under CPU load | medium | [[test-baseline]] |
+| **The deployed site runs a fake solver that claims Vaastu it never enforced** | **high** | [[client-side-fallback]] |
+| `Scene.tsx` and `Blueprint2DView.tsx` are ~3,900-line single components; zero frontend tests | medium | [[codebase-map]] |
 | Never tested on the real Kandi, Telangana plot | **validation gap** | [[build-order]] |
 | Single storey only | scope | [[project-phases]] |
 
@@ -76,8 +78,19 @@ Both zero-code questions have been outranking the build since 2026-08-23 and rem
 Nine days of building have happened on top of them. That is the most important fact on this
 page, and the one no test can turn red.
 
+## Added 2026-08-30 (second session)
+
+- **Structurize pass.** Five modules out of the three largest files, two duplications removed,
+  all mechanically verified — [[codebase-map]]. The god components remain god components.
+- **Graph rebuilt** to 662 nodes — [[knowledge-graph]], which also now records that its own
+  2026-08-25 warning about `notes/build/` came true five days later.
+- **Root `CLAUDE.md`** — agent rules for the repo.
+- **[[client-side-fallback]] found.** Highest-severity item on this page. Not fixed.
+
 ## Recommended order
 
+0. **Fix or label [[client-side-fallback]].** Two lines. Everything else on this list assumes
+   the product does what its status string says, and right now the deployed one does not.
 1. **Answer [[q-competitor-defects]] and [[q-does-anyone-pay]].** Zero code, ten days overdue,
    and one plausible answer to the first - "competitors' plans are not realistic enough" - would
    make everything built today the roadmap. The other answers would make it wasted effort.
@@ -88,4 +101,4 @@ page, and the one no test can turn red.
 5. Only then: touch controls for the walkthrough, or [[project-phases|Phase 2]].
 
 **Links.** [[Home]] · [[workflow]] · [[HANDOFF]] · [[build-order]] · [[test-baseline]] ·
-[[codebase-map]]
+[[codebase-map]] · [[knowledge-graph]] · [[client-side-fallback]]

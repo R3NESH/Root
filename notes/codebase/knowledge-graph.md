@@ -2,6 +2,7 @@
 tags: [codebase, tooling]
 status: built
 date: 2026-08-30
+updated: 2026-08-30
 ---
 # Knowledge graph (graphify)
 
@@ -11,12 +12,14 @@ A queryable graph over the whole corpus — 38 code files, 65 docs, 5 images —
 
 ## What was built
 
-| | |
-|---|---|
-| Nodes | **548** — structural (AST) + semantic |
-| Edges | **1,319** |
-| Communities | **28** |
-| Doc → code bridges | **28** edges linking a note's concept to real functions |
+| | 2026-08-25 | 2026-08-30 |
+|---|---|---|
+| Nodes | 548 | **662** |
+| Edges | 1,319 | **1,547** |
+| Communities | 28 | **35** |
+
+The 2026-08-30 rebuild followed the structurize pass in [[codebase-map]]; the five new `lib/`
+modules account for 40 of the added nodes, and the new notes for the rest.
 
 Outputs live in `graphify-out/` (gitignored, and excluded from the vault's
 `userIgnoreFilters` so Obsidian does not index half a megabyte of generated JSON):
@@ -41,22 +44,46 @@ graphify path "Vaastu as constraints" "assign_parents"
 > `notes/build/` is **design documentation**: the Phase 1 plan, its six step notes, and
 > [[test-baseline]]. A default run silently drops all eight.
 >
-> This build lifted `"build"` out of `_SKIP_DIRS` before detecting, which is safe here because
-> nothing in this repo emits to a `build/` directory (Next.js uses `.next/`). **Any future
-> rebuild has to do the same or the graph loses the entire build plan** — and it will not warn
-> you, because a skipped directory looks identical to an empty one.
+> Safe to override here, because nothing in this repo emits to a `build/` directory — Next.js
+> uses `.next/`. **Any rebuild has to override it or the graph loses the entire build plan**,
+> with no warning, because a skipped directory looks identical to an empty one.
+>
+> **This warning was written on 2026-08-25 and then ignored on 2026-08-30.** A plain
+> `graphify update .` dropped `notes/build/` to **0 nodes**, taking [[test-baseline]] — a
+> top-five hub in the previous graph — out with it. Caught only by grepping `source_file`
+> prefixes afterwards. Do that check every time; it is two lines:
+>
+> ```python
+> import json; g = json.load(open("graphify-out/graph.json", encoding="utf-8"))
+> print(len([n for n in g["nodes"] if (n.get("source_file") or "").startswith("notes/build")]))
+> ```
+>
+> There is no supported config for this — `.graphifyinclude` was removed upstream (#2112), and
+> `.graphifyignore` only subtracts. Patch the set in-process rather than editing the installed
+> package, which `graphify install` would overwrite:
+>
+> ```python
+> from pathlib import Path
+> import graphify.detect as detect
+> detect._SKIP_DIRS.discard("build")          # notes/build/ is documentation, not an artifact
+> from graphify.watch import _rebuild_code
+> _rebuild_code(Path("."), force=True, no_cluster=False, block_on_lock=True)
+> ```
+>
+> Run it from a **file**, not a heredoc — the extractor's process pool needs an
+> `if __name__ == "__main__":` guard and falls back to sequential without one.
 
 ## What the graph says about this project
 
 The god nodes are an honest read of where the weight sits:
 
-| Node | Edges |
+| Node | Edges (2026-08-30) |
 |---|---|
-| `solve_layout()` | 47 |
-| `Scene()` | 23 |
-| `inchesToFeet()` | 21 |
-| `_build_and_solve()` | 14 |
-| **`Test baseline as a ratchet`** | **13** |
+| `solve_layout()` | 50 |
+| `RoomName` | 38 |
+| `Scene()` | 36 |
+| `inchesToFeet()` | 33 |
+| `Facing` | 26 |
 
 `solve_layout()` at 47 edges with a betweenness of 0.24 confirms what
 [[realism-gaps]] already implied: it is the single point every constraint family passes
@@ -87,5 +114,13 @@ No `GEMINI_API_KEY` was set and this session does not dispatch subagents, so sem
 was performed inline by the agent — the fallback graphify's own instructions sanction. Node IDs
 follow graphify's path-based format exactly, which is what let 21 doc concepts attach to real
 AST functions instead of forming a parallel ghost graph.
+
+**2026-08-30 rebuild.** `graphify update` re-extracted the AST layer with no LLM and no API
+cost; the semantic edges from the first build were carried through. `graphify label` was then
+run and **failed** — `Claude Code CLI not found on $PATH`, no `GEMINI_API_KEY` — so the 35
+communities carry hub-derived names (`page.tsx`, `solve_layout`, `connectivity.py`) rather than
+the written ones the first build had (`CP-SAT Placement Engine`, `React UI Components`). The
+structure is correct; only the labels are less readable. Re-run `graphify label .` with a
+backend on `$PATH` to fix.
 
 Related: [[codebase-map]] · [[workflow]] · [[project-status]]

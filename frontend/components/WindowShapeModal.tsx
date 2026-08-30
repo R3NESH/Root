@@ -127,6 +127,8 @@ export default function WindowShapeModal({
       setLocalConfig((prev) => ({
         ...prev,
         globalShape: shapeId,
+        roomWindowShapes: {}, // Apply uniform shape across all rooms
+        individualOverrides: {}, // Reset overrides so all windows are uniform
       }));
     } else {
       setLocalConfig((prev) => ({

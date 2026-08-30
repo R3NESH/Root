@@ -1413,3 +1413,76 @@
   border: 1px solid #f59e0b;
   color: #fbbf24;
 }
+
+/* Quick Wall Colors & Color Wheel */
+.swatchesRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.quickColorBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.quickColorBtn:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+}
+
+.quickColorActive {
+  box-shadow: 0 0 0 2px #e8912d, 0 2px 6px rgba(232, 145, 45, 0.5) !important;
+  border-color: #ffffff !important;
+  transform: scale(1.1);
+}
+
+.colorWheelBtn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+  padding: 2px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.colorWheelBtn:hover {
+  transform: scale(1.15);
+}
+
+.colorWheelBtnActive {
+  box-shadow: 0 0 0 2px #e8912d, 0 2px 8px rgba(232, 145, 45, 0.6);
+}
+
+.hiddenColorInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.colorWheelDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}

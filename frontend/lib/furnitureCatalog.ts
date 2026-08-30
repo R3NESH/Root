@@ -1476,7 +1476,6 @@ export function createFurnitureMesh(type: string, customColor?: number): THREE.G
     // ----------------------------------------------------------------------------------
     case "door_roman_arch": {
       const w = 4.0;
-      const h = 8.5;
       const frameThick = 0.5;
       const doorMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.45 });
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.4 });
@@ -1921,8 +1920,8 @@ export function createFurnitureMesh(type: string, customColor?: number): THREE.G
         back.position.set(0, 2.0, 0);
         chair.add(back);
 
-        for (let lx of [-0.45, 0.45]) {
-          for (let lz of [-0.45, 0.45]) {
+        for (const lx of [-0.45, 0.45]) {
+          for (const lz of [-0.45, 0.45]) {
             const cleg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 1.35, 8), legMat);
             cleg.position.set(lx, 0.68, lz);
             chair.add(cleg);
