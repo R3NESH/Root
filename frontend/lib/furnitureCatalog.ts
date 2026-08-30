@@ -308,6 +308,136 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     description: "Architectural partition wall featuring a grand roman arched walkthrough opening with decorative trim.",
     defaultColor: 0xf8fafc,
   },
+  {
+    type: "wall_curved_partition",
+    name: "Curved Architectural Feature Wall",
+    category: "walls",
+    icon: "💫",
+    dimensions: { widthFt: 8.0, depthFt: 3.5, heightFt: 9.0 },
+    description: "Smooth circular sweeping 9-foot architectural feature wall with crown molding and baseboard.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "wall_curved_glass",
+    name: "Curved Cylindrical Glass Wall",
+    category: "walls",
+    icon: "🪟",
+    dimensions: { widthFt: 7.5, depthFt: 3.5, heightFt: 9.0 },
+    description: "Curved panoramic glass partition with black aluminum frame tracks and vertical mullions.",
+    defaultColor: 0x0284c7,
+  },
+  {
+    type: "wall_curved_slat",
+    name: "Curved Fluted Wood Slat Wall",
+    category: "walls",
+    icon: "🪵",
+    dimensions: { widthFt: 7.5, depthFt: 3.5, heightFt: 9.0 },
+    description: "Curved parametric acoustic partition with vertical teakwood fluted slats.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "door_roman_arch",
+    name: "Grand Roman Arched Door",
+    category: "walls",
+    icon: "🚪",
+    dimensions: { widthFt: 4.0, depthFt: 0.6, heightFt: 8.5 },
+    description: "Solid hardwood paneled door with semicircular roman arched lunette and brass lever handle.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "door_revolving_curved",
+    name: "Curved Glass Revolving Entrance",
+    category: "walls",
+    icon: "🎠",
+    dimensions: { widthFt: 6.5, depthFt: 6.5, heightFt: 9.0 },
+    description: "Luxury curved glass cylindrical entrance vestibule with 4-wing rotating glass panels.",
+    defaultColor: 0x1e293b,
+  },
+  {
+    type: "window_curved_bow",
+    name: "Panoramic Curved Bow Window",
+    category: "walls",
+    icon: "🪟",
+    dimensions: { widthFt: 7.0, depthFt: 2.5, heightFt: 5.5 },
+    description: "Sweeping 5-panel curved bow window projecting outward with deep interior display sill ledge.",
+    defaultColor: 0x0284c7,
+  },
+  {
+    type: "counter_curved_island",
+    name: "Curved Waterfall Kitchen Island",
+    category: "kitchen",
+    icon: "🍳",
+    dimensions: { widthFt: 8.0, depthFt: 3.8, heightFt: 3.0 },
+    description: "Luxury curved fluted marble island counter with rounded breakfast bar seating overhang.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "staircase_spiral_curved",
+    name: "Curved Spiral Helical Staircase",
+    category: "decor",
+    icon: "🌀",
+    dimensions: { widthFt: 6.5, depthFt: 6.5, heightFt: 10.0 },
+    description: "Architectural curved spiral staircase with central steel pillar, teakwood steps, and curved glass handrail.",
+    defaultColor: 0x78350f,
+  },
+
+  // ------------------------------------------------------------------------------------
+  // Haute Parisian Dollhouse Elements
+  // ------------------------------------------------------------------------------------
+  {
+    type: "wall_fireplace_bookshelf",
+    name: "Haute Fireplace & Recessed Bookshelf Wall",
+    category: "decor",
+    icon: "📚",
+    dimensions: { widthFt: 14.0, depthFt: 1.8, heightFt: 9.0 },
+    description: "Classical Parisian fireplace mantel with hearth, decorative gilded mirror frame, and flanking backlit alcove bookshelves with book volumes.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "partition_planter_cacti",
+    name: "Indoor Architectural Planter Divider",
+    category: "decor",
+    icon: "🪴",
+    dimensions: { widthFt: 6.0, depthFt: 1.5, heightFt: 5.5 },
+    description: "Crisp white wainscoted planter box with organic soil bed and architectural vertical snake plants & cacti.",
+    defaultColor: 0xf8fafc,
+  },
+  {
+    type: "dining_table_nero_marquina",
+    name: "10-Seater Nero Marquina Dining Set",
+    category: "dining",
+    icon: "🍽️",
+    dimensions: { widthFt: 11.0, depthFt: 4.5, heightFt: 2.8 },
+    description: "Grand oval Nero Marquina black marble dining table with brass pedestal legs and 8-10 curved cream shell dining chairs.",
+    defaultColor: 0x0f172a,
+  },
+  {
+    type: "sofa_boucle_curved_set",
+    name: "Haute Bouclé Curved Living Set",
+    category: "living",
+    icon: "🛋️",
+    dimensions: { widthFt: 12.0, depthFt: 9.0, heightFt: 2.8 },
+    description: "Parisian living suite with organic curved cream bouclé sofa, sculpted organic teak coffee table, and geometric textured area rug.",
+    defaultColor: 0xfaf5ee,
+  },
+  {
+    type: "kitchen_walnut_wall",
+    name: "Floor-to-Ceiling Smoked Walnut Kitchen Wall",
+    category: "kitchen",
+    icon: "🍳",
+    dimensions: { widthFt: 12.0, depthFt: 2.2, heightFt: 9.0 },
+    description: "Modern luxury integrated kitchen wall with tall smoked walnut cabinetry, built-in refrigerator, and fluted slat screen divider.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "mirror_pebble_gilded",
+    name: "Organic Pebble Gilded Brass Wall Mirror",
+    category: "decor",
+    icon: "🪞",
+    dimensions: { widthFt: 3.5, depthFt: 0.3, heightFt: 3.5 },
+    description: "Asymmetrical organic pebble gilded mirror with brushed brass frame and beveled reflective glass.",
+    defaultColor: 0xd4af37,
+  },
 ];
 
 // --------------------------------------------------------------------------------------
@@ -1198,6 +1328,733 @@ export function createFurnitureMesh(type: string, customColor?: number): THREE.G
       archTrim.position.set(0, archH - 0.1, 0);
 
       root.add(leftWall, rightWall, topWall, archTrim);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 30. Curved Architectural Feature Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_curved_partition": {
+      const radius = 6.0;
+      const arcAngle = Math.PI / 2.5; // ~72 degrees
+      const h = 9.0;
+      const thick = 0.5;
+      const segCount = 18;
+      const wallMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.8, metalness: 0.02 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.5 });
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 });
+
+      const dTheta = arcAngle / segCount;
+      const segLen = 2 * radius * Math.sin(dTheta / 2) + 0.04;
+
+      for (let i = 0; i < segCount; i++) {
+        const theta = -arcAngle / 2 + (i + 0.5) * dTheta;
+        const px = radius * Math.sin(theta);
+        const pz = -radius * Math.cos(theta) + radius * Math.cos(arcAngle / 2);
+
+        // Wall Segment
+        const seg = new THREE.Mesh(new THREE.BoxGeometry(segLen, h, thick), wallMat);
+        seg.position.set(px, h / 2, pz);
+        seg.rotation.y = theta;
+        seg.castShadow = true;
+        seg.receiveShadow = true;
+
+        // Baseboard Segment
+        const base = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.02, 0.45, thick + 0.06), trimMat);
+        base.position.set(px, 0.225, pz);
+        base.rotation.y = theta;
+
+        // Crown Molding Segment
+        const crown = new THREE.Mesh(new THREE.BoxGeometry(segLen + 0.02, 0.3, thick + 0.08), crownMat);
+        crown.position.set(px, h - 0.15, pz);
+        crown.rotation.y = theta;
+
+        root.add(seg, base, crown);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 31. Curved Cylindrical Glass Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_curved_glass": {
+      const radius = 5.5;
+      const arcAngle = Math.PI / 2.5;
+      const h = 9.0;
+      const segCount = 14;
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.2 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        transmission: 0.88,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+        ior: 1.5,
+        thickness: 0.1,
+      });
+
+      const dTheta = arcAngle / segCount;
+      const segLen = 2 * radius * Math.sin(dTheta / 2) + 0.02;
+
+      for (let i = 0; i < segCount; i++) {
+        const theta = -arcAngle / 2 + (i + 0.5) * dTheta;
+        const px = radius * Math.sin(theta);
+        const pz = -radius * Math.cos(theta) + radius * Math.cos(arcAngle / 2);
+
+        // Glass Pane
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(segLen - 0.06, h - 0.3, 0.06), glassMat);
+        glass.position.set(px, h / 2, pz);
+        glass.rotation.y = theta;
+
+        // Top & Bottom Track Rails
+        const railB = new THREE.Mesh(new THREE.BoxGeometry(segLen, 0.15, 0.2), frameMat);
+        railB.position.set(px, 0.075, pz);
+        railB.rotation.y = theta;
+
+        const railT = new THREE.Mesh(new THREE.BoxGeometry(segLen, 0.15, 0.2), frameMat);
+        railT.position.set(px, h - 0.075, pz);
+        railT.rotation.y = theta;
+
+        root.add(glass, railB, railT);
+
+        // Vertical Mullion at segment joints
+        if (i % 2 === 0 || i === segCount - 1) {
+          const jointTheta = -arcAngle / 2 + i * dTheta;
+          const jx = radius * Math.sin(jointTheta);
+          const jz = -radius * Math.cos(jointTheta) + radius * Math.cos(arcAngle / 2);
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, h, 0.22), frameMat);
+          post.position.set(jx, h / 2, jz);
+          post.rotation.y = jointTheta;
+          root.add(post);
+        }
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 32. Curved Fluted Wood Slat Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_curved_slat": {
+      const radius = 5.5;
+      const arcAngle = Math.PI / 2.5;
+      const h = 9.0;
+      const slatCount = 20;
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, metalness: 0.7, roughness: 0.3 });
+      const slatMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.45 });
+
+      const dTheta = arcAngle / slatCount;
+      const railSegLen = 2 * radius * Math.sin(dTheta / 2) + 0.05;
+
+      for (let i = 0; i < slatCount; i++) {
+        const theta = -arcAngle / 2 + i * dTheta;
+        const px = radius * Math.sin(theta);
+        const pz = -radius * Math.cos(theta) + radius * Math.cos(arcAngle / 2);
+
+        // Slat
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.16, h - 0.4, 0.22), slatMat);
+        slat.position.set(px, h / 2, pz);
+        slat.rotation.y = theta;
+        slat.castShadow = true;
+        root.add(slat);
+
+        // Rail Segments
+        const railB = new THREE.Mesh(new THREE.BoxGeometry(railSegLen, 0.2, 0.3), frameMat);
+        railB.position.set(px, 0.1, pz);
+        railB.rotation.y = theta;
+
+        const railT = new THREE.Mesh(new THREE.BoxGeometry(railSegLen, 0.2, 0.3), frameMat);
+        railT.position.set(px, h - 0.1, pz);
+        railT.rotation.y = theta;
+
+        root.add(railB, railT);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 33. Grand Roman Arched Door
+    // ----------------------------------------------------------------------------------
+    case "door_roman_arch": {
+      const w = 4.0;
+      const h = 8.5;
+      const frameThick = 0.5;
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.45 });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.4 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.2 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        transmission: 0.85,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.1,
+      });
+
+      const jambH = 6.0;
+      const archR = w / 2;
+
+      // Left & Right Vertical Frame Jambs
+      const jambL = new THREE.Mesh(new THREE.BoxGeometry(0.3, jambH, frameThick), frameMat);
+      jambL.position.set(-w / 2 + 0.15, jambH / 2, 0);
+      const jambR = new THREE.Mesh(new THREE.BoxGeometry(0.3, jambH, frameThick), frameMat);
+      jambR.position.set(w / 2 - 0.15, jambH / 2, 0);
+      root.add(jambL, jambR);
+
+      // Semicircular Arch Transom Frame
+      const archCylinder = new THREE.Mesh(
+        new THREE.CylinderGeometry(archR, archR, frameThick, 24, 1, false, 0, Math.PI),
+        frameMat
+      );
+      archCylinder.rotation.z = Math.PI / 2;
+      archCylinder.rotation.y = Math.PI / 2;
+      archCylinder.position.set(0, jambH, 0);
+      root.add(archCylinder);
+
+      // Glass inside the Arch Transom
+      const archGlass = new THREE.Mesh(
+        new THREE.CylinderGeometry(archR - 0.2, archR - 0.2, 0.1, 20, 1, false, 0, Math.PI),
+        glassMat
+      );
+      archGlass.rotation.z = Math.PI / 2;
+      archGlass.rotation.y = Math.PI / 2;
+      archGlass.position.set(0, jambH, 0);
+      root.add(archGlass);
+
+      // Door Leaf Panel
+      const doorLeaf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, jambH - 0.1, 0.15), doorMat);
+      doorLeaf.position.set(0, (jambH - 0.1) / 2, 0);
+      doorLeaf.castShadow = true;
+      root.add(doorLeaf);
+
+      // Brass Handle Lever
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.25), brassMat);
+      handle.position.set(w / 2 - 0.6, 3.2, 0.1);
+      root.add(handle);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 34. Luxury Curved Glass Revolving Door
+    // ----------------------------------------------------------------------------------
+    case "door_revolving_curved": {
+      const radius = 3.0;
+      const h = 8.5;
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.25 });
+      const brassTrim = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.2 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        transmission: 0.9,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+      });
+
+      // Top Ceiling Canopy Drum
+      const canopy = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.2, radius + 0.2, 0.4, 32), metalMat);
+      canopy.position.set(0, h - 0.2, 0);
+      const canopyTrim = new THREE.Mesh(new THREE.TorusGeometry(radius + 0.2, 0.05, 8, 32), brassTrim);
+      canopyTrim.rotation.x = Math.PI / 2;
+      canopyTrim.position.set(0, h - 0.4, 0);
+      root.add(canopy, canopyTrim);
+
+      // Left & Right Curved Glass Enclosure Shells
+      const drumL = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, h - 0.5, 24, 1, true, Math.PI * 0.15, Math.PI * 0.7),
+        glassMat
+      );
+      drumL.position.set(0, (h - 0.5) / 2, 0);
+      const drumR = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, h - 0.5, 24, 1, true, Math.PI * 1.15, Math.PI * 0.7),
+        glassMat
+      );
+      drumR.position.set(0, (h - 0.5) / 2, 0);
+      root.add(drumL, drumR);
+
+      // Central Rotating Pivot Column
+      const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, h - 0.5, 16), metalMat);
+      spindle.position.set(0, (h - 0.5) / 2, 0);
+      root.add(spindle);
+
+      // 4 Radial Rotating Glass Wings
+      for (let w = 0; w < 4; w++) {
+        const wingAngle = (w * Math.PI) / 2;
+        const wingGlass = new THREE.Mesh(
+          new THREE.BoxGeometry(radius - 0.2, h - 0.6, 0.05),
+          glassMat
+        );
+        wingGlass.position.set(
+          ((radius - 0.2) / 2) * Math.cos(wingAngle),
+          (h - 0.6) / 2,
+          ((radius - 0.2) / 2) * Math.sin(wingAngle)
+        );
+        wingGlass.rotation.y = -wingAngle;
+
+        // Push Bar
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(radius - 0.5, 0.08, 0.12), brassTrim);
+        bar.position.set(
+          ((radius - 0.2) / 2) * Math.cos(wingAngle),
+          3.2,
+          ((radius - 0.2) / 2) * Math.sin(wingAngle)
+        );
+        bar.rotation.y = -wingAngle;
+
+        root.add(wingGlass, bar);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 35. Panoramic Curved Bow Window
+    // ----------------------------------------------------------------------------------
+    case "window_curved_bow": {
+      const radius = 4.5;
+      const arcAngle = Math.PI / 2.2;
+      const h = 5.5;
+      const paneCount = 5;
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.75, roughness: 0.25 });
+      const sillMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        transmission: 0.88,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+      });
+
+      const dTheta = arcAngle / paneCount;
+      const paneLen = 2 * radius * Math.sin(dTheta / 2) + 0.02;
+
+      for (let p = 0; p < paneCount; p++) {
+        const theta = -arcAngle / 2 + (p + 0.5) * dTheta;
+        const px = radius * Math.sin(theta);
+        const pz = -radius * Math.cos(theta) + radius * Math.cos(arcAngle / 2);
+
+        // Glass Pane
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(paneLen - 0.08, h - 0.3, 0.06), glassMat);
+        glass.position.set(px, h / 2, pz);
+        glass.rotation.y = theta;
+
+        // Pane Mullion Frame
+        const frameB = new THREE.Mesh(new THREE.BoxGeometry(paneLen, 0.12, 0.15), frameMat);
+        frameB.position.set(px, 0.06, pz);
+        frameB.rotation.y = theta;
+
+        const frameT = new THREE.Mesh(new THREE.BoxGeometry(paneLen, 0.12, 0.15), frameMat);
+        frameT.position.set(px, h - 0.06, pz);
+        frameT.rotation.y = theta;
+
+        root.add(glass, frameB, frameT);
+      }
+
+      // Curved Sill Ledge
+      const sill = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.2, 2.2), sillMat);
+      sill.position.set(0, 0, 0.4);
+      root.add(sill);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 36. Curved Waterfall Kitchen Island
+    // ----------------------------------------------------------------------------------
+    case "counter_curved_island": {
+      const w = 7.5;
+      const d = 3.5;
+      const h = 3.0;
+      const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.1 });
+      const woodBaseMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.5 });
+      const brassTrim = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.2 });
+
+      // Curved End Cylinder Pillars
+      const endRadius = d / 2;
+      const endL = new THREE.Mesh(new THREE.CylinderGeometry(endRadius, endRadius, h, 24), woodBaseMat);
+      endL.position.set(-w / 2 + endRadius, h / 2, 0);
+      endL.castShadow = true;
+
+      const endR = new THREE.Mesh(new THREE.CylinderGeometry(endRadius, endRadius, h, 24), woodBaseMat);
+      endR.position.set(w / 2 - endRadius, h / 2, 0);
+      endR.castShadow = true;
+
+      // Central Base Box
+      const centerBase = new THREE.Mesh(new THREE.BoxGeometry(w - 2 * endRadius, h, d), woodBaseMat);
+      centerBase.position.set(0, h / 2, 0);
+      centerBase.castShadow = true;
+
+      root.add(endL, endR, centerBase);
+
+      // Fluted Vertical Slats on Base
+      for (let s = 0; s < 18; s++) {
+        const theta = (s / 18) * Math.PI * 2;
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.08, h - 0.2, 0.08), brassTrim);
+        slat.position.set(
+          -w / 2 + endRadius + (endRadius + 0.02) * Math.cos(theta),
+          h / 2,
+          (endRadius + 0.02) * Math.sin(theta)
+        );
+        root.add(slat);
+      }
+
+      // Curved Polished Marble Countertop
+      const counterTopL = new THREE.Mesh(
+        new THREE.CylinderGeometry(endRadius + 0.2, endRadius + 0.2, 0.25, 24),
+        marbleMat
+      );
+      counterTopL.position.set(-w / 2 + endRadius, h + 0.125, 0);
+
+      const counterTopR = new THREE.Mesh(
+        new THREE.CylinderGeometry(endRadius + 0.2, endRadius + 0.2, 0.25, 24),
+        marbleMat
+      );
+      counterTopR.position.set(w / 2 - endRadius, h + 0.125, 0);
+
+      const counterTopMid = new THREE.Mesh(
+        new THREE.BoxGeometry(w - 2 * endRadius, 0.25, d + 0.4),
+        marbleMat
+      );
+      counterTopMid.position.set(0, h + 0.125, 0);
+
+      root.add(counterTopL, counterTopR, counterTopMid);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 37. Curved Spiral Helical Staircase
+    // ----------------------------------------------------------------------------------
+    case "staircase_spiral_curved": {
+      const radius = 3.0;
+      const totalH = 10.0;
+      const stepCount = 16;
+      const totalRot = Math.PI * 1.5; // 270 deg spiral
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.2 });
+      const woodTreadMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.4 });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        transmission: 0.88,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+      });
+
+      // Central Steel Pillar Column
+      const centerPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, totalH, 20), steelMat);
+      centerPillar.position.set(0, totalH / 2, 0);
+      root.add(centerPillar);
+
+      // Helical Floating Treads
+      const dH = totalH / stepCount;
+      const dRot = totalRot / stepCount;
+
+      for (let s = 0; s < stepCount; s++) {
+        const stepH = (s + 0.5) * dH;
+        const stepAngle = s * dRot;
+
+        // Step Tread
+        const tread = new THREE.Mesh(new THREE.BoxGeometry(radius - 0.3, 0.15, 0.8), woodTreadMat);
+        tread.position.set(
+          ((radius - 0.3) / 2 + 0.3) * Math.cos(stepAngle),
+          stepH,
+          ((radius - 0.3) / 2 + 0.3) * Math.sin(stepAngle)
+        );
+        tread.rotation.y = -stepAngle;
+        tread.castShadow = true;
+        root.add(tread);
+
+        // Outer Baluster Post & Glass Railing Segment
+        const baluster = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.0, 8), steelMat);
+        baluster.position.set(
+          radius * Math.cos(stepAngle),
+          stepH + 1.5,
+          radius * Math.sin(stepAngle)
+        );
+        root.add(baluster);
+
+        if (s < stepCount - 1) {
+          const nextAngle = (s + 1) * dRot;
+          const glassSeg = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 0.04), glassMat);
+          glassSeg.position.set(
+            radius * Math.cos((stepAngle + nextAngle) / 2),
+            stepH + 1.5,
+            radius * Math.sin((stepAngle + nextAngle) / 2)
+          );
+          glassSeg.rotation.y = -((stepAngle + nextAngle) / 2);
+          root.add(glassSeg);
+        }
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Haute Fireplace & Recessed Bookshelf Wall
+    // ----------------------------------------------------------------------------------
+    case "wall_fireplace_bookshelf": {
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 });
+      const shelfMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+      const fireboxMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+      const emberMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+      const bookColors = [0x991b1b, 0x1e3a8a, 0x14532d, 0x78350f, 0x312e81, 0x0f766e];
+
+      // Central Wall Panel
+      const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(14.0, 9.0, 0.4), wallMat);
+      wallMesh.position.set(0, 4.5, 0);
+      root.add(wallMesh);
+
+      // Classical Fireplace Mantel
+      const mantel = new THREE.Mesh(new THREE.BoxGeometry(4.6, 3.8, 1.2), wallMat);
+      mantel.position.set(0, 1.9, 0.4);
+      root.add(mantel);
+
+      const mantelShelf = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.25, 1.4), wallMat);
+      mantelShelf.position.set(0, 3.8, 0.4);
+      root.add(mantelShelf);
+
+      // Firebox Opening & Glowing Embers
+      const firebox = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.4, 0.8), fireboxMat);
+      firebox.position.set(0, 1.4, 0.6);
+      root.add(firebox);
+
+      const embers = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.3, 0.5), emberMat);
+      embers.position.set(0, 0.35, 0.6);
+      root.add(embers);
+
+      // Flanking Bookshelves (Left: x = -4.5, Right: x = 4.5)
+      [-4.5, 4.5].forEach((shelfX) => {
+        // Shelf frame
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(4.2, 8.2, 1.0), wallMat);
+        frame.position.set(shelfX, 4.3, 0.3);
+        root.add(frame);
+
+        // 4 Horizontal Tiers
+        for (let t = 0; t < 4; t++) {
+          const tierY = 1.2 + t * 1.8;
+          const tier = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.15, 0.9), shelfMat);
+          tier.position.set(shelfX, tierY, 0.35);
+          root.add(tier);
+
+          // Books on shelves
+          for (let b = 0; b < 10; b++) {
+            const bCol = bookColors[(t * 3 + b) % bookColors.length];
+            const bookMat = new THREE.MeshStandardMaterial({ color: bCol, roughness: 0.7 });
+            const bookH = 0.8 + (b % 3) * 0.2;
+            const book = new THREE.Mesh(new THREE.BoxGeometry(0.22, bookH, 0.65), bookMat);
+            book.position.set(shelfX - 1.6 + b * 0.36, tierY + bookH / 2 + 0.08, 0.35);
+            root.add(book);
+          }
+        }
+      });
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Indoor Architectural Planter Divider
+    // ----------------------------------------------------------------------------------
+    case "partition_planter_cacti": {
+      const planterMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+      const soilMat = new THREE.MeshStandardMaterial({ color: 0x271c19, roughness: 0.95 });
+      const plantMat1 = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.6 });
+      const plantMat2 = new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.65 });
+
+      // Planter Box Trough
+      const box = new THREE.Mesh(new THREE.BoxGeometry(6.0, 1.8, 1.5), planterMat);
+      box.position.set(0, 0.9, 0);
+      root.add(box);
+
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.1, 1.3), soilMat);
+      soil.position.set(0, 1.75, 0);
+      root.add(soil);
+
+      // Vertical Snake Plants & Cacti
+      for (let p = 0; p < 14; p++) {
+        const px = -2.4 + p * 0.38 + (p % 2) * 0.05;
+        const pz = (p % 3 - 1) * 0.3;
+        const pH = 2.2 + (p % 4) * 0.7;
+        const pMat = p % 2 === 0 ? plantMat1 : plantMat2;
+        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, pH, 8), pMat);
+        stalk.position.set(px, 1.8 + pH / 2, pz);
+        stalk.rotation.z = ((p % 5) - 2) * 0.04;
+        root.add(stalk);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 10-Seater Nero Marquina Dining Set
+    // ----------------------------------------------------------------------------------
+    case "dining_table_nero_marquina": {
+      const marquinaMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.12,
+        metalness: 0.15,
+      });
+      const chairMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.75 });
+      const legMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+
+      // Oval Nero Marquina Table Top (10ft × 4.2ft × 0.15ft)
+      const topGeo = new THREE.CylinderGeometry(2.1, 2.1, 0.15, 32);
+      topGeo.scale(2.4, 1.0, 1.0);
+      const topMesh = new THREE.Mesh(topGeo, marquinaMat);
+      topMesh.position.set(0, 2.6, 0);
+      topMesh.castShadow = true;
+      root.add(topMesh);
+
+      // Twin Brass Conical Pedestal Bases
+      [-2.4, 2.4].forEach((bx) => {
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.0, 2.5, 24), legMat);
+        base.position.set(bx, 1.25, 0);
+        root.add(base);
+      });
+
+      // 10 Dining Chairs Around Table
+      const chairPositions: [number, number, number][] = [
+        [-3.6, -1.8, 0], [-1.2, -1.8, 0], [1.2, -1.8, 0], [3.6, -1.8, 0],
+        [-3.6, 1.8, Math.PI], [-1.2, 1.8, Math.PI], [1.2, 1.8, Math.PI], [3.6, 1.8, Math.PI],
+        [-4.8, 0, Math.PI / 2], [4.8, 0, -Math.PI / 2],
+      ];
+
+      chairPositions.forEach(([cx, cz, crot]) => {
+        const chair = new THREE.Group();
+        chair.position.set(cx, 0, cz);
+        chair.rotation.y = crot;
+
+        const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.15, 16), chairMat);
+        seat.position.y = 1.4;
+        chair.add(seat);
+
+        const back = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.2, 16, 1, true, 0, Math.PI), chairMat);
+        back.position.set(0, 2.0, 0);
+        chair.add(back);
+
+        for (let lx of [-0.45, 0.45]) {
+          for (let lz of [-0.45, 0.45]) {
+            const cleg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 1.35, 8), legMat);
+            cleg.position.set(lx, 0.68, lz);
+            chair.add(cleg);
+          }
+        }
+        root.add(chair);
+      });
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Haute Bouclé Curved Living Set
+    // ----------------------------------------------------------------------------------
+    case "sofa_boucle_curved_set": {
+      const boucleMat = new THREE.MeshStandardMaterial({ color: 0xfaf5ee, roughness: 0.88 });
+      const cushionMat = new THREE.MeshStandardMaterial({ color: 0xe2d9cc, roughness: 0.9 });
+      const teakMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.45 });
+      const rugMat = new THREE.MeshStandardMaterial({ color: 0xf5efe6, roughness: 0.95 });
+
+      // Textured Geometric Cream Area Rug (11.5ft × 8.5ft)
+      const rug = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.03, 8.5), rugMat);
+      rug.position.set(0, 0.02, 0);
+      root.add(rug);
+
+      // Sinuous Curved Bouclé Crescent Sofa (3 smoothly joined segments)
+      const sofaArc = new THREE.Group();
+      sofaArc.position.set(0, 0, -1.2);
+
+      const numSegs = 7;
+      const arcR = 4.8;
+      const angleSpan = Math.PI * 0.65;
+
+      for (let i = 0; i < numSegs; i++) {
+        const t = (i / (numSegs - 1) - 0.5) * angleSpan;
+        const sx = arcR * Math.sin(t);
+        const sz = arcR * (1 - Math.cos(t));
+
+        const seatSeg = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.8, 16), boucleMat);
+        seatSeg.position.set(sx, 0.7, sz);
+        sofaArc.add(seatSeg);
+
+        const backSeg = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.4, 16), boucleMat);
+        backSeg.position.set(sx * 1.12, 1.4, sz * 1.12 - 0.3);
+        sofaArc.add(backSeg);
+
+        if (i % 2 === 0) {
+          const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), cushionMat);
+          pillow.scale.set(1.0, 0.8, 0.6);
+          pillow.position.set(sx, 1.2, sz - 0.1);
+          sofaArc.add(pillow);
+        }
+      }
+      root.add(sofaArc);
+
+      // Facing Petite Bouclé Armchair
+      const chair = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1.1, 20), boucleMat);
+      chair.position.set(-3.2, 0.7, 2.0);
+      chair.rotation.y = Math.PI * 0.3;
+      root.add(chair);
+
+      // Sculpted Organic Teak Coffee Table
+      const table = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.7, 24), teakMat);
+      table.scale.set(1.8, 1.0, 1.1);
+      table.position.set(0.4, 0.45, 1.0);
+      root.add(table);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Floor-to-Ceiling Smoked Walnut Kitchen Wall
+    // ----------------------------------------------------------------------------------
+    case "kitchen_walnut_wall": {
+      const walnutMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.45 });
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 });
+      const slatMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.5 });
+
+      // Main Tall Cabinet Wall Unit (12ft × 9ft × 2.2ft)
+      const main = new THREE.Mesh(new THREE.BoxGeometry(12.0, 9.0, 2.0), walnutMat);
+      main.position.set(0, 4.5, 0);
+      root.add(main);
+
+      // Integrated Double-Door Refrigerator (Center: x = 0)
+      const fridge = new THREE.Mesh(new THREE.BoxGeometry(3.6, 7.0, 0.3), steelMat);
+      fridge.position.set(0, 3.8, 1.0);
+      root.add(fridge);
+
+      // Refrigerator Handles
+      [-0.4, 0.4].forEach((hx) => {
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.0, 8), steelMat);
+        handle.position.set(hx, 3.8, 1.25);
+        root.add(handle);
+      });
+
+      // Built-in Double Oven Tower (Left: x = -3.8)
+      const oven1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.2), glassMat);
+      oven1.position.set(-3.8, 3.0, 1.05);
+      root.add(oven1);
+
+      const oven2 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.2), glassMat);
+      oven2.position.set(-3.8, 5.2, 1.05);
+      root.add(oven2);
+
+      // Vertical Slat Accent Screen (Right: x = 4.2)
+      for (let s = 0; s < 6; s++) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.18, 8.5, 0.4), slatMat);
+        slat.position.set(3.4 + s * 0.38, 4.5, 1.1);
+        root.add(slat);
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Organic Pebble Gilded Brass Wall Mirror
+    // ----------------------------------------------------------------------------------
+    case "mirror_pebble_gilded": {
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
+      const mirrorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.95, roughness: 0.05 });
+
+      const frameGeo = new THREE.CylinderGeometry(1.6, 1.6, 0.2, 32);
+      frameGeo.scale(1.2, 1.0, 0.9);
+      const frame = new THREE.Mesh(frameGeo, brassMat);
+      frame.rotation.x = Math.PI / 2;
+      frame.position.set(0, 1.8, 0);
+      root.add(frame);
+
+      const glassGeo = new THREE.CylinderGeometry(1.45, 1.45, 0.05, 32);
+      glassGeo.scale(1.2, 1.0, 0.9);
+      const glass = new THREE.Mesh(glassGeo, mirrorMat);
+      glass.rotation.x = Math.PI / 2;
+      glass.position.set(0, 1.8, 0.1);
+      root.add(glass);
       break;
     }
 

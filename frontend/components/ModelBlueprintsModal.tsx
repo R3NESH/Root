@@ -21,6 +21,7 @@ export default function ModelBlueprintsModal({
 }: ModelBlueprintsModalProps) {
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("All");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("All");
+  const [selectedFacingFilter, setSelectedFacingFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [customBlueprints, setCustomBlueprints] = useState<ModelBlueprint[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +60,7 @@ export default function ModelBlueprintsModal({
             store: 0,
           };
         const customDims = parsed.customDims || {};
+        const customPositions = parsed.customPositions || {};
         const customOpenings = parsed.customOpenings || {};
         const customWallThickness = parsed.customWallThickness || {};
 
@@ -77,6 +79,7 @@ export default function ModelBlueprintsModal({
           highlights: parsed.highlights || ["Custom Imported Plan", "Ready to Build in 2D & 3D"],
           counts,
           customDims,
+          customPositions,
           customOpenings,
           customWallThickness,
         };
@@ -94,8 +97,15 @@ export default function ModelBlueprintsModal({
 
   if (!isOpen) return null;
 
-  const sizeOptions = ["All", "20×30", "30×40", "30×50", "40×60", "50×80"];
+  const sizeOptions = ["All", "20×30", "20×40", "25×40", "25×50", "30×40", "30×50", "35×50", "36×48", "40×60", "50×80"];
   const typeOptions = ["All", "1BHK", "2BHK", "3BHK", "4BHK"];
+  const facingOptions: { label: string; value: string }[] = [
+    { label: "All", value: "All" },
+    { label: "🧭 North", value: "N" },
+    { label: "🌅 East", value: "E" },
+    { label: "☀️ South", value: "S" },
+    { label: "🌇 West", value: "W" },
+  ];
 
   const allBlueprints = [...customBlueprints, ...MODEL_BLUEPRINTS];
 
@@ -103,12 +113,13 @@ export default function ModelBlueprintsModal({
     const matchesSize =
       selectedSizeFilter === "All" || bp.plotSizeLabel.startsWith(selectedSizeFilter);
     const matchesType = selectedTypeFilter === "All" || bp.type === selectedTypeFilter;
+    const matchesFacing = selectedFacingFilter === "All" || bp.facing === selectedFacingFilter;
     const matchesSearch =
       !searchQuery.trim() ||
       bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bp.plotSizeLabel.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSize && matchesType && matchesSearch;
+    return matchesSize && matchesType && matchesFacing && matchesSearch;
   });
 
   return (
@@ -178,6 +189,22 @@ export default function ModelBlueprintsModal({
                 onClick={() => setSelectedTypeFilter(type)}
               >
                 {type}
+              </button>
+            ))}
+          </div>
+
+          {/* Facing Filter */}
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>Facing:</span>
+            {facingOptions.map((opt) => (
+              <button
+                key={opt.value}
+                className={`${styles.filterChip} ${
+                  selectedFacingFilter === opt.value ? styles.filterChipActive : ""
+                }`}
+                onClick={() => setSelectedFacingFilter(opt.value)}
+              >
+                {opt.label}
               </button>
             ))}
           </div>

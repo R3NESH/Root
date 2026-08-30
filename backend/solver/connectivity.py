@@ -52,6 +52,7 @@ PARENT_PREFERENCE: dict[str, tuple[str, ...]] = {
     "pooja": ("hall", "dining"),
     "kitchen": ("hall", "dining"),
     "bedroom": ("hall", "dining"),
+    "entrance": ("hall", "dining"),
 }
 
 # How many rooms may open off one room. Without a cap the hall collects every child, and at
@@ -480,34 +481,43 @@ ENTRANCE_EDGE_PREFERENCE = ["N", "E", "W", "S"]
 
 
 def add_entrance(rooms, openings: list[list[dict]], hub: int) -> str | None:
-    """Cut the front door in the hub's outermost wall, preferring N then E per Vaastu.
+    """Cut the front door in the outermost wall, preferring entrance room then hub, N then E per Vaastu.
 
-    Returns the edge used, or None if the hub touches no exterior wall.
+    Returns the edge used, or None if no suitable room touches an exterior wall.
     """
-    room = rooms[hub]
     fx0, fz0, fx1, fz1 = footprint(rooms)
-    on_exterior = {
-        "N": room.y_in == fz0,
-        "S": room.y_in + room.d_in == fz1,
-        "W": room.x_in == fx0,
-        "E": room.x_in + room.w_in == fx1,
-    }
-    for edge in ENTRANCE_EDGE_PREFERENCE:
-        if not on_exterior[edge]:
-            continue
-        run = room.d_in if edge in ("E", "W") else room.w_in
-        if run < DOOR_WIDTH_IN:
-            continue
-        width = min(DOOR_WIDTH_IN, run)
-        openings[hub].append({
-            "kind": "entrance",
-            "edge": edge,
-            "offset_in": (run - width) // 2,
-            "width_in": width,
-            "height_in": DOOR_HEIGHT_IN,
-            "to_room": None,
-        })
-        return edge
+
+    # Check entrance room first if present, otherwise circulation hub
+    target_indices = [i for i, r in enumerate(rooms) if r.name == "entrance"]
+    if not target_indices:
+        target_indices = [hub]
+    elif hub not in target_indices:
+        target_indices.append(hub)
+
+    for target_idx in target_indices:
+        room = rooms[target_idx]
+        on_exterior = {
+            "N": room.y_in == fz0,
+            "S": room.y_in + room.d_in == fz1,
+            "W": room.x_in == fx0,
+            "E": room.x_in + room.w_in == fx1,
+        }
+        for edge in ENTRANCE_EDGE_PREFERENCE:
+            if not on_exterior[edge]:
+                continue
+            run = room.d_in if edge in ("E", "W") else room.w_in
+            if run < DOOR_WIDTH_IN:
+                continue
+            width = min(DOOR_WIDTH_IN, run)
+            openings[target_idx].append({
+                "kind": "entrance",
+                "edge": edge,
+                "offset_in": (run - width) // 2,
+                "width_in": width,
+                "height_in": DOOR_HEIGHT_IN,
+                "to_room": None,
+            })
+            return edge
     return None
 
 

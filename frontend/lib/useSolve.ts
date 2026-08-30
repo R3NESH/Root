@@ -5,7 +5,7 @@
 // Persistent stable instance-ID position tracking: adding/removing rooms never shifts existing room placements.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Facing, Setback } from "./plot";
+import { edgeSetbacksIn, Facing, Setback } from "./plot";
 import { RoomName } from "./rooms";
 import { PrevRoomIn, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
 
@@ -102,9 +102,9 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(
     async (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => {
-      if (!meta) return;
-      const envX0 = meta.envelope_origin_x_in;
-      const envZ0 = meta.envelope_origin_z_in;
+      const [frontIn, , , leftIn] = setback ? edgeSetbacksIn(facing, setback) : [60, 36, 60, 36];
+      const envX0 = meta ? meta.envelope_origin_x_in : leftIn;
+      const envZ0 = meta ? meta.envelope_origin_z_in : frontIn;
 
       // Update persistent instance position immediately
       const movedId = getRoomId(roomList[roomIndex], roomIndex);
@@ -176,9 +176,9 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
       targetWIn: number,
       targetDIn: number
     ) => {
-      if (!meta) return;
-      const envX0 = meta.envelope_origin_x_in;
-      const envZ0 = meta.envelope_origin_z_in;
+      const [frontIn, , , leftIn] = setback ? edgeSetbacksIn(facing, setback) : [60, 36, 60, 36];
+      const envX0 = meta ? meta.envelope_origin_x_in : leftIn;
+      const envZ0 = meta ? meta.envelope_origin_z_in : frontIn;
 
       const resizedId = getRoomId(roomList[roomIndex], roomIndex);
       savedPositionsRef.current.set(resizedId, {
@@ -254,5 +254,15 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
     savedPositionsRef.current.clear();
   }, []);
 
-  return { rooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions };
+  const setRoomPositions = useCallback((positions: Record<string, { xFt: number; yFt: number }>) => {
+    savedPositionsRef.current.clear();
+    Object.entries(positions).forEach(([id, pos]) => {
+      savedPositionsRef.current.set(id, {
+        x_in: Math.round(pos.xFt * 12),
+        y_in: Math.round(pos.yFt * 12),
+      });
+    });
+  }, []);
+
+  return { rooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions, setRoomPositions };
 }

@@ -239,9 +239,9 @@ def solve_layout(
     flexible_rooms = [
         Room(
             name=r.name,
-            min_w_in=ROOM_CATALOG.get(r.name, r).min_w_in,
+            min_w_in=min(ROOM_CATALOG.get(r.name, r).min_w_in, r.max_w_in),
             max_w_in=r.max_w_in,
-            min_d_in=ROOM_CATALOG.get(r.name, r).min_d_in,
+            min_d_in=min(ROOM_CATALOG.get(r.name, r).min_d_in, r.max_d_in),
             max_d_in=r.max_d_in,
             habitable=r.habitable,
             wet=r.wet,

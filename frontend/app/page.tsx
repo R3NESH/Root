@@ -50,6 +50,11 @@ import {
   EYE_LEVEL_FT,
   PlayerTransform,
 } from "@/lib/walkthrough";
+import {
+  CustomDrawnWall,
+  CustomRoomZone,
+  CustomWallType,
+} from "@/lib/customArchitecture";
 import styles from "./page.module.css";
 
 const DEFAULT_COUNTS: Record<RoomName, number> = {
@@ -70,6 +75,23 @@ export default function Home() {
   const [customDims, setCustomDims] = useState<Record<string, CustomDim>>({});
   const [customOpenings, setCustomOpenings] = useState<Record<string, RoomOpening[]>>({});
   const [customWallThickness, setCustomWallThickness] = useState<Record<string, number>>({});
+  const [customWalls, setCustomWalls] = useState<CustomDrawnWall[]>([]);
+  const [customRoomZones, setCustomRoomZones] = useState<CustomRoomZone[]>([]);
+  const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
+  const [deletedBuiltinIds, setDeletedBuiltinIds] = useState<string[]>([]);
+  const [placingItemType, setPlacingItemType] = useState<string | null>(null);
+  const [placingRotationY, setPlacingRotationY] = useState<number>(0);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
+  const [isRoomDimensionsOpen, setIsRoomDimensionsOpen] = useState(false);
+  const [activeFloor, setActiveFloor] = useState<number>(0);
+  const [isLoadedFromStorage, setIsLoadedFromStorage] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
+  const [activeCadTool, setActiveCadTool] = useState<
+    "select" | "draw_wall" | "place_door" | "place_window" | "tag_room"
+  >("select");
+  const [activeWallType, setActiveWallType] = useState<CustomWallType>("exterior");
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
   const [lightsOn, setLightsOn] = useState(true);
   const [furnished, setFurnished] = useState(true);
@@ -87,6 +109,37 @@ export default function Home() {
 
   const [teleportTarget, setTeleportTarget] = useState<{ x: number; z: number } | null>(null);
   const [activeBlueprintName, setActiveBlueprintName] = useState<string | null>(null);
+
+  // Load design state from LocalStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("vastu_builder_project_data_v1");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.plot) setPlot(data.plot);
+        if (data.facing) setFacing(data.facing);
+        if (data.counts) setCounts(data.counts);
+        if (data.customDims) setCustomDims(data.customDims);
+        if (data.customOpenings) setCustomOpenings(data.customOpenings);
+        if (data.customWallThickness) setCustomWallThickness(data.customWallThickness);
+        if (Array.isArray(data.customWalls)) setCustomWalls(data.customWalls);
+        if (Array.isArray(data.customRoomZones)) setCustomRoomZones(data.customRoomZones);
+        if (Array.isArray(data.customObjects)) setCustomObjects(data.customObjects);
+        if (Array.isArray(data.deletedBuiltinIds)) setDeletedBuiltinIds(data.deletedBuiltinIds);
+        if (typeof data.lightsOn === "boolean") setLightsOn(data.lightsOn);
+        if (typeof data.furnished === "boolean") setFurnished(data.furnished);
+        if (data.materialConfig) setMaterialConfig(data.materialConfig);
+        if (data.windowConfig) setWindowConfig(data.windowConfig);
+        if (typeof data.activeFloor === "number") setActiveFloor(data.activeFloor);
+        if (data.activeBlueprintName) setActiveBlueprintName(data.activeBlueprintName);
+        if (data.savedAt) setLastSavedTime(data.savedAt);
+      }
+    } catch (e) {
+      console.warn("Failed to load saved house build from localStorage", e);
+    } finally {
+      setIsLoadedFromStorage(true);
+    }
+  }, []);
 
   // Player location (5'5" perspective)
   const [player, setPlayer] = useState<PlayerTransform>({
@@ -119,7 +172,17 @@ export default function Home() {
     return list;
   }, [counts, customDims]);
 
-  const { rooms: solvedRooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions } = useSolve({
+  const {
+    rooms: solvedRooms,
+    meta,
+    pending,
+    error,
+    staleBackend,
+    moveRoom,
+    resizeRoom,
+    resetPositions,
+    setRoomPositions,
+  } = useSolve({
     plotWIn: plot.widthIn,
     plotDIn: plot.depthIn,
     facing,
@@ -130,29 +193,42 @@ export default function Home() {
   // Apply a curated or imported model blueprint to instantly configure and construct the house in 2D & 3D
   const handleRoomResize = useCallback(
     (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number, targetWIn: number, targetDIn: number) => {
-      // Commit new dimensions into customDims so the solver keeps them
       if (roomIndex < 0 || roomIndex >= solvedRooms.length) return;
-      const room = solvedRooms[roomIndex];
-      const roomId = room ? `${room.name}_${roomIndex}` : null;
-      if (roomId) {
-        setCustomDims((prev) => ({
-          ...prev,
-          [roomId]: {
-            wFt: Math.round((targetWIn / 12) * 10) / 10,
-            dFt: Math.round((targetDIn / 12) * 10) / 10,
-          },
-        }));
+      let curr = 0;
+      let targetId = `room_${roomIndex}`;
+      for (const name of ROOM_NAMES) {
+        const count = counts[name] ?? 0;
+        for (let c = 0; c < count; c++) {
+          if (curr === roomIndex) {
+            targetId = `${name}_${c}`;
+            break;
+          }
+          curr++;
+        }
+        if (targetId !== `room_${roomIndex}`) break;
       }
+
+      setCustomDims((prev) => ({
+        ...prev,
+        [targetId]: {
+          wFt: Math.round((targetWIn / 12) * 10) / 10,
+          dFt: Math.round((targetDIn / 12) * 10) / 10,
+        },
+      }));
       resizeRoom(roomIndex, targetPlotXIn, targetPlotYIn, targetWIn, targetDIn);
     },
-    [solvedRooms, resizeRoom]
+    [solvedRooms, counts, resizeRoom]
   );
 
   const handleApplyModelBlueprint = (
     bp: ModelBlueprint,
     targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint"
   ) => {
-    resetPositions();
+    if (bp.customPositions) {
+      setRoomPositions(bp.customPositions);
+    } else {
+      resetPositions();
+    }
     setActiveBlueprintName(bp.name);
     setPlot({
       widthIn: feetToInches(bp.plotWidthFt),
@@ -163,8 +239,188 @@ export default function Home() {
     setCustomDims(bp.customDims);
     setCustomOpenings(bp.customOpenings ?? {});
     setCustomWallThickness(bp.customWallThickness ?? {});
+    setCustomWalls([]);
+    setCustomRoomZones([]);
+    setDeletedBuiltinIds([]);
+    setSelectedObjectId(null);
+    setSelectedObjectInfo(null);
+    setActiveFloor(0);
+    setFurnished(true);
+
+    if (bp.id === "parisian_haute_penthouse") {
+      setMaterialConfig({
+        globalFloor: "french_chevron_oak",
+        globalWallColor: "arctic_white",
+        globalWallTexture: "boiserie_paneling",
+        roomFloors: {
+          hall: "french_chevron_oak",
+          kitchen: "marquina_black",
+          bedroom: "french_chevron_oak",
+          dining: "french_chevron_oak",
+        },
+        roomWallColors: {
+          hall: "arctic_white",
+          bedroom: "warm_alabaster",
+          kitchen: "arctic_white",
+          dining: "arctic_white",
+        },
+        roomWallTextures: {},
+      });
+      setCustomObjects([
+        {
+          id: `custom_fp_${Date.now()}`,
+          type: "wall_fireplace_bookshelf",
+          name: "Haute Fireplace & Bookshelf Wall",
+          x: 0,
+          y: 0,
+          z: -6,
+          rotationY: 0,
+          scale: 1.0,
+        },
+        {
+          id: `custom_sofa_${Date.now()}`,
+          type: "sofa_boucle_curved_set",
+          name: "Haute Bouclé Curved Living Set",
+          x: 0,
+          y: 0,
+          z: 2,
+          rotationY: 0,
+          scale: 1.0,
+        },
+        {
+          id: `custom_dining_${Date.now()}`,
+          type: "dining_table_nero_marquina",
+          name: "10-Seater Nero Marquina Dining Set",
+          x: 10,
+          y: 0,
+          z: -2,
+          rotationY: Math.PI / 2,
+          scale: 1.0,
+        },
+        {
+          id: `custom_planter_${Date.now()}`,
+          type: "partition_planter_cacti",
+          name: "Indoor Architectural Planter Divider",
+          x: 4,
+          y: 0,
+          z: -4,
+          rotationY: Math.PI / 2,
+          scale: 1.0,
+        },
+        {
+          id: `custom_kitchen_${Date.now()}`,
+          type: "kitchen_walnut_wall",
+          name: "Floor-to-Ceiling Smoked Walnut Kitchen Wall",
+          x: 10,
+          y: 0,
+          z: 8,
+          rotationY: Math.PI,
+          scale: 1.0,
+        },
+      ]);
+    } else {
+      setCustomObjects([]);
+    }
+
     setMode(targetMode);
   };
+
+  // Start From Scratch Blank Canvas Mode: Clears automated pre-built rooms to allow 100% custom CAD drafting
+  const handleStartFromScratch = useCallback(() => {
+    resetPositions();
+    setActiveBlueprintName("Custom Freehand Draft");
+    setCounts({
+      hall: 0,
+      dining: 0,
+      kitchen: 0,
+      bedroom: 0,
+      bathroom: 0,
+      pooja: 0,
+      store: 0,
+      entrance: 0,
+    });
+    setCustomDims({});
+    setCustomOpenings({});
+    setCustomWallThickness({});
+    setCustomObjects([]);
+    setActiveCadTool("draw_wall");
+    setMode("blueprint");
+  }, [resetPositions]);
+
+  // Reset entire design to pristine defaults
+  const handleResetDesign = useCallback(() => {
+    if (confirm("Reset entire design and start with default layout?")) {
+      try {
+        localStorage.removeItem("vastu_builder_project_data_v1");
+      } catch {}
+      setPlot(DEFAULT_PLOT);
+      setFacing("N");
+      setCounts(DEFAULT_COUNTS);
+      setCustomDims({});
+      setCustomOpenings({});
+      setCustomWallThickness({});
+      setCustomWalls([]);
+      setCustomRoomZones([]);
+      setCustomObjects([]);
+      setActiveFloor(0);
+      setActiveBlueprintName(null);
+      setLastSavedTime(null);
+      resetPositions();
+    }
+  }, [resetPositions]);
+
+  // Debounced Auto-Save to localStorage on any state change
+  useEffect(() => {
+    if (!isLoadedFromStorage) return;
+    const timeout = setTimeout(() => {
+      try {
+        const now = Date.now();
+        const payload = {
+          plot,
+          facing,
+          counts,
+          customDims,
+          customOpenings,
+          customWallThickness,
+          customWalls,
+          customRoomZones,
+          customObjects,
+          deletedBuiltinIds,
+          lightsOn,
+          furnished,
+          materialConfig,
+          windowConfig,
+          activeFloor,
+          activeBlueprintName,
+          savedAt: now,
+        };
+        localStorage.setItem("vastu_builder_project_data_v1", JSON.stringify(payload));
+        setLastSavedTime(now);
+      } catch (e) {
+        console.warn("Auto-save to localStorage failed", e);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [
+    isLoadedFromStorage,
+    plot,
+    facing,
+    counts,
+    customDims,
+    customOpenings,
+    customWallThickness,
+    customWalls,
+    customRoomZones,
+    customObjects,
+    deletedBuiltinIds,
+    lightsOn,
+    furnished,
+    materialConfig,
+    windowConfig,
+    activeFloor,
+    activeBlueprintName,
+  ]);
 
   // Merge custom door / window openings and wall thicknesses into solved rooms
   const rooms = useMemo(() => {
@@ -223,15 +479,6 @@ export default function Home() {
   const handleToggleLights = useCallback(() => {
     setLightsOn((prev) => !prev);
   }, []);
-
-  const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
-  const [deletedBuiltinIds, setDeletedBuiltinIds] = useState<string[]>([]);
-  const [placingItemType, setPlacingItemType] = useState<string | null>(null);
-  const [placingRotationY, setPlacingRotationY] = useState<number>(0);
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
-  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
-  const [isRoomDimensionsOpen, setIsRoomDimensionsOpen] = useState(false);
 
   const selectedObject = useMemo(() => {
     if (selectedObjectInfo) return selectedObjectInfo;
@@ -757,6 +1004,15 @@ export default function Home() {
         totalPlacedCount={customObjects.length}
         deletedBuiltinCount={deletedBuiltinIds.length}
         onRestoreDefaults={handleRestoreDefaults}
+        onStartFromScratch={handleStartFromScratch}
+        onResetDesign={handleResetDesign}
+        lastSavedTime={lastSavedTime}
+        activeFloor={activeFloor}
+        onChangeActiveFloor={setActiveFloor}
+        activeCadTool={activeCadTool}
+        onChangeCadTool={setActiveCadTool}
+        activeWallType={activeWallType}
+        onChangeWallType={setActiveWallType}
       />
 
       <main className={styles.mainLayout}>
@@ -773,6 +1029,16 @@ export default function Home() {
               customDims={customDims}
               customOpenings={customOpenings}
               customWallThickness={customWallThickness}
+              customWalls={customWalls}
+              onChangeCustomWalls={setCustomWalls}
+              customRoomZones={customRoomZones}
+              onChangeCustomRoomZones={setCustomRoomZones}
+              activeFloor={activeFloor}
+              onChangeActiveFloor={setActiveFloor}
+              activeCadTool={activeCadTool}
+              onChangeCadTool={setActiveCadTool}
+              activeWallType={activeWallType}
+              onChangeWallType={setActiveWallType}
               activeBlueprintName={activeBlueprintName}
               onChangeCounts={setCounts}
               onChangeCustomDims={setCustomDims}
@@ -783,6 +1049,7 @@ export default function Home() {
               onOpenExportModal={() => setIsExportModalOpen(true)}
               onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
               onApplyBlueprint={handleApplyModelBlueprint}
+              onStartFromScratch={handleStartFromScratch}
             />
           ) : (
             /* 3D Three.js Scene Viewport */
@@ -792,6 +1059,17 @@ export default function Home() {
                 facing={facing}
                 rooms={rooms}
                 customOpenings={customOpenings}
+                customWalls={customWalls}
+                customRoomZones={customRoomZones}
+                activeFloor={activeFloor}
+                onChangeActiveFloor={setActiveFloor}
+                activeCadTool={activeCadTool}
+                onChangeCadTool={setActiveCadTool}
+                activeWallType={activeWallType}
+                onChangeWallType={setActiveWallType}
+                onChangeCustomWalls={setCustomWalls}
+                onChangeCustomRoomZones={setCustomRoomZones}
+                onStartFromScratch={handleStartFromScratch}
                 setback={DEFAULT_SETBACK}
                 mode={mode}
                 teleportTarget={teleportTarget}
@@ -811,6 +1089,7 @@ export default function Home() {
                 onPlayerUpdate={setPlayer}
                 onToggleLights={handleToggleLights}
                 onRoomMove={moveRoom}
+                onRoomResize={handleRoomResize}
                 onAddCustomObject={(newObj) => {
                   setCustomObjects((prev) => [...prev, newObj]);
                   setPlacingItemType(null);

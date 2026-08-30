@@ -14,7 +14,7 @@ import {
 } from "@/lib/plot";
 import { findAdjacentRoomEdge, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { RoomOpening, SolvedRoom } from "@/lib/solve";
-import { inchesToFeet } from "@/lib/units";
+import { inchesToFeet, feetToInches } from "@/lib/units";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import {
   clampPlayerPosition,
@@ -61,6 +61,14 @@ import {
   WindowGlassTintId,
   WindowShapeId,
 } from "@/lib/windowCatalog";
+import {
+  CustomDrawnWall,
+  CustomRoomZone,
+  CustomWallOpening,
+  CustomWallType,
+  getWallLengthIn,
+  getCurvedWallArcPoints,
+} from "@/lib/customArchitecture";
 
 export interface SelectedObjectInfo {
   id: string;
@@ -100,6 +108,17 @@ interface SceneProps {
   furnished?: boolean;
   customObjects?: PlacedCustomObject[];
   customOpenings?: Record<string, RoomOpening[]>;
+  customWalls?: CustomDrawnWall[];
+  customRoomZones?: CustomRoomZone[];
+  activeFloor?: number;
+  onChangeActiveFloor?: (floor: number) => void;
+  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
+  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeWallType?: CustomWallType;
+  onChangeWallType?: (type: CustomWallType) => void;
+  onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
+  onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
+  onStartFromScratch?: () => void;
   deletedBuiltinIds?: string[];
   placingItemType?: string | null;
   placingRotationY?: number;
@@ -113,6 +132,13 @@ interface SceneProps {
   onPlayerUpdate?: (player: PlayerTransform) => void;
   onToggleLights?: () => void;
   onRoomMove?: (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => void;
+  onRoomResize?: (
+    roomIndex: number,
+    targetPlotXIn: number,
+    targetPlotYIn: number,
+    targetWIn: number,
+    targetDIn: number
+  ) => void;
   onAddCustomObject?: (obj: PlacedCustomObject) => void;
   onSelectObject?: (info: SelectedObjectInfo | null) => void;
   onUpdateCustomObject?: (obj: PlacedCustomObject) => void;
@@ -142,6 +168,37 @@ function snapToFoot(inches: number): number {
 
 function clampInches(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
+}
+
+function makeRoomBadgeSprite(text: string): THREE.Sprite {
+  if (typeof document === "undefined") return new THREE.Sprite();
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "rgba(10, 25, 48, 0.88)";
+    if (ctx.roundRect) {
+      ctx.roundRect(4, 4, 248, 56, 10);
+    } else {
+      ctx.rect(4, 4, 248, 56);
+    }
+    ctx.fill();
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 128, 32);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(4.5, 1.1, 1);
+  return sprite;
 }
 
 function getPrimaryCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
@@ -198,6 +255,8 @@ export default function Scene({
   furnished = true,
   customObjects = [],
   customOpenings = {},
+  customWalls = [],
+  customRoomZones = [],
   deletedBuiltinIds = [],
   placingItemType = null,
   placingRotationY = 0,
@@ -207,10 +266,20 @@ export default function Scene({
   windowConfig = DEFAULT_WINDOW_CONFIG,
   isLayoutLocked = false,
   onToggleLayoutLock,
+  activeCadTool = "select",
+  onChangeCadTool,
+  activeWallType = "exterior",
+  onChangeWallType,
+  onChangeCustomWalls,
+  onChangeCustomRoomZones,
+  activeFloor = 0,
+  onChangeActiveFloor,
+  onStartFromScratch,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
   onRoomMove,
+  onRoomResize,
   onAddCustomObject,
   onSelectObject,
   onUpdateCustomObject,
@@ -229,6 +298,30 @@ export default function Scene({
   const groupRef = useRef<THREE.Group | null>(null);
   const widthHandleRef = useRef<THREE.Mesh | null>(null);
   const depthHandleRef = useRef<THREE.Mesh | null>(null);
+  const roomHandlesGroupRef = useRef<THREE.Group | null>(null);
+  const customWallHandlesGroupRef = useRef<THREE.Group | null>(null);
+  const draggedCustomWallHandleInfoRef = useRef<{
+    wallId: string;
+    endpoint: "start" | "end";
+    initialXIn: number;
+    initialYIn: number;
+  } | null>(null);
+  const [draftWallStartFt, setDraftWallStartFt] = useState<{ x: number; z: number } | null>(null);
+  const draftWallStartFtRef = useRef<{ x: number; z: number } | null>(null);
+  const draftGhost3DWallRef = useRef<THREE.Mesh | null>(null);
+  const [drafting3DDescription, setDrafting3DDescription] = useState<string | null>(null);
+  const draggedRoomHandleInfoRef = useRef<{
+    roomIdx: number;
+    handleType: "E" | "S" | "SE" | "N" | "W";
+    initialXIn: number;
+    initialYIn: number;
+    initialWIn: number;
+    initialDIn: number;
+    currentXIn: number;
+    currentYIn: number;
+    currentWIn: number;
+    currentDIn: number;
+  } | null>(null);
 
   // Metaheuristic Room Occlusion Culling Sub-Graphs & Portals
   const roomGroupsRef = useRef<Map<number, THREE.Group>>(new Map());
@@ -238,7 +331,14 @@ export default function Scene({
   // Drag-and-Drop room meshes references
   const ghostRoomMeshRef = useRef<THREE.Mesh | null>(null);
   const draggedRoomIdxRef = useRef<number | null>(null);
-  const [draggedRoomInfo, setDraggedRoomInfo] = useState<{ name: string; x: number; z: number } | null>(null);
+  const [draggedRoomInfo, setDraggedRoomInfo] = useState<{
+    name: string;
+    x: number;
+    z: number;
+    isCropped?: boolean;
+    cropWFt?: number;
+    cropDFt?: number;
+  } | null>(null);
   const [doorAlert, setDoorAlert] = useState<string | null>(null);
   const [smartSnapDescription, setSmartSnapDescription] = useState<string | null>(null);
 
@@ -283,10 +383,13 @@ export default function Scene({
   const savedOrbitCamPos = useRef<THREE.Vector3>(new THREE.Vector3());
 
   const plotRef = useRef(plot);
+  const facingRef = useRef(facing);
+  const setbackRef = useRef(setback);
   const onPlotChangeRef = useRef(onPlotChange);
   const onPlayerUpdateRef = useRef(onPlayerUpdate);
   const onToggleLightsRef = useRef(onToggleLights);
   const onRoomMoveRef = useRef(onRoomMove);
+  const onRoomResizeRef = useRef(onRoomResize);
   const onAddCustomObjectRef = useRef(onAddCustomObject);
   const onSelectObjectRef = useRef(onSelectObject);
   const onUpdateCustomObjectRef = useRef(onUpdateCustomObject);
@@ -296,12 +399,20 @@ export default function Scene({
   const onRequestDeleteRef = useRef(onRequestDelete);
   const onRotateSelectedRef = useRef(onRotateSelected);
   const onRotatePlacingRef = useRef(onRotatePlacing);
+  const activeCadToolRef = useRef(activeCadTool);
+  const activeWallTypeRef = useRef(activeWallType);
+  const activeFloorRef = useRef(activeFloor);
+  const onChangeActiveFloorRef = useRef(onChangeActiveFloor);
+  const onChangeCustomWallsRef = useRef(onChangeCustomWalls);
+  const onChangeCustomRoomZonesRef = useRef(onChangeCustomRoomZones);
   const modeRef = useRef(mode);
   const activeMoveCmdRef = useRef(activeMoveCmd);
   const lightsOnRef = useRef(lightsOn);
   const roomsRef = useRef(rooms);
   const customObjectsRef = useRef(customObjects);
   const customOpeningsRef = useRef(customOpenings || {});
+  const customWallsRef = useRef(customWalls || []);
+  const customRoomZonesRef = useRef(customRoomZones || []);
   const deletedBuiltinIdsRef = useRef(deletedBuiltinIds);
   const placingItemTypeRef = useRef(placingItemType);
   const placingRotationYRef = useRef(placingRotationY);
@@ -313,10 +424,13 @@ export default function Scene({
 
   useEffect(() => {
     plotRef.current = plot;
+    facingRef.current = facing;
+    setbackRef.current = setback;
     onPlotChangeRef.current = onPlotChange;
     onPlayerUpdateRef.current = onPlayerUpdate;
     onToggleLightsRef.current = onToggleLights;
     onRoomMoveRef.current = onRoomMove;
+    onRoomResizeRef.current = onRoomResize;
     onAddCustomObjectRef.current = onAddCustomObject;
     onSelectObjectRef.current = onSelectObject;
     onUpdateCustomObjectRef.current = onUpdateCustomObject;
@@ -326,12 +440,18 @@ export default function Scene({
     onRequestDeleteRef.current = onRequestDelete;
     onRotateSelectedRef.current = onRotateSelected;
     onRotatePlacingRef.current = onRotatePlacing;
+    activeCadToolRef.current = activeCadTool;
+    activeWallTypeRef.current = activeWallType;
+    activeFloorRef.current = activeFloor;
+    onChangeActiveFloorRef.current = onChangeActiveFloor;
     modeRef.current = mode;
     activeMoveCmdRef.current = activeMoveCmd;
     lightsOnRef.current = lightsOn;
     roomsRef.current = rooms;
     customObjectsRef.current = customObjects;
     customOpeningsRef.current = customOpenings || {};
+    customWallsRef.current = customWalls || [];
+    customRoomZonesRef.current = customRoomZones || [];
     deletedBuiltinIdsRef.current = deletedBuiltinIds;
     placingItemTypeRef.current = placingItemType;
     placingRotationYRef.current = placingRotationY;
@@ -340,19 +460,28 @@ export default function Scene({
     windowConfigRef.current = windowConfig;
     isLayoutLockedRef.current = isLayoutLocked;
     onToggleLayoutLockRef.current = onToggleLayoutLock;
+    activeCadToolRef.current = activeCadTool;
+    activeWallTypeRef.current = activeWallType;
+    onChangeCustomWallsRef.current = onChangeCustomWalls;
+    onChangeCustomRoomZonesRef.current = onChangeCustomRoomZones;
 
     if (widthHandleRef.current) widthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
     if (depthHandleRef.current) depthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
+    if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
+    if (customWallHandlesGroupRef.current) customWallHandlesGroupRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
 
     roomLightsRef.current.forEach((l) => {
       l.visible = lightsOn;
     });
   }, [
     plot,
+    facing,
+    setback,
     onPlotChange,
     onPlayerUpdate,
     onToggleLights,
     onRoomMove,
+    onRoomResize,
     onAddCustomObject,
     onSelectObject,
     onUpdateCustomObject,
@@ -524,11 +653,34 @@ export default function Scene({
     widthHandleRef.current = widthHandle;
     depthHandleRef.current = depthHandle;
 
+    const roomHandlesGroup = new THREE.Group();
+    scene.add(roomHandlesGroup);
+    roomHandlesGroupRef.current = roomHandlesGroup;
+
+    const customWallHandlesGroup = new THREE.Group();
+    scene.add(customWallHandlesGroup);
+    customWallHandlesGroupRef.current = customWallHandlesGroup;
+
+    // 3D Draft Wall Extrusion Ghost
+    const draftGhostWallMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.2,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.4,
+    });
+    const draftGhostWallGeom = new THREE.BoxGeometry(1, WALL_HEIGHT_FT, 0.75);
+    const draftGhostWallMesh = new THREE.Mesh(draftGhostWallGeom, draftGhostWallMat);
+    draftGhostWallMesh.visible = false;
+    scene.add(draftGhostWallMesh);
+    draftGhost3DWallRef.current = draftGhostWallMesh;
+
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
     const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const hitPoint = new THREE.Vector3();
-    let dragKind: "width" | "depth" | "room" | "customObject" | null = null;
+    let dragKind: "width" | "depth" | "room" | "roomHandle" | "customObject" | "customWallHandle" | null = null;
 
     function setPointerNdc(ev: PointerEvent) {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -543,6 +695,38 @@ export default function Scene({
       const intersects = raycaster.intersectObjects([widthHandle, depthHandle]);
       if (intersects.length === 0) return null;
       return intersects[0].object === widthHandle ? "width" : "depth";
+    }
+
+    function pickRoomHandle(
+      ev: PointerEvent
+    ): { roomIdx: number; handleType: "E" | "S" | "SE" | "N" | "W" } | null {
+      if (modeRef.current === "walkthrough" || isLayoutLockedRef.current) return null;
+      if (!roomHandlesGroupRef.current) return null;
+      setPointerNdc(ev);
+      raycaster.setFromCamera(pointerNdc, camera);
+      const intersects = raycaster.intersectObjects(roomHandlesGroupRef.current.children, true);
+      if (intersects.length === 0) return null;
+      const hit = intersects[0].object;
+      if (hit.userData && hit.userData.isRoomHandle) {
+        return { roomIdx: hit.userData.roomIdx, handleType: hit.userData.handleType };
+      }
+      return null;
+    }
+
+    function pickCustomWallHandle(
+      ev: PointerEvent
+    ): { wallId: string; endpoint: "start" | "end" } | null {
+      if (modeRef.current === "walkthrough" || isLayoutLockedRef.current) return null;
+      if (!customWallHandlesGroupRef.current) return null;
+      setPointerNdc(ev);
+      raycaster.setFromCamera(pointerNdc, camera);
+      const intersects = raycaster.intersectObjects(customWallHandlesGroupRef.current.children, true);
+      if (intersects.length === 0) return null;
+      const hit = intersects[0].object;
+      if (hit.userData && hit.userData.isCustomWallHandle) {
+        return { wallId: hit.userData.wallId, endpoint: hit.userData.endpoint };
+      }
+      return null;
     }
 
     // High-Precision 3D Volume Room Picker: Picks ANY room (Pooja, Bath, Bed, Hall)
@@ -737,6 +921,179 @@ export default function Scene({
       setPointerNdc(ev);
       raycaster.setFromCamera(pointerNdc, camera);
 
+      // 0a. CAD Tool 1: 3D Freehand Wall Drawing
+      if (activeCadToolRef.current === "draw_wall" && ev.button === 0) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+
+          let snapX = Math.round(hitPoint.x * 2) / 2;
+          let snapZ = Math.round(hitPoint.z * 2) / 2;
+
+          // Magnetically snap to custom wall endpoints
+          for (const w of customWallsRef.current) {
+            const wx1 = inchesToFeet(w.startXIn);
+            const wz1 = inchesToFeet(w.startYIn);
+            const wx2 = inchesToFeet(w.endXIn);
+            const wz2 = inchesToFeet(w.endYIn);
+            if (Math.hypot(snapX - wx1, snapZ - wz1) <= 1.2) {
+              snapX = wx1;
+              snapZ = wz1;
+              break;
+            }
+            if (Math.hypot(snapX - wx2, snapZ - wz2) <= 1.2) {
+              snapX = wx2;
+              snapZ = wz2;
+              break;
+            }
+          }
+
+          if (!draftWallStartFtRef.current) {
+            draftWallStartFtRef.current = { x: snapX, z: snapZ };
+            setDraftWallStartFt({ x: snapX, z: snapZ });
+            setDrafting3DDescription(`✏️ Started 3D Wall at (${snapX.toFixed(1)}', ${snapZ.toFixed(1)}') • Move cursor & click to erect wall`);
+          } else {
+            const startPt = draftWallStartFtRef.current;
+            const dx = snapX - startPt.x;
+            const dz = snapZ - startPt.z;
+            const lenFt = Math.hypot(dx, dz);
+
+            if (lenFt >= 1.0) {
+              const newWall: CustomDrawnWall = {
+                id: `wall_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                floor: activeFloorRef.current || 0,
+                startXIn: Math.round(startPt.x * 12),
+                startYIn: Math.round(startPt.z * 12),
+                endXIn: Math.round(snapX * 12),
+                endYIn: Math.round(snapZ * 12),
+                wallType: activeWallTypeRef.current || "exterior",
+                thicknessIn: activeWallTypeRef.current === "exterior" ? 9.0 : 4.5,
+                heightFt: 9.0,
+                openings: [],
+              };
+              const updated = [...(customWallsRef.current || []), newWall];
+              customWallsRef.current = updated;
+              onChangeCustomWallsRef.current?.(updated);
+              draftWallStartFtRef.current = { x: snapX, z: snapZ };
+              setDraftWallStartFt({ x: snapX, z: snapZ });
+              setDrafting3DDescription(`✅ Built 3D Wall on Floor ${activeFloorRef.current || "G"} (${lenFt.toFixed(1)} ft) • Click next corner or press ESC`);
+            }
+          }
+          return;
+        }
+      }
+
+      // 0b. CAD Tool 2 & 3: Place 3D Door or Window directly onto 3D Walls
+      if ((activeCadToolRef.current === "place_door" || activeCadToolRef.current === "place_window") && ev.button === 0) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          let closestHit: { wall: CustomDrawnWall; offsetIn: number } | null = null;
+          let closestDist = 3.0; // feet
+
+          for (const w of customWallsRef.current) {
+            const x1 = inchesToFeet(w.startXIn);
+            const z1 = inchesToFeet(w.startYIn);
+            const x2 = inchesToFeet(w.endXIn);
+            const z2 = inchesToFeet(w.endYIn);
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const len = Math.hypot(dx, dz);
+            if (len < 0.5) continue;
+
+            const t = Math.max(0, Math.min(1, ((hitPoint.x - x1) * dx + (hitPoint.z - z1) * dz) / (len * len)));
+            const projX = x1 + t * dx;
+            const projZ = z1 + t * dz;
+            const dist = Math.hypot(hitPoint.x - projX, hitPoint.z - projZ);
+
+            if (dist < closestDist) {
+              closestDist = dist;
+              closestHit = {
+                wall: w,
+                offsetIn: Math.round(t * len * 12),
+              };
+            }
+          }
+
+          if (closestHit) {
+            ev.stopPropagation();
+            ev.stopImmediatePropagation();
+            const isWindow = activeCadToolRef.current === "place_window";
+            const widthIn = isWindow ? 48 : 36;
+            const newOpening: CustomWallOpening = {
+              id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              kind: isWindow ? "window" : "door",
+              offsetIn: Math.max(0, closestHit.offsetIn - widthIn / 2),
+              widthIn,
+              heightIn: isWindow ? 48 : 84,
+              sillIn: isWindow ? 34 : 0,
+            };
+            const updated = customWallsRef.current.map((cw) =>
+              cw.id === closestHit.wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+            );
+            onChangeCustomWallsRef.current?.(updated);
+            setDrafting3DDescription(`✨ Inserted 3D ${isWindow ? "Window" : "Door"} onto Wall!`);
+            return;
+          }
+        }
+      }
+
+      // 0c. CAD Tool 4: Tag Room Zone / Add Floor Slab in 3D
+      if (activeCadToolRef.current === "tag_room" && ev.button === 0) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          const posXIn = Math.round(hitPoint.x * 12);
+          const posZIn = Math.round(hitPoint.z * 12);
+
+          // Auto-detect enclosing custom walls bounding box around the click point!
+          const currentFloorWalls = (customWallsRef.current || []).filter(
+            (w) => (w.floor ?? 0) === (activeFloorRef.current || 0)
+          );
+
+          let minXIn = posXIn - 72;
+          let maxXIn = posXIn + 72;
+          let minZIn = posZIn - 72;
+          let maxZIn = posZIn + 72;
+
+          if (currentFloorWalls.length >= 2) {
+            const allXs = currentFloorWalls.flatMap((w) => [w.startXIn, w.endXIn]);
+            const allZs = currentFloorWalls.flatMap((w) => [w.startYIn, w.endYIn]);
+
+            const lefts = allXs.filter((x) => x <= posXIn);
+            const rights = allXs.filter((x) => x >= posXIn);
+            const tops = allZs.filter((z) => z <= posZIn);
+            const bottoms = allZs.filter((z) => z >= posZIn);
+
+            if (lefts.length && rights.length && tops.length && bottoms.length) {
+              minXIn = Math.max(...lefts);
+              maxXIn = Math.min(...rights);
+              minZIn = Math.max(...tops);
+              maxZIn = Math.min(...bottoms);
+            }
+          }
+
+          const wIn = Math.max(36, maxXIn - minXIn);
+          const dIn = Math.max(36, maxZIn - minZIn);
+          const areaSqFt = Math.round(((wIn * dIn) / 144) * 10) / 10;
+
+          const newZone: CustomRoomZone = {
+            id: `zone_${Date.now()}`,
+            floor: activeFloorRef.current || 0,
+            name: "hall",
+            customLabel: "Living Room",
+            xIn: minXIn,
+            yIn: minZIn,
+            wIn,
+            dIn,
+            areaSqFt,
+          };
+          const updated = [...(customRoomZonesRef.current || []), newZone];
+          customRoomZonesRef.current = updated;
+          onChangeCustomRoomZonesRef.current?.(updated);
+          setDrafting3DDescription(`✨ Added ${areaSqFt} sq ft Floor Slab to Room!`);
+          return;
+        }
+      }
+
       // If user is currently placing a furniture item from the catalog
       if (placingItemTypeRef.current && ev.button === 0) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
@@ -793,7 +1150,72 @@ export default function Scene({
 
       // If layout is unlocked, allow dragging plot resize handles, custom objects, and room blocks
       if (!isLayoutLockedRef.current) {
-        // Check plot dimension resize handles
+        // 0. Check custom wall endpoint bubble handles (Orange Bubbles on Custom Walls!)
+        const hitCustomWallHandle = pickCustomWallHandle(ev);
+        if (hitCustomWallHandle && ev.button === 0) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          const wall = customWallsRef.current.find((w) => w.id === hitCustomWallHandle.wallId);
+          if (wall) {
+            dragKind = "customWallHandle";
+            draggedCustomWallHandleInfoRef.current = {
+              wallId: hitCustomWallHandle.wallId,
+              endpoint: hitCustomWallHandle.endpoint,
+              initialXIn: hitCustomWallHandle.endpoint === "start" ? wall.startXIn : wall.endXIn,
+              initialYIn: hitCustomWallHandle.endpoint === "start" ? wall.startYIn : wall.endYIn,
+            };
+            controls.enabled = false;
+          }
+          return;
+        }
+
+        // 1. Check room crop/resize bubble handles (Orange Bubbles on Rooms!)
+        const hitRoomHandle = pickRoomHandle(ev);
+        if (hitRoomHandle && ev.button === 0) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          const r = roomsRef.current[hitRoomHandle.roomIdx];
+          if (r) {
+            dragKind = "roomHandle";
+            draggedRoomHandleInfoRef.current = {
+              roomIdx: hitRoomHandle.roomIdx,
+              handleType: hitRoomHandle.handleType,
+              initialXIn: r.x_in,
+              initialYIn: r.y_in,
+              initialWIn: r.w_in,
+              initialDIn: r.d_in,
+              currentXIn: r.x_in,
+              currentYIn: r.y_in,
+              currentWIn: r.w_in,
+              currentDIn: r.d_in,
+            };
+            controls.enabled = false;
+            if (ghostMesh) {
+              const rw = inchesToFeet(r.w_in);
+              const rd = inchesToFeet(r.d_in);
+              const rx = inchesToFeet(r.x_in);
+              const rz = inchesToFeet(r.y_in);
+              ghostMesh.scale.set(rw, 1, rd);
+              ghostMesh.position.set(rx + rw / 2, WALL_HEIGHT_FT / 2, rz + rd / 2);
+              if (ghostMesh.material instanceof THREE.MeshStandardMaterial) {
+                ghostMesh.material.color.setHex(0xf59e0b);
+                ghostMesh.material.emissive.setHex(0x663300);
+              }
+              ghostMesh.visible = true;
+            }
+            setDraggedRoomInfo({
+              name: r.name,
+              x: inchesToFeet(r.x_in + r.w_in / 2),
+              z: inchesToFeet(r.y_in + r.d_in / 2),
+              isCropped: true,
+              cropWFt: Math.round(inchesToFeet(r.w_in) * 10) / 10,
+              cropDFt: Math.round(inchesToFeet(r.d_in) * 10) / 10,
+            });
+          }
+          return;
+        }
+
+        // 2. Check plot dimension resize handles (Orange Bubbles on Plot!)
         const hitHandle = pickHandle(ev);
         if (hitHandle) {
           ev.stopPropagation();
@@ -806,15 +1228,16 @@ export default function Scene({
         // Check furniture object selection (custom OR built-in)
         const hitObj = pickFurnitureObject(ev);
         if (hitObj && ev.button === 0) {
-          ev.stopPropagation();
-          ev.stopImmediatePropagation();
-
           if (hitObj.isWall || hitObj.isWindow) {
             if (onSelectObjectRef.current) {
               onSelectObjectRef.current(hitObj);
             }
+            // Do NOT stop propagation or disable controls for walls/windows so OrbitControls rotates view smoothly!
             return;
           }
+
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
 
           if (hitObj.isBuiltin) {
             let targetId = hitObj.id;
@@ -973,6 +1396,62 @@ export default function Scene({
         return;
       }
 
+      // Handle 3D Wall Drafting Ghost & Dimension Updates
+      if (activeCadToolRef.current === "draw_wall") {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          let snapX = Math.round(hitPoint.x * 2) / 2;
+          let snapZ = Math.round(hitPoint.z * 2) / 2;
+
+          for (const w of customWallsRef.current) {
+            const wx1 = inchesToFeet(w.startXIn);
+            const wz1 = inchesToFeet(w.startYIn);
+            const wx2 = inchesToFeet(w.endXIn);
+            const wz2 = inchesToFeet(w.endYIn);
+            if (Math.hypot(snapX - wx1, snapZ - wz1) <= 1.2) {
+              snapX = wx1;
+              snapZ = wz1;
+              break;
+            }
+            if (Math.hypot(snapX - wx2, snapZ - wz2) <= 1.2) {
+              snapX = wx2;
+              snapZ = wz2;
+              break;
+            }
+          }
+
+          const startPt = draftWallStartFtRef.current;
+          const floorElevFt = (activeFloorRef.current || 0) * (WALL_HEIGHT_FT + 0.8);
+          if (startPt) {
+            const dx = snapX - startPt.x;
+            const dz = snapZ - startPt.z;
+            const lenFt = Math.hypot(dx, dz);
+            const angleDeg = (Math.atan2(dz, dx) * 180) / Math.PI;
+
+            if (draftGhost3DWallRef.current && lenFt > 0.2) {
+              draftGhost3DWallRef.current.position.set(
+                (startPt.x + snapX) / 2,
+                floorElevFt + WALL_HEIGHT_FT / 2,
+                (startPt.z + snapZ) / 2
+              );
+              draftGhost3DWallRef.current.scale.set(Math.max(0.2, lenFt), 1, 1);
+              draftGhost3DWallRef.current.rotation.y = -Math.atan2(dz, dx);
+              draftGhost3DWallRef.current.visible = true;
+            }
+            setDrafting3DDescription(`✏️ Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} Wall: ${lenFt.toFixed(1)} ft (${Math.round(angleDeg)}°) • Click to erect`);
+          } else {
+            if (draftGhost3DWallRef.current) {
+              draftGhost3DWallRef.current.position.set(snapX, floorElevFt + WALL_HEIGHT_FT / 2, snapZ);
+              draftGhost3DWallRef.current.scale.set(0.75, 1, 0.75);
+              draftGhost3DWallRef.current.rotation.y = 0;
+              draftGhost3DWallRef.current.visible = true;
+            }
+            setDrafting3DDescription(`✏️ Click on Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} to start 3D Wall`);
+          }
+          renderer.domElement.style.cursor = "crosshair";
+        }
+        return;
+      }
+
       if (!dragKind) {
         const now = performance.now();
         if (now - lastHoverCheckTime > 50) {
@@ -981,10 +1460,13 @@ export default function Scene({
             const isOverFurniture = pickFurnitureObject(ev) !== null;
             renderer.domElement.style.cursor = isOverFurniture ? "pointer" : "default";
           } else {
+            const isOverCustomWallHandle = pickCustomWallHandle(ev) !== null;
             const isOverHandle = pickHandle(ev) !== null;
+            const isOverRoomHandle = pickRoomHandle(ev) !== null;
             const isOverFurniture = pickFurnitureObject(ev) !== null;
             const isOverRoom = pickRoom(ev) !== null;
-            renderer.domElement.style.cursor = isOverHandle || isOverFurniture || isOverRoom ? "grab" : "auto";
+            renderer.domElement.style.cursor =
+              isOverCustomWallHandle || isOverHandle || isOverRoomHandle || isOverFurniture || isOverRoom ? "grab" : "auto";
           }
         }
         return;
@@ -992,8 +1474,83 @@ export default function Scene({
 
       if (!raycaster.ray.intersectPlane(groundPlane, hitPoint)) return;
 
+      if (dragKind === "customWallHandle" && draggedCustomWallHandleInfoRef.current) {
+        const snapXIn = Math.round(hitPoint.x * 2) * 6;
+        const snapZIn = Math.round(hitPoint.z * 2) * 6;
+        const info = draggedCustomWallHandleInfoRef.current;
+        const updated = customWallsRef.current.map((w) => {
+          if (w.id !== info.wallId) return w;
+          if (info.endpoint === "start") {
+            return { ...w, startXIn: snapXIn, startYIn: snapZIn };
+          } else {
+            return { ...w, endXIn: snapXIn, endYIn: snapZIn };
+          }
+        });
+        onChangeCustomWallsRef.current?.(updated);
+        renderer.domElement.style.cursor = "grabbing";
+        return;
+      }
+
       const current = plotRef.current;
-      if (dragKind === "width") {
+      if (dragKind === "roomHandle" && draggedRoomHandleInfoRef.current) {
+        const info = draggedRoomHandleInfoRef.current;
+        const r = roomsRef.current[info.roomIdx];
+        if (r && ghostMesh) {
+          let newXIn = info.initialXIn;
+          let newYIn = info.initialYIn;
+          let newWIn = info.initialWIn;
+          let newDIn = info.initialDIn;
+
+          const mouseXIn = Math.round(hitPoint.x * 12);
+          const mouseZIn = Math.round(hitPoint.z * 12);
+          const MIN_IN = 48; // 4 ft minimum
+
+          if (info.handleType === "E" || info.handleType === "SE") {
+            newWIn = Math.max(MIN_IN, mouseXIn - info.initialXIn);
+          }
+          if (info.handleType === "S" || info.handleType === "SE") {
+            newDIn = Math.max(MIN_IN, mouseZIn - info.initialYIn);
+          }
+          if (info.handleType === "W") {
+            const clamped = Math.max(MIN_IN, info.initialXIn + info.initialWIn - mouseXIn);
+            newXIn = info.initialXIn + info.initialWIn - clamped;
+            newWIn = clamped;
+          }
+          if (info.handleType === "N") {
+            const clamped = Math.max(MIN_IN, info.initialYIn + info.initialDIn - mouseZIn);
+            newYIn = info.initialYIn + info.initialDIn - clamped;
+            newDIn = clamped;
+          }
+
+          const rwFt = inchesToFeet(newWIn);
+          const rdFt = inchesToFeet(newDIn);
+          const rxFt = inchesToFeet(newXIn);
+          const rzFt = inchesToFeet(newYIn);
+
+          ghostMesh.scale.set(rwFt, 1, rdFt);
+          ghostMesh.position.set(rxFt + rwFt / 2, WALL_HEIGHT_FT / 2, rzFt + rdFt / 2);
+          if (ghostMesh.material instanceof THREE.MeshStandardMaterial) {
+            ghostMesh.material.color.setHex(0xf59e0b);
+            ghostMesh.material.emissive.setHex(0x663300);
+          }
+          ghostMesh.visible = true;
+
+          info.currentXIn = newXIn;
+          info.currentYIn = newYIn;
+          info.currentWIn = newWIn;
+          info.currentDIn = newDIn;
+
+          const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
+          setDraggedRoomInfo({
+            name: label,
+            x: rxFt + rwFt / 2,
+            z: rzFt + rdFt / 2,
+            isCropped: true,
+            cropWFt: Math.round(rwFt * 10) / 10,
+            cropDFt: Math.round(rdFt * 10) / 10,
+          });
+        }
+      } else if (dragKind === "width") {
         const nextIn = snapToFoot(clampInches(hitPoint.x * 12, MIN_DIM_IN, MAX_DIM_IN));
         if (nextIn !== current.widthIn && onPlotChangeRef.current) {
           onPlotChangeRef.current({ ...current, widthIn: nextIn });
@@ -1056,15 +1613,48 @@ export default function Scene({
         }
         draggedCustomObjPosRef.current = { x: posX, z: posZ, rotationY: rotY };
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
-        // Direct Three.js ghost transform (0 React setState during drag)
+        // Direct Three.js ghost transform with real-time boundary auto-cropping
         const rIdx = draggedRoomIdxRef.current;
         const r = roomsRef.current[rIdx];
         if (r) {
           const rw = inchesToFeet(r.w_in);
           const rd = inchesToFeet(r.d_in);
-          const snappedCornerX = Math.round(hitPoint.x - rw / 2);
-          const snappedCornerZ = Math.round(hitPoint.z - rd / 2);
-          ghostMesh.position.set(snappedCornerX + rw / 2, WALL_HEIGHT_FT / 2, snappedCornerZ + rd / 2);
+          const rawCornerX = Math.round(hitPoint.x - rw / 2);
+          const rawCornerZ = Math.round(hitPoint.z - rd / 2);
+          const rawRightX = rawCornerX + rw;
+          const rawBottomZ = rawCornerZ + rd;
+
+          const [sbN, sbE, sbS, sbW] = edgeSetbacksIn(facingRef.current, setbackRef.current);
+          const envMinX = inchesToFeet(sbW);
+          const envMaxX = inchesToFeet(plotRef.current.widthIn - sbE);
+          const envMinZ = inchesToFeet(sbN);
+          const envMaxZ = inchesToFeet(plotRef.current.depthIn - sbS);
+
+          const cropMinX = Math.max(envMinX, Math.min(rawCornerX, envMaxX - 4));
+          const cropMaxX = Math.min(envMaxX, Math.max(rawRightX, envMinX + 4));
+          const cropMinZ = Math.max(envMinZ, Math.min(rawCornerZ, envMaxZ - 4));
+          const cropMaxZ = Math.min(envMaxZ, Math.max(rawBottomZ, envMinZ + 4));
+
+          const cropWFt = Math.max(4, Math.round((cropMaxX - cropMinX) * 2) / 2);
+          const cropDFt = Math.max(4, Math.round((cropMaxZ - cropMinZ) * 2) / 2);
+          const isCropped = Math.abs(cropWFt - rw) > 0.1 || Math.abs(cropDFt - rd) > 0.1;
+
+          ghostMesh.scale.set(cropWFt, 1, cropDFt);
+          ghostMesh.position.set(cropMinX + cropWFt / 2, WALL_HEIGHT_FT / 2, cropMinZ + cropDFt / 2);
+
+          if (ghostMesh.material instanceof THREE.MeshStandardMaterial) {
+            ghostMesh.material.color.setHex(isCropped ? 0xf59e0b : 0x00e5ff);
+            ghostMesh.material.emissive.setHex(isCropped ? 0x663300 : 0x006688);
+          }
+
+          setDraggedRoomInfo({
+            name: r.name,
+            x: cropMinX + cropWFt / 2,
+            z: cropMinZ + cropDFt / 2,
+            isCropped,
+            cropWFt,
+            cropDFt,
+          });
         }
       }
     }
@@ -1150,23 +1740,61 @@ export default function Scene({
             });
           }
         }
-        draggedCustomObjPosRef.current = null;
+      } else if (dragKind === "roomHandle" && draggedRoomHandleInfoRef.current) {
+        const info = draggedRoomHandleInfoRef.current;
+        const r = roomsRef.current[info.roomIdx];
+        if (r && onRoomResizeRef.current) {
+          onRoomResizeRef.current(
+            info.roomIdx,
+            info.currentXIn,
+            info.currentYIn,
+            info.currentWIn,
+            info.currentDIn
+          );
+          const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
+          const wFt = Math.round(inchesToFeet(info.currentWIn) * 10) / 10;
+          const dFt = Math.round(inchesToFeet(info.currentDIn) * 10) / 10;
+          setDoorAlert(`✂️ ${label} resized to ${wFt}' × ${dFt}' — Auto-connected!`);
+          setTimeout(() => setDoorAlert(null), 3500);
+        }
+        if (ghostMesh) ghostMesh.visible = false;
+        draggedRoomHandleInfoRef.current = null;
+        setDraggedRoomInfo(null);
       } else if (dragKind === "room" && draggedRoomIdxRef.current !== null && ghostMesh) {
         const rIdx = draggedRoomIdxRef.current;
         const r = roomsRef.current[rIdx];
-        if (r && onRoomMoveRef.current) {
+        if (r) {
           const rw = inchesToFeet(r.w_in);
           const rd = inchesToFeet(r.d_in);
-          const snappedCornerX = Math.round(ghostMesh.position.x - rw / 2);
-          const snappedCornerZ = Math.round(ghostMesh.position.z - rd / 2);
+          const ghostScaleX = ghostMesh.scale.x;
+          const ghostScaleZ = ghostMesh.scale.z;
+          const ghostPosX = ghostMesh.position.x;
+          const ghostPosZ = ghostMesh.position.z;
 
-          const targetXIn = Math.max(0, snappedCornerX * 12);
-          const targetYIn = Math.max(0, snappedCornerZ * 12);
-          onRoomMoveRef.current(rIdx, targetXIn, targetYIn);
+          const cornerXFt = ghostPosX - ghostScaleX / 2;
+          const cornerZFt = ghostPosZ - ghostScaleZ / 2;
 
-          const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
-          setDoorAlert(`🚪 ${label} repositioned — Door automatically connected!`);
-          setTimeout(() => setDoorAlert(null), 3000);
+          const isCropped = Math.abs(ghostScaleX - rw) > 0.1 || Math.abs(ghostScaleZ - rd) > 0.1;
+
+          if (isCropped && onRoomResizeRef.current) {
+            const targetXIn = Math.max(0, Math.round(cornerXFt * 12));
+            const targetYIn = Math.max(0, Math.round(cornerZFt * 12));
+            const targetWIn = Math.max(48, Math.round(ghostScaleX * 12));
+            const targetDIn = Math.max(48, Math.round(ghostScaleZ * 12));
+            onRoomResizeRef.current(rIdx, targetXIn, targetYIn, targetWIn, targetDIn);
+
+            const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
+            setDoorAlert(`✂️ ${label} cropped to ${ghostScaleX.toFixed(1)}' × ${ghostScaleZ.toFixed(1)}' — Auto-connected!`);
+            setTimeout(() => setDoorAlert(null), 3500);
+          } else if (onRoomMoveRef.current) {
+            const targetXIn = Math.max(0, Math.round(cornerXFt * 12));
+            const targetYIn = Math.max(0, Math.round(cornerZFt * 12));
+            onRoomMoveRef.current(rIdx, targetXIn, targetYIn);
+
+            const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
+            setDoorAlert(`🚪 ${label} repositioned — Door automatically connected!`);
+            setTimeout(() => setDoorAlert(null), 3000);
+          }
         }
         ghostMesh.visible = false;
         draggedRoomIdxRef.current = null;
@@ -1214,8 +1842,14 @@ export default function Scene({
       if (ev.code === "KeyL" && onToggleLayoutLockRef.current) {
         onToggleLayoutLockRef.current();
       }
-      // Escape: Deselect or cancel placement
+      // Escape: Deselect or cancel placement or draft wall
       if (ev.code === "Escape") {
+        draftWallStartFtRef.current = null;
+        setDraftWallStartFt(null);
+        setDrafting3DDescription(null);
+        if (draftGhost3DWallRef.current) {
+          draftGhost3DWallRef.current.visible = false;
+        }
         if (onSelectObjectRef.current) {
           onSelectObjectRef.current(null);
         }
@@ -1460,6 +2094,7 @@ export default function Scene({
 
       if (widthHandleRef.current) widthHandleRef.current.visible = false;
       if (depthHandleRef.current) depthHandleRef.current.visible = false;
+      if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = false;
     } else {
       const wFt = inchesToFeet(plot.widthIn);
       const dFt = inchesToFeet(plot.depthIn);
@@ -1490,8 +2125,9 @@ export default function Scene({
       }
       controls.update();
 
-      if (widthHandleRef.current) widthHandleRef.current.visible = true;
-      if (depthHandleRef.current) depthHandleRef.current.visible = true;
+      if (widthHandleRef.current) widthHandleRef.current.visible = !isLayoutLockedRef.current;
+      if (depthHandleRef.current) depthHandleRef.current.visible = !isLayoutLockedRef.current;
+      if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = !isLayoutLockedRef.current;
     }
   }, [mode, rooms, plot, facing]);
 
@@ -1701,15 +2337,64 @@ export default function Scene({
           entranceRoomIndex = i;
           chosenEntranceEdge = o.edge;
         } else if (o.kind === "door" && o.to_room != null && o.to_room > i) {
-          assignedDoorways.push({
-            roomAIndex: i,
-            roomBIndex: o.to_room,
-            edgeA: o.edge,
-            edgeB: oppositeEdge[o.edge],
-            center: openingCentreFt(r, o),
-          });
+          const roomAHasOpening = (r.openings ?? []).some((op) => op.kind === "opening" && op.edge === o.edge);
+          const roomB = rooms[o.to_room];
+          const oppEdge = oppositeEdge[o.edge];
+          const roomBHasOpening = (roomB?.openings ?? []).some((op) => op.kind === "opening" && op.edge === oppEdge);
+
+          if (!roomAHasOpening && !roomBHasOpening) {
+            assignedDoorways.push({
+              roomAIndex: i,
+              roomBIndex: o.to_room,
+              edgeA: o.edge,
+              edgeB: oppEdge,
+              center: openingCentreFt(r, o),
+            });
+          }
         }
       }
+    });
+
+    // Also discover touching adjacent rooms and ensure an interior doorway connects them if not already assigned
+    rooms.forEach((r1, i) => {
+      (["N", "S", "E", "W"] as const).forEach((edge) => {
+        const adj = findAdjacentRoomEdge(rooms, i, edge);
+        if (!adj || adj.adjIndex <= i) return;
+        const j = adj.adjIndex;
+        const r2 = rooms[j];
+        const oppEdge = adj.adjEdge;
+
+        // Check if either room has demolished the wall for open-concept
+        const r1Open = (r1.openings ?? []).some((o) => o.kind === "opening" && o.edge === edge);
+        const r2Open = (r2.openings ?? []).some((o) => o.kind === "opening" && o.edge === oppEdge);
+        if (r1Open || r2Open) return;
+
+        // Check if doorway already exists between these two rooms
+        const exists = assignedDoorways.some(
+          (d) => (d.roomAIndex === i && d.roomBIndex === j) || (d.roomAIndex === j && d.roomBIndex === i)
+        );
+        if (!exists) {
+          // Calculate the shared wall contact interval
+          let sharedCenterFt: number;
+          if (edge === "N" || edge === "S") {
+            const minX = Math.max(r1.x_in, r2.x_in);
+            const maxX = Math.min(r1.x_in + r1.w_in, r2.x_in + r2.w_in);
+            sharedCenterFt = inchesToFeet((minX + maxX) / 2);
+          } else {
+            const minZ = Math.max(r1.y_in, r2.y_in);
+            const maxZ = Math.min(r1.y_in + r1.d_in, r2.y_in + r2.d_in);
+            sharedCenterFt = inchesToFeet((minZ + maxZ) / 2);
+          }
+
+          assignedDoorways.push({
+            roomAIndex: i,
+            roomBIndex: j,
+            edgeA: edge,
+            edgeB: oppEdge,
+            center: sharedCenterFt,
+          });
+        }
+      });
     });
 
     // Save topological doorways for metaheuristic PVS occlusion graph culling
@@ -1720,6 +2405,10 @@ export default function Scene({
 
     const windowOn = (i: number, edge: "N" | "S" | "E" | "W") =>
       (rooms[i].openings ?? []).find((o) => o.kind === "window" && o.edge === edge);
+
+    const slabMat = new THREE.MeshStandardMaterial({ color: 0xb8b3aa, roughness: 0.92 });
+    const SLAB_T = 0.55;
+    const PARAPET_H = 3.2;
 
     // 6. Build Architectural Rooms (Organized as Per-Room Sub-Graphs for $O(1)$ Culling)
     for (let i = 0; i < rooms.length; i++) {
@@ -1793,10 +2482,11 @@ export default function Scene({
         );
 
         const openingSpec = (room.openings ?? []).find((o) => o.kind === "opening" && o.edge === edge);
-        const hasFullOpening = Boolean(openingSpec);
+        const adjOpeningSpec = adj && adjRoom ? (adjRoom.openings ?? []).find((o) => o.kind === "opening" && o.edge === adj.adjEdge) : null;
+        const hasFullOpening = Boolean(openingSpec || adjOpeningSpec);
 
-        const hasDoor = isMainEntrance || Boolean(assignedDoor);
-        const windowSpec = hasDoor || hasFullOpening ? undefined : windowOn(i, edge);
+        const hasDoor = !hasFullOpening && (isMainEntrance || Boolean(assignedDoor));
+        const windowSpec = !isShared && !hasDoor && !hasFullOpening ? windowOn(i, edge) : undefined;
         const hasWindow = Boolean(windowSpec);
 
         const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
@@ -1893,6 +2583,23 @@ export default function Scene({
               const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
               handle.position.set(doorPos + doorW / 2 - 0.4, doorH * 0.48, wz + 0.15);
               roomGroup.add(handle);
+
+              // Exterior Front Door Canopy / Sunshade (Cleanly aligned above door)
+              if (!isShared) {
+                const canopyW = doorW + 1.2;
+                const canopyT = 0.28;
+                const canopyOut = 1.8;
+                const canopyY = doorH + canopyT / 2 + 0.12;
+
+                const canopyGeom = new THREE.BoxGeometry(canopyW, canopyT, canopyOut);
+                const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
+                canopyMesh.castShadow = true;
+                canopyMesh.receiveShadow = true;
+
+                if (edge === "N") canopyMesh.position.set(doorPos, canopyY, wz - canopyOut / 2 + wd / 2);
+                else if (edge === "S") canopyMesh.position.set(doorPos, canopyY, wz + canopyOut / 2 - wd / 2);
+                roomGroup.add(canopyMesh);
+              }
             }
           } else {
             const topD = Math.max(0.1, doorPos - (wz - wd / 2) - doorW / 2);
@@ -1947,6 +2654,23 @@ export default function Scene({
               const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
               handle.position.set(wx + 0.15, doorH * 0.48, doorPos + doorW / 2 - 0.4);
               roomGroup.add(handle);
+
+              // Exterior Front Door Canopy / Sunshade (Cleanly aligned above door)
+              if (!isShared) {
+                const canopyW = doorW + 1.2;
+                const canopyT = 0.28;
+                const canopyOut = 1.8;
+                const canopyY = doorH + canopyT / 2 + 0.12;
+
+                const canopyGeom = new THREE.BoxGeometry(canopyOut, canopyT, canopyW);
+                const canopyMesh = new THREE.Mesh(canopyGeom, slabMat);
+                canopyMesh.castShadow = true;
+                canopyMesh.receiveShadow = true;
+
+                if (edge === "W") canopyMesh.position.set(wx - canopyOut / 2 + ww / 2, canopyY, doorPos);
+                else if (edge === "E") canopyMesh.position.set(wx + canopyOut / 2 - ww / 2, canopyY, doorPos);
+                roomGroup.add(canopyMesh);
+              }
             }
           }
         } else if (hasWindow) {
@@ -2016,6 +2740,23 @@ export default function Scene({
                 i,
                 edge
               );
+
+              // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
+              if (!isShared) {
+                const chajjaW = winW + 0.8;
+                const chajjaT = 0.24;
+                const chajjaOut = 1.5;
+                const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
+
+                const chajjaGeom = new THREE.BoxGeometry(chajjaW, chajjaT, chajjaOut);
+                const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
+                chajjaMesh.castShadow = true;
+                chajjaMesh.receiveShadow = true;
+
+                if (edge === "N") chajjaMesh.position.set(wx, chajjaY, wz - chajjaOut / 2 + wd / 2);
+                else if (edge === "S") chajjaMesh.position.set(wx, chajjaY, wz + chajjaOut / 2 - wd / 2);
+                roomGroup.add(chajjaMesh);
+              }
             }
           } else {
             const sideD = Math.max(0.4, (wd - winW) / 2);
@@ -2071,6 +2812,23 @@ export default function Scene({
                 i,
                 edge
               );
+
+              // Exterior Window Sunshade / Chajja (Cleanly centered directly above window)
+              if (!isShared) {
+                const chajjaW = winW + 0.8;
+                const chajjaT = 0.24;
+                const chajjaOut = 1.5;
+                const chajjaY = sillH + winH + chajjaT / 2 + 0.1;
+
+                const chajjaGeom = new THREE.BoxGeometry(chajjaOut, chajjaT, chajjaW);
+                const chajjaMesh = new THREE.Mesh(chajjaGeom, slabMat);
+                chajjaMesh.castShadow = true;
+                chajjaMesh.receiveShadow = true;
+
+                if (edge === "W") chajjaMesh.position.set(wx - chajjaOut / 2 + ww / 2, chajjaY, wz);
+                else if (edge === "E") chajjaMesh.position.set(wx + chajjaOut / 2 - ww / 2, chajjaY, wz);
+                roomGroup.add(chajjaMesh);
+              }
             }
           }
         } else {
@@ -2134,6 +2892,12 @@ export default function Scene({
         roomDoors.push({ edge: chosenEntranceEdge, center: 0, isEntrance: true });
       }
       for (const d of assignedDoorways) {
+        const roomA = rooms[d.roomAIndex];
+        const roomB = rooms[d.roomBIndex];
+        const isAOpen = (roomA?.openings ?? []).some((o) => o.kind === "opening" && o.edge === d.edgeA);
+        const isBOpen = (roomB?.openings ?? []).some((o) => o.kind === "opening" && o.edge === d.edgeB);
+        if (isAOpen || isBOpen) continue;
+
         if (d.roomAIndex === i) {
           roomDoors.push({ edge: d.edgeA, center: d.center });
         } else if (d.roomBIndex === i) {
@@ -2170,18 +2934,12 @@ export default function Scene({
       roomLightsByRoomRef.current.set(i, [roomLight]);
     }
 
-    // 7. Roof — RCC slab, parapet, and sunshades over exterior openings.
+    // 7. Roof — RCC slab & parapet
     if (rooms.length > 0) {
       const roof = new THREE.Group();
       roof.visible = modeRef.current === "walkthrough";
       roofGroupRef.current = roof;
       group.add(roof);
-
-      const slabMat = new THREE.MeshStandardMaterial({ color: 0xb8b3aa, roughness: 0.92 });
-      const SLAB_T = 0.55;
-      const CHAJJA_T = 0.28;
-      const CHAJJA_OUT = 1.9;      // ~22 in projection, a standard sunshade
-      const PARAPET_H = 3.2;
 
       for (const room of rooms) {
         const rw = inchesToFeet(room.w_in);
@@ -2212,31 +2970,6 @@ export default function Scene({
         wall.castShadow = true;
         roof.add(wall);
       }
-
-      rooms.forEach((room) => {
-        const rw = inchesToFeet(room.w_in);
-        const rd = inchesToFeet(room.d_in);
-        const rx = inchesToFeet(room.x_in);
-        const rz = inchesToFeet(room.y_in);
-        for (const o of room.openings ?? []) {
-          if (o.to_room != null) continue;
-          const width = inchesToFeet(o.width_in) + 1.2;
-          const head = inchesToFeet((o.sill_in ?? 0) + o.height_in) + 0.35;
-          const isEW = o.edge === "N" || o.edge === "S";
-          const centre = openingCentreFt(room, o);
-          const geom = isEW
-            ? new THREE.BoxGeometry(width, CHAJJA_T, CHAJJA_OUT)
-            : new THREE.BoxGeometry(CHAJJA_OUT, CHAJJA_T, width);
-          const shade = new THREE.Mesh(geom, slabMat);
-          const off = CHAJJA_OUT / 2;
-          if (o.edge === "N") shade.position.set(centre, head, rz - off + 0.3);
-          else if (o.edge === "S") shade.position.set(centre, head, rz + rd + off - 0.3);
-          else if (o.edge === "W") shade.position.set(rx - off + 0.3, head, centre);
-          else shade.position.set(rx + rw + off - 0.3, head, centre);
-          shade.castShadow = true;
-          group.add(shade);
-        }
-      });
     }
 
     // 8. Custom Interactive Placed Furniture & Decor Objects
@@ -2276,17 +3009,416 @@ export default function Scene({
 
     widthHandle.position.set(wFt, HANDLE_RADIUS_FT, dFt / 2);
     depthHandle.position.set(wFt / 2, HANDLE_RADIUS_FT, dFt);
+
+    // Build Room Orange Resize/Crop Bubbles (just like plot orange bubbles!)
+    if (roomHandlesGroupRef.current) {
+      const roomHandlesGroup = roomHandlesGroupRef.current;
+      while (roomHandlesGroup.children.length > 0) {
+        const child = roomHandlesGroup.children[0];
+        roomHandlesGroup.remove(child);
+      }
+
+      if (modeRef.current !== "walkthrough" && !isLayoutLocked) {
+        const handleSphereGeom = new THREE.SphereGeometry(HANDLE_RADIUS_FT * 0.85, 24, 24);
+        const handleSphereMat = new THREE.MeshStandardMaterial({
+          color: ACCENT,
+          emissive: 0x663300,
+          roughness: 0.25,
+          metalness: 0.3,
+        });
+
+        rooms.forEach((room, rIdx) => {
+          const rx = inchesToFeet(room.x_in);
+          const rz = inchesToFeet(room.y_in);
+          const rw = inchesToFeet(room.w_in);
+          const rd = inchesToFeet(room.d_in);
+
+          // 1. East (Width) Orange Bubble Handle
+          const eastMesh = new THREE.Mesh(handleSphereGeom, handleSphereMat);
+          eastMesh.position.set(rx + rw, HANDLE_RADIUS_FT * 0.85, rz + rd / 2);
+          eastMesh.userData = { isRoomHandle: true, roomIdx: rIdx, handleType: "E" };
+          roomHandlesGroup.add(eastMesh);
+
+          // 2. South (Depth) Orange Bubble Handle
+          const southMesh = new THREE.Mesh(handleSphereGeom, handleSphereMat);
+          southMesh.position.set(rx + rw / 2, HANDLE_RADIUS_FT * 0.85, rz + rd);
+          southMesh.userData = { isRoomHandle: true, roomIdx: rIdx, handleType: "S" };
+          roomHandlesGroup.add(southMesh);
+
+          // 3. SE Corner Orange Bubble Handle
+          const cornerMesh = new THREE.Mesh(handleSphereGeom, handleSphereMat);
+          cornerMesh.position.set(rx + rw, HANDLE_RADIUS_FT * 0.85, rz + rd);
+          cornerMesh.userData = { isRoomHandle: true, roomIdx: rIdx, handleType: "SE" };
+          roomHandlesGroup.add(cornerMesh);
+
+          // 4. North Orange Bubble Handle
+          const northMesh = new THREE.Mesh(handleSphereGeom, handleSphereMat);
+          northMesh.position.set(rx + rw / 2, HANDLE_RADIUS_FT * 0.85, rz);
+          northMesh.userData = { isRoomHandle: true, roomIdx: rIdx, handleType: "N" };
+          roomHandlesGroup.add(northMesh);
+
+          // 5. West Orange Bubble Handle
+          const westMesh = new THREE.Mesh(handleSphereGeom, handleSphereMat);
+          westMesh.position.set(rx, HANDLE_RADIUS_FT * 0.85, rz + rd / 2);
+          westMesh.userData = { isRoomHandle: true, roomIdx: rIdx, handleType: "W" };
+          roomHandlesGroup.add(westMesh);
+        });
+      }
+    }
+
+    // Build Custom Wall Orange Crop/Resize Handles
+    if (customWallHandlesGroupRef.current) {
+      const customWallHandlesGroup = customWallHandlesGroupRef.current;
+      while (customWallHandlesGroup.children.length > 0) {
+        const child = customWallHandlesGroup.children[0];
+        customWallHandlesGroup.remove(child);
+      }
+
+      if (modeRef.current !== "walkthrough" && !isLayoutLocked && customWalls && customWalls.length > 0) {
+        const wallHandleGeom = new THREE.SphereGeometry(HANDLE_RADIUS_FT * 0.75, 20, 20);
+        const wallHandleMat = new THREE.MeshStandardMaterial({
+          color: 0xf59e0b,
+          emissive: 0x78350f,
+          roughness: 0.2,
+          metalness: 0.4,
+        });
+
+        for (const wall of customWalls) {
+          const elevFt = (wall.floor ?? 0) * (WALL_HEIGHT_FT + 0.8);
+          const x1 = inchesToFeet(wall.startXIn);
+          const z1 = inchesToFeet(wall.startYIn);
+          const x2 = inchesToFeet(wall.endXIn);
+          const z2 = inchesToFeet(wall.endYIn);
+
+          const h1 = new THREE.Mesh(wallHandleGeom, wallHandleMat);
+          h1.position.set(x1, elevFt + HANDLE_RADIUS_FT * 0.85, z1);
+          h1.userData = { isCustomWallHandle: true, wallId: wall.id, endpoint: "start" };
+          customWallHandlesGroup.add(h1);
+
+          const h2 = new THREE.Mesh(wallHandleGeom, wallHandleMat);
+          h2.position.set(x2, elevFt + HANDLE_RADIUS_FT * 0.85, z2);
+          h2.userData = { isCustomWallHandle: true, wallId: wall.id, endpoint: "end" };
+          customWallHandlesGroup.add(h2);
+        }
+      }
+    }
+
+    // 9. Custom Freehand Architecture Walls & Room Zones (Build From Scratch Mode)
+    if (customWalls && customWalls.length > 0) {
+      const customArchGroup = new THREE.Group();
+      customArchGroup.name = "customArchitecture";
+
+      const defaultWallMat = new THREE.MeshStandardMaterial({
+        color: 0xf1f5f9,
+        roughness: 0.85,
+        metalness: 0.05,
+      });
+
+      const glassWallMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.45,
+        roughness: 0.1,
+        metalness: 0.8,
+      });
+
+      const woodSlatMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706,
+        roughness: 0.6,
+      });
+
+      for (const wall of customWalls) {
+        const elevFt = (wall.floor ?? 0) * (WALL_HEIGHT_FT + 0.8);
+        const x1 = inchesToFeet(wall.startXIn);
+        const z1 = inchesToFeet(wall.startYIn);
+        const x2 = inchesToFeet(wall.endXIn);
+        const z2 = inchesToFeet(wall.endYIn);
+
+        const chordLenFt = Math.hypot(x2 - x1, z2 - z1);
+        if (chordLenFt < 0.5) continue;
+
+        const thickFt = (wall.thicknessIn || 9.0) / 12;
+        const heightFt = wall.heightFt || WALL_HEIGHT_FT;
+        const isCurvedWall = Boolean(
+          wall.isCurved ||
+          wall.wallType.startsWith("curved") ||
+          (wall.curveBulgeIn && Math.abs(wall.curveBulgeIn) > 1)
+        );
+
+        const wallMat =
+          wall.wallType === "glass" || wall.wallType === "curved_glass"
+            ? glassWallMat
+            : wall.wallType === "slat" || wall.wallType === "curved_slat"
+            ? woodSlatMat
+            : defaultWallMat;
+
+        const wallGroup = new THREE.Group();
+
+        if (isCurvedWall) {
+          // Render Smooth Procedural Curved Arc Wall
+          const numArcSegs = 20;
+          const arcPoints = getCurvedWallArcPoints(wall, numArcSegs);
+
+          for (let s = 0; s < arcPoints.length - 1; s++) {
+            const p1 = arcPoints[s];
+            const p2 = arcPoints[s + 1];
+
+            const p1x = inchesToFeet(p1.x);
+            const p1z = inchesToFeet(p1.y);
+            const p2x = inchesToFeet(p2.x);
+            const p2z = inchesToFeet(p2.y);
+
+            const segLen = Math.hypot(p2x - p1x, p2z - p1z) + 0.02;
+            const segMidX = (p1x + p2x) / 2;
+            const segMidZ = (p1z + p2z) / 2;
+            const segAngle = -Math.atan2(p2z - p1z, p2x - p1x);
+
+            const segMesh = new THREE.Mesh(
+              new THREE.BoxGeometry(segLen, heightFt, thickFt),
+              wallMat
+            );
+            segMesh.position.set(segMidX, elevFt + heightFt / 2, segMidZ);
+            segMesh.rotation.y = segAngle;
+            segMesh.castShadow = true;
+            segMesh.receiveShadow = true;
+            segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Curved Wall` };
+            wallGroup.add(segMesh);
+
+            // If slat wall, add vertical slats
+            if (wall.wallType === "curved_slat") {
+              const slat = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, heightFt - 0.3, thickFt + 0.1),
+                woodSlatMat
+              );
+              slat.position.set(segMidX, elevFt + heightFt / 2, segMidZ);
+              slat.rotation.y = segAngle;
+              wallGroup.add(slat);
+            }
+          }
+        } else {
+          // Straight Wall Logic
+          const midX = (x1 + x2) / 2;
+          const midZ = (z1 + z2) / 2;
+          const angle = -Math.atan2(z2 - z1, x2 - x1);
+          wallGroup.position.set(midX, elevFt, midZ);
+          wallGroup.rotation.y = angle;
+
+          const openings = wall.openings || [];
+          if (openings.length === 0) {
+            const wallMesh = new THREE.Mesh(
+              new THREE.BoxGeometry(chordLenFt, heightFt, thickFt),
+              wallMat
+            );
+            wallMesh.position.set(0, heightFt / 2, 0);
+            wallMesh.castShadow = true;
+            wallMesh.receiveShadow = true;
+            wallMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Wall` };
+            wallGroup.add(wallMesh);
+          } else {
+            // Segmented wall around openings
+            const sortedOps = [...openings].sort((a, b) => a.offsetIn - b.offsetIn);
+            let currentOffsetIn = 0;
+            const totalLenIn = chordLenFt * 12;
+
+            for (const op of sortedOps) {
+              const opStartIn = Math.max(currentOffsetIn, Math.min(totalLenIn, op.offsetIn));
+              const opEndIn = Math.min(totalLenIn, opStartIn + op.widthIn);
+
+              // Left solid segment
+              const segLenIn = opStartIn - currentOffsetIn;
+              if (segLenIn > 2) {
+                const segLenFt = segLenIn / 12;
+                const segCenterIn = currentOffsetIn + segLenIn / 2;
+                const segCenterFt = segCenterIn / 12 - chordLenFt / 2;
+
+                const segMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(segLenFt, heightFt, thickFt),
+                  wallMat
+                );
+                segMesh.position.set(segCenterFt, heightFt / 2, 0);
+                segMesh.castShadow = true;
+                segMesh.receiveShadow = true;
+                segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                wallGroup.add(segMesh);
+              }
+
+              // Top Lintel over opening
+              const opWidthFt = (opEndIn - opStartIn) / 12;
+              const opCenterIn = (opStartIn + opEndIn) / 2;
+              const opCenterFt = opCenterIn / 12 - chordLenFt / 2;
+              const opHeightFt = (op.heightIn || 84) / 12;
+              const lintelHeightFt = Math.max(0.5, heightFt - opHeightFt - ((op.sillIn || 0) / 12));
+
+              if (lintelHeightFt > 0.2) {
+                const lintelMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(opWidthFt, lintelHeightFt, thickFt),
+                  wallMat
+                );
+                lintelMesh.position.set(opCenterFt, heightFt - lintelHeightFt / 2, 0);
+                lintelMesh.castShadow = true;
+                lintelMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                wallGroup.add(lintelMesh);
+              }
+
+              // Bottom Sill (if window)
+              if (op.sillIn && op.sillIn > 0) {
+                const sillHeightFt = op.sillIn / 12;
+                const sillMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(opWidthFt, sillHeightFt, thickFt),
+                  wallMat
+                );
+                sillMesh.position.set(opCenterFt, sillHeightFt / 2, 0);
+                sillMesh.castShadow = true;
+                sillMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                wallGroup.add(sillMesh);
+              }
+
+              // Specialized Door / Window / Arch Leaf in 3D
+              if (op.kind === "arch_door") {
+                // Roman Arch Transom & Door
+                const archTransom = new THREE.Mesh(
+                  new THREE.CylinderGeometry(opWidthFt / 2, opWidthFt / 2, 0.2, 20, 1, false, 0, Math.PI),
+                  woodSlatMat
+                );
+                archTransom.rotation.z = Math.PI / 2;
+                archTransom.rotation.y = Math.PI / 2;
+                archTransom.position.set(opCenterFt, opHeightFt, 0);
+                wallGroup.add(archTransom);
+
+                const doorLeaf = new THREE.Mesh(
+                  new THREE.BoxGeometry(opWidthFt - 0.1, opHeightFt - 0.1, 0.15),
+                  new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.45 })
+                );
+                doorLeaf.position.set(opCenterFt, opHeightFt / 2, 0);
+                wallGroup.add(doorLeaf);
+              } else if (op.kind === "curved_window") {
+                // Bow Curved Window Projection
+                const bowGlass = new THREE.Mesh(
+                  new THREE.CylinderGeometry(opWidthFt / 1.5, opWidthFt / 1.5, opHeightFt, 16, 1, true, 0, Math.PI * 0.7),
+                  glassWallMat
+                );
+                bowGlass.position.set(opCenterFt, (op.sillIn ? op.sillIn / 12 : 0) + opHeightFt / 2, 0.3);
+                wallGroup.add(bowGlass);
+              } else if (op.kind === "revolving_door") {
+                // Revolving Door Cylinder
+                const revDrum = new THREE.Mesh(
+                  new THREE.CylinderGeometry(opWidthFt / 2, opWidthFt / 2, opHeightFt, 20, 1, true),
+                  glassWallMat
+                );
+                revDrum.position.set(opCenterFt, opHeightFt / 2, 0);
+                wallGroup.add(revDrum);
+              } else if (op.kind === "door" || op.kind === "entrance") {
+                const doorLeafMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.5 });
+                const doorLeaf = new THREE.Mesh(
+                  new THREE.BoxGeometry(opWidthFt - 0.1, opHeightFt - 0.1, 0.15),
+                  doorLeafMat
+                );
+                doorLeaf.position.set(opCenterFt, opHeightFt / 2, 0);
+                wallGroup.add(doorLeaf);
+              } else if (op.kind === "window") {
+                const winGlass = new THREE.Mesh(
+                  new THREE.BoxGeometry(opWidthFt - 0.1, opHeightFt - 0.1, 0.08),
+                  glassWallMat
+                );
+                winGlass.position.set(opCenterFt, (op.sillIn ? op.sillIn / 12 : 0) + opHeightFt / 2, 0);
+                wallGroup.add(winGlass);
+              }
+
+              currentOffsetIn = opEndIn;
+            }
+
+            // Trailing solid segment
+            if (currentOffsetIn < totalLenIn - 2) {
+              const segLenIn = totalLenIn - currentOffsetIn;
+              const segLenFt = segLenIn / 12;
+              const segCenterIn = currentOffsetIn + segLenIn / 2;
+              const segCenterFt = segCenterIn / 12 - chordLenFt / 2;
+
+              const segMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(segLenFt, heightFt, thickFt),
+                wallMat
+              );
+              segMesh.position.set(segCenterFt, heightFt / 2, 0);
+              segMesh.castShadow = true;
+              segMesh.receiveShadow = true;
+              segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+              wallGroup.add(segMesh);
+            }
+          }
+        }
+
+        customArchGroup.add(wallGroup);
+      }
+      group.add(customArchGroup);
+    }
+
+    // Render Custom Room Zones Floor Slabs in 3D
+    if (customRoomZones && customRoomZones.length > 0) {
+      for (const zone of customRoomZones) {
+        const elevFt = (zone.floor ?? 0) * (WALL_HEIGHT_FT + 0.8);
+        const zx = inchesToFeet(zone.xIn);
+        const zz = inchesToFeet(zone.yIn);
+        const zw = inchesToFeet(zone.wIn);
+        const zd = inchesToFeet(zone.dIn);
+
+        const floorMat = new THREE.MeshStandardMaterial({
+          color: 0xe2e8f0,
+          roughness: 0.4,
+        });
+
+        const floorMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(zw, 0.1, zd),
+          floorMat
+        );
+        floorMesh.position.set(zx + zw / 2, elevFt + 0.05, zz + zd / 2);
+        floorMesh.receiveShadow = true;
+        group.add(floorMesh);
+
+        // 3D Room Label Floating Badge
+        const badge = makeRoomBadgeSprite(
+          zone.customLabel || zone.name
+        );
+        badge.position.set(zx + zw / 2, elevFt + WALL_HEIGHT_FT + 1.8, zz + zd / 2);
+        group.add(badge);
+      }
+    }
+
+    // Render Intermediate Multi-Floor Slabs if Upper Storeys Exist
+    const allFloors = [
+      ...(customWalls || []).map((w) => w.floor ?? 0),
+      ...(customRoomZones || []).map((z) => z.floor ?? 0),
+    ];
+    const maxFloor = Math.max(...allFloors, 0);
+    if (maxFloor >= 1) {
+      const slabMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        roughness: 0.8,
+      });
+      for (let f = 1; f <= maxFloor; f++) {
+        const slabElevFt = f * (WALL_HEIGHT_FT + 0.8);
+        const slabMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(wFt - envMinX * 1.5, 0.5, dFt - envMinZ * 1.5),
+          slabMat
+        );
+        slabMesh.position.set(wFt / 2, slabElevFt - 0.25, dFt / 2);
+        slabMesh.receiveShadow = true;
+        group.add(slabMesh);
+      }
+    }
   }, [
     plot,
     facing,
     setback,
     rooms,
+    customWalls,
+    customRoomZones,
     furnished,
     customObjects,
     deletedBuiltinIds,
     selectedObjectId,
     materialConfig,
     windowConfig,
+    isLayoutLocked,
   ]);
 
   // Ghost Furniture Placement Preview Handler
@@ -2442,49 +3574,275 @@ export default function Scene({
         </div>
       )}
 
-      {/* Floating 3D Viewport Orbit Lock Toggle */}
-      {mode === "orbit" && onToggleLayoutLock && (
-        <button
-          onClick={onToggleLayoutLock}
+      {/* 3D CAD Drafting Studio Toolbar (Orbit Mode) */}
+      {mode === "orbit" && (
+        <div
           style={{
             position: "absolute",
             top: 14,
             left: 14,
-            background: isLayoutLocked ? "rgba(2, 132, 199, 0.92)" : "rgba(15, 23, 42, 0.8)",
-            border: isLayoutLocked ? "1.5px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.15)",
-            color: "#ffffff",
-            padding: "7px 15px",
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: 700,
-            cursor: "pointer",
-            backdropFilter: "blur(8px)",
-            boxShadow: isLayoutLocked ? "0 0 16px rgba(2, 132, 199, 0.5)" : "0 4px 12px rgba(0,0,0,0.4)",
             display: "flex",
-            alignItems: "center",
-            gap: "7px",
+            flexWrap: "wrap",
+            gap: "6px",
+            background: "rgba(10, 25, 48, 0.92)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            borderRadius: "12px",
+            padding: "6px 8px",
             zIndex: 40,
-            transition: "all 0.15s ease",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            alignItems: "center",
           }}
-          title={
-            isLayoutLocked
-              ? "3D Layout is Locked: Blocks cannot be moved while rotating view (Press 'L' to unlock)"
-              : "3D Layout is Unlocked: Click to lock view and prevent accidental room dragging (Press 'L')"
-          }
         >
-          <span>{isLayoutLocked ? "🔒 3D Orbit: View Locked" : "🔓 3D Orbit: Edit Mode"}</span>
-          <span
+          {/* 3D Floor Level Switcher */}
+          <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "rgba(0,0,0,0.35)", borderRadius: "8px", padding: "2px 4px", marginRight: "4px" }}>
+            {[
+              { floor: 0, short: "G 🏡", title: "Ground Floor" },
+              { floor: 1, short: "1F 🏢", title: "1st Floor" },
+              { floor: 2, short: "2F 🏙️", title: "2nd Floor" },
+              { floor: 3, short: "Roof ☀️", title: "Terrace / Roof" },
+            ].map((fl) => (
+              <button
+                key={fl.floor}
+                style={{
+                  background: activeFloor === fl.floor ? "#0284c7" : "transparent",
+                  color: activeFloor === fl.floor ? "#ffffff" : "#94a3b8",
+                  border: "none",
+                  borderRadius: "5px",
+                  padding: "3px 7px",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  draftWallStartFtRef.current = null;
+                  setDraftWallStartFt(null);
+                  onChangeActiveFloor?.(fl.floor);
+                }}
+                title={`Switch 3D Drafting Elevation to ${fl.title}`}
+              >
+                {fl.short}
+              </button>
+            ))}
+          </div>
+
+          <button
             style={{
-              fontSize: "10px",
-              opacity: 0.85,
-              background: "rgba(0,0,0,0.25)",
-              padding: "1px 5px",
-              borderRadius: "4px",
+              background: activeCadTool === "select" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
             }}
+            onClick={() => {
+              draftWallStartFtRef.current = null;
+              setDraftWallStartFt(null);
+              setDrafting3DDescription(null);
+              if (draftGhost3DWallRef.current) draftGhost3DWallRef.current.visible = false;
+              onChangeCadTool?.("select");
+            }}
+            title="3D Select Tool (V)"
           >
-            [L]
-          </span>
-        </button>
+            ↖ 3D Select
+          </button>
+
+          <button
+            style={{
+              background: activeCadTool === "draw_wall" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              draftWallStartFtRef.current = null;
+              setDraftWallStartFt(null);
+              onChangeCadTool?.("draw_wall");
+            }}
+            title="Point-and-click to erect 3D walls on ground plane (W)"
+          >
+            ✏️ 3D Wall
+          </button>
+
+          {activeCadTool === "draw_wall" && (
+            <select
+              value={activeWallType}
+              onChange={(e) => onChangeWallType?.(e.target.value as CustomWallType)}
+              style={{
+                background: "rgba(15, 23, 42, 0.95)",
+                color: "#38bdf8",
+                border: "1px solid #38bdf8",
+                borderRadius: "6px",
+                padding: "3px 6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <option value="exterior">🧱 9" Ext Wall</option>
+              <option value="interior">🧱 4.5" Int Wall</option>
+              <option value="glass">🪟 3" Glass Wall</option>
+              <option value="slat">🪵 3.5" Wood Slat</option>
+              <option value="arch">🏛️ 6" Arch Divider</option>
+            </select>
+          )}
+
+          <button
+            style={{
+              background: activeCadTool === "place_door" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              draftWallStartFtRef.current = null;
+              setDraftWallStartFt(null);
+              if (draftGhost3DWallRef.current) draftGhost3DWallRef.current.visible = false;
+              onChangeCadTool?.("place_door");
+            }}
+            title="Click any 3D wall to cut and insert a 3D Door (D)"
+          >
+            🚪 3D Door
+          </button>
+
+          <button
+            style={{
+              background: activeCadTool === "place_window" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              draftWallStartFtRef.current = null;
+              setDraftWallStartFt(null);
+              if (draftGhost3DWallRef.current) draftGhost3DWallRef.current.visible = false;
+              onChangeCadTool?.("place_window");
+            }}
+            title="Click any 3D wall to cut and insert a 3D Window (Win)"
+          >
+            🪟 3D Window
+          </button>
+
+          <button
+            style={{
+              background: activeCadTool === "tag_room" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setDraftWallStartFt(null);
+              if (draftGhost3DWallRef.current) draftGhost3DWallRef.current.visible = false;
+              onChangeCadTool?.("tag_room");
+            }}
+            title="Click inside 3D walls to tag room zone"
+          >
+            🏷️ 3D Room Tag
+          </button>
+
+          {onStartFromScratch && (
+            <button
+              style={{
+                background: "linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.35))",
+                border: "1px solid rgba(245, 158, 11, 0.5)",
+                color: "#fbbf24",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onClick={onStartFromScratch}
+              title="Start with blank plot in 3D"
+            >
+              🏗️ Blank 3D
+            </button>
+          )}
+
+          {customWalls && customWalls.length > 0 && (
+            <button
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.4)",
+                color: "#f87171",
+                fontSize: "11px",
+                padding: "5px 8px",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                if (confirm("Clear all custom drawn walls in 3D?")) {
+                  onChangeCustomWalls?.([]);
+                  onChangeCustomRoomZones?.([]);
+                }
+              }}
+              title="Clear custom walls"
+            >
+              🗑️ ({customWalls.length})
+            </button>
+          )}
+
+          {onToggleLayoutLock && (
+            <button
+              onClick={onToggleLayoutLock}
+              style={{
+                background: isLayoutLocked ? "rgba(2, 132, 199, 0.92)" : "rgba(255, 255, 255, 0.08)",
+                border: isLayoutLocked ? "1px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.15)",
+                color: "#ffffff",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              title={isLayoutLocked ? "3D View is Locked (Press 'L')" : "3D View is Edit Mode (Press 'L')"}
+            >
+              {isLayoutLocked ? "🔒 Locked" : "🔓 Edit"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 3D Real-Time Drafting Banner */}
+      {drafting3DDescription && (
+        <div
+          style={{
+            position: "absolute",
+            top: 65,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(10, 25, 48, 0.95)",
+            border: "1px solid #38bdf8",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            color: "#38bdf8",
+            fontWeight: "bold",
+            padding: "8px 20px",
+            borderRadius: "20px",
+            zIndex: 100,
+            fontSize: "12.5px",
+            pointerEvents: "none",
+          }}
+        >
+          {drafting3DDescription}
+        </div>
       )}
 
       {draggedRoomInfo && (
@@ -2494,19 +3852,35 @@ export default function Scene({
             top: 70,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(0, 229, 255, 0.95)",
+            background: draggedRoomInfo.isCropped
+              ? "linear-gradient(135deg, rgba(245, 158, 11, 0.96), rgba(217, 119, 6, 0.96))"
+              : "rgba(0, 229, 255, 0.95)",
             color: "#051119",
             fontWeight: "bold",
-            padding: "9px 22px",
+            padding: "9px 24px",
             borderRadius: "20px",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+            boxShadow: draggedRoomInfo.isCropped
+              ? "0 4px 24px rgba(245, 158, 11, 0.5), 0 2px 8px rgba(0,0,0,0.4)"
+              : "0 4px 24px rgba(0,0,0,0.5)",
+            border: draggedRoomInfo.isCropped ? "1px solid rgba(254, 240, 138, 0.8)" : "none",
             zIndex: 100,
             pointerEvents: "none",
             fontSize: "13px",
             letterSpacing: "0.02em",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          📍 Dragging {ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name} — Release to place & auto-connect door!
+          {draggedRoomInfo.isCropped ? (
+            <>
+              ✂️ <span>Cropping <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> to Map: <strong>{draggedRoomInfo.cropWFt}&apos; × {draggedRoomInfo.cropDFt}&apos;</strong></span>
+            </>
+          ) : (
+            <>
+              📍 <span>Dragging <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> — Release to place &amp; auto-connect door!</span>
+            </>
+          )}
         </div>
       )}
 

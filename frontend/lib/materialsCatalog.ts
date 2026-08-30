@@ -115,6 +115,15 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
 
   // Hardwoods
   {
+    id: "french_chevron_oak",
+    name: "French Chevron Blonde Oak",
+    category: "wood",
+    description: "Light golden-blonde Parisian chevron parquet with subtle satin sheen and 45° beveled interlocking points.",
+    swatchColor: "#dfc093",
+    roughness: 0.28,
+    metalness: 0.03,
+  },
+  {
     id: "walnut_plank",
     name: "American Dark Walnut Planks",
     category: "wood",
@@ -230,6 +239,7 @@ export const WALL_COLORS: WallColorDef[] = [
 
 export const WALL_TEXTURES: WallTextureDef[] = [
   { id: "matte_paint", name: "Smooth Matte Paint", description: "Seamless, velvety flat paint finish.", roughness: 0.85 },
+  { id: "boiserie_paneling", name: "Parisian Boiserie Paneling", description: "Classical French picture-frame wall moldings, wainscoting relief, and crown borders.", roughness: 0.55 },
   { id: "venetian_stucco", name: "Venetian Plaster / Stucco", description: "Hand-troweled Italian plaster with subtle light depth.", roughness: 0.65 },
   { id: "wood_slat", name: "Vertical Teak Wood Slats", description: "Modern architectural acoustic slatted wood paneling.", roughness: 0.45 },
   { id: "exposed_brick", name: "Rustic White Brick", description: "Textured loft white-washed exposed brick.", roughness: 0.88 },
@@ -238,6 +248,29 @@ export const WALL_TEXTURES: WallTextureDef[] = [
 ];
 
 export const DESIGN_PRESETS: DesignPreset[] = [
+  {
+    id: "parisian_dollhouse",
+    name: "Parisian Haute Dollhouse",
+    icon: "🏛️",
+    description: "French Chevron Blonde Oak, Crisp Boiserie picture frame moldings, Nero Marquina accents, and bright studio sun.",
+    globalFloor: "french_chevron_oak",
+    globalWallColor: "arctic_white",
+    globalWallTexture: "boiserie_paneling",
+    roomFloors: {
+      hall: "french_chevron_oak",
+      kitchen: "marquina_black",
+      bedroom: "french_chevron_oak",
+      pooja: "botticino_gold",
+      bathroom: "marquina_black",
+    },
+    roomWallColors: {
+      hall: "arctic_white",
+      bedroom: "warm_alabaster",
+      kitchen: "arctic_white",
+      pooja: "champagne_gold",
+      bathroom: "arctic_white",
+    },
+  },
   {
     id: "modern_luxury",
     name: "Ultra-Modern Luxury",
@@ -509,6 +542,54 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
         ctx.strokeRect(size / 2, size / 2, size / 2, size / 2);
       }, [2, 2]);
 
+    case "french_chevron_oak":
+      return createAndCacheTexture("french_chevron_oak", (ctx, size) => {
+        ctx.fillStyle = "#dfc093";
+        ctx.fillRect(0, 0, size, size);
+        const step = 42;
+        // Diagonal 45-degree Parisian chevron planks
+        for (let y = -size; y < size * 2; y += step) {
+          const isAlt = Math.floor(y / step) % 2 === 0;
+          ctx.fillStyle = isAlt ? "#e5cba3" : "#d8b683";
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size / 2, y + size / 2);
+          ctx.lineTo(size, y);
+          ctx.lineTo(size, y + step);
+          ctx.lineTo(size / 2, y + size / 2 + step);
+          ctx.lineTo(0, y + step);
+          ctx.closePath();
+          ctx.fill();
+
+          // Subtle wood grain lines
+          ctx.strokeStyle = "rgba(160, 115, 60, 0.25)";
+          ctx.lineWidth = 1;
+          for (let g = 0; g < 3; g++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y + g * 12);
+            ctx.lineTo(size / 2, y + size / 2 + g * 12);
+            ctx.lineTo(size, y + g * 12);
+            ctx.stroke();
+          }
+
+          // Dark beveled chevron seam lines
+          ctx.strokeStyle = "rgba(90, 55, 20, 0.45)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size / 2, y + size / 2);
+          ctx.lineTo(size, y);
+          ctx.stroke();
+        }
+        // Center spine line
+        ctx.strokeStyle = "rgba(75, 45, 15, 0.55)";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(size / 2, 0);
+        ctx.lineTo(size / 2, size);
+        ctx.stroke();
+      }, [3, 3]);
+
     case "walnut_plank":
       return createAndCacheTexture("walnut_plank", (ctx, size) => {
         ctx.fillStyle = "#593318";
@@ -732,7 +813,58 @@ export function getWallTextureBumpMap(textureId: string): THREE.CanvasTexture | 
     ctx.fillStyle = "#808080";
     ctx.fillRect(0, 0, size, size);
 
-    if (textureId === "venetian_stucco") {
+    if (textureId === "boiserie_paneling") {
+      // Classical French Boiserie Moldings (double-framed picture panel relief + chair rail)
+      ctx.fillStyle = "#888888";
+      ctx.fillRect(0, 0, size, size);
+
+      // Chair rail line
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, size * 0.35);
+      ctx.lineTo(size, size * 0.35);
+      ctx.stroke();
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, size * 0.35 + 4);
+      ctx.lineTo(size, size * 0.35 + 4);
+      ctx.stroke();
+
+      // Upper Tall Panels (2 columns)
+      const pW = size * 0.42;
+      const topY = 24;
+      const topH = size * 0.28;
+      [size * 0.05, size * 0.53].forEach((px) => {
+        // Outer frame
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(px, topY, pW, topH);
+        ctx.strokeStyle = "#222222";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 2, topY + 2, pW - 4, topH - 4);
+        // Inner inset bead
+        ctx.strokeStyle = "#dddddd";
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(px + 10, topY + 10, pW - 20, topH - 20);
+      });
+
+      // Lower Wainscoting Panels (2 columns)
+      const btmY = size * 0.42;
+      const btmH = size * 0.52;
+      [size * 0.05, size * 0.53].forEach((px) => {
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(px, btmY, pW, btmH);
+        ctx.strokeStyle = "#222222";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 2, btmY + 2, pW - 4, btmH - 4);
+        ctx.strokeStyle = "#dddddd";
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(px + 12, btmY + 12, pW - 24, btmH - 24);
+      });
+    } else if (textureId === "venetian_stucco") {
       ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
       for (let i = 0; i < 120; i++) {
         const x = Math.random() * size;

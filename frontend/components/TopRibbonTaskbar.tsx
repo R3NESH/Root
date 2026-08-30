@@ -25,6 +25,7 @@ import {
   WindowGlassTintId,
   WindowShapeId,
 } from "@/lib/windowCatalog";
+import { CustomWallType } from "@/lib/customArchitecture";
 import { CustomDim } from "./RoomCustomizer";
 import styles from "./TopRibbonTaskbar.module.css";
 
@@ -111,6 +112,15 @@ interface TopRibbonTaskbarProps {
   totalPlacedCount: number;
   deletedBuiltinCount: number;
   onRestoreDefaults: () => void;
+  onStartFromScratch?: () => void;
+  onResetDesign?: () => void;
+  lastSavedTime?: number | null;
+  activeFloor?: number;
+  onChangeActiveFloor?: (floor: number) => void;
+  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
+  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeWallType?: CustomWallType;
+  onChangeWallType?: (type: CustomWallType) => void;
 }
 
 type RibbonTab = "architecture" | "furniture" | "materials" | "windows" | "blueprints";
@@ -161,6 +171,15 @@ export default function TopRibbonTaskbar({
   totalPlacedCount,
   deletedBuiltinCount,
   onRestoreDefaults,
+  onStartFromScratch,
+  onResetDesign,
+  lastSavedTime,
+  activeFloor = 0,
+  onChangeActiveFloor,
+  activeCadTool = "select",
+  onChangeCadTool,
+  activeWallType = "exterior",
+  onChangeWallType,
 }: TopRibbonTaskbarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("architecture");
   const [activeCategory, setActiveCategory] = useState<FurnitureCategory | "all">("living");
@@ -180,10 +199,6 @@ export default function TopRibbonTaskbar({
   const filteredItems = FURNITURE_CATALOG.filter(
     (item) => activeCategory === "all" || item.category === activeCategory
   );
-
-  const activePlacingDef = placingItemType
-    ? FURNITURE_CATALOG.find((i) => i.type === placingItemType)
-    : null;
 
   // Plot Dims Helpers
   const widthFt = Math.round(inchesToFeet(plot.widthIn));
@@ -232,69 +247,103 @@ export default function TopRibbonTaskbar({
 
   return (
     <header className={styles.taskbarRoot}>
-      {/* 1. MS Paint / Ansys Style Window Title & Main Tab Strip */}
+      {/* 1. Main App Header Bar */}
       <div className={styles.topMenuBar}>
-        {/* Brand Logo & Title */}
+        {/* Left: Brand Identity & Project Status */}
         <div className={styles.brandGroup}>
-          <div className={styles.brandLogo}>📐</div>
+          <div className={styles.brandLogo} title="Plot to Plan CAD Studio">
+            📐
+          </div>
           <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Plot to Plan Studio</span>
-            <span className={styles.brandSub}>Architectural CAD &amp; 3D Studio</span>
+            <div className={styles.brandTitleRow}>
+              <span className={styles.brandTitle}>Plot to Plan</span>
+              <span className={styles.brandBadge}>Studio CAD</span>
+            </div>
+            <span className={styles.brandSub}>Architectural 3D &amp; 2D Engine</span>
+          </div>
+
+          <div className={styles.brandDivider} />
+
+          {/* Save Status & Reset Controls */}
+          <div className={styles.projectStatusGroup}>
+            <span
+              className={styles.saveBadge}
+              title={
+                lastSavedTime
+                  ? `Changes saved locally at ${new Date(lastSavedTime).toLocaleTimeString()}`
+                  : "Auto-saves all changes in real-time to browser storage"
+              }
+            >
+              <span className={styles.savePulseDot} />
+              Auto-Saved
+            </span>
+
+            {onResetDesign && (
+              <button
+                className={styles.resetBtn}
+                onClick={onResetDesign}
+                title="Wipe current layout & reset to clean default"
+              >
+                🗑️ Reset
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Primary Ribbon Tabs */}
-        <nav className={styles.ribbonTabs}>
-          <button
-            className={`${styles.tabBtn} ${activeTab === "architecture" ? styles.tabBtnActive : ""}`}
-            onClick={() => {
-              setActiveTab("architecture");
-              setIsRibbonCollapsed(false);
-            }}
-          >
-            🏠 Architecture &amp; Plot
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === "furniture" ? styles.tabBtnActive : ""}`}
-            onClick={() => {
-              setActiveTab("furniture");
-              setIsRibbonCollapsed(false);
-            }}
-          >
-            🛋️ Furniture Catalog
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === "materials" ? styles.tabBtnActive : ""}`}
-            onClick={() => {
-              setActiveTab("materials");
-              setIsRibbonCollapsed(false);
-            }}
-          >
-            🎨 Materials &amp; Finishes
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === "windows" ? styles.tabBtnActive : ""}`}
-            onClick={() => {
-              setActiveTab("windows");
-              setIsRibbonCollapsed(false);
-            }}
-          >
-            🪟 Windows &amp; Openings
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === "blueprints" ? styles.tabBtnActive : ""}`}
-            onClick={() => {
-              setActiveTab("blueprints");
-              setIsRibbonCollapsed(false);
-            }}
-          >
-            📐 CAD &amp; Blueprints
-          </button>
-        </nav>
+        {/* Center: Primary Ribbon Navigation Tabs */}
+        <div className={styles.ribbonTabsWrapper}>
+          <nav className={styles.ribbonTabs}>
+            <button
+              className={`${styles.tabBtn} ${activeTab === "architecture" ? styles.tabBtnActive : ""}`}
+              onClick={() => {
+                setActiveTab("architecture");
+                setIsRibbonCollapsed(false);
+              }}
+            >
+              🏠 Architecture
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === "furniture" ? styles.tabBtnActive : ""}`}
+              onClick={() => {
+                setActiveTab("furniture");
+                setIsRibbonCollapsed(false);
+              }}
+            >
+              🛋️ Furniture
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === "materials" ? styles.tabBtnActive : ""}`}
+              onClick={() => {
+                setActiveTab("materials");
+                setIsRibbonCollapsed(false);
+              }}
+            >
+              🎨 Materials
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === "windows" ? styles.tabBtnActive : ""}`}
+              onClick={() => {
+                setActiveTab("windows");
+                setIsRibbonCollapsed(false);
+              }}
+            >
+              🪟 Windows &amp; Walls
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === "blueprints" ? styles.tabBtnActive : ""}`}
+              onClick={() => {
+                setActiveTab("blueprints");
+                setIsRibbonCollapsed(false);
+              }}
+            >
+              📐 CAD Blueprints
+            </button>
+          </nav>
+        </div>
 
-        {/* Right Mode Switchers & View Controls */}
+        {/* Right: Viewport Mode Switcher & Global Workspace Actions */}
         <div className={styles.rightViewControls}>
-          {/* View Modes */}
+          {/* Mode Switcher */}
           <div className={styles.modeTabsGroup}>
             <button
               className={`${styles.modeTab} ${mode === "orbit" ? styles.modeTabActive : ""}`}
@@ -304,7 +353,7 @@ export default function TopRibbonTaskbar({
               🌐 3D Orbit
             </button>
             <button
-              className={`${styles.modeTab} ${mode === "walkthrough" ? styles.modeTabActive : ""}`}
+              className={`${styles.modeTab} ${mode === "walkthrough" ? styles.modeTabActiveWalkthrough : ""}`}
               onClick={() => onChangeMode("walkthrough")}
               title="First-Person Walkthrough (5'5' Eye Level)"
             >
@@ -319,41 +368,43 @@ export default function TopRibbonTaskbar({
             </button>
           </div>
 
-          {/* Quick Tools */}
-          <button
-            className={styles.quickIconBtn}
-            onClick={onToggleLights}
-            title={lightsOn ? "Switch to Night Lighting" : "Switch to Day Lighting"}
-          >
-            {lightsOn ? "💡 Day" : "🌙 Night"}
-          </button>
-
-          {mode === "orbit" && onToggleLayoutLock && (
+          {/* Quick Scene & Workspace Controls */}
+          <div className={styles.quickActionsCluster}>
             <button
-              className={isLayoutLocked ? styles.lockBtnActive : styles.lockBtn}
-              onClick={onToggleLayoutLock}
-              title={
-                isLayoutLocked
-                  ? "3D View is Locked (Click to unlock room & dimension editing)"
-                  : "Click to Lock 3D Orbit (prevents accidental room movement)"
-              }
+              className={styles.quickIconBtn}
+              onClick={onToggleLights}
+              title={lightsOn ? "Switch to Night Ambient Lighting" : "Switch to Day Sun Lighting"}
             >
-              {isLayoutLocked ? "🔒 Locked" : "🔓 Unlocked"}
+              {lightsOn ? "💡 Day" : "🌙 Night"}
             </button>
-          )}
 
-          {/* Collapse Ribbon Chevron */}
-          <button
-            className={styles.collapseBtn}
-            onClick={() => setIsRibbonCollapsed((prev) => !prev)}
-            title={isRibbonCollapsed ? "Expand Ribbon Taskbar" : "Collapse Ribbon Taskbar"}
-          >
-            {isRibbonCollapsed ? "▼" : "▲"}
-          </button>
+            {mode === "orbit" && onToggleLayoutLock && (
+              <button
+                className={isLayoutLocked ? styles.lockBtnActive : styles.lockBtn}
+                onClick={onToggleLayoutLock}
+                title={
+                  isLayoutLocked
+                    ? "3D View is Locked (Click to unlock room & dimension editing)"
+                    : "Click to Lock 3D Orbit (prevents accidental room movements)"
+                }
+              >
+                {isLayoutLocked ? "🔒 Locked" : "🔓 Unlocked"}
+              </button>
+            )}
+
+            {/* Collapse/Expand Ribbon Chevron */}
+            <button
+              className={styles.collapseBtn}
+              onClick={() => setIsRibbonCollapsed((prev) => !prev)}
+              title={isRibbonCollapsed ? "Expand Ribbon Toolbar" : "Collapse Ribbon Toolbar"}
+            >
+              {isRibbonCollapsed ? "▼" : "▲"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 2. Ribbon Shelf: Contextual Groups (Like MS Paint / Ansys) */}
+      {/* 2. Ribbon Shelf: Contextual Tool Deck */}
       {!isRibbonCollapsed && (
         <div className={styles.ribbonShelf}>
           {/* TAB 1: ARCHITECTURE & PLOT */}
@@ -409,7 +460,7 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupLabel}>Plot Dimensions</div>
               </div>
 
-              {/* Group 2: Road Facing (Vastu Orientation) */}
+              {/* Group 2: Road Facing */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.facingButtonsRow}>
@@ -435,7 +486,40 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupLabel}>Road Facing</div>
               </div>
 
-              {/* Group 3: Room Program */}
+              {/* Group 3: Storey / Floor Level */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.floorButtonGroup}>
+                    {[
+                      { floor: 0, label: "Ground Floor", short: "G 🏡" },
+                      { floor: 1, label: "1st Floor", short: "1F 🏢" },
+                      { floor: 2, label: "2nd Floor", short: "2F 🏙️" },
+                      { floor: 3, label: "Terrace Roof", short: "Roof ☀️" },
+                    ].map((fl) => (
+                      <button
+                        key={fl.floor}
+                        className={`${styles.floorBtn} ${activeFloor === fl.floor ? styles.floorBtnActive : ""}`}
+                        onClick={() => onChangeActiveFloor?.(fl.floor)}
+                        title={`Switch view & active drafting floor to ${fl.label}`}
+                      >
+                        {fl.short}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={styles.facingInfoBadge}>
+                    {activeFloor === 0
+                      ? "Ground Floor (0 ft)"
+                      : activeFloor === 1
+                      ? "1st Floor (+10 ft)"
+                      : activeFloor === 2
+                      ? "2nd Floor (+20 ft)"
+                      : "Terrace (+30 ft)"}
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Floor Level</div>
+              </div>
+
+              {/* Group 4: Room Program */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.roomProgramGrid}>
@@ -473,7 +557,7 @@ export default function TopRibbonTaskbar({
                 <div className={styles.groupLabel}>Room Program</div>
               </div>
 
-              {/* Group 4: Interiors & Custom Sizing */}
+              {/* Group 5: Interiors & Sizing */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <button
@@ -489,13 +573,83 @@ export default function TopRibbonTaskbar({
                     onClick={onOpenRoomDimensionsModal}
                     title="Open Fine-Grained Room Dimensions Studio"
                   >
-                    📐 Custom Room Sizes...
+                    📐 Custom Sizes...
                   </button>
                 </div>
                 <div className={styles.groupLabel}>Interiors &amp; Sizing</div>
               </div>
 
-              {/* Group 5: Vastu Solver Specs */}
+              {/* Group 6: CAD Freehand Tools */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.cadDraftingGroup}>
+                    <button
+                      className={`${styles.cadToolBtn} ${activeCadTool === "draw_wall" && activeWallType !== "curved" ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => {
+                        onChangeMode("blueprint");
+                        onChangeWallType?.("exterior");
+                        onChangeCadTool?.(activeCadTool === "draw_wall" && activeWallType !== "curved" ? "select" : "draw_wall");
+                      }}
+                      title="Draw straight load-bearing or partition walls point-to-point"
+                    >
+                      ✏️ Wall
+                    </button>
+                    <button
+                      className={`${styles.cadToolBtn} ${activeCadTool === "draw_wall" && activeWallType === "curved" ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => {
+                        onChangeMode("blueprint");
+                        onChangeWallType?.("curved");
+                        onChangeCadTool?.(activeCadTool === "draw_wall" && activeWallType === "curved" ? "select" : "draw_wall");
+                      }}
+                      title="Draw curved architectural arc walls"
+                    >
+                      💫 Curved Wall
+                    </button>
+                    <button
+                      className={`${styles.cadToolBtn} ${activeCadTool === "place_door" ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => {
+                        onChangeMode("blueprint");
+                        onChangeCadTool?.(activeCadTool === "place_door" ? "select" : "place_door");
+                      }}
+                      title="Place doors with swing arcs onto any wall"
+                    >
+                      🚪 Door
+                    </button>
+                    <button
+                      className={`${styles.cadToolBtn} ${activeCadTool === "place_window" ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => {
+                        onChangeMode("blueprint");
+                        onChangeCadTool?.(activeCadTool === "place_window" ? "select" : "place_window");
+                      }}
+                      title="Place windows onto any wall"
+                    >
+                      🪟 Window
+                    </button>
+                    <button
+                      className={`${styles.cadToolBtn} ${activeCadTool === "tag_room" ? styles.cadToolBtnActive : ""}`}
+                      onClick={() => {
+                        onChangeMode("blueprint");
+                        onChangeCadTool?.(activeCadTool === "tag_room" ? "select" : "tag_room");
+                      }}
+                      title="Tag and label room zones with sq ft"
+                    >
+                      🏷️ Tag
+                    </button>
+                    {onStartFromScratch && (
+                      <button
+                        className={styles.scratchBtn}
+                        onClick={onStartFromScratch}
+                        title="Clear automated rooms and start with a 100% clean plot to draft your custom house"
+                      >
+                        🏗️ Scratch
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>CAD Drafting</div>
+              </div>
+
+              {/* Group 7: Architectural Specs */}
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.solverBadge}>
@@ -507,7 +661,7 @@ export default function TopRibbonTaskbar({
                     </span>
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Architectural Specs</div>
+                <div className={styles.groupLabel}>Specs</div>
               </div>
             </div>
           )}
@@ -555,7 +709,7 @@ export default function TopRibbonTaskbar({
                     );
                   })}
                 </div>
-                <div className={styles.groupLabel}>Click or Drag Item to Place onto 3D Floor</div>
+                <div className={styles.groupLabel}>Click Item to Place onto Floor Plan</div>
               </div>
 
               {/* Furniture Management Actions */}
@@ -567,7 +721,7 @@ export default function TopRibbonTaskbar({
                       onClick={onRestoreDefaults}
                       title="Restore all default furniture deleted from rooms"
                     >
-                      ↩️ Restore Defaults ({deletedBuiltinCount})
+                      ↩️ Restore ({deletedBuiltinCount})
                     </button>
                   )}
                   {totalPlacedCount > 0 && (
@@ -611,7 +765,7 @@ export default function TopRibbonTaskbar({
                     })}
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Whole House Flooring</div>
+                <div className={styles.groupLabel}>House Flooring</div>
               </div>
 
               {/* Quick Wall Colors */}
@@ -632,7 +786,7 @@ export default function TopRibbonTaskbar({
                     })}
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Whole House Wall Colors</div>
+                <div className={styles.groupLabel}>Wall Colors</div>
               </div>
 
               {/* Quick 1-Click Design Themes */}
@@ -661,7 +815,7 @@ export default function TopRibbonTaskbar({
                     ))}
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Design Presets</div>
+                <div className={styles.groupLabel}>Design Themes</div>
               </div>
 
               {/* Open Full Studio */}
@@ -680,7 +834,7 @@ export default function TopRibbonTaskbar({
             </div>
           )}
 
-          {/* TAB 4: WINDOWS & OPENINGS */}
+          {/* TAB 4: WINDOWS & WALLS */}
           {activeTab === "windows" && (
             <div className={styles.tabContentRow}>
               {/* Add Custom Partition Walls */}
@@ -729,7 +883,64 @@ export default function TopRibbonTaskbar({
                     </button>
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Add Custom Partition Walls</div>
+                <div className={styles.groupLabel}>Partition Walls</div>
+              </div>
+
+              {/* Group: Curved Walls & Surfaces */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.presetsGrid}>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_curved_partition" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_curved_partition" ? null : "wall_curved_partition")}
+                      title="Place a 9ft Smooth Curved Architectural Feature Wall"
+                    >
+                      <span className={styles.windowShapeIcon}>💫</span>
+                      <span className={styles.windowShapeName}>+ Curved Wall</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_curved_glass" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_curved_glass" ? null : "wall_curved_glass")}
+                      title="Place a Curved Panoramic Glass Partition Wall"
+                    >
+                      <span className={styles.windowShapeIcon}>🪟</span>
+                      <span className={styles.windowShapeName}>+ Curved Glass</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "wall_curved_slat" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "wall_curved_slat" ? null : "wall_curved_slat")}
+                      title="Place a Curved Parametric Fluted Wood Slat Wall"
+                    >
+                      <span className={styles.windowShapeIcon}>🪵</span>
+                      <span className={styles.windowShapeName}>+ Curved Slat</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "door_roman_arch" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "door_roman_arch" ? null : "door_roman_arch")}
+                      title="Place a Grand Roman Arched Door with Arched Transom"
+                    >
+                      <span className={styles.windowShapeIcon}>🚪</span>
+                      <span className={styles.windowShapeName}>+ Arched Door</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "door_revolving_curved" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "door_revolving_curved" ? null : "door_revolving_curved")}
+                      title="Place a Luxury Curved Glass Revolving Door"
+                    >
+                      <span className={styles.windowShapeIcon}>🎠</span>
+                      <span className={styles.windowShapeName}>+ Revolving Door</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${placingItemType === "window_curved_bow" ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onSelectPlaceItem(placingItemType === "window_curved_bow" ? null : "window_curved_bow")}
+                      title="Place a Panoramic Curved Bow Window"
+                    >
+                      <span className={styles.windowShapeIcon}>🪟</span>
+                      <span className={styles.windowShapeName}>+ Bow Window</span>
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Curved Walls &amp; Doors</div>
               </div>
 
               {/* Window Shapes */}
@@ -752,7 +963,48 @@ export default function TopRibbonTaskbar({
                     })}
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Global Window Style</div>
+                <div className={styles.groupLabel}>Window Styles</div>
+              </div>
+
+              {/* Wall & Window Crop Options */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div className={styles.presetsGrid}>
+                    <button
+                      className={`${styles.windowShapeBtn} ${(windowConfig.globalWidthFt ?? 4.0) === 3.0 ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onChangeWindowConfig?.({ ...windowConfig, globalWidthFt: 3.0 })}
+                      title="Crop Window Span to 3.0 ft (Slender)"
+                    >
+                      <span className={styles.windowShapeIcon}>✂️</span>
+                      <span className={styles.windowShapeName}>3ft Win</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${(windowConfig.globalWidthFt ?? 4.0) === 4.0 ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onChangeWindowConfig?.({ ...windowConfig, globalWidthFt: 4.0 })}
+                      title="Crop Window Span to 4.0 ft (Standard)"
+                    >
+                      <span className={styles.windowShapeIcon}>✂️</span>
+                      <span className={styles.windowShapeName}>4ft Win</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${(windowConfig.globalWidthFt ?? 4.0) === 5.0 ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onChangeWindowConfig?.({ ...windowConfig, globalWidthFt: 5.0 })}
+                      title="Crop Window Span to 5.0 ft (Wide)"
+                    >
+                      <span className={styles.windowShapeIcon}>✂️</span>
+                      <span className={styles.windowShapeName}>5ft Win</span>
+                    </button>
+                    <button
+                      className={`${styles.windowShapeBtn} ${(windowConfig.globalWidthFt ?? 4.0) === 6.0 ? styles.windowShapeBtnActive : ""}`}
+                      onClick={() => onChangeWindowConfig?.({ ...windowConfig, globalWidthFt: 6.0 })}
+                      title="Crop Window Span to 6.0 ft (Panoramic)"
+                    >
+                      <span className={styles.windowShapeIcon}>✂️</span>
+                      <span className={styles.windowShapeName}>6ft Win</span>
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Window Spans</div>
               </div>
 
               {/* Wall Demolition & Open Concept */}
@@ -771,7 +1023,7 @@ export default function TopRibbonTaskbar({
                     </button>
                   </div>
                 </div>
-                <div className={styles.groupLabel}>Wall Demolition &amp; Windows</div>
+                <div className={styles.groupLabel}>Fenestration Studio</div>
               </div>
             </div>
           )}
@@ -962,6 +1214,7 @@ export default function TopRibbonTaskbar({
                           onDeleteSelected();
                         }
                       }}
+                      title="Delete selected window"
                     >
                       🗑️
                     </button>

@@ -1,22 +1,31 @@
-/* Top Ribbon Root Container */
+/* ==========================================================================
+   TOP RIBBON & CAD STUDIO TASKBAR STYLES
+   Modern Architectural Studio Glassmorphism Design System
+   ========================================================================== */
+
 .taskbarRoot {
   width: 100%;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #090e17;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   user-select: none;
   font-family: inherit;
+  position: relative;
 }
 
-/* 1. Top Window Menu Bar */
+/* --------------------------------------------------------------------------
+   1. Top Window Menu Bar (App Header)
+   -------------------------------------------------------------------------- */
 .topMenuBar {
-  height: 48px;
-  min-height: 48px;
-  background: rgba(15, 23, 42, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 50px;
+  min-height: 50px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 16, 31, 0.98) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -24,6 +33,7 @@
   gap: 16px;
 }
 
+/* Brand & Project Status */
 .brandGroup {
   display: flex;
   align-items: center;
@@ -32,41 +42,152 @@
 }
 
 .brandLogo {
-  font-size: 20px;
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.3));
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  font-size: 18px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.25));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brandLogo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
 }
 
 .brandText {
   display: flex;
   flex-direction: column;
+  line-height: 1.15;
+}
+
+.brandTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .brandTitle {
   font-size: 13.5px;
   font-weight: 800;
-  letter-spacing: -0.01em;
-  color: #ffffff;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.brandBadge {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 .brandSub {
-  font-size: 9.5px;
-  color: #94a3b8;
+  font-size: 10px;
+  color: #64748b;
   font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
-/* Ribbon Tabs Strip */
+.brandDivider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+}
+
+/* Save Status & Reset Controls */
+.projectStatusGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saveBadge {
+  font-size: 11px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.saveBadge:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.savePulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 10px #10b981; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.resetBtn {
+  font-size: 11px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.resetBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   Ribbon Navigation Tabs (Center)
+   -------------------------------------------------------------------------- */
+.ribbonTabsWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 680px;
+}
+
 .ribbonTabs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 100%;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px;
+  border-radius: 10px;
   overflow-x: auto;
 }
 
@@ -74,32 +195,34 @@
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 0 14px;
-  height: 100%;
+  padding: 5px 12px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 
 .tabBtn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .tabBtnActive {
-  color: #38bdf8;
+  color: #ffffff;
   font-weight: 700;
-  background: rgba(56, 189, 248, 0.08);
-  border-bottom: 2px solid #38bdf8;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.35));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
 }
 
-/* Right View Controls */
+/* --------------------------------------------------------------------------
+   Right View Controls & Workspace Tools
+   -------------------------------------------------------------------------- */
 .rightViewControls {
   display: flex;
   align-items: center;
@@ -111,10 +234,10 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 9px;
 }
 
 .modeTab {
@@ -123,61 +246,82 @@
   color: #94a3b8;
   font-size: 11px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .modeTab:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .modeTabActive {
   background: linear-gradient(135deg, #e8912d, #f59e0b);
-  color: #000000;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(232, 145, 45, 0.4);
+  color: #0b1329;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(232, 145, 45, 0.35);
+}
+
+.modeTabActiveWalkthrough {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
 }
 
 .modeTabActiveBlueprint {
   background: linear-gradient(135deg, #0284c7, #38bdf8);
   color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.4);
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+}
+
+.quickActionsCluster {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .quickIconBtn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
   font-size: 11px;
   font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 5px 9px;
+  border-radius: 7px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   transition: all 0.15s ease;
 }
 
 .quickIconBtn:hover {
   background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
   color: #ffffff;
 }
 
 .lockBtn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
   font-size: 11px;
   font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 5px 9px;
+  border-radius: 7px;
   cursor: pointer;
   transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .lockBtn:hover {
@@ -186,23 +330,27 @@
 }
 
 .lockBtnActive {
-  background: rgba(245, 158, 11, 0.2);
-  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   color: #fbbf24;
   font-size: 11px;
   font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 5px 9px;
+  border-radius: 7px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
 }
 
 .collapseBtn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   font-size: 10px;
   cursor: pointer;
   display: flex;
@@ -212,19 +360,23 @@
 }
 
 .collapseBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
   color: #ffffff;
 }
 
-/* 2. Ribbon Shelf & Tool Groups (Like MS Paint / Ansys) */
+/* --------------------------------------------------------------------------
+   2. Ribbon Shelf & Tool Deck
+   -------------------------------------------------------------------------- */
 .ribbonShelf {
-  min-height: 84px;
-  background: #1e293b;
-  padding: 6px 16px;
+  min-height: 88px;
+  background: linear-gradient(180deg, #131d31 0%, #0d1527 100%);
+  padding: 8px 16px;
   display: flex;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
   overflow-x: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .tabContentRow {
@@ -234,16 +386,17 @@
   flex: 1;
 }
 
-/* Ribbon Group Container */
+/* Common Ribbon Group Card */
 .ribbonGroup {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: 8px;
+  padding: 6px 9px;
   min-width: max-content;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .groupBody {
@@ -257,12 +410,12 @@
   text-align: center;
   font-size: 9px;
   color: #64748b;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-top: 4px;
+  margin-top: 5px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
-  padding-top: 2px;
+  padding-top: 3px;
 }
 
 /* Group 1: Plot Dimensions */
@@ -273,19 +426,20 @@
 }
 
 .presetBtn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: #cbd5e1;
   font-size: 10px;
   font-weight: 600;
   padding: 3px 6px;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
+  text-align: center;
 }
 
 .presetBtn:hover {
-  background: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.18);
   border-color: #38bdf8;
   color: #ffffff;
 }
@@ -295,6 +449,7 @@
   border-color: #38bdf8;
   color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 1px 6px rgba(2, 132, 199, 0.4);
 }
 
 .dimensionSteppersRow {
@@ -309,7 +464,7 @@
   gap: 4px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 2px 4px;
 }
 
@@ -334,18 +489,19 @@
   color: #f1f5f9;
   width: 18px;
   height: 18px;
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .stepperBtn:hover {
   background: #38bdf8;
-  color: #000000;
+  color: #0b1329;
 }
 
 /* Group 2: Road Facing */
@@ -357,7 +513,7 @@
 
 .facingBtn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: #cbd5e1;
   padding: 4px 8px;
   border-radius: 6px;
@@ -370,16 +526,17 @@
 }
 
 .facingBtn:hover {
-  background: rgba(232, 145, 45, 0.2);
+  background: rgba(232, 145, 45, 0.18);
   border-color: #e8912d;
   color: #ffffff;
 }
 
 .facingBtnActive {
-  background: linear-gradient(135deg, rgba(232, 145, 45, 0.3), rgba(245, 158, 11, 0.4));
+  background: linear-gradient(135deg, rgba(232, 145, 45, 0.35), rgba(245, 158, 11, 0.45));
   border-color: #e8912d;
   color: #fbbf24;
   font-weight: 700;
+  box-shadow: 0 1px 8px rgba(232, 145, 45, 0.25);
 }
 
 .facingIcon {
@@ -396,25 +553,59 @@
   font-weight: 700;
   color: #94a3b8;
   text-align: center;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 4px;
-  padding: 2px 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+/* Storey / Floor Level Switcher */
+.floorButtonGroup {
+  display: flex;
+  gap: 4px;
+}
+
+.floorBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 52px;
+  text-align: center;
+}
+
+.floorBtn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.floorBtnActive {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
 }
 
 /* Group 3: Room Program */
 .roomProgramGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px 6px;
 }
 
 .roomStepperItem {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 2px 5px;
 }
 
@@ -452,11 +643,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .miniCountBtn:hover {
   background: #38bdf8;
-  color: #000000;
+  color: #0b1329;
 }
 
 .countNumber {
@@ -467,13 +659,13 @@
   text-align: center;
 }
 
-/* Action Pills */
+/* Action Pills & Buttons */
 .actionPillBtn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f1f5f9;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 7px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -496,14 +688,73 @@
   color: #4ade80;
 }
 
-/* Solver Badge */
+/* CAD Drafting Tools Buttons */
+.cadDraftingGroup {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cadToolBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cadToolBtn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.cadToolBtnActive {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+}
+
+.scratchBtn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.scratchBtn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+/* Solver Specs Badge */
 .solverBadge {
   display: flex;
   flex-direction: column;
   gap: 2px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border-radius: 7px;
   padding: 6px 10px;
 }
 
@@ -519,7 +770,9 @@
   font-weight: 500;
 }
 
-/* Tab 2: Furniture Shelf */
+/* --------------------------------------------------------------------------
+   Tab 2: Furniture Shelf
+   -------------------------------------------------------------------------- */
 .categoryPills {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -528,10 +781,10 @@
 
 .catPill {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: #94a3b8;
   padding: 3px 6px;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 9.5px;
   font-weight: 600;
   cursor: pointer;
@@ -539,6 +792,7 @@
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .catPill:hover {
@@ -551,16 +805,17 @@
   border-color: #38bdf8;
   color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 1px 6px rgba(2, 132, 199, 0.4);
 }
 
 .furnitureShelfGroup {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: 8px;
+  padding: 6px 9px;
   flex: 1;
   min-width: 200px;
 }
@@ -570,20 +825,20 @@
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
 }
 
 .itemCard {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  padding: 5px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   cursor: pointer;
-  min-width: 68px;
+  min-width: 70px;
   flex-shrink: 0;
   transition: all 0.15s ease;
 }
@@ -597,11 +852,11 @@
 .itemCardActive {
   background: rgba(232, 145, 45, 0.35);
   border-color: #e8912d;
-  box-shadow: 0 0 10px rgba(232, 145, 45, 0.4);
+  box-shadow: 0 0 12px rgba(232, 145, 45, 0.4);
 }
 
 .itemIcon {
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .itemName {
@@ -611,7 +866,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 64px;
+  max-width: 66px;
 }
 
 .itemDim {
@@ -623,25 +878,30 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cbd5e1;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 5px 9px;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .restoreBtn:hover {
   background: rgba(56, 189, 248, 0.2);
   color: #38bdf8;
+  border-color: #38bdf8;
 }
 
 .clearBtn:hover {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
+  border-color: #ef4444;
 }
 
-/* Tab 3: Materials */
+/* --------------------------------------------------------------------------
+   Tab 3: Materials & Finishes
+   -------------------------------------------------------------------------- */
 .swatchesRow {
   display: flex;
   align-items: center;
@@ -650,7 +910,7 @@
 
 .quickMaterialBtn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 6px;
   padding: 4px 6px;
   display: flex;
@@ -669,11 +929,12 @@
 .quickMaterialActive {
   border-color: #38bdf8;
   background: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
 }
 
 .materialPreviewSquare {
-  width: 22px;
-  height: 14px;
+  width: 24px;
+  height: 15px;
   border-radius: 3px;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -682,7 +943,7 @@
   font-size: 8.5px;
   color: #e2e8f0;
   font-weight: 600;
-  max-width: 44px;
+  max-width: 46px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -704,6 +965,7 @@
 .quickColorActive {
   outline: 2px solid #38bdf8;
   outline-offset: 1px;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 
 .themePresetBtn {
@@ -712,12 +974,13 @@
   color: #cbd5e1;
   font-size: 10px;
   font-weight: 600;
-  padding: 3px 6px;
-  border-radius: 4px;
+  padding: 4px 7px;
+  border-radius: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: all 0.15s ease;
 }
 
 .themePresetBtn:hover {
@@ -745,23 +1008,26 @@
   transform: translateY(-1px);
 }
 
-/* Tab 4: Windows & Openings */
+/* --------------------------------------------------------------------------
+   Tab 4: Windows & Walls
+   -------------------------------------------------------------------------- */
 .windowShapeBtn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: #cbd5e1;
   font-size: 9.5px;
   font-weight: 600;
-  padding: 3px 6px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  border-radius: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: all 0.15s ease;
 }
 
 .windowShapeBtn:hover {
-  background: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.18);
   border-color: #38bdf8;
   color: #ffffff;
 }
@@ -771,14 +1037,15 @@
   border-color: #38bdf8;
   color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 1px 6px rgba(2, 132, 199, 0.4);
 }
 
 .windowShapeIcon {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .windowShapeName {
-  font-size: 9px;
+  font-size: 9.5px;
 }
 
 .wallActionsColumn {
@@ -793,7 +1060,9 @@
   font-weight: 500;
 }
 
-/* Tab 5: CAD & Blueprints */
+/* --------------------------------------------------------------------------
+   Tab 5: CAD & Blueprints
+   -------------------------------------------------------------------------- */
 .modelBlueprintsBtn {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.25));
   border: 1px solid rgba(245, 158, 11, 0.5);
@@ -804,6 +1073,7 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .modelBlueprintsBtn:hover {
@@ -821,6 +1091,7 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .cadViewBtn:hover {
@@ -843,6 +1114,7 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .exportSuiteBtn:hover {
@@ -850,13 +1122,15 @@
   color: #ffffff;
 }
 
-/* 3. Pinned Contextual Selection Inspector Deck */
+/* --------------------------------------------------------------------------
+   3. Pinned Contextual Selection Inspector Deck
+   -------------------------------------------------------------------------- */
 .selectedInspectorDeck {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
   border: 1.5px solid #e8912d;
   box-shadow: 0 0 20px rgba(232, 145, 45, 0.25);
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   margin-left: auto;
@@ -910,6 +1184,7 @@
   font-size: 12px;
   cursor: pointer;
   padding: 0 4px;
+  transition: color 0.15s ease;
 }
 
 .deselectBtn:hover {
@@ -929,7 +1204,7 @@
   gap: 3px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 2px 4px;
 }
 
@@ -941,11 +1216,12 @@
   border-radius: 3px;
   font-size: 10px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .moveBtn:hover {
   background: #38bdf8;
-  color: #000000;
+  color: #0b1329;
 }
 
 .positionBadge {
@@ -959,11 +1235,12 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 7px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .transformBtn:hover {
@@ -982,17 +1259,23 @@
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.3);
   cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.swatchBtn:hover {
+  transform: scale(1.2);
 }
 
 .replaceBtn {
   background: rgba(56, 189, 248, 0.2);
   border: 1px solid rgba(56, 189, 248, 0.4);
   color: #38bdf8;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 7px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .replaceBtn:hover {
@@ -1004,11 +1287,12 @@
   background: rgba(239, 68, 68, 0.2);
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: #ef4444;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 7px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .deleteBtn:hover {
@@ -1021,41 +1305,59 @@
   background: rgba(239, 68, 68, 0.2);
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: #f87171;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.demolishWallBtn:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #ffffff;
 }
 
 .rebuildWallBtn {
   background: rgba(34, 197, 94, 0.2);
   border: 1px solid rgba(34, 197, 94, 0.4);
   color: #4ade80;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rebuildWallBtn:hover {
+  background: rgba(34, 197, 94, 0.35);
+  color: #ffffff;
 }
 
 .addWinBtn {
   background: rgba(56, 189, 248, 0.2);
   border: 1px solid rgba(56, 189, 248, 0.4);
   color: #38bdf8;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.addWinBtn:hover {
+  background: rgba(56, 189, 248, 0.35);
+  color: #ffffff;
 }
 
 /* Window Mini Stepper */
 .dimStepperMini {
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 9px;
+  gap: 3px;
+  font-size: 9.5px;
   color: #cbd5e1;
 }
 
@@ -1063,35 +1365,47 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  font-size: 9px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.stepperMiniBtn:hover {
+  background: #38bdf8;
+  color: #0b1329;
 }
 
 .stepperMiniVal {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  min-width: 22px;
+  min-width: 24px;
   text-align: center;
 }
 
 .curtainBtn, .curtainBtnActive {
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
   font-size: 9.5px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .curtainBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #94a3b8;
+}
+
+.curtainBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .curtainBtnActive {

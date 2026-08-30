@@ -25,11 +25,11 @@ Then fill the table below and date it. Every later step reports its delta agains
 | 2026-08-25 | **25** | 0 | none | re-measured at review; `pytest -q`, quiet machine, 11.5s wall |
 | 2026-08-25 | **41** | 0 | none | after the regression fix and [[realism-gaps]]; `pytest -q`, 29.8s wall |
 | 2026-08-25 | **40** | 0 | none | after removing four room kinds; `pytest -q`, 21.3s wall |
+| 2026-08-30 | **43** | 0 | none | after fixing pooja NE rule, small custom room ladder bounds, and entrance room door; `pytest -q`, 21.4s wall |
 
-**Delta: +15 tests, 0 failures.** Composition as of 2026-08-25, end of day: `test_api.py` **11** ·
+**Delta: +18 tests, 0 failures.** Composition as of 2026-08-30: `test_api.py` **11** ·
 `test_solver.py` 6 · `test_stability.py` 4 ([[step-4-drift-objective]]) · `test_vaastu.py` **8**
-([[step-5-vaastu]] + the three regression invariants) · `test_realism.py` **11**
-([[realism-gaps]]). The 2026-08-24 row recorded 23; two tests had landed unrecorded.
+`test_realism.py` **14** (+3 regression invariants: custom small sizes, entrance room exterior front door, and pooja NE placement).
 
 The count went 41 -> 40 when the open-sided room test was removed along with the porch and
 sit-out. A dropped test is only healthy when the behaviour it guarded is also gone; that is the

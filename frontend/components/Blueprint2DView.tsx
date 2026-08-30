@@ -13,6 +13,15 @@ import {
   getRoomVaastuZone,
   VAASTU_ZONE_LABELS,
 } from "@/lib/blueprintExport";
+import {
+  CustomDrawnWall,
+  CustomRoomZone,
+  CustomWallOpening,
+  CustomWallType,
+  WALL_TYPE_CONFIGS,
+  getWallAngleRad,
+  getWallLengthIn,
+} from "@/lib/customArchitecture";
 import styles from "./Blueprint2DView.module.css";
 
 type CropHandle = "N" | "S" | "E" | "W" | "NW" | "NE" | "SW" | "SE";
@@ -27,6 +36,14 @@ interface Blueprint2DViewProps {
   customDims: Record<string, CustomDim>;
   customOpenings?: Record<string, RoomOpening[]>;
   customWallThickness?: Record<string, number>;
+  customWalls?: CustomDrawnWall[];
+  onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
+  customRoomZones?: CustomRoomZone[];
+  onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
+  activeCadTool?: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room";
+  onChangeCadTool?: (tool: "select" | "draw_wall" | "place_door" | "place_window" | "tag_room") => void;
+  activeWallType?: CustomWallType;
+  onChangeWallType?: (type: CustomWallType) => void;
   activeBlueprintName?: string | null;
   onChangeCounts: (counts: Record<RoomName, number>) => void;
   onChangeCustomDims: (dims: Record<string, CustomDim>) => void;
@@ -40,6 +57,9 @@ interface Blueprint2DViewProps {
     blueprint: ModelBlueprint,
     targetMode?: "blueprint" | "orbit" | "walkthrough"
   ) => void;
+  onStartFromScratch?: () => void;
+  activeFloor?: number;
+  onChangeActiveFloor?: (floor: number) => void;
 }
 
 export default function Blueprint2DView({
@@ -51,6 +71,16 @@ export default function Blueprint2DView({
   customDims,
   customOpenings,
   customWallThickness,
+  customWalls = [],
+  onChangeCustomWalls,
+  customRoomZones = [],
+  onChangeCustomRoomZones,
+  activeFloor = 0,
+  onChangeActiveFloor,
+  activeCadTool = "select",
+  onChangeCadTool,
+  activeWallType = "exterior",
+  onChangeWallType,
   activeBlueprintName,
   onChangeCounts,
   onChangeCustomDims,
@@ -61,6 +91,7 @@ export default function Blueprint2DView({
   onOpenExportModal,
   onOpenModelBlueprintsModal,
   onApplyBlueprint,
+  onStartFromScratch,
 }: Blueprint2DViewProps) {
   // Layer visibility state
   const [showDimensions, setShowDimensions] = useState(true);
@@ -80,11 +111,37 @@ export default function Blueprint2DView({
   const [isPanning, setIsPanning] = useState(false);
   const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Drag-to-Move Room State
+  // Drag-to-Move & Auto-Crop Room State
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOffsetIn, setDragOffsetIn] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const dragStartMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isDraggingRoomRef = useRef(false);
+  const [autoCropOnDrag, setAutoCropOnDrag] = useState(true);
+  const [roomCropDragPreview, setRoomCropDragPreview] = useState<{
+    x_in: number;
+    y_in: number;
+    w_in: number;
+    d_in: number;
+    isCropped: boolean;
+    rawLeft: number;
+    rawTop: number;
+    originalW: number;
+    originalD: number;
+  } | null>(null);
+  const [cropToast, setCropToast] = useState<string | null>(null);
+
+  // Shortcut key listener (KeyC to toggle auto crop)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.code === "KeyC") {
+        setAutoCropOnDrag((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Drag-to-Resize Wall State
   const [draggingWall, setDraggingWall] = useState<{
@@ -118,6 +175,24 @@ export default function Blueprint2DView({
     startMouse: { x: number; y: number };
     initialOffset: number;
     initialWidth: number;
+  } | null>(null);
+
+  // CAD Drafting State (for Build From Scratch Mode)
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [draftWallStart, setDraftWallStart] = useState<{ xIn: number; yIn: number } | null>(null);
+  const [draftWallCurrent, setDraftWallCurrent] = useState<{
+    xIn: number;
+    yIn: number;
+    lengthIn: number;
+    angleDeg: number;
+  } | null>(null);
+  const [selectedCustomWallId, setSelectedCustomWallId] = useState<string | null>(null);
+  const [selectedCustomZoneId, setSelectedCustomZoneId] = useState<string | null>(null);
+  const [hoveredWallInfo, setHoveredWallInfo] = useState<{
+    wallId: string;
+    offsetIn: number;
+    px: number;
+    py: number;
   } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -262,17 +337,251 @@ export default function Blueprint2DView({
     [getRoomIdFromIndex, customWallThickness, onChangeCustomWallThickness]
   );
 
+  // Convert screen mouse coordinates into untransformed plot inches
+  const getSvgInchesCoords = useCallback(
+    (e: React.MouseEvent) => {
+      const svg = svgRef.current;
+      if (!svg) return { xIn: 0, yIn: 0, pxX: 0, pxY: 0 };
+      const rect = svg.getBoundingClientRect();
+      const screenX = (e.clientX - rect.left) * (VIEW_W / rect.width);
+      const screenY = (e.clientY - rect.top) * (VIEW_H / rect.height);
+
+      // Invert pan & zoom transform
+      const untransformedX = (screenX - (VIEW_W / 2 + pan.x)) / zoom + VIEW_W / 2;
+      const untransformedY = (screenY - (VIEW_H / 2 + pan.y)) / zoom + VIEW_H / 2;
+
+      const xIn = Math.round((untransformedX - originX) / baseScale);
+      const yIn = Math.round((untransformedY - originY) / baseScale);
+
+      return { xIn, yIn, pxX: untransformedX, pxY: untransformedY };
+    },
+    [pan, zoom, originX, originY, baseScale]
+  );
+
+  // Snapping helper: grid, corner magnet, and orthogonal angle snapping
+  const getOrthoAndSnappedCoords = useCallback(
+    (rawXIn: number, rawYIn: number, startXIn?: number, startYIn?: number) => {
+      let snapX = Math.round(rawXIn / 6) * 6;
+      let snapY = Math.round(rawYIn / 6) * 6;
+
+      // 1. Magnetic corner snap to existing custom walls
+      for (const w of customWalls) {
+        if (Math.hypot(snapX - w.startXIn, snapY - w.startYIn) <= 14) {
+          snapX = w.startXIn;
+          snapY = w.startYIn;
+          break;
+        }
+        if (Math.hypot(snapX - w.endXIn, snapY - w.endYIn) <= 14) {
+          snapX = w.endXIn;
+          snapY = w.endYIn;
+          break;
+        }
+      }
+
+      // 2. Orthogonal angle snapping (0°, 90°, 45°) if a wall start point exists
+      if (startXIn !== undefined && startYIn !== undefined) {
+        const dx = snapX - startXIn;
+        const dy = snapY - startYIn;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 12) {
+          const angleDeg = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+          if (angleDeg < 18 || angleDeg > 342 || (angleDeg > 162 && angleDeg < 198)) {
+            snapY = startYIn;
+          } else if ((angleDeg > 72 && angleDeg < 108) || (angleDeg > 252 && angleDeg < 288)) {
+            snapX = startXIn;
+          }
+        }
+      }
+
+      return { snapX, snapY };
+    },
+    [customWalls]
+  );
+
+  // Escape key cancels drafting
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDraftWallStart(null);
+        setDraftWallCurrent(null);
+        onChangeCadTool?.("select");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onChangeCadTool]);
+
   // Mouse pan & drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    if (!isDraggingRoomRef.current && !draggingWall && !draggingOpening) {
+    const coords = getSvgInchesCoords(e);
+    const { snapX, snapY } = getOrthoAndSnappedCoords(
+      coords.xIn,
+      coords.yIn,
+      draftWallStart?.xIn,
+      draftWallStart?.yIn
+    );
+
+    // CAD Tool 1: Draw Custom Wall
+    if (activeCadTool === "draw_wall") {
+      if (!draftWallStart) {
+        setDraftWallStart({ xIn: snapX, yIn: snapY });
+      } else {
+        const lenIn = Math.hypot(snapX - draftWallStart.xIn, snapY - draftWallStart.yIn);
+        if (lenIn >= 12) {
+          const newWall: CustomDrawnWall = {
+            id: `wall_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            floor: activeFloor,
+            startXIn: draftWallStart.xIn,
+            startYIn: draftWallStart.yIn,
+            endXIn: snapX,
+            endYIn: snapY,
+            wallType: activeWallType,
+            thicknessIn: WALL_TYPE_CONFIGS[activeWallType]?.thicknessIn ?? 9.0,
+            heightFt: 9.0,
+            openings: [],
+          };
+          onChangeCustomWalls?.([...customWalls, newWall]);
+          // Continuous wall drawing: start next wall from endpoint
+          setDraftWallStart({ xIn: snapX, yIn: snapY });
+        }
+      }
+      return;
+    }
+
+    // CAD Tool 2 & 3: Place Door or Window on Wall
+    if (activeCadTool === "place_door" || activeCadTool === "place_window") {
+      if (hoveredWallInfo) {
+        const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
+        if (wall) {
+          const isWindow = activeCadTool === "place_window";
+          const widthIn = isWindow ? 48 : 36;
+          const newOpening: CustomWallOpening = {
+            id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            kind: isWindow ? "window" : "door",
+            offsetIn: Math.max(0, hoveredWallInfo.offsetIn - widthIn / 2),
+            widthIn,
+            heightIn: isWindow ? 48 : 84,
+            sillIn: isWindow ? 34 : 0,
+          };
+          const updated = customWalls.map((cw) =>
+            cw.id === wall.id ? { ...cw, openings: [...(cw.openings || []), newOpening] } : cw
+          );
+          onChangeCustomWalls?.(updated);
+        }
+      }
+      return;
+    }
+
+    // CAD Tool 4: Tag Room Zone / Floor Slab
+    if (activeCadTool === "tag_room") {
+      const posXIn = snapX;
+      const posZIn = snapY;
+
+      const currentFloorWalls = customWalls.filter((w) => (w.floor ?? 0) === activeFloor);
+      let minXIn = posXIn - 72;
+      let maxXIn = posXIn + 72;
+      let minZIn = posZIn - 72;
+      let maxZIn = posZIn + 72;
+
+      if (currentFloorWalls.length >= 2) {
+        const allXs = currentFloorWalls.flatMap((w) => [w.startXIn, w.endXIn]);
+        const allZs = currentFloorWalls.flatMap((w) => [w.startYIn, w.endYIn]);
+
+        const lefts = allXs.filter((x) => x <= posXIn);
+        const rights = allXs.filter((x) => x >= posXIn);
+        const tops = allZs.filter((z) => z <= posZIn);
+        const bottoms = allZs.filter((z) => z >= posZIn);
+
+        if (lefts.length && rights.length && tops.length && bottoms.length) {
+          minXIn = Math.max(...lefts);
+          maxXIn = Math.min(...rights);
+          minZIn = Math.max(...tops);
+          maxZIn = Math.min(...bottoms);
+        }
+      }
+
+      const wIn = Math.max(36, maxXIn - minXIn);
+      const dIn = Math.max(36, maxZIn - minZIn);
+      const areaSqFt = Math.round(((wIn * dIn) / 144) * 10) / 10;
+
+      const newZone: CustomRoomZone = {
+        id: `zone_${Date.now()}`,
+        floor: activeFloor,
+        name: "hall",
+        customLabel: "Living Hall",
+        xIn: minXIn,
+        yIn: minZIn,
+        wIn,
+        dIn,
+        areaSqFt,
+      };
+      onChangeCustomRoomZones?.([...customRoomZones, newZone]);
+      onChangeCadTool?.("select");
+      return;
+    }
+
+    if (!isDraggingRoomRef.current && !draggingWall && !draggingOpening && !draggingCrop) {
       setIsPanning(true);
       startPanRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // 1. Room Dragging
+    const coords = getSvgInchesCoords(e);
+
+    // 0a. CAD Wall Drafting Live Rubberband Preview
+    if (activeCadTool === "draw_wall" && draftWallStart) {
+      const { snapX, snapY } = getOrthoAndSnappedCoords(
+        coords.xIn,
+        coords.yIn,
+        draftWallStart.xIn,
+        draftWallStart.yIn
+      );
+      const lenIn = Math.hypot(snapX - draftWallStart.xIn, snapY - draftWallStart.yIn);
+      const angleDeg = ((Math.atan2(snapY - draftWallStart.yIn, snapX - draftWallStart.xIn) * 180) / Math.PI + 360) % 360;
+      setDraftWallCurrent({
+        xIn: snapX,
+        yIn: snapY,
+        lengthIn: lenIn,
+        angleDeg,
+      });
+      return;
+    }
+
+    // 0b. CAD Door / Window Hover Wall Projection
+    if (activeCadTool === "place_door" || activeCadTool === "place_window") {
+      let closestHit: { wallId: string; offsetIn: number; px: number; py: number } | null = null;
+      let closestDist = 30; // max snap distance in px
+
+      for (const w of customWalls) {
+        const dx = w.endXIn - w.startXIn;
+        const dy = w.endYIn - w.startYIn;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) continue;
+
+        const t = Math.max(
+          0,
+          Math.min(1, ((coords.xIn - w.startXIn) * dx + (coords.yIn - w.startYIn) * dy) / (len * len))
+        );
+        const projXIn = w.startXIn + t * dx;
+        const projYIn = w.startYIn + t * dy;
+        const distPx = Math.hypot(coords.pxX - toPxX(projXIn), coords.pxY - toPxY(projYIn));
+
+        if (distPx < closestDist) {
+          closestDist = distPx;
+          closestHit = {
+            wallId: w.id,
+            offsetIn: Math.round(t * len),
+            px: toPxX(projXIn),
+            py: toPxY(projYIn),
+          };
+        }
+      }
+      setHoveredWallInfo(closestHit);
+      return;
+    }
+    // 1. Room Dragging & Map Boundary Cropping
     if (isDraggingRoomRef.current && draggingIndex !== null) {
       const deltaScreenX = (e.clientX - dragStartMouseRef.current.x) / zoom;
       const deltaScreenY = (e.clientY - dragStartMouseRef.current.y) / zoom;
@@ -281,6 +590,46 @@ export default function Blueprint2DView({
       const deltaInchesY = Math.round(deltaScreenY / baseScale);
 
       setDragOffsetIn({ dx: deltaInchesX, dy: deltaInchesY });
+
+      const room = rooms[draggingIndex];
+      if (room) {
+        const rawLeft = room.x_in + deltaInchesX;
+        const rawTop = room.y_in + deltaInchesY;
+        const rawRight = rawLeft + room.w_in;
+        const rawBottom = rawTop + room.d_in;
+
+        const minX = setbackW;
+        const maxX = setbackW + envW;
+        const minY = setbackN;
+        const maxY = setbackN + envD;
+        const MIN_IN = 4 * 12; // 4 ft minimum
+
+        if (autoCropOnDrag) {
+          // If the room is dragged past boundaries, crop/trim dimensions dynamically
+          const cropLeft = Math.max(minX, Math.min(rawLeft, maxX - MIN_IN));
+          const cropRight = Math.min(maxX, Math.max(rawRight, minX + MIN_IN));
+          const cropTop = Math.max(minY, Math.min(rawTop, maxY - MIN_IN));
+          const cropBottom = Math.min(maxY, Math.max(rawBottom, minY + MIN_IN));
+
+          const croppedW = Math.max(MIN_IN, cropRight - cropLeft);
+          const croppedD = Math.max(MIN_IN, cropBottom - cropTop);
+          const isCropped = croppedW !== room.w_in || croppedD !== room.d_in;
+
+          setRoomCropDragPreview({
+            x_in: cropLeft,
+            y_in: cropTop,
+            w_in: croppedW,
+            d_in: croppedD,
+            isCropped,
+            rawLeft,
+            rawTop,
+            originalW: room.w_in,
+            originalD: room.d_in,
+          });
+        } else {
+          setRoomCropDragPreview(null);
+        }
+      }
       return;
     }
 
@@ -402,20 +751,35 @@ export default function Blueprint2DView({
   };
 
   const handleMouseUp = () => {
-    if (isDraggingRoomRef.current && draggingIndex !== null && onRoomMove) {
+    if (isDraggingRoomRef.current && draggingIndex !== null) {
       const room = rooms[draggingIndex];
       if (room) {
-        const targetXIn = Math.max(
-          setbackW,
-          Math.min(setbackW + envW - room.w_in, room.x_in + dragOffsetIn.dx)
-        );
-        const targetYIn = Math.max(
-          setbackN,
-          Math.min(setbackN + envD - room.d_in, room.y_in + dragOffsetIn.dy)
-        );
+        if (autoCropOnDrag && roomCropDragPreview && roomCropDragPreview.isCropped && onRoomResize) {
+          onRoomResize(
+            draggingIndex,
+            roomCropDragPreview.x_in,
+            roomCropDragPreview.y_in,
+            roomCropDragPreview.w_in,
+            roomCropDragPreview.d_in
+          );
+          const label = ROOM_LABELS[room.name as RoomName] ?? room.name;
+          setCropToast(
+            `✂️ ${label} cropped to ${formatFeetInches(roomCropDragPreview.w_in)} × ${formatFeetInches(roomCropDragPreview.d_in)} by dragging across map!`
+          );
+          setTimeout(() => setCropToast(null), 3500);
+        } else if (onRoomMove) {
+          const targetXIn = Math.max(
+            setbackW,
+            Math.min(setbackW + envW - room.w_in, room.x_in + dragOffsetIn.dx)
+          );
+          const targetYIn = Math.max(
+            setbackN,
+            Math.min(setbackN + envD - room.d_in, room.y_in + dragOffsetIn.dy)
+          );
 
-        if (Math.abs(dragOffsetIn.dx) > 2 || Math.abs(dragOffsetIn.dy) > 2) {
-          onRoomMove(draggingIndex, targetXIn, targetYIn);
+          if (Math.abs(dragOffsetIn.dx) > 2 || Math.abs(dragOffsetIn.dy) > 2) {
+            onRoomMove(draggingIndex, targetXIn, targetYIn);
+          }
         }
       }
     }
@@ -435,6 +799,7 @@ export default function Blueprint2DView({
     isDraggingRoomRef.current = false;
     setDraggingIndex(null);
     setDragOffsetIn({ dx: 0, dy: 0 });
+    setRoomCropDragPreview(null);
     setDraggingWall(null);
     setDraggingOpening(null);
     setDraggingCrop(null);
@@ -444,8 +809,27 @@ export default function Blueprint2DView({
   const handleRoomMouseDown = (e: React.MouseEvent, idx: number) => {
     e.stopPropagation();
     if (e.button !== 0) return;
+    const room = rooms[idx];
+    if (!room) return;
+
     setSelectedRoomIndex(idx);
     setSelectedOpeningIndex(null);
+
+    // If user holds Shift or Alt, dragging immediately crops the room across the map
+    if (e.shiftKey || e.altKey) {
+      setDraggingCrop({
+        roomIndex: idx,
+        handle: "SE",
+        startMouse: { x: e.clientX, y: e.clientY },
+        initialX: room.x_in,
+        initialY: room.y_in,
+        initialW: room.w_in,
+        initialD: room.d_in,
+      });
+      setCropPreview({ x_in: room.x_in, y_in: room.y_in, w_in: room.w_in, d_in: room.d_in });
+      return;
+    }
+
     setDraggingIndex(idx);
     isDraggingRoomRef.current = true;
     dragStartMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -459,26 +843,9 @@ export default function Blueprint2DView({
   ) => {
     e.stopPropagation();
     if (e.button !== 0) return;
-    const room = rooms[roomIdx];
-    if (!room) return;
-
-    setSelectedRoomIndex(roomIdx);
     setSelectedWallEdge(edge);
-    setSelectedOpeningIndex(null);
     setInspectorTab("wall");
-
-    const id = getRoomIdFromIndex(roomIdx);
-    const custom = customDims[id];
-    const initialW = custom ? custom.wFt : Math.round(inchesToFeet(room.w_in));
-    const initialD = custom ? custom.dFt : Math.round(inchesToFeet(room.d_in));
-
-    setDraggingWall({
-      roomIndex: roomIdx,
-      edge,
-      startMouse: { x: e.clientX, y: e.clientY },
-      initialW,
-      initialD,
-    });
+    handleCropHandleMouseDown(e, roomIdx, edge as CropHandle);
   };
 
   const handleCropHandleMouseDown = (
@@ -717,6 +1084,13 @@ export default function Blueprint2DView({
         {/* Layer Toggles */}
         <div className={styles.toolbarGroup}>
           <button
+            className={`${styles.toolButton} ${autoCropOnDrag ? styles.toolButtonActive : ""}`}
+            onClick={() => setAutoCropOnDrag((p) => !p)}
+            title="Auto-Crop room dimensions when dragging across map boundaries (Press 'C' to toggle)"
+          >
+            ✂️ Auto-Crop: {autoCropOnDrag ? "ON" : "OFF"}
+          </button>
+          <button
             className={`${styles.toolButton} ${showDimensions ? styles.toolButtonActive : ""}`}
             onClick={() => setShowDimensions((p) => !p)}
             title="Toggle Dimension Lines & Strings"
@@ -815,6 +1189,13 @@ export default function Blueprint2DView({
         </button>
       </div>
 
+      {/* Auto-Crop Toast Notification */}
+      {cropToast && (
+        <div className={styles.cropToastOverlay}>
+          <span>{cropToast}</span>
+        </div>
+      )}
+
       {/* Legend Overlay */}
       <div className={styles.legendOverlay}>
         <div className={styles.legendItem}>
@@ -835,16 +1216,357 @@ export default function Blueprint2DView({
         </div>
       </div>
 
+      {/* CAD Freehand Architecture Studio Toolbar */}
+      <div className={styles.cadDraftingToolbar}>
+        {/* Floor Level Switcher Pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "rgba(0,0,0,0.35)", borderRadius: "8px", padding: "2px 4px", marginRight: "4px" }}>
+          {[
+            { floor: 0, short: "G 🏡", title: "Ground Floor" },
+            { floor: 1, short: "1F 🏢", title: "1st Floor" },
+            { floor: 2, short: "2F 🏙️", title: "2nd Floor" },
+            { floor: 3, short: "Roof ☀️", title: "Terrace / Roof" },
+          ].map((fl) => (
+            <button
+              key={fl.floor}
+              style={{
+                background: activeFloor === fl.floor ? "#0284c7" : "transparent",
+                color: activeFloor === fl.floor ? "#ffffff" : "#94a3b8",
+                border: "none",
+                borderRadius: "5px",
+                padding: "3px 7px",
+                fontSize: "10.5px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onClick={() => onChangeActiveFloor?.(fl.floor)}
+              title={fl.title}
+            >
+              {fl.short}
+            </button>
+          ))}
+        </div>
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "select" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            setDraftWallStart(null);
+            setDraftWallCurrent(null);
+            onChangeCadTool?.("select");
+          }}
+          title="Select & Inspect Objects (V)"
+        >
+          ↖ Select
+        </button>
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "draw_wall" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            onChangeCadTool?.("draw_wall");
+          }}
+          title="Point-to-Point Wall Drawer (W)"
+        >
+          ✏️ Draw Wall
+        </button>
+
+        {activeCadTool === "draw_wall" && (
+          <select
+            value={activeWallType}
+            onChange={(e) => onChangeWallType?.(e.target.value as CustomWallType)}
+            style={{
+              background: "rgba(15, 23, 42, 0.9)",
+              color: "#38bdf8",
+              border: "1px solid #38bdf8",
+              borderRadius: "6px",
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <option value="exterior">🧱 9" Exterior Wall</option>
+            <option value="interior">🧱 4.5" Interior Wall</option>
+            <option value="glass">🪟 3" Glass Partition</option>
+            <option value="slat">🪵 3.5" Slat Screen</option>
+            <option value="arch">🏛️ 6" Arched Divider</option>
+            <option value="curved">💫 9" Curved Feature Wall</option>
+            <option value="curved_glass">🪟 3" Curved Glass Wall</option>
+            <option value="curved_slat">🪵 3.5" Curved Slat Wall</option>
+          </select>
+        )}
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "place_door" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            setDraftWallStart(null);
+            onChangeCadTool?.("place_door");
+          }}
+          title="Place Doors onto Walls (D)"
+        >
+          🚪 Place Door
+        </button>
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "place_window" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            setDraftWallStart(null);
+            onChangeCadTool?.("place_window");
+          }}
+          title="Place Windows onto Walls"
+        >
+          🪟 Place Window
+        </button>
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "tag_room" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            setDraftWallStart(null);
+            onChangeCadTool?.("tag_room");
+          }}
+          title="Tag and Label Room Zone with Area sq ft"
+        >
+          🏷️ Tag Room
+        </button>
+
+        {onStartFromScratch && (
+          <button
+            className={styles.cadStartScratchBtn}
+            onClick={onStartFromScratch}
+            title="Start with a blank plot (clears automated solver rooms)"
+          >
+            🏗️ Start Blank
+          </button>
+        )}
+
+        {onOpenModelBlueprintsModal && (
+          <button
+            style={{
+              background: "linear-gradient(135deg, rgba(2, 132, 199, 0.3), rgba(14, 165, 233, 0.2))",
+              border: "1px solid #38bdf8",
+              color: "#38bdf8",
+              fontSize: "11px",
+              fontWeight: 700,
+              padding: "4px 9px",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+            onClick={onOpenModelBlueprintsModal}
+            title="Exit scratch mode and load a prebuilt Vastu floor plan model"
+          >
+            ✨ Prebuilt Plans
+          </button>
+        )}
+
+        {customWalls.length > 0 && (
+          <button
+            style={{
+              background: "rgba(239, 68, 68, 0.15)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              color: "#f87171",
+              fontSize: "11px",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              if (confirm("Clear all custom drawn walls and room zones?")) {
+                onChangeCustomWalls?.([]);
+                onChangeCustomRoomZones?.([]);
+              }
+            }}
+            title="Clear all custom drawn walls"
+          >
+            🗑️ Clear Walls ({customWalls.length})
+          </button>
+        )}
+      </div>
+
+      {/* Floating Selected Custom Wall & Curve Inspector */}
+      {(() => {
+        const selectedWall = customWalls.find((w) => w.id === selectedCustomWallId);
+        if (!selectedWall) return null;
+
+        return (
+          <div
+            style={{
+              position: "absolute",
+              top: 125,
+              left: 24,
+              background: "rgba(10, 25, 48, 0.96)",
+              backdropFilter: "blur(16px)",
+              border: "1.5px solid #f59e0b",
+              padding: "7px 12px",
+              borderRadius: "12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              zIndex: 26,
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6)",
+              color: "#ffffff",
+              fontSize: "12px",
+            }}
+          >
+            <span style={{ fontWeight: 800, color: "#fbbf24", display: "flex", alignItems: "center", gap: "4px" }}>
+              🧱 Wall ({formatFeetInches(getWallLengthIn(selectedWall))})
+            </span>
+
+            <select
+              value={selectedWall.wallType}
+              onChange={(e) => {
+                const nextType = e.target.value as CustomWallType;
+                const isCurved = nextType.startsWith("curved");
+                const updated = customWalls.map((w) =>
+                  w.id === selectedWall.id
+                    ? { ...w, wallType: nextType, isCurved: isCurved || w.isCurved, curveBulgeIn: isCurved && !w.curveBulgeIn ? 24 : w.curveBulgeIn }
+                    : w
+                );
+                onChangeCustomWalls?.(updated);
+              }}
+              style={{
+                background: "rgba(15, 23, 42, 0.9)",
+                color: "#38bdf8",
+                border: "1px solid #38bdf8",
+                borderRadius: "6px",
+                padding: "3px 6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <option value="exterior">🧱 9" Exterior Wall</option>
+              <option value="interior">🧱 4.5" Interior Wall</option>
+              <option value="glass">🪟 3" Glass Partition</option>
+              <option value="slat">🪵 3.5" Slat Screen</option>
+              <option value="arch">🏛️ 6" Arched Divider</option>
+              <option value="curved">💫 9" Curved Wall</option>
+              <option value="curved_glass">🪟 3" Curved Glass</option>
+              <option value="curved_slat">🪵 3.5" Curved Slat</option>
+            </select>
+
+            {/* Curve Toggle Button */}
+            <button
+              style={{
+                background: selectedWall.isCurved ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+                color: selectedWall.isCurved ? "#ffffff" : "#cbd5e1",
+                border: "1px solid " + (selectedWall.isCurved ? "#38bdf8" : "rgba(255,255,255,0.2)"),
+                borderRadius: "6px",
+                padding: "3px 8px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                const nextCurved = !selectedWall.isCurved;
+                const updated = customWalls.map((w) =>
+                  w.id === selectedWall.id
+                    ? { ...w, isCurved: nextCurved, curveBulgeIn: nextCurved ? (w.curveBulgeIn || 24) : 0 }
+                    : w
+                );
+                onChangeCustomWalls?.(updated);
+              }}
+              title="Toggle Curved Wall Arc"
+            >
+              💫 {selectedWall.isCurved ? "Curved: ON" : "Make Curved"}
+            </button>
+
+            {/* Bulge Adjuster Stepper if curved */}
+            {selectedWall.isCurved && (
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "rgba(0,0,0,0.35)", padding: "2px 6px", borderRadius: "6px" }}>
+                <span style={{ fontSize: "10.5px", color: "#94a3b8" }}>Arc:</span>
+                <button
+                  style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                  onClick={() => {
+                    const nextBulge = (selectedWall.curveBulgeIn || 24) - 6;
+                    const updated = customWalls.map((w) =>
+                      w.id === selectedWall.id ? { ...w, curveBulgeIn: nextBulge } : w
+                    );
+                    onChangeCustomWalls?.(updated);
+                  }}
+                  title="Decrease Arc Curvature"
+                >
+                  -
+                </button>
+                <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "26px", textAlign: "center", color: "#38bdf8" }}>
+                  {selectedWall.curveBulgeIn || 24}&quot;
+                </span>
+                <button
+                  style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                  onClick={() => {
+                    const nextBulge = (selectedWall.curveBulgeIn || 24) + 6;
+                    const updated = customWalls.map((w) =>
+                      w.id === selectedWall.id ? { ...w, curveBulgeIn: nextBulge } : w
+                    );
+                    onChangeCustomWalls?.(updated);
+                  }}
+                  title="Increase Arc Curvature"
+                >
+                  +
+                </button>
+              </div>
+            )}
+
+            {/* Delete Selected Wall */}
+            <button
+              style={{
+                background: "rgba(239, 68, 68, 0.2)",
+                border: "1px solid rgba(239, 68, 68, 0.5)",
+                color: "#f87171",
+                borderRadius: "6px",
+                padding: "3px 8px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                onChangeCustomWalls?.(customWalls.filter((w) => w.id !== selectedWall.id));
+                setSelectedCustomWallId(null);
+              }}
+              title="Delete this wall"
+            >
+              🗑️ Delete
+            </button>
+
+            <button
+              style={{ background: "transparent", border: "none", color: "#94a3b8", fontSize: "12px", cursor: "pointer", padding: "0 4px" }}
+              onClick={() => setSelectedCustomWallId(null)}
+              title="Deselect"
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* CAD Drafting Real-Time Hint Banner */}
+      {activeCadTool === "draw_wall" && (
+        <div className={styles.draftingStatusOverlay}>
+          <span>✏️ Click anywhere on plot to place wall points • Ortho snaps to 0°/90°/45° • Press ESC to finish</span>
+        </div>
+      )}
+      {activeCadTool === "place_door" && (
+        <div className={styles.draftingStatusOverlay}>
+          <span>🚪 Hover over any custom wall and click to insert Door</span>
+        </div>
+      )}
+      {activeCadTool === "place_window" && (
+        <div className={styles.draftingStatusOverlay}>
+          <span>🪟 Hover over any custom wall and click to insert Window</span>
+        </div>
+      )}
+
       {/* Interactive Edit Tip Pill */}
       <div className={styles.editTipOverlay}>
-        <span>🖐️ Click/drag walls &amp; doors to resize • Drag rooms to move • 3D syncs instantly</span>
+        <span>🖐️ Drag rooms across map to crop/move • Click/drag walls &amp; doors to resize • Press &apos;C&apos; to toggle Auto-Crop</span>
       </div>
 
       {/* SVG Blueprint Canvas Viewport */}
       <svg
+        ref={svgRef}
         className={`${styles.canvasViewport} ${isPanning ? styles.canvasViewportPanning : ""}`}
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         preserveAspectRatio="xMidYMid meet"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
       >
         <defs>
           <pattern id="gridPattern" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -852,6 +1574,9 @@ export default function Blueprint2DView({
           </pattern>
           <pattern id="fineGrid" width="6" height="6" patternUnits="userSpaceOnUse">
             <path d="M 6 0 L 0 0 0 6" fill="none" stroke="#0a233f" strokeWidth="0.4" />
+          </pattern>
+          <pattern id="cropHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6" />
           </pattern>
           <marker
             id="dimTick"
@@ -1000,12 +1725,18 @@ export default function Blueprint2DView({
             const isDraggingThis = draggingIndex === idx;
             const isCropDraggingThis = draggingCrop?.roomIndex === idx;
             const cropP = isCropDraggingThis && cropPreview ? cropPreview : null;
-            const currentXIn = isDraggingThis ? room.x_in + dragOffsetIn.dx
+            const dragCropP = isDraggingThis && roomCropDragPreview ? roomCropDragPreview : null;
+
+            const currentXIn = dragCropP ? dragCropP.x_in
+              : isDraggingThis ? room.x_in + dragOffsetIn.dx
               : cropP ? cropP.x_in : room.x_in;
-            const currentYIn = isDraggingThis ? room.y_in + dragOffsetIn.dy
+            const currentYIn = dragCropP ? dragCropP.y_in
+              : isDraggingThis ? room.y_in + dragOffsetIn.dy
               : cropP ? cropP.y_in : room.y_in;
-            const currentWIn = cropP ? cropP.w_in : room.w_in;
-            const currentDIn = cropP ? cropP.d_in : room.d_in;
+            const currentWIn = dragCropP ? dragCropP.w_in
+              : cropP ? cropP.w_in : room.w_in;
+            const currentDIn = dragCropP ? dragCropP.d_in
+              : cropP ? cropP.d_in : room.d_in;
 
             const rx = toPxX(currentXIn);
             const ry = toPxY(currentYIn);
@@ -1013,6 +1744,7 @@ export default function Blueprint2DView({
             const rd = currentDIn * baseScale;
 
             const isSelected = idx === selectedRoomIndex;
+            const isCropActive = isDraggingThis && dragCropP?.isCropped;
             const label = ROOM_LABELS[room.name as RoomName] ?? room.name;
             const zone = getRoomVaastuZone(room, plot.widthIn, plot.depthIn);
             const zoneInfo = VAASTU_ZONE_LABELS[zone];
@@ -1021,15 +1753,58 @@ export default function Blueprint2DView({
 
             return (
               <g key={idx} id={`room-${idx}`}>
+                {/* Uncropped drag outline when cropping against boundary */}
+                {isCropActive && dragCropP && (
+                  <g pointerEvents="none">
+                    <rect
+                      x={toPxX(dragCropP.rawLeft)}
+                      y={toPxY(dragCropP.rawTop)}
+                      width={dragCropP.originalW * baseScale}
+                      height={dragCropP.originalD * baseScale}
+                      fill="rgba(245, 158, 11, 0.08)"
+                      stroke="#f59e0b"
+                      strokeWidth="1.5"
+                      strokeDasharray="4,4"
+                    />
+                  </g>
+                )}
+
+                {/* Drag-Crop Floating HUD Badge */}
+                {isCropActive && (
+                  <g pointerEvents="none">
+                    <rect
+                      x={rx + rw / 2 - 135}
+                      y={ry - 36}
+                      width={270}
+                      height={28}
+                      rx="6"
+                      fill="rgba(15, 23, 42, 0.95)"
+                      stroke="#f59e0b"
+                      strokeWidth="1.5"
+                    />
+                    <text
+                      x={rx + rw / 2}
+                      y={ry - 18}
+                      fill="#f59e0b"
+                      fontSize="11"
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                    >
+                      ✂️ CROPPING TO MAP: {formatFeetInches(currentWIn)} × {formatFeetInches(currentDIn)}
+                    </text>
+                  </g>
+                )}
+
                 {/* Room Floor Fill */}
                 <rect
                   x={rx}
                   y={ry}
                   width={rw}
                   height={rd}
-                  fill={isSelected ? "#0284c7" : isDraggingThis ? "#0369a1" : "#0c3b6d"}
-                  stroke={isSelected ? "#ffffff" : isDraggingThis ? "#38bdf8" : "#7dd3fc"}
-                  strokeWidth={isSelected || isDraggingThis ? 3.5 : 2}
+                  fill={isCropActive ? "#78350f" : isSelected ? "#0284c7" : isDraggingThis ? "#0369a1" : "#0c3b6d"}
+                  stroke={isCropActive ? "#f59e0b" : isSelected ? "#ffffff" : isDraggingThis ? "#38bdf8" : "#7dd3fc"}
+                  strokeWidth={isCropActive || isSelected || isDraggingThis ? 3.5 : 2}
                   filter={isDraggingThis ? "drop-shadow(0 8px 16px rgba(0,0,0,0.6))" : undefined}
                   rx="1"
                   style={{ cursor: isDraggingThis ? "grabbing" : "grab" }}
@@ -1653,6 +2428,277 @@ export default function Blueprint2DView({
               </g>
             );
           })}
+
+          {/* ── Custom Architecture Room Zones (Build From Scratch Mode) ── */}
+          {customRoomZones
+            .filter((zone) => (zone.floor ?? 0) === activeFloor || (activeFloor > 0 && (zone.floor ?? 0) < activeFloor))
+            .map((zone) => {
+            const isCurrentFloor = (zone.floor ?? 0) === activeFloor;
+            const zx = toPxX(zone.xIn);
+            const zy = toPxY(zone.yIn);
+            const zw = zone.wIn * baseScale;
+            const zd = zone.dIn * baseScale;
+            const isSelected = selectedCustomZoneId === zone.id;
+
+            return (
+              <g
+                key={zone.id}
+                onClick={(e) => {
+                  if (!isCurrentFloor) return;
+                  e.stopPropagation();
+                  setSelectedCustomZoneId(zone.id);
+                  setSelectedCustomWallId(null);
+                }}
+                style={{ cursor: isCurrentFloor ? "pointer" : "default" }}
+                opacity={isCurrentFloor ? 1 : 0.25}
+              >
+                <rect
+                  x={zx}
+                  y={zy}
+                  width={zw}
+                  height={zd}
+                  fill={isCurrentFloor ? "rgba(2, 132, 199, 0.12)" : "rgba(100, 116, 139, 0.05)"}
+                  stroke={isSelected ? "#38bdf8" : isCurrentFloor ? "rgba(56, 189, 248, 0.5)" : "rgba(148, 163, 184, 0.3)"}
+                  strokeWidth={isSelected ? 2 : 1}
+                  strokeDasharray="4,4"
+                  rx="4"
+                />
+                <text
+                  x={zx + zw / 2}
+                  y={zy + zd / 2 - 4}
+                  fill={isCurrentFloor ? "#ffffff" : "#94a3b8"}
+                  fontSize="12"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  {zone.customLabel || ROOM_LABELS[zone.name] || zone.name}
+                  {!isCurrentFloor && ` (Floor ${(zone.floor ?? 0) === 0 ? "G" : (zone.floor ?? 0)})`}
+                </text>
+                <text
+                  x={zx + zw / 2}
+                  y={zy + zd / 2 + 12}
+                  fill={isCurrentFloor ? "#38bdf8" : "#64748b"}
+                  fontSize="10"
+                  fontFamily="monospace"
+                  textAnchor="middle"
+                >
+                  {formatAreaSqFt(zone.wIn, zone.dIn)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* ── Custom Drawn Walls (Build From Scratch Mode) ── */}
+          {customWalls
+            .filter((wall) => (wall.floor ?? 0) === activeFloor || (activeFloor > 0 && (wall.floor ?? 0) < activeFloor))
+            .map((wall) => {
+            const isCurrentFloor = (wall.floor ?? 0) === activeFloor;
+            const wx1 = toPxX(wall.startXIn);
+            const wy1 = toPxY(wall.startYIn);
+            const wx2 = toPxX(wall.endXIn);
+            const wy2 = toPxY(wall.endYIn);
+            const isSelected = selectedCustomWallId === wall.id;
+            const strokeW = Math.max(3, wall.thicknessIn * baseScale);
+            const strokeColor = !isCurrentFloor
+              ? "#475569"
+              : wall.wallType === "glass" || wall.wallType === "curved_glass"
+              ? "#0284c7"
+              : wall.wallType === "slat" || wall.wallType === "curved_slat"
+              ? "#d97706"
+              : wall.wallType === "arch"
+              ? "#64748b"
+              : wall.wallType === "curved" || wall.isCurved
+              ? "#38bdf8"
+              : "#7dd3fc";
+
+            const wallLenIn = getWallLengthIn(wall);
+            const midX = (wx1 + wx2) / 2;
+            const midY = (wy1 + wy2) / 2;
+            const isCurved = Boolean(
+              wall.isCurved ||
+              wall.wallType.startsWith("curved") ||
+              (wall.curveBulgeIn && Math.abs(wall.curveBulgeIn) > 1)
+            );
+
+            const chordPx = Math.hypot(wx2 - wx1, wy2 - wy1) || 1;
+            const nx = -(wy2 - wy1) / chordPx;
+            const ny = (wx2 - wx1) / chordPx;
+            const bulgeIn = wall.curveBulgeIn !== undefined ? wall.curveBulgeIn : 24.0;
+            const bulgePx = bulgeIn * baseScale;
+            const ctrlX = midX + nx * bulgePx * 2;
+            const ctrlY = midY + ny * bulgePx * 2;
+            const midArcX = isCurved ? midX + nx * bulgePx : midX;
+            const midArcY = isCurved ? midY + ny * bulgePx : midY;
+
+            return (
+              <g
+                key={wall.id}
+                onClick={(e) => {
+                  if (!isCurrentFloor) return;
+                  e.stopPropagation();
+                  setSelectedCustomWallId(wall.id);
+                  setSelectedCustomZoneId(null);
+                }}
+                style={{ cursor: isCurrentFloor ? "pointer" : "default" }}
+                opacity={isCurrentFloor ? 1 : 0.3}
+              >
+                {/* Wall Core Line / Curved Arc */}
+                {isCurved ? (
+                  <path
+                    d={`M ${wx1} ${wy1} Q ${ctrlX} ${ctrlY} ${wx2} ${wy2}`}
+                    stroke={isSelected ? "#f59e0b" : strokeColor}
+                    strokeWidth={strokeW}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={isCurrentFloor ? undefined : "6,6"}
+                  />
+                ) : (
+                  <line
+                    x1={wx1}
+                    y1={wy1}
+                    x2={wx2}
+                    y2={wy2}
+                    stroke={isSelected ? "#f59e0b" : strokeColor}
+                    strokeWidth={strokeW}
+                    strokeLinecap="round"
+                    strokeDasharray={isCurrentFloor ? undefined : "6,6"}
+                  />
+                )}
+
+                {/* Dimension Tag */}
+                {isCurrentFloor && (
+                  <g transform={`translate(${midArcX}, ${midArcY - 10})`} pointerEvents="none">
+                    <rect
+                      x={-28}
+                      y={-10}
+                      width={56}
+                      height={16}
+                      rx="3"
+                      fill="rgba(10, 25, 48, 0.88)"
+                      stroke="rgba(56, 189, 248, 0.35)"
+                      strokeWidth="0.8"
+                    />
+                    <text
+                      x="0"
+                      y="2"
+                      fill="#cbd5e1"
+                      fontSize="9"
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                    >
+                      {formatFeetInches(wallLenIn)}
+                    </text>
+                  </g>
+                )}
+
+                {/* Custom Wall Openings (Doors & Windows) */}
+                {(wall.openings || []).map((op) => {
+                  const len = Math.max(1, wallLenIn);
+                  const t = op.offsetIn / len;
+                  const opPx = Math.hypot(wx2 - wx1, wy2 - wy1);
+                  const opW = (op.widthIn / len) * opPx;
+                  const dxNorm = (wx2 - wx1) / opPx;
+                  const dyNorm = (wy2 - wy1) / opPx;
+
+                  const ox1 = wx1 + t * (wx2 - wx1);
+                  const oy1 = wy1 + t * (wy2 - wy1);
+                  const ox2 = ox1 + dxNorm * opW;
+                  const oy2 = oy1 + dyNorm * opW;
+
+                  if (op.kind === "door" || op.kind === "entrance" || op.kind === "arch_door" || op.kind === "revolving_door") {
+                    return (
+                      <g key={op.id}>
+                        {/* Door Wall Cutout */}
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#ffffff" strokeWidth={strokeW + 1} />
+                        {/* Door Leaf & Arc */}
+                        <line x1={ox1} y1={oy1} x2={ox1 - dyNorm * opW} y2={oy1 + dxNorm * opW} stroke="#fbbf24" strokeWidth="2" />
+                        <path
+                          d={`M ${ox2} ${oy2} A ${opW} ${opW} 0 0 0 ${ox1 - dyNorm * opW} ${oy1 + dxNorm * opW}`}
+                          fill="none"
+                          stroke="#fbbf24"
+                          strokeWidth="1.2"
+                          strokeDasharray="3,3"
+                        />
+                      </g>
+                    );
+                  } else {
+                    // Window
+                    return (
+                      <g key={op.id}>
+                        {/* Window Wall Cutout & Glazing */}
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#0f172a" strokeWidth={strokeW} />
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#38bdf8" strokeWidth="2.5" />
+                        <line
+                          x1={ox1 + dyNorm * 3}
+                          y1={oy1 - dxNorm * 3}
+                          x2={ox2 + dyNorm * 3}
+                          y2={oy2 - dxNorm * 3}
+                          stroke="#94a3b8"
+                          strokeWidth="1"
+                        />
+                      </g>
+                    );
+                  }
+                })}
+              </g>
+            );
+          })}
+
+          {/* ── Active Wall Drafting Rubberband Preview ── */}
+          {activeCadTool === "draw_wall" && draftWallStart && draftWallCurrent && (
+            <g pointerEvents="none">
+              <line
+                x1={toPxX(draftWallStart.xIn)}
+                y1={toPxY(draftWallStart.yIn)}
+                x2={toPxX(draftWallCurrent.xIn)}
+                y2={toPxY(draftWallCurrent.yIn)}
+                stroke="#38bdf8"
+                strokeWidth={Math.max(3, (WALL_TYPE_CONFIGS[activeWallType]?.thicknessIn ?? 9) * baseScale)}
+                strokeDasharray="6,4"
+              />
+              <circle cx={toPxX(draftWallStart.xIn)} cy={toPxY(draftWallStart.yIn)} r="5" fill="#38bdf8" />
+              <circle cx={toPxX(draftWallCurrent.xIn)} cy={toPxY(draftWallCurrent.yIn)} r="5" fill="#f59e0b" />
+              {/* Length & Angle HUD */}
+              <g
+                transform={`translate(${(toPxX(draftWallStart.xIn) + toPxX(draftWallCurrent.xIn)) / 2}, ${
+                  (toPxY(draftWallStart.yIn) + toPxY(draftWallCurrent.yIn)) / 2 - 14
+                })`}
+              >
+                <rect
+                  x="-38"
+                  y="-12"
+                  width="76"
+                  height="22"
+                  rx="4"
+                  fill="rgba(15, 23, 42, 0.95)"
+                  stroke="#38bdf8"
+                  strokeWidth="1"
+                />
+                <text
+                  x="0"
+                  y="3"
+                  fill="#38bdf8"
+                  fontSize="10"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  {formatFeetInches(draftWallCurrent.lengthIn)} ({Math.round(draftWallCurrent.angleDeg)}°)
+                </text>
+              </g>
+            </g>
+          )}
+
+          {/* ── Hovered Opening Snap Preview ── */}
+          {(activeCadTool === "place_door" || activeCadTool === "place_window") && hoveredWallInfo && (
+            <g pointerEvents="none" transform={`translate(${hoveredWallInfo.px}, ${hoveredWallInfo.py})`}>
+              <circle cx="0" cy="0" r="8" fill="#f59e0b" opacity="0.85" />
+              <text x="12" y="4" fill="#f59e0b" fontSize="10" fontWeight="bold" fontFamily="monospace">
+                {activeCadTool === "place_door" ? "🚪 Click to Add Door" : "🪟 Click to Add Window"}
+              </text>
+            </g>
+          )}
 
           {/* North Orientation Compass */}
           <g transform={`translate(${plotPxX + plotPxW + 65}, ${plotPxY + 40})`}>

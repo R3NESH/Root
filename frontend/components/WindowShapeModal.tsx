@@ -462,6 +462,59 @@ export default function WindowShapeModal({
                 </div>
               </div>
             </div>
+
+            {/* Quick Crop Size Presets */}
+            <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: "4px" }}>
+                ✂️ Quick Crop:
+              </span>
+              {[
+                { label: "2.5ft (Slender)", w: 2.5, h: 4.0 },
+                { label: "3.5ft (Standard)", w: 3.5, h: 4.0 },
+                { label: "4.5ft (Wide)", w: 4.5, h: 4.5 },
+                { label: "5.5ft (Grand)", w: 5.5, h: 5.0 },
+                { label: "6.5ft (Panoramic)", w: 6.5, h: 5.0 },
+                { label: "8.0ft (Wall-Fit)", w: 8.0, h: 5.5 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  style={{
+                    background: activeWidthFt === preset.w && activeHeightFt === preset.h ? "#0284c7" : "rgba(15, 23, 42, 0.6)",
+                    color: "#ffffff",
+                    border: activeWidthFt === preset.w && activeHeightFt === preset.h ? "1px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: "6px",
+                    padding: "4px 10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onClick={() => {
+                    if (selectedScope === "individual" && targetWindowId) {
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        individualOverrides: {
+                          ...(prev.individualOverrides || {}),
+                          [targetWindowId]: {
+                            ...(prev.individualOverrides?.[targetWindowId] || {}),
+                            widthFt: preset.w,
+                            heightFt: preset.h,
+                          },
+                        },
+                      }));
+                    } else {
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        globalWidthFt: preset.w,
+                        globalHeightFt: preset.h,
+                      }));
+                    }
+                  }}
+                >
+                  ✂️ {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Window Shapes Grid */}

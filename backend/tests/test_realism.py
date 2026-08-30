@@ -15,7 +15,7 @@ from solver.connectivity import (
 )
 from solver.model import solve_layout
 from solver.realism import catalog_fill_ceiling
-from solver.rooms import ROOM_CATALOG
+from solver.rooms import ROOM_CATALOG, Room
 
 ENV_W_IN = 432  # 36 ft
 ENV_D_IN = 600  # 50 ft
@@ -161,3 +161,40 @@ def test_realistic_mixes_stay_reachable_and_proportioned():
         for r in result.rooms:
             limit = ROOM_CATALOG[r.name].max_aspect_x10 / 10
             assert max(r.w_in / r.d_in, r.d_in / r.w_in) <= limit + 1e-6
+
+
+def test_small_custom_dimensions_solve_without_inverting_ladder_bounds():
+    # A custom room smaller than catalog minimum (e.g. 3x3 ft store vs 4x4 ft catalog min)
+    # must not cause inverted CP-SAT domain bounds (min > max) on the relaxation ladder.
+    store_custom = Room("store", 36, 36, 36, 36, habitable=False)
+    mix = [ROOM_CATALOG["hall"], ROOM_CATALOG["kitchen"], ROOM_CATALOG["bedroom"], store_custom]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, mix, apply_vaastu=True)
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    placed_store = next(r for r in result.rooms if r.name == "store")
+    assert placed_store.w_in == 36 and placed_store.d_in == 36
+
+
+def test_entrance_foyer_receives_main_front_door():
+    # When a dedicated entrance foyer is present, the front door should be placed on it.
+    mix = ["entrance", "hall", "kitchen", "bedroom", "bathroom"]
+    rooms = [ROOM_CATALOG[n] for n in mix]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    entrance_room = next(r for r in result.rooms if r.name == "entrance")
+    assert any(o["kind"] == "entrance" for o in entrance_room.openings), (
+        "dedicated entrance room should carry the front door opening"
+    )
+
+
+def test_pooja_placed_in_northeast_quadrant():
+    # Pooja must be placed in Ishanya / North-East (+X, -Z in scene space => high X, low Z)
+    mix = ["hall", "kitchen", "bedroom", "pooja", "bathroom"]
+    rooms = [ROOM_CATALOG[n] for n in mix]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    pooja_room = next(r for r in result.rooms if r.name == "pooja")
+    centre_x = pooja_room.x_in + pooja_room.w_in / 2
+    centre_z = pooja_room.y_in + pooja_room.d_in / 2
+    assert centre_x >= ENV_W_IN * 0.5, f"pooja centre_x {centre_x} not in East half (>= {ENV_W_IN * 0.5})"
+    assert centre_z <= ENV_D_IN * 0.5, f"pooja centre_z {centre_z} not in North half (<= {ENV_D_IN * 0.5})"
+

@@ -51,7 +51,7 @@ class QuadrantRule:
 V1_RULES: dict[str, QuadrantRule] = {
     "kitchen": QuadrantRule("kitchen", 0.5, 1.0, 0.5, 1.0, "kitchen in the south-east"),
     "bedroom": QuadrantRule("bedroom", 0.0, 0.5, 0.5, 1.0, "master bedroom in the south-west"),
-    "pooja": QuadrantRule("pooja", 0.0, 0.5, 0.0, 0.5, "pooja room in the north-east"),
+    "pooja": QuadrantRule("pooja", 0.5, 1.0, 0.0, 0.5, "pooja room in the north-east"),
 }
 
 
