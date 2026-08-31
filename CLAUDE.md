@@ -109,8 +109,8 @@ Strong check = you loop alone. Weak check ("make it work") = you must keep askin
 **plot-to-plan** — Indian plot in, buildable floor plan out. CP-SAT solver + 3D house.
 
 ```
-backend/    FastAPI + OR-Tools CP-SAT. POST /solve. ~2,300 lines Python.
-frontend/   Next.js 16 + Three.js. Orbit, walkthrough, 2D blueprint. ~20,600 lines TS, ~6,000 CSS.
+backend/    FastAPI + OR-Tools CP-SAT. POST /solve. ~2,800 lines Python.
+frontend/   Next.js 16 + Three.js. Orbit, walkthrough, 2D blueprint. ~25,700 lines TS, ~7,800 CSS.
 notes/      Obsidian vault. Design decision, market fact, findings.
 ```
 
@@ -122,7 +122,7 @@ notes/      Obsidian vault. Design decision, market fact, findings.
 
 # backend
 cd backend && .venv/Scripts/python.exe -m uvicorn api.main:app --reload
-cd backend && .venv/Scripts/python.exe -m pytest -q      # 43 tests, must stay green
+cd backend && .venv/Scripts/python.exe -m pytest -q      # 50 tests, must stay green
 
 # frontend
 cd frontend && npm run dev

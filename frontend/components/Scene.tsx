@@ -62,14 +62,26 @@ import {
 } from "@/lib/furnitureCatalog";
 import {
   DEFAULT_MATERIAL_CONFIG,
+  FLOOR_MATERIALS,
   getFloorTexture,
   getRoomFloorMaterial,
   getRoomWallColorHex,
   getRoomWallTextureId,
   getWallTextureBumpMap,
   resolveDoorColorHex,
+  getEffectiveFloorRoughness,
+  getEffectiveWallRoughness,
+  getEffectiveWallBumpScale,
+  clearTextureCache,
   HouseMaterialConfig,
 } from "@/lib/materialsCatalog";
+import {
+  GraphicsSettings,
+  DEFAULT_GRAPHICS_SETTINGS,
+  getTextureResolution,
+  getShadowMapResolution,
+  estimateVRAMUsageGB,
+} from "@/lib/graphicsConfig";
 import { OpeningItemDef } from "@/lib/openingsCatalog";
 import {
   DEFAULT_WINDOW_CONFIG,
@@ -170,6 +182,92 @@ interface SceneProps {
   onRequestDelete?: () => void;
   onRotateSelected?: (angleDelta: number) => void;
   onRotatePlacing?: (angleDelta: number) => void;
+  graphicsSettings?: GraphicsSettings;
+  isUpgraded?: boolean;
+  onToggleUpgrade?: () => void;
+}
+
+function createDaySkyTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    // Atmospheric Sunny Sky Gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+    skyGrad.addColorStop(0, "#1d4ed8");    // Deep azure blue zenith
+    skyGrad.addColorStop(0.32, "#3b82f6"); // Vibrant sky blue
+    skyGrad.addColorStop(0.68, "#60a5fa"); // Light blue
+    skyGrad.addColorStop(0.90, "#bae6fd"); // Horizon haze
+    skyGrad.addColorStop(1.0, "#e0f2fe");  // Light horizon glow
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Radiant Sun & Atmospheric Glow
+    const sunGrad = ctx.createRadialGradient(720, 240, 10, 720, 240, 180);
+    sunGrad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+    sunGrad.addColorStop(0.2, "rgba(255, 248, 220, 0.85)");
+    sunGrad.addColorStop(0.5, "rgba(254, 215, 170, 0.45)");
+    sunGrad.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(720, 240, 180, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+function createNightSkyTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const nightGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+    nightGrad.addColorStop(0, "#020617");   // Deep space obsidian
+    nightGrad.addColorStop(0.5, "#0b132b"); // Midnight navy
+    nightGrad.addColorStop(1.0, "#1e293b"); // Horizon slate
+    ctx.fillStyle = nightGrad;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Sparkling stars
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    for (let i = 0; i < 180; i++) {
+      const sx = (Math.sin(i * 99.7) * 0.5 + 0.5) * 1024;
+      const sy = (Math.cos(i * 37.3) * 0.5 + 0.5) * 750;
+      const sr = (i % 3 === 0) ? 2.2 : 1.2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+function createDayLawnTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#3d7348"; // Landscaped architectural green lawn
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Subtle grass texture
+    ctx.fillStyle = "rgba(25, 60, 32, 0.22)";
+    for (let i = 0; i < 400; i++) {
+      const gx = Math.random() * 512;
+      const gy = Math.random() * 512;
+      ctx.fillRect(gx, gy, 2, 4);
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(16, 16);
+  return tex;
 }
 
 export default function Scene({
@@ -186,6 +284,16 @@ export default function Scene({
   customOpenings = {},
   customWalls = [],
   customRoomZones = [],
+  activeFloor = 0,
+  onChangeActiveFloor,
+  activeCadTool,
+  onChangeCadTool,
+  activeWallType,
+  onChangeWallType,
+  onChangeCustomWalls,
+  onChangeCustomRoomZones,
+  onChangeCustomOpenings,
+  onStartFromScratch,
   deletedBuiltinIds = [],
   placingItemType = null,
   placingRotationY = 0,
@@ -198,16 +306,6 @@ export default function Scene({
   onSelectPlaceOpening,
   isLayoutLocked = false,
   onToggleLayoutLock,
-  activeCadTool = "select",
-  onChangeCadTool,
-  activeWallType = "exterior",
-  onChangeWallType,
-  onChangeCustomWalls,
-  onChangeCustomRoomZones,
-  onChangeCustomOpenings,
-  activeFloor = 0,
-  onChangeActiveFloor,
-  onStartFromScratch,
   onPlotChange,
   onPlayerUpdate,
   onToggleLights,
@@ -222,6 +320,9 @@ export default function Scene({
   onRequestDelete,
   onRotateSelected,
   onRotatePlacing,
+  graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
+  isUpgraded = false,
+  onToggleUpgrade,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -229,6 +330,21 @@ export default function Scene({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const groupRef = useRef<THREE.Group | null>(null);
+  const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
+  const skyFillRef = useRef<THREE.DirectionalLight | null>(null);
+  const groundMeshRef = useRef<THREE.Mesh | null>(null);
+  const darkGridRef = useRef<THREE.GridHelper | null>(null);
+  const whiteGridRef = useRef<THREE.GridHelper | null>(null);
+  const roomLightsRef = useRef<THREE.PointLight[]>([]);
+  const [currentFps, setCurrentFps] = useState<number>(144);
+  const [currentFrameTime, setCurrentFrameTime] = useState<number>(6.9);
+  const [renderRes, setRenderRes] = useState<string>("3840 × 2160");
+  const [isDollhouseCutaway, setIsDollhouseCutaway] = useState<boolean>(true);
+  const fpsFrames = useRef<number>(0);
+  const lastFpsUpdate = useRef<number>(performance.now());
+  const graphicsSettingsRef = useRef<GraphicsSettings>(graphicsSettings);
+  graphicsSettingsRef.current = graphicsSettings;
   const widthHandleRef = useRef<THREE.Mesh | null>(null);
   const depthHandleRef = useRef<THREE.Mesh | null>(null);
   const roomHandlesGroupRef = useRef<THREE.Group | null>(null);
@@ -286,8 +402,6 @@ export default function Scene({
 
   // Animated Ceiling Fan references
   const fanBladesRef = useRef<THREE.Group[]>([]);
-  // Room interior lights references
-  const roomLightsRef = useRef<THREE.PointLight[]>([]);
   // The roof hides the plan from above, so it is only shown in first person.
   const roofGroupRef = useRef<THREE.Group | null>(null);
 
@@ -360,8 +474,10 @@ export default function Scene({
   const onChangeCustomOpeningsRef = useRef(onChangeCustomOpenings);
   const isLayoutLockedRef = useRef(isLayoutLocked);
   const onToggleLayoutLockRef = useRef(onToggleLayoutLock);
+  const isUpgradedRef = useRef(isUpgraded);
 
   useEffect(() => {
+    isUpgradedRef.current = isUpgraded;
     plotRef.current = plot;
     facingRef.current = facing;
     setbackRef.current = setback;
@@ -414,7 +530,7 @@ export default function Scene({
     if (customWallHandlesGroupRef.current) customWallHandlesGroupRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
 
     roomLightsRef.current.forEach((l) => {
-      l.visible = lightsOn;
+      l.visible = true;
     });
   }, [
     plot,
@@ -435,6 +551,7 @@ export default function Scene({
     mode,
     activeMoveCmd,
     lightsOn,
+    isUpgraded,
     rooms,
     customObjects,
     deletedBuiltinIds,
@@ -446,6 +563,87 @@ export default function Scene({
     isLayoutLocked,
     onToggleLayoutLock,
   ]);
+
+  // Dynamic Day (Light Mode) vs Night (Dark Mode) Environment & Sky Dome
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    if (lightsOn) {
+      // ☀️ DAY / LIGHT MODE: Clear Blue Sky, Radiant Sun & Clean White Grids
+      const daySky = createDaySkyTexture();
+      scene.background = daySky;
+
+      if (groundMeshRef.current) {
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).map = null;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).color.set(0x5a8ec6); // Soft sky-blue architectural ground
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).roughness = 0.88;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).metalness = 0.02;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).needsUpdate = true;
+      }
+
+      if (darkGridRef.current) darkGridRef.current.visible = false;
+      if (whiteGridRef.current) whiteGridRef.current.visible = true;
+
+      if (sunLightRef.current) {
+        sunLightRef.current.color.set(0xfff8ee);
+        sunLightRef.current.intensity = 2.2;
+        sunLightRef.current.position.set(60, 95, 45);
+      }
+
+      if (hemiLightRef.current) {
+        hemiLightRef.current.color.set(0x93c5fd); // Clear blue sky light
+        hemiLightRef.current.groundColor.set(0xdcfce7); // Ground bounce
+        hemiLightRef.current.intensity = 1.25;
+      }
+
+      if (skyFillRef.current) {
+        skyFillRef.current.color.set(0xbfdbfe);
+        skyFillRef.current.intensity = 0.85;
+      }
+
+      // Soft ambient interior lights in daytime
+      roomLightsRef.current.forEach((l) => {
+        l.intensity = 0.4;
+      });
+    } else {
+      // 🌙 NIGHT / DARK MODE: Exact Previous Default Dark Mode
+      scene.background = new THREE.Color(0x0a0e17);
+
+      if (groundMeshRef.current) {
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).map = null;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).color.set(0x111827); // Previous default dark ground
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).roughness = 0.95;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).metalness = 0.05;
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).needsUpdate = true;
+      }
+
+      if (darkGridRef.current) darkGridRef.current.visible = true;
+      if (whiteGridRef.current) whiteGridRef.current.visible = false;
+
+      if (sunLightRef.current) {
+        sunLightRef.current.color.set(0xfff5e6); // Previous default sun
+        sunLightRef.current.intensity = 1.85;
+        sunLightRef.current.position.set(50, 80, 40);
+      }
+
+      if (hemiLightRef.current) {
+        hemiLightRef.current.color.set(0xe8f0fe); // Previous default hemi
+        hemiLightRef.current.groundColor.set(0x1e2630);
+        hemiLightRef.current.intensity = 0.9;
+      }
+
+      if (skyFillRef.current) {
+        skyFillRef.current.color.set(0x8cb6e8); // Previous default sky fill
+        skyFillRef.current.intensity = 0.55;
+      }
+
+      // Previous default interior lights
+      roomLightsRef.current.forEach((l) => {
+        l.intensity = 1.6;
+      });
+    }
+  }, [lightsOn]);
 
   // 1. Scene & Renderer Initialization
   useEffect(() => {
@@ -498,11 +696,12 @@ export default function Scene({
     controlsRef.current = controls;
 
     // Architectural Lighting setup
-    const hemiLight = new THREE.HemisphereLight(0xe8f0fe, 0x1e2630, 0.9);
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0xdcfce7, 1.2);
     scene.add(hemiLight);
+    hemiLightRef.current = hemiLight;
 
-    const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.85);
-    sunLight.position.set(50, 80, 40);
+    const sunLight = new THREE.DirectionalLight(0xfff8ee, 2.2);
+    sunLight.position.set(60, 95, 45);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = isMobileOrLowGPU ? 1024 : 2048;
     sunLight.shadow.mapSize.height = isMobileOrLowGPU ? 1024 : 2048;
@@ -516,26 +715,45 @@ export default function Scene({
     sunLight.shadow.bias = -0.0004;
     sunLight.shadow.normalBias = 0.02;
     scene.add(sunLight);
+    sunLightRef.current = sunLight;
 
-    const skyFill = new THREE.DirectionalLight(0x8cb6e8, 0.55);
+    const skyFill = new THREE.DirectionalLight(0xbfdbfe, 0.8);
     skyFill.position.set(-40, 50, -30);
     scene.add(skyFill);
+    skyFillRef.current = skyFill;
 
-    const groundGeom = new THREE.PlaneGeometry(320, 320);
+    // Ground Plane & Sky Initializer
+    const groundGeom = new THREE.PlaneGeometry(360, 360);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      roughness: 0.95,
-      metalness: 0.05,
+      color: 0x5a8ec6,
+      roughness: 0.88,
+      metalness: 0.02,
     });
     const groundMesh = new THREE.Mesh(groundGeom, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.position.y = -0.02;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
+    groundMeshRef.current = groundMesh;
 
-    const grid = new THREE.GridHelper(260, 130, 0x334155, 0x1e293b);
-    grid.position.y = -0.01;
-    scene.add(grid);
+    // Dark Mode CAD Grid (Previous Default)
+    const darkGrid = new THREE.GridHelper(260, 130, 0x334155, 0x1e293b);
+    darkGrid.position.y = -0.01;
+    darkGrid.visible = false;
+    scene.add(darkGrid);
+    darkGridRef.current = darkGrid;
+
+    // Light Mode CAD Grid (Clean White Primary Lines + Soft Sky Secondary Lines)
+    const whiteGrid = new THREE.GridHelper(260, 130, 0xffffff, 0xdbeafe);
+    whiteGrid.position.y = -0.01;
+    (whiteGrid.material as THREE.Material).transparent = true;
+    (whiteGrid.material as THREE.Material).opacity = 0.85;
+    whiteGrid.visible = true;
+    scene.add(whiteGrid);
+    whiteGridRef.current = whiteGrid;
+
+    // Initial Sky Background (Day Light Mode: Clear Blue Sky & Sun)
+    scene.background = createDaySkyTexture();
 
     const group = new THREE.Group();
     scene.add(group);
@@ -2116,6 +2334,18 @@ export default function Scene({
         });
       }
 
+      // Real-Time Performance Tracking for HUD
+      const nowMs = performance.now();
+      fpsFrames.current++;
+      if (nowMs - lastFpsUpdate.current >= 400) {
+        const measuredFps = Math.round((fpsFrames.current * 1000) / (nowMs - lastFpsUpdate.current));
+        const measuredFrameTime = +((nowMs - lastFpsUpdate.current) / fpsFrames.current).toFixed(1);
+        setCurrentFps(measuredFps);
+        setCurrentFrameTime(measuredFrameTime);
+        fpsFrames.current = 0;
+        lastFpsUpdate.current = nowMs;
+      }
+
       renderer.render(scene, camera);
     }
     frameId = requestAnimationFrame(animate);
@@ -2206,6 +2436,53 @@ export default function Scene({
       if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = !isLayoutLockedRef.current;
     }
   }, [mode, rooms, plot, facing]);
+
+  // Dynamic Graphics Controls Live Re-Binding (Resolution Scale, Shadows, Exposure, Tone Mapping)
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer || !graphicsSettings) return;
+
+    // 1. Dynamic Resolution Scale / Super-Sampling
+    const targetDPR = Math.min(window.devicePixelRatio * (graphicsSettings.renderScale || 1.0), 3.5);
+    renderer.setPixelRatio(targetDPR);
+
+    if (mountRef.current) {
+      const w = Math.round(mountRef.current.clientWidth * targetDPR);
+      const h = Math.round(mountRef.current.clientHeight * targetDPR);
+      setRenderRes(`${w} × ${h}`);
+    }
+
+    // 2. Dynamic Tone Mapping & Exposure
+    if (graphicsSettings.toneMapping === "aces_filmic") {
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    } else if (graphicsSettings.toneMapping === "reinhard") {
+      renderer.toneMapping = THREE.ReinhardToneMapping;
+    } else if (graphicsSettings.toneMapping === "cineon") {
+      renderer.toneMapping = THREE.CineonToneMapping;
+    } else {
+      renderer.toneMapping = THREE.LinearToneMapping;
+    }
+    renderer.toneMappingExposure = graphicsSettings.exposure ?? 1.15;
+
+    // 3. Dynamic Shadow Quality
+    if (sunLightRef.current) {
+      const shadowRes = getShadowMapResolution(graphicsSettings.shadowQuality);
+      if (shadowRes > 0) {
+        sunLightRef.current.castShadow = true;
+        sunLightRef.current.shadow.mapSize.width = shadowRes;
+        sunLightRef.current.shadow.mapSize.height = shadowRes;
+        if (sunLightRef.current.shadow.map) {
+          sunLightRef.current.shadow.map.dispose();
+          sunLightRef.current.shadow.map = null;
+        }
+      } else {
+        sunLightRef.current.castShadow = false;
+      }
+    }
+
+    // 4. Invalidate and clear texture cache so high-resolution 4K procedural textures are generated
+    clearTextureCache();
+  }, [graphicsSettings]);
 
   // Teleport Target Handler
   useEffect(() => {
@@ -2469,14 +2746,26 @@ export default function Scene({
 
       const roomGroup = new THREE.Group();
 
-      // Floor Mesh (Customized via Material & Finishes Studio)
-      const floorMatDef = getRoomFloorMaterial(room.name as RoomName, materialConfigRef.current);
-      const floorTexture = getFloorTexture(floorMatDef.id);
+      // Floor Mesh (Customized via Material & Finishes Studio & Texture Smoothness)
+      let floorId = materialConfigRef.current.roomFloors?.[room.name as RoomName] || materialConfigRef.current.globalFloor;
+      if (isUpgradedRef.current && !materialConfigRef.current.roomFloors?.[room.name as RoomName] && (room.name === "hall" || room.name === "dining" || room.name === "foyer")) {
+        floorId = "french_chevron_oak";
+      }
+      const floorMatDef = FLOOR_MATERIALS.find((f) => f.id === floorId) || getRoomFloorMaterial(room.name as RoomName, materialConfigRef.current);
+      const res = graphicsSettingsRef.current
+        ? getTextureResolution(graphicsSettingsRef.current.textureQuality)
+        : (materialConfigRef.current.textureResolution || 2048);
+      const aniso = graphicsSettingsRef.current
+        ? graphicsSettingsRef.current.anisotropicFiltering
+        : (materialConfigRef.current.anisotropicFiltering || 16);
+      const floorTexture = getFloorTexture(floorMatDef.id, res, aniso);
+
+      const effectiveFloorRoughness = getEffectiveFloorRoughness(floorMatDef.roughness, materialConfigRef.current);
 
       const floorGeom = new THREE.PlaneGeometry(rw, rd);
       const floorMat = new THREE.MeshStandardMaterial({
         map: floorTexture,
-        roughness: floorMatDef.roughness,
+        roughness: effectiveFloorRoughness,
         metalness: floorMatDef.metalness,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
@@ -2485,21 +2774,25 @@ export default function Scene({
       floorMesh.receiveShadow = true;
       roomGroup.add(floorMesh);
 
-      // Wall Materials & Textures (Customized via Material & Finishes Studio)
+      // Wall Materials & Textures (Customized via Material & Finishes Studio & Smoothness)
       const wallColorHex = getRoomWallColorHex(room.name as RoomName, materialConfigRef.current);
       const wallTextureId = getRoomWallTextureId(room.name as RoomName, materialConfigRef.current);
-      const wallBumpMap = getWallTextureBumpMap(wallTextureId);
+      const wallBumpMap = getWallTextureBumpMap(wallTextureId, res, aniso);
+
+      const baseWallRoughness =
+        wallTextureId === "wood_slat"
+          ? 0.45
+          : wallTextureId === "venetian_stucco"
+          ? 0.65
+          : 0.82;
+      const effectiveWallRoughness = getEffectiveWallRoughness(baseWallRoughness, materialConfigRef.current);
+      const effectiveWallBumpScale = getEffectiveWallBumpScale(0.05, materialConfigRef.current);
 
       const wallMaterial = new THREE.MeshStandardMaterial({
         color: wallColorHex,
         bumpMap: wallBumpMap,
-        bumpScale: wallBumpMap ? 0.05 : 0,
-        roughness:
-          wallTextureId === "wood_slat"
-            ? 0.45
-            : wallTextureId === "venetian_stucco"
-            ? 0.65
-            : 0.82,
+        bumpScale: wallBumpMap ? effectiveWallBumpScale : 0,
+        roughness: effectiveWallRoughness,
         metalness: 0.02,
       });
 
@@ -2739,6 +3032,28 @@ export default function Scene({
               frameTop.position.set(doorPos, doorH - 0.11, seg_wz);
               roomGroup.add(frameTop);
 
+              // 3D Hinged Door Leaf (Swung open at 35° angle, matching the reference architectural cutaway!)
+              const doorLeafGroupEW = new THREE.Group();
+              const dLeafThick = 0.12;
+              const dLeafW = Math.max(1.8, doorW - 0.25);
+              const dLeafH = doorH - 0.15;
+              const dLeafMat = isMainEntrance
+                ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
+                : new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
+              const dLeafMeshEW = new THREE.Mesh(new THREE.BoxGeometry(dLeafW, dLeafH, dLeafThick), dLeafMat);
+              dLeafMeshEW.position.set(dLeafW / 2, dLeafH / 2, 0);
+              dLeafMeshEW.castShadow = true;
+              doorLeafGroupEW.add(dLeafMeshEW);
+
+              const leverMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
+              const leverEW = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.18), leverMat);
+              leverEW.position.set(dLeafW - 0.3, dLeafH * 0.48, dLeafThick / 2 + 0.04);
+              doorLeafGroupEW.add(leverEW);
+
+              doorLeafGroupEW.position.set(doorPos - doorW / 2 + 0.15, 0, seg_wz);
+              doorLeafGroupEW.rotation.y = Math.PI / 4.5;
+              roomGroup.add(doorLeafGroupEW);
+
               if (isMainEntrance) {
                 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
                 handle.position.set(doorPos + doorW / 2 - 0.4, doorH * 0.48, seg_wz + 0.15);
@@ -2809,6 +3124,28 @@ export default function Scene({
               const frameTop = new THREE.Mesh(new THREE.BoxGeometry(seg_ww + 0.08, 0.22, doorW), fMat);
               frameTop.position.set(seg_wx, doorH - 0.11, doorPos);
               roomGroup.add(frameTop);
+
+              // 3D Hinged Door Leaf (Swung open at 35° angle, matching the reference architectural cutaway!)
+              const doorLeafGroupNS = new THREE.Group();
+              const dLeafThickNS = 0.12;
+              const dLeafWNS = Math.max(1.8, doorW - 0.25);
+              const dLeafHNS = doorH - 0.15;
+              const dLeafMatNS = isMainEntrance
+                ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
+                : new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
+              const dLeafMeshNS = new THREE.Mesh(new THREE.BoxGeometry(dLeafThickNS, dLeafHNS, dLeafWNS), dLeafMatNS);
+              dLeafMeshNS.position.set(0, dLeafHNS / 2, dLeafWNS / 2);
+              dLeafMeshNS.castShadow = true;
+              doorLeafGroupNS.add(dLeafMeshNS);
+
+              const leverMatNS = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
+              const leverNS = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.35), leverMatNS);
+              leverNS.position.set(dLeafThickNS / 2 + 0.04, dLeafHNS * 0.48, dLeafWNS - 0.3);
+              doorLeafGroupNS.add(leverNS);
+
+              doorLeafGroupNS.position.set(seg_wx, 0, doorPos - doorW / 2 + 0.15);
+              doorLeafGroupNS.rotation.y = Math.PI / 4.5;
+              roomGroup.add(doorLeafGroupNS);
 
               if (isMainEntrance) {
                 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
@@ -3006,6 +3343,19 @@ export default function Scene({
             );
             baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
             roomGroup.add(baseboard);
+
+            // Architectural Wainscoting / Boiserie Relief Panels in Upgraded Mode
+            if (isUpgradedRef.current && (room.name === "hall" || room.name === "dining") && (isEW ? seg_ww : seg_wd) > 2.8) {
+              const panelW = isEW ? seg_ww - 0.4 : 0.08;
+              const panelD = isEW ? 0.08 : seg_wd - 0.4;
+              const boiserie = new THREE.Mesh(
+                new THREE.BoxGeometry(panelW, 2.6, panelD),
+                baseboardMaterial
+              );
+              boiserie.position.set(seg_wx, 1.8, seg_wz);
+              boiserie.castShadow = true;
+              roomGroup.add(boiserie);
+            }
           }
         }
       };
@@ -3077,7 +3427,8 @@ export default function Scene({
           rd,
           roomDoors,
           i,
-          deletedBuiltinSet
+          deletedBuiltinSet,
+          isUpgradedRef.current
         );
       }
 
@@ -3136,12 +3487,12 @@ export default function Scene({
     // 8. Custom Interactive Placed Furniture & Decor Objects
     const customList = customObjectsRef.current || [];
     for (const obj of customList) {
-      const objGroup = createFurnitureMesh(obj.type, obj.colorHex);
+      const objGroup = createFurnitureMesh(obj.type, obj.colorHex, obj.aiParametricDef);
       objGroup.position.set(obj.x, obj.y || 0, obj.z);
       objGroup.rotation.y = obj.rotationY || 0;
       const s = obj.scale || 1.0;
       objGroup.scale.set(s, s, s);
-      objGroup.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type };
+      objGroup.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type, aiParametricDef: obj.aiParametricDef };
 
       objGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
@@ -3584,6 +3935,9 @@ export default function Scene({
     materialConfig,
     windowConfig,
     isLayoutLocked,
+    graphicsSettings,
+    isDollhouseCutaway,
+    isUpgraded,
   ]);
 
   // Ghost Furniture Placement Preview Handler
@@ -3986,6 +4340,41 @@ export default function Scene({
         </div>
       )}
 
+      {/* Real-Time Performance & VRAM HUD (Toggleable in Graphics Controls) */}
+      {graphicsSettings?.showPerformanceHUD && (
+        <div
+          style={{
+            position: "absolute",
+            top: mode === "orbit" ? 64 : 14,
+            left: 14,
+            background: "rgba(8, 14, 28, 0.90)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            borderRadius: "10px",
+            padding: "6px 10px",
+            zIndex: 45,
+            backdropFilter: "blur(8px)",
+            color: "#f8fafc",
+            fontFamily: "monospace",
+            fontSize: "11px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+            pointerEvents: "none",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+            <span style={{ color: "#34d399", fontWeight: "bold" }}>⚡ {currentFps} FPS</span>
+            <span style={{ color: "#94a3b8" }}>{currentFrameTime} ms</span>
+            <span style={{ color: "#38bdf8", fontWeight: "bold" }}>{renderRes}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "10px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "2px" }}>
+            <span style={{ color: "#cbd5e1" }}>GPU: Dedicated (High VRAM)</span>
+            <span style={{ color: "#f59e0b" }}>~{estimateVRAMUsageGB(graphicsSettings)} GB VRAM</span>
+          </div>
+        </div>
+      )}
+
       {/* 3D CAD Drafting Studio Toolbar (Orbit Mode) */}
       {mode === "orbit" && (
         <div
@@ -4037,6 +4426,67 @@ export default function Scene({
               </button>
             ))}
           </div>
+
+          <button
+            style={{
+              background: isDollhouseCutaway ? "linear-gradient(135deg, #0284c7 0%, #6366f1 100%)" : "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: isDollhouseCutaway ? "1px solid #38bdf8" : "1px solid rgba(56, 189, 248, 0.3)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: isDollhouseCutaway ? "0 0 12px rgba(56, 189, 248, 0.4)" : "none",
+            }}
+            onClick={() => setIsDollhouseCutaway((prev) => !prev)}
+            title="Toggle 3D Architectural Cutaway / Dollhouse View (Matches Reference Studio Photo)"
+          >
+            🏠 {isDollhouseCutaway ? "Cutaway View" : "Full Walls"}
+          </button>
+
+          {onToggleUpgrade && (
+            <button
+              style={{
+                background: isUpgraded
+                  ? "linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)"
+                  : "rgba(255, 255, 255, 0.08)",
+                color: "#ffffff",
+                border: isUpgraded ? "1px solid #f472b6" : "1px solid rgba(244, 114, 182, 0.4)",
+                padding: "5px 11px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: isUpgraded ? "0 0 14px rgba(236, 72, 153, 0.5)" : "none",
+                letterSpacing: "0.4px",
+              }}
+              onClick={onToggleUpgrade}
+              title="Toggle Photorealistic Studio Upgrade (Curved Bouclé Cloud Sofas, Custom Library Shelving, Herringbone Oak Parquet & Wainscoting)"
+            >
+              {isUpgraded ? "✨ UPGRADE ON" : "✨ UPGRADE"}
+            </button>
+          )}
+
+          <button
+            style={{
+              background: lightsOn
+                ? "linear-gradient(135deg, rgba(234, 179, 8, 0.35) 0%, rgba(249, 115, 22, 0.35) 100%)"
+                : "linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.85) 100%)",
+              color: lightsOn ? "#fef08a" : "#94a3b8",
+              border: lightsOn ? "1px solid #f59e0b" : "1px solid rgba(148, 163, 184, 0.4)",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: lightsOn ? "0 0 12px rgba(245, 158, 11, 0.35)" : "none",
+            }}
+            onClick={onToggleLights}
+            title={lightsOn ? "Switch to Dark / Night Mode (Atmospheric Moon & Spotlights)" : "Switch to Light / Day Mode (Clear Blue Sky & Radiant Sun)"}
+          >
+            {lightsOn ? "☀️ Day (Light)" : "🌙 Night (Dark)"}
+          </button>
 
           <button
             style={{

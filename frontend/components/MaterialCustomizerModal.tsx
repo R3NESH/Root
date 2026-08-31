@@ -31,7 +31,7 @@ export default function MaterialCustomizerModal({
   activeRooms = ["hall", "kitchen", "bedroom", "pooja", "bathroom"],
 }: MaterialCustomizerModalProps) {
   const [selectedTarget, setSelectedTarget] = useState<"global" | RoomName>("global");
-  const [activeTab, setActiveTab] = useState<"floor" | "wall" | "doors" | "presets">("floor");
+  const [activeTab, setActiveTab] = useState<"floor" | "wall" | "doors" | "smoothness" | "presets">("floor");
   const [floorCategoryFilter, setFloorCategoryFilter] = useState<"all" | FloorCategory>("all");
 
   if (!isOpen) return null;
@@ -323,10 +323,227 @@ export default function MaterialCustomizerModal({
           >
             🚪 Doors & Color Wheel
           </button>
+          <button
+            className={`${styles.mainTab} ${activeTab === "smoothness" ? styles.mainTabActive : ""}`}
+            onClick={() => setActiveTab("smoothness")}
+          >
+            💎 Graphics &amp; Smoothness (4K Ultra)
+          </button>
         </div>
 
         {/* Modal Body */}
         <div className={styles.body}>
+          {/* TAB 4: GRAPHICS & TEXTURE SMOOTHNESS (ULTRA EXTREME 4K) */}
+          {activeTab === "smoothness" && (
+            <div className={styles.smoothnessContainer}>
+              {/* Graphics Fidelity Tiers */}
+              <div className={styles.graphicsTierGrid}>
+                <div
+                  className={`${styles.graphicsTierBtn} ${config.graphicsFidelityTier === "ultra_extreme" ? styles.graphicsTierBtnActive : ""}`}
+                  onClick={() =>
+                    onChangeConfig({
+                      ...config,
+                      graphicsFidelityTier: "ultra_extreme",
+                      textureResolution: 4096,
+                      anisotropicFiltering: 16,
+                      textureSmoothness: 0.90,
+                      floorGlossLevel: 0.95,
+                      wallSmoothness: 0.90,
+                    })
+                  }
+                >
+                  <div className={styles.tierTitle}>
+                    <span>💎</span> Ultra Extreme (4K)
+                  </div>
+                  <div className={styles.tierDesc}>
+                    4K Ultra Textures (4096px), 4K PCF Soft Shadows, 16x Anisotropy &amp; Mirror Polish.
+                  </div>
+                </div>
+
+                <div
+                  className={`${styles.graphicsTierBtn} ${config.graphicsFidelityTier === "high" ? styles.graphicsTierBtnActive : ""}`}
+                  onClick={() =>
+                    onChangeConfig({
+                      ...config,
+                      graphicsFidelityTier: "high",
+                      textureResolution: 2048,
+                      anisotropicFiltering: 8,
+                      textureSmoothness: 0.80,
+                      floorGlossLevel: 0.80,
+                      wallSmoothness: 0.80,
+                    })
+                  }
+                >
+                  <div className={styles.tierTitle}>
+                    <span>✨</span> High Definition (2K)
+                  </div>
+                  <div className={styles.tierDesc}>
+                    2K Textures (2048px), 2K Shadows, 8x Anisotropy &amp; Semi-Gloss Reflections.
+                  </div>
+                </div>
+
+                <div
+                  className={`${styles.graphicsTierBtn} ${config.graphicsFidelityTier === "standard" ? styles.graphicsTierBtnActive : ""}`}
+                  onClick={() =>
+                    onChangeConfig({
+                      ...config,
+                      graphicsFidelityTier: "standard",
+                      textureResolution: 1024,
+                      anisotropicFiltering: 4,
+                      textureSmoothness: 0.65,
+                      floorGlossLevel: 0.60,
+                      wallSmoothness: 0.65,
+                    })
+                  }
+                >
+                  <div className={styles.tierTitle}>
+                    <span>⚡</span> Standard (1K)
+                  </div>
+                  <div className={styles.tierDesc}>
+                    1K Textures (1024px), Basic Shadows &amp; Balanced Performance.
+                  </div>
+                </div>
+              </div>
+
+              {/* Slider 1: Whole-House Texture Smoothness Master */}
+              <div className={styles.smoothnessCard}>
+                <div className={styles.sliderHeader}>
+                  <span className={styles.sliderTitle}>
+                    <span>✨</span> Whole-House Texture Smoothness Master
+                  </span>
+                  <span className={styles.sliderBadge}>
+                    {Math.round((config.textureSmoothness ?? 0.88) * 100)}% Smooth
+                  </span>
+                </div>
+                <div className={styles.smoothnessSliderRow}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round((config.textureSmoothness ?? 0.88) * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) / 100;
+                      onChangeConfig({ ...config, textureSmoothness: val });
+                    }}
+                    className={styles.smoothSlider}
+                  />
+                </div>
+                <div className={styles.sliderLabels}>
+                  <span>Matte / Heavy Grain (0%)</span>
+                  <span>Silky Ultra-Smooth (100%)</span>
+                </div>
+              </div>
+
+              {/* Slider 2: Floor Mirror Gloss & Polish */}
+              <div className={styles.smoothnessCard}>
+                <div className={styles.sliderHeader}>
+                  <span className={styles.sliderTitle}>
+                    <span>🏛️</span> Floor Surface Mirror Gloss &amp; Polish
+                  </span>
+                  <span className={styles.sliderBadge}>
+                    {Math.round((config.floorGlossLevel ?? 0.92) * 100)}% Gloss
+                  </span>
+                </div>
+                <div className={styles.smoothnessSliderRow}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round((config.floorGlossLevel ?? 0.92) * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) / 100;
+                      onChangeConfig({ ...config, floorGlossLevel: val });
+                    }}
+                    className={styles.smoothSlider}
+                  />
+                </div>
+                <div className={styles.sliderLabels}>
+                  <span>Matte Stone / Non-Reflective (0%)</span>
+                  <span>Polished Mirror Reflection (100%)</span>
+                </div>
+              </div>
+
+              {/* Slider 3: Wall Silkiness & Stucco Relief */}
+              <div className={styles.smoothnessCard}>
+                <div className={styles.sliderHeader}>
+                  <span className={styles.sliderTitle}>
+                    <span>🧱</span> Wall Silkiness &amp; Embossed Relief
+                  </span>
+                  <span className={styles.sliderBadge}>
+                    {Math.round((config.wallSmoothness ?? 0.88) * 100)}% Silk
+                  </span>
+                </div>
+                <div className={styles.smoothnessSliderRow}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round((config.wallSmoothness ?? 0.88) * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) / 100;
+                      onChangeConfig({ ...config, wallSmoothness: val });
+                    }}
+                    className={styles.smoothSlider}
+                  />
+                </div>
+                <div className={styles.sliderLabels}>
+                  <span>Heavy 3D Brick / Stucco Relief (0%)</span>
+                  <span>Smooth Satin Venetian Silk (100%)</span>
+                </div>
+              </div>
+
+              {/* Hardware Super-Sampling Options */}
+              <div className={styles.smoothnessCard}>
+                <div className={styles.sliderHeader}>
+                  <span className={styles.sliderTitle}>
+                    <span>⚙️</span> Texture Resolution &amp; Anisotropic Filtering
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>Texture Resolution:</div>
+                    <div className={styles.resButtonGroup}>
+                      {[
+                        { val: 4096, label: "4K Ultra (4096px)" },
+                        { val: 2048, label: "2K HD (2048px)" },
+                        { val: 1024, label: "1K Standard (1024px)" },
+                      ].map((r) => (
+                        <button
+                          key={r.val}
+                          className={`${styles.resBtn} ${(config.textureResolution || 4096) === r.val ? styles.resBtnActive : ""}`}
+                          onClick={() => onChangeConfig({ ...config, textureResolution: r.val as 1024 | 2048 | 4096 })}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>Anisotropic Filtering:</div>
+                    <div className={styles.resButtonGroup}>
+                      {[
+                        { val: 16, label: "16x Maximum Clarity" },
+                        { val: 8, label: "8x Standard" },
+                        { val: 4, label: "4x Performance" },
+                      ].map((a) => (
+                        <button
+                          key={a.val}
+                          className={`${styles.resBtn} ${(config.anisotropicFiltering || 16) === a.val ? styles.resBtnActive : ""}`}
+                          onClick={() => onChangeConfig({ ...config, anisotropicFiltering: a.val as 4 | 8 | 16 })}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {activeTab === "floor" && (
             <div>
               {/* Filter Pills */}

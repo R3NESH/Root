@@ -26,10 +26,24 @@ Then fill the table below and date it. Every later step reports its delta agains
 | 2026-08-25 | **41** | 0 | none | after the regression fix and [[realism-gaps]]; `pytest -q`, 29.8s wall |
 | 2026-08-25 | **40** | 0 | none | after removing four room kinds; `pytest -q`, 21.3s wall |
 | 2026-08-30 | **43** | 0 | none | after fixing pooja NE rule, small custom room ladder bounds, and entrance room door; `pytest -q`, 21.4s wall |
+| 2026-08-31 | **50** | 0 | none | after the audit fixes: room semantics across the API boundary, and `vaastu_relaxed`; `pytest -q`, 25.6s wall |
 
-**Delta: +18 tests, 0 failures.** Composition as of 2026-08-30: `test_api.py` **11** ·
-`test_solver.py` 6 · `test_stability.py` 4 ([[step-4-drift-objective]]) · `test_vaastu.py` **8**
-`test_realism.py` **14** (+3 regression invariants: custom small sizes, entrance room exterior front door, and pooja NE placement).
+**Delta: +25 tests, 0 failures.** Composition as of 2026-08-31: `test_api.py` **13** ·
+`test_solver.py` 6 · `test_stability.py` 4 ([[step-4-drift-objective]]) · `test_vaastu.py` **13** ·
+`test_realism.py` **14**.
+
+The seven added on 2026-08-31 all close gaps the suite could not see:
+
+- `test_api.py` **+2** — the catalog's `habitable` / `wet` flags survive the API boundary. Every
+  other realism test builds its `Room`s straight from `ROOM_CATALOG`, so they asserted the
+  intended behaviour on objects `POST /solve` never produced. It had been rebuilding each room
+  without those fields since the endpoint was written.
+- `test_vaastu.py` **+5** — a solve that drops Vaastu must say so (`vaastu_relaxed`), and the
+  three cases where an empty rule list is the *correct* answer must not trip the flag (no ruled
+  room in the mix, the dragged room released on purpose, and a roomy envelope). The fixture for
+  the positive case is a hall/kitchen/bedroom 1BHK on a 260x220 in envelope, which returns
+  **OPTIMAL with zero rules posted** — found by sweeping envelopes 150-340 in on both axes, 111
+  of which do this.
 
 The count went 41 -> 40 when the open-sided room test was removed along with the porch and
 sit-out. A dropped test is only healthy when the behaviour it guarded is also gone; that is the

@@ -69,6 +69,12 @@ class SolveResult:
     vaastu_constraints_applied: list[str] = field(default_factory=list)
     entrance_edge: str | None = None
     rooms_reachable: int = 0
+    # True when Vaastu was asked for, some room in the mix has a rule, and the relaxation ladder
+    # still handed back a layout with none of them posted. An empty
+    # `vaastu_constraints_applied` on its own cannot say this: a hall-and-bathroom house has no
+    # rule to apply and is not a relaxed one. Callers need the difference — a plan that breaks
+    # Vaastu is a rejected plan, not a worse one (notes/decisions/vaastu-as-constraints.md).
+    vaastu_relaxed: bool = False
 
 
 def _on_exterior(room, bounds: tuple[int, int, int, int]) -> bool:
@@ -306,6 +312,10 @@ def solve_layout(
         for i, p in enumerate(placed)
     ]
 
+    # Which rules the mix *should* have carried, ignoring the room the user is dragging — it is
+    # released on purpose and its absence is not a relaxation.
+    expected_rules = {i for i in _vaastu_targets(rooms) if i not in vaastu_exempt}
+
     return SolveResult(
         status=status_name,
         rooms=placed,
@@ -313,4 +323,5 @@ def solve_layout(
         vaastu_constraints_applied=applied,
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub),
+        vaastu_relaxed=bool(apply_vaastu and expected_rules and not applied),
     )

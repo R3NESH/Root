@@ -1,10 +1,32 @@
 ---
 tags: [architecture, finding]
-status: open
+status: fixed
 date: 2026-08-30
+fixed: 2026-08-31
 severity: high
 ---
-# The client-side fallback claims Vaastu it never enforced
+# The client-side fallback claimed Vaastu it never enforced
+
+> [!success] Fixed 2026-08-31 — the labelling half
+> `solveClientSide()` now returns `status: OFFLINE_ESTIMATE` (exported as
+> `OFFLINE_ESTIMATE_STATUS`, which the ribbon keys off), `vaastu_constraints_applied: []`,
+> `rooms_reachable: 1` — the honest count for an empty door graph — and `vaastu_relaxed: true`.
+> `requestSolve()` no longer falls through on `!res.ok`: only a thrown fetch means offline, so
+> a 422 or 500 now surfaces through `useSolve`'s `error` instead of becoming a plan.
+>
+> The "smallest honest fix" below said to surface it "the way `staleBackend` already is".
+> That was wrong — `staleBackend` is destructured in `page.tsx` and never rendered. The warning
+> went into the solver badge in `TopRibbonTaskbar.tsx` instead, which was already showing
+> `meta.status` behind a ✨.
+>
+> **Still open:** the deploy question. `NEXT_PUBLIC_SOLVER_URL` is unset, so a Netlify visitor
+> still gets the grid — correctly labelled now, but still a grid. Needs a hosted backend
+> ([[environment-notes]]).
+>
+> A related defect surfaced while fixing this: the solver's own relaxation ladder descends on
+> a **timeout** as well as on INFEASIBLE, so a loaded machine can drop Vaastu server-side too.
+> Measured 10/10 on a ten-room mix at a 50 ms interactive budget. The response now carries
+> `meta.vaastu_relaxed` and the same badge warns on it.
 
 `frontend/lib/solve.ts` grew a second solver, `solveClientSide()`, and
 [[duplicated-geometry]] is the note that says it should not exist. `frontend/README.md` still

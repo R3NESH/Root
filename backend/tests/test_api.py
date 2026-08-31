@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from api.main import app
+from solver.rooms import ROOM_CATALOG
 
 client = TestClient(app)
 
@@ -137,3 +138,36 @@ def test_facing_changes_the_envelope_origin():
         east["envelope_origin_x_in"],
         east["envelope_origin_z_in"],
     )
+
+
+def test_room_semantics_survive_the_api_boundary():
+    """The catalog's `habitable` / `wet` flags must reach the response.
+
+    solve() rebuilds each Room from ROOM_CATALOG plus the caller's dimensions. It used to pass
+    only the name and the four bounds, so the dataclass defaults (habitable=True, wet=False)
+    silently overwrote the catalog for every room. That is not cosmetic: add_daylight_constraints()
+    then forces the pooja room and stores onto an exterior wall, and derive_windows() cuts a
+    habitable window where a high vent belongs.
+
+    test_realism.py builds its Rooms straight from ROOM_CATALOG, so it asserts the intended
+    behaviour on objects this endpoint never produces. This is that gap.
+    """
+    req = {**BASE, "rooms": ["hall", "kitchen", "bedroom", "bathroom", "pooja", "store"]}
+    body = client.post("/solve", json=req).json()
+    assert body["meta"]["status"] in ("OPTIMAL", "FEASIBLE")
+
+    got = {r["name"]: (r["habitable"], r["wet"]) for r in body["rooms"]}
+    expected = {name: (ROOM_CATALOG[name].habitable, ROOM_CATALOG[name].wet) for name in got}
+    assert got == expected, f"catalog semantics lost across the API: {got} != {expected}"
+
+
+def test_custom_dimensions_do_not_drop_room_semantics():
+    """A caller-supplied size must not turn a bathroom into a habitable room."""
+    req = {
+        **BASE,
+        "rooms": ["hall", {"name": "bathroom", "custom_w_in": 72, "custom_d_in": 90}],
+    }
+    body = client.post("/solve", json=req).json()
+    bathroom = next(r for r in body["rooms"] if r["name"] == "bathroom")
+    assert bathroom["habitable"] is False
+    assert bathroom["wet"] is True

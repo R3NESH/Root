@@ -5,10 +5,10 @@ a legal, buildable floor plan out.
 
 **Working name is provisional** — see [notes/project-name.md](notes/project-name.md).
 
-> **Status (2026-08-25): Phase 1 is built, and two of its guarantees are currently broken.**
+> **Status (2026-08-31): Phase 1 is built. 48/48 backend tests pass.**
 > The app generates a 3D house from plot dimensions and facing, with a first-person walkthrough.
-> 25/25 backend tests pass — but Vaastu and connectivity constraints are enforced on the *first*
-> solve only, invisibly to the suite.
+> The offline fallback used to report `"Vastu Solved (Optimal)"` over a layout that enforced
+> nothing — fixed; it now reports `OFFLINE_ESTIMATE` and the UI says so.
 >
 > Read [notes/project-status.md](notes/project-status.md) for the current state and
 > [HANDOFF.md](HANDOFF.md) for the original brief (unedited source of truth).
@@ -37,7 +37,7 @@ notes/
   Home.md             hub
   project-status.md   current state, re-measured
   workflow.md         how the project is run
-  decisions/          7 locked decisions + rejected list
+  decisions/          8 locked decisions + rejected list
   market/             6 verified market facts
   architecture/       split, output schema, environment
   solver/             CP-SAT API, gotchas, stability, the risky claim

@@ -40,12 +40,16 @@ Next.js 16 + TypeScript + Three.js. Owns everything continuous — see
 > an all-empty `openings` response and the header says so. If you see no doors, restart
 > `uvicorn`.
 
-> [!danger] There *is* a client-side fallback now, and it lies — [[client-side-fallback]]
-> This README used to say "there is deliberately no client-side fallback". That is no longer
-> true: `solve.ts` grew `solveClientSide()`, a grid layout that reports
-> `status: "Vastu Solved (Optimal)"` and four Vaastu rule names it never enforces. It fires on
-> any failed *or non-`ok`* response, and because `NEXT_PUBLIC_SOLVER_URL` is unset in the
-> deploy, it is what a Netlify visitor actually gets. `staleBackend` cannot catch it.
+> [!warning] There *is* a client-side fallback — it no longer lies, but it is still a grid
+> This README used to say "there is deliberately no client-side fallback". That stopped being
+> true when `solve.ts` grew `solveClientSide()`. Fixed 2026-08-31 ([[client-side-fallback]]):
+> it now reports `OFFLINE_ESTIMATE` with an empty rule list and `rooms_reachable: 1`, and
+> `requestSolve()` only falls back on a *thrown* fetch — a 422 or 500 surfaces as an error
+> instead of becoming a plan. The ribbon shows "⚠ Offline estimate — Vaastu not checked".
+>
+> What is **not** fixed: `NEXT_PUBLIC_SOLVER_URL` is still unset in the deploy, so a Netlify
+> visitor gets the grid — now correctly labelled, but still a grid. That needs a hosted
+> backend — [[environment-notes]].
 
 See [[project-status]] for the full picture.
 

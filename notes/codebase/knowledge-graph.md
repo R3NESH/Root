@@ -6,7 +6,7 @@ updated: 2026-08-30
 ---
 # Knowledge graph (graphify)
 
-A queryable graph over the whole corpus — 38 code files, 65 docs, 5 images — built with
+A queryable graph over the whole corpus — 135 files in `manifest.json`, code and notes — built with
 [graphify](https://github.com/sponsors/safishamsi). It does in one artefact what
 [[codebase-map]] does by hand: connect the design notes to the code that implements them.
 
@@ -14,17 +14,27 @@ A queryable graph over the whole corpus — 38 code files, 65 docs, 5 images —
 
 | | 2026-08-25 | 2026-08-30 |
 |---|---|---|
-| Nodes | 548 | **662** |
-| Edges | 1,319 | **1,547** |
-| Communities | 28 | **35** |
+| Nodes | 548 | **651** |
+| Edges | 1,319 | **1,536** |
+| Communities | 28 | **38** |
+
+> [!warning] Counted from `graph.json` on 2026-08-31, not from the build log
+> The 2026-08-30 column previously read 662 / 1,547 / 35, and [[Home]] and [[codebase-map]]
+> both still carried the 2026-08-25 figures (435 / 898). Three notes, three different answers,
+> none of them the file's. Read the numbers off the artefact:
+> ```python
+> import json; g = json.load(open("graphify-out/2026-08-30/graph.json", encoding="utf-8"))
+> print(len(g["nodes"]), len(g["links"]), len({n.get("community") for n in g["nodes"]}))
+> ```
 
 The 2026-08-30 rebuild followed the structurize pass in [[codebase-map]]; the five new `lib/`
 modules account for 40 of the added nodes, and the new notes for the rest.
 
 Outputs live in `graphify-out/` (gitignored, and excluded from the vault's
-`userIgnoreFilters` so Obsidian does not index half a megabyte of generated JSON):
+`userIgnoreFilters` so Obsidian does not index half a megabyte of generated JSON). The
+2026-08-30 run wrote only the four below — no `graph.html`, which earlier revisions of this
+note listed:
 
-- `graph.html` — interactive, open in a browser, no server
 - `GRAPH_REPORT.md` — god nodes, surprising connections, cohesion, suggested questions
 - `graph.json` — raw graph, GraphRAG-ready
 - `manifest.json`, `cache/` — make `--update` incremental
@@ -79,7 +89,7 @@ The god nodes are an honest read of where the weight sits:
 
 | Node | Edges (2026-08-30) |
 |---|---|
-| `solve_layout()` | 50 |
+| `solve_layout()` | 47 |
 | `RoomName` | 38 |
 | `Scene()` | 36 |
 | `inchesToFeet()` | 33 |

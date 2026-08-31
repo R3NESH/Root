@@ -129,3 +129,105 @@ def test_only_the_dragged_room_is_released_from_its_quadrant():
 
     # Releasing a quadrant must not release the house: it is still walkable.
     assert result.rooms_reachable == len(result.rooms)
+
+
+BIG_MIX = [
+    "hall", "dining", "kitchen", "bedroom", "bedroom", "bedroom",
+    "bathroom", "bathroom", "pooja", "store",
+]
+
+
+# A 1BHK that fits the plot geometrically but not with the quadrants applied. Found by sweeping
+# envelopes 150-340 in on both axes: 111 of them come back with a layout and no rule posted.
+RELAXING_MIX = ["hall", "kitchen", "bedroom"]
+RELAXING_W_IN, RELAXING_D_IN = 260, 220
+
+
+def test_a_dropped_rule_set_is_declared():
+    """The ladder's Vaastu rung is reachable on an ordinary plot, and must be visible.
+
+    `solve_layout()` walks a relaxation ladder, and rung 4 drops Vaastu. That is sanctioned
+    (CLAUDE.md: the ladder may drop Vaastu, daylight, area — never connectivity). What is not
+    sanctioned is dropping it quietly: a plan that breaks Vaastu is a rejected plan, not a worse
+    one (notes/decisions/vaastu-as-constraints.md), and the market note the product rests on is
+    notes/market/vaastu-is-mandatory-demand.md.
+
+    This is not an exotic case. A hall, a kitchen and a bedroom on a 260x220 in buildable
+    envelope — a 1BHK on a small plot, the most ordinary program there is — returns
+    **status OPTIMAL** with zero rules posted. Before `vaastu_relaxed`, nothing in the response
+    distinguished that from a fully compliant plan.
+    """
+    rooms = [ROOM_CATALOG[n] for n in RELAXING_MIX]
+    result = solve_layout(RELAXING_W_IN, RELAXING_D_IN, rooms, apply_vaastu=True)
+
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    assert result.rooms, "this envelope does fit the program once Vaastu is dropped"
+    assert result.vaastu_constraints_applied == [], (
+        "fixture no longer exercises the Vaastu rung — pick another envelope"
+    )
+    assert result.vaastu_relaxed is True, "Vaastu was dropped and the result did not say so"
+
+
+def test_the_same_mix_that_fits_declares_nothing():
+    """Give the identical program room to breathe and the flag must clear."""
+    rooms = [ROOM_CATALOG[n] for n in RELAXING_MIX]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    assert result.vaastu_constraints_applied, "a roomy envelope should post the rules"
+    assert result.vaastu_relaxed is False
+
+
+def test_relaxation_flag_never_contradicts_the_rule_list():
+    """Across budgets tight enough to make every ladder outcome appear, the two must agree.
+
+    A solve that merely ran out of clock returns UNKNOWN, which is indistinguishable from
+    INFEASIBLE where the ladder tests it — so a starved run can descend. Asserting *that* it
+    descends would be asserting a race; this asserts the invariant instead.
+    """
+    import solver.model as model
+
+    rooms = [ROOM_CATALOG[n] for n in BIG_MIX]
+    base = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    assert base.status in ("OPTIMAL", "FEASIBLE")
+    assert base.vaastu_relaxed is False
+
+    prev = {i: (r.x_in, r.y_in) for i, r in enumerate(base.rooms)}
+    original = model.INTERACTIVE_TIME_LIMIT_SECONDS
+    try:
+        for budget in (0.4, 0.05, 0.02, 0.01):
+            model.INTERACTIVE_TIME_LIMIT_SECONDS = budget
+            r = solve_layout(ENV_W_IN, ENV_D_IN, rooms, prev=prev, apply_vaastu=True)
+            if not r.rooms:
+                # Out of time with nothing to show. Honest, and it claims nothing.
+                assert r.vaastu_relaxed is False
+                continue
+            assert r.vaastu_relaxed == (not r.vaastu_constraints_applied), (
+                f"budget {budget}s: relaxed={r.vaastu_relaxed} but "
+                f"rules={r.vaastu_constraints_applied}"
+            )
+    finally:
+        model.INTERACTIVE_TIME_LIMIT_SECONDS = original
+
+
+def test_no_ruled_rooms_is_not_a_relaxed_solve():
+    """An empty rule list is only a relaxation when there was a rule to drop."""
+    rooms = [ROOM_CATALOG[n] for n in ("hall", "bathroom")]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    assert result.vaastu_constraints_applied == []
+    assert result.vaastu_relaxed is False
+
+
+def test_a_dragged_room_alone_is_not_a_relaxed_solve():
+    """Releasing the dragged room from its quadrant is deliberate, not a relaxation."""
+    rooms = [ROOM_CATALOG[n] for n in ("hall", "kitchen")]
+    base = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    prev = {i: (r.x_in, r.y_in) for i, r in enumerate(base.rooms)}
+    kitchen = next(i for i, r in enumerate(rooms) if r.name == "kitchen")
+
+    moved = solve_layout(
+        ENV_W_IN, ENV_D_IN, rooms, prev=prev, apply_vaastu=True, moved_index=kitchen
+    )
+    assert moved.status in ("OPTIMAL", "FEASIBLE")
+    assert moved.vaastu_constraints_applied == []
+    assert moved.vaastu_relaxed is False

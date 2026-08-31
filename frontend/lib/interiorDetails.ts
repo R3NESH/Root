@@ -642,7 +642,8 @@ export function addRoomInteriorDetails(
   rd: number,
   doors: RoomDoorInfo[] = [],
   roomIndex: number = 0,
-  deletedIds?: Set<string>
+  deletedIds?: Set<string>,
+  isUpgraded: boolean = false
 ) {
   const cx = rx + rw / 2;
   const cz = rz + rd / 2;
@@ -654,9 +655,9 @@ export function addRoomInteriorDetails(
     // ---------------------------------------------------------
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.5 });
     const linenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.85 });
-    const duvetMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
+    const duvetMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.75 });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
-    const closetMat = new THREE.MeshStandardMaterial({ color: 0x271c19, roughness: 0.45 });
+    const closetMat = new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.4 });
     const handleMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.15 });
 
     let headEdge: "N" | "S" | "E" | "W" = "N";
@@ -788,6 +789,93 @@ export function addRoomInteriorDetails(
       group.add(wardrobeGroup);
     }
 
+    // Study Workstation (Dual Monitors + Keyboard + Office Swivel Chair)
+    let deskEdge: "N" | "S" | "E" | "W" = headEdge === "N" ? "S" : headEdge === "S" ? "N" : headEdge === "W" ? "E" : "W";
+    if (doorEdges.has(deskEdge) || deskEdge === closetEdge) {
+      const remainingEdges: ("N" | "S" | "E" | "W")[] = ["N", "S", "E", "W"];
+      const avail = remainingEdges.find((e) => e !== headEdge && e !== closetEdge && !doorEdges.has(e));
+      if (avail) deskEdge = avail;
+    }
+
+    const deskId = `builtin_${roomIndex}_desk`;
+    if (!deletedIds?.has(deskId) && !doorEdges.has(deskEdge) && rw >= 8 && rd >= 8) {
+      const deskGroup = new THREE.Group();
+      const deskMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+      const chairMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+      const screenMat = new THREE.MeshStandardMaterial({ color: 0x05070a, emissive: 0x38bdf8, emissiveIntensity: 0.35, roughness: 0.1 });
+      const standMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 });
+
+      // Desk Top & Legs
+      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.15, 1.8), deskMat);
+      deskTop.position.set(0, 2.3, 0);
+      deskTop.castShadow = true;
+      deskGroup.add(deskTop);
+
+      for (const lx of [-1.6, 1.6]) {
+        for (const lz of [-0.7, 0.7]) {
+          const dLeg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), standMat);
+          dLeg.position.set(lx, 1.1, lz);
+          deskGroup.add(dLeg);
+        }
+      }
+
+      // Dual Monitors
+      for (const mx of [-0.75, 0.75]) {
+        const monArm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 12), standMat);
+        monArm.position.set(mx, 2.65, -0.5);
+        deskGroup.add(monArm);
+
+        const monitor = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.08), screenMat);
+        monitor.position.set(mx, 3.0, -0.5);
+        monitor.rotation.y = mx < 0 ? 0.15 : -0.15;
+        deskGroup.add(monitor);
+      }
+
+      // Keyboard
+      const kbMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.5 });
+      const keyboard = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.4), kbMat);
+      keyboard.position.set(0, 2.4, 0.15);
+      deskGroup.add(keyboard);
+
+      // Ergonomic Swivel Chair
+      const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.2, 1.4), chairMat);
+      chairSeat.position.set(0, 1.4, 1.1);
+      chairSeat.castShadow = true;
+      deskGroup.add(chairSeat);
+
+      const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 0.15), chairMat);
+      chairBack.position.set(0, 2.1, 1.7);
+      deskGroup.add(chairBack);
+
+      // Positioning Desk against wall
+      if (deskEdge === "N") {
+        deskGroup.position.set(cx, 0, rz + 1.1);
+        deskGroup.rotation.y = 0;
+      } else if (deskEdge === "S") {
+        deskGroup.position.set(cx, 0, rz + rd - 1.1);
+        deskGroup.rotation.y = Math.PI;
+      } else if (deskEdge === "W") {
+        deskGroup.position.set(rx + 1.1, 0, cz);
+        deskGroup.rotation.y = Math.PI / 2;
+      } else {
+        deskGroup.position.set(rx + rw - 1.1, 0, cz);
+        deskGroup.rotation.y = -Math.PI / 2;
+      }
+
+      deskGroup.userData = {
+        isFurniture: true,
+        isBuiltin: true,
+        id: deskId,
+        name: "Computer Workstation Desk",
+        type: "study_desk",
+        x: deskGroup.position.x,
+        y: 0,
+        z: deskGroup.position.z,
+        rotationY: deskGroup.rotation.y,
+      };
+      group.add(deskGroup);
+    }
+
   } else if (roomName === "kitchen") {
     // ---------------------------------------------------------
     // KITCHEN: Counters run along SOLID WALLS (Clear entrance corridor)
@@ -876,10 +964,10 @@ export function addRoomInteriorDetails(
     // LIVING HALL: Dynamic Door-Aware Ergonomics Engine
     // 100% Unobstructed Corridors Connecting All Attached Doors & Entrances
     // ---------------------------------------------------------
-    const rugMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
-    const sofaMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 });
-    const cushionMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.7 });
-    const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
+    const rugMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
+    const sofaMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.8 });
+    const cushionMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+    const pillowMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
     const slatMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.5 });
     const tvFrameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.8, roughness: 0.2 });
@@ -889,258 +977,466 @@ export function addRoomInteriorDetails(
       emissiveIntensity: 0.55,
       roughness: 0.05,
     });
-    const consoleMat = new THREE.MeshStandardMaterial({ color: 0x221810, roughness: 0.4 });
-    const glassTableMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.6,
-      roughness: 0.1,
-      metalness: 0.1,
-      transmission: 0.8,
-    });
+    // ---------------------------------------------------------
+    // LIVING HALL: Photorealistic Studio Suite (when Upgraded) vs Baseline CAD
+    // ---------------------------------------------------------
+    if (isUpgraded) {
+      // 🌟 UPGRADED PHOTOREALISTIC STUDIO LIVING ROOM (Reference Design)
+      const boucleMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf7, roughness: 0.88 });
+      const pillowLightMat = new THREE.MeshStandardMaterial({ color: 0xe2d7c8, roughness: 0.85 });
+      const woodWarmMat = new THREE.MeshStandardMaterial({ color: 0xb07548, roughness: 0.35 });
+      const marbleBlackMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.16, metalness: 0.1 });
+      const joineryWhiteMat = new THREE.MeshStandardMaterial({ color: 0xfdfdfd, roughness: 0.3 });
+      const brassStudioMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.18 });
+      const ledGlowMat = new THREE.MeshStandardMaterial({ color: 0xfffae0, emissive: 0xffe8ba, emissiveIntensity: 0.7, roughness: 0.1 });
+      const plantMat = new THREE.MeshStandardMaterial({ color: 0x1d753b, roughness: 0.6 });
 
-    // 1. Determine the Best SOLID (Door-Free) Wall for the TV Accent Unit
-    let tvEdge: "N" | "S" | "E" | "W" = "N";
-    if (!doorEdges.has("N")) {
-      tvEdge = "N";
-    } else if (!doorEdges.has("W")) {
-      tvEdge = "W";
-    } else if (!doorEdges.has("E")) {
-      tvEdge = "E";
-    } else if (!doorEdges.has("S")) {
-      tvEdge = "S";
+      // 1. Organic Curved Bouclé Cloud Sofa
+      const sofaId = `builtin_${roomIndex}_sofa`;
+      if (!deletedIds?.has(sofaId)) {
+        const cloudSofaGroup = new THREE.Group();
+
+        // Main Curved Seat Cushions
+        const seat1 = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 1.2, 32), boucleMat);
+        seat1.position.set(-1.8, 0.6, 0);
+        seat1.castShadow = true;
+        cloudSofaGroup.add(seat1);
+
+        const seat2 = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 1.2, 32), boucleMat);
+        seat2.position.set(1.8, 0.6, 0);
+        seat2.castShadow = true;
+        cloudSofaGroup.add(seat2);
+
+        const seatMid = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.2, 4.4), boucleMat);
+        seatMid.position.set(0, 0.6, 0);
+        seatMid.castShadow = true;
+        cloudSofaGroup.add(seatMid);
+
+        // Curved Backrest
+        const backRest = new THREE.Mesh(new THREE.BoxGeometry(6.6, 1.4, 1.2), boucleMat);
+        backRest.position.set(0, 1.6, 1.6);
+        backRest.castShadow = true;
+        cloudSofaGroup.add(backRest);
+
+        // Throw Pillows
+        for (const px of [-1.8, 0, 1.8]) {
+          const pillow = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 1), pillowLightMat);
+          pillow.position.set(px, 1.5, 1.2);
+          cloudSofaGroup.add(pillow);
+        }
+
+        // Secondary Curved Armchair
+        const armChair = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 1.1, 24), boucleMat);
+        armChair.position.set(-4.8, 0.55, -0.6);
+        armChair.castShadow = true;
+        cloudSofaGroup.add(armChair);
+
+        cloudSofaGroup.position.set(cx, 0, cz + Math.min(rd * 0.12, 1.6));
+        cloudSofaGroup.userData = {
+          isFurniture: true,
+          isBuiltin: true,
+          id: sofaId,
+          name: "Curved Bouclé Cloud Sofa",
+          type: "sofa_3seater",
+          x: cloudSofaGroup.position.x,
+          y: 0,
+          z: cloudSofaGroup.position.z,
+          rotationY: 0,
+        };
+        group.add(cloudSofaGroup);
+      }
+
+      // 2. Organic Pebble / Kidney Solid Wood Coffee Table
+      const coffeeId = `builtin_${roomIndex}_coffee_table`;
+      if (!deletedIds?.has(coffeeId)) {
+        const pebbleGroup = new THREE.Group();
+        const pebbleTop = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.16, 2.2), woodWarmMat);
+        pebbleTop.position.set(0, 1.0, 0);
+        pebbleTop.castShadow = true;
+        pebbleGroup.add(pebbleTop);
+
+        for (const [lx, lz] of [[-1.2, -0.6], [1.2, -0.6], [0, 0.7]]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.08, 0.9, 16), woodWarmMat);
+          leg.position.set(lx, 0.45, lz);
+          pebbleGroup.add(leg);
+        }
+
+        pebbleGroup.position.set(cx, 0, cz - 0.6);
+        pebbleGroup.userData = {
+          isFurniture: true,
+          isBuiltin: true,
+          id: coffeeId,
+          name: "Organic Pebble Wood Coffee Table",
+          type: "coffee_table",
+          x: cx,
+          y: 0,
+          z: cz - 0.6,
+          rotationY: 0,
+        };
+        group.add(pebbleGroup);
+      }
+
+      // 3. Wall-to-Wall Custom Built-in Library Bookcase & Centerpiece Fireplace
+      let solidEdge: "N" | "S" | "E" | "W" = "N";
+      if (!doorEdges.has("N")) solidEdge = "N";
+      else if (!doorEdges.has("E")) solidEdge = "E";
+      else if (!doorEdges.has("W")) solidEdge = "W";
+      else solidEdge = "S";
+
+      const bookCaseW = solidEdge === "N" || solidEdge === "S" ? rw - 1.2 : rd - 1.2;
+      const joineryGroup = new THREE.Group();
+
+      // Backing & Framework
+      const bookcaseBack = new THREE.Mesh(new THREE.BoxGeometry(bookCaseW, 8.2, 0.8), joineryWhiteMat);
+      bookcaseBack.position.set(0, 4.1, 0);
+      joineryGroup.add(bookcaseBack);
+
+      // Lit Display Shelves
+      for (let s = 1; s <= 3; s++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(bookCaseW * 0.92, 0.08, 0.9), joineryWhiteMat);
+        shelf.position.set(0, 3.2 + s * 1.3, 0.1);
+        joineryGroup.add(shelf);
+
+        const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(bookCaseW * 0.9, 0.04, 0.04), ledGlowMat);
+        ledStrip.position.set(0, 3.2 + s * 1.3 - 0.06, 0.5);
+        joineryGroup.add(ledStrip);
+      }
+
+      // Centerpiece Fireplace Mantle
+      const mantle = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.8, 1.1), joineryWhiteMat);
+      mantle.position.set(0, 1.4, 0.2);
+      mantle.castShadow = true;
+      joineryGroup.add(mantle);
+
+      const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 0.8), marbleBlackMat);
+      hearth.position.set(0, 1.2, 0.4);
+      joineryGroup.add(hearth);
+
+      // Decorative Arched Gold Mirror above Fireplace
+      const mirrorGold = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.08, 32), brassStudioMat);
+      mirrorGold.rotation.x = Math.PI / 2;
+      mirrorGold.position.set(0, 4.8, 0.5);
+      joineryGroup.add(mirrorGold);
+
+      // Position Library Joinery against chosen wall
+      if (solidEdge === "N") {
+        joineryGroup.position.set(cx, 0, rz + 0.5);
+      } else if (solidEdge === "S") {
+        joineryGroup.position.set(cx, 0, rz + rd - 0.5);
+        joineryGroup.rotation.y = Math.PI;
+      } else if (solidEdge === "W") {
+        joineryGroup.position.set(rx + 0.5, 0, cz);
+        joineryGroup.rotation.y = Math.PI / 2;
+      } else {
+        joineryGroup.position.set(rx + rw - 0.5, 0, cz);
+        joineryGroup.rotation.y = -Math.PI / 2;
+      }
+      group.add(joineryGroup);
+
+      // 4. Half-Moon Divider Screen with Snake Plant / Cactus Planter Box
+      const planterGroup = new THREE.Group();
+      const planterBox = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.4, 1.2), joineryWhiteMat);
+      planterBox.position.set(0, 0.7, 0);
+      planterBox.castShadow = true;
+      planterGroup.add(planterBox);
+
+      for (let p = -1.6; p <= 1.6; p += 0.55) {
+        const cactus = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 2.6, 12), plantMat);
+        cactus.position.set(p, 2.4, 0);
+        cactus.castShadow = true;
+        planterGroup.add(cactus);
+      }
+
+      planterGroup.position.set(rx + 2.4, 0, rz + rd - 1.8);
+      group.add(planterGroup);
+
     } else {
-      tvEdge = "W";
-    }
+      // 📐 STANDARD BASELINE CAD LIVING ROOM
+      const rugMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
+      const sofaMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.8 });
+      const cushionMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+      const pillowMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+      const slatMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.5 });
+      const tvFrameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.8, roughness: 0.2 });
+      const tvScreenMat = new THREE.MeshStandardMaterial({
+        color: 0x05070a,
+        emissive: 0x1e293b,
+        emissiveIntensity: 0.55,
+        roughness: 0.05,
+      });
+      const consoleMat = new THREE.MeshStandardMaterial({ color: 0x221810, roughness: 0.4 });
+      const glassTableMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.6,
+        roughness: 0.1,
+        metalness: 0.1,
+        transmission: 0.8,
+      });
 
-    const isEWTV = tvEdge === "N" || tvEdge === "S";
+      let tvEdge: "N" | "S" | "E" | "W" = "N";
+      if (!doorEdges.has("N")) tvEdge = "N";
+      else if (!doorEdges.has("W")) tvEdge = "W";
+      else if (!doorEdges.has("E")) tvEdge = "E";
+      else if (!doorEdges.has("S")) tvEdge = "S";
+      else tvEdge = "W";
 
-    // 2. Build Area Rug centered in the conversational zone
-    const rugW = isEWTV ? Math.min(rw * 0.55, 10.0) : Math.min(rw * 0.48, 8.0);
-    const rugD = isEWTV ? Math.min(rd * 0.48, 8.0) : Math.min(rd * 0.55, 10.0);
-    const rug = new THREE.Mesh(new THREE.PlaneGeometry(rugW, rugD), rugMat);
-    rug.rotation.x = -Math.PI / 2;
-    rug.position.set(cx, 0.05, cz);
-    rug.receiveShadow = true;
-    group.add(rug);
+      const isEWTV = tvEdge === "N" || tvEdge === "S";
 
-    // 3. Build TV Accent Wall + 65" OLED TV + Media Console against chosen solid wall
-    const slatW = isEWTV ? Math.min(rw * 0.55, 6.0) : 0.15;
-    const slatD = isEWTV ? 0.15 : Math.min(rd * 0.55, 6.0);
-    const slatPanel = new THREE.Mesh(new THREE.BoxGeometry(slatW, 7.2, slatD), slatMat);
+      const rugW = isEWTV ? Math.min(rw * 0.55, 10.0) : Math.min(rw * 0.48, 8.0);
+      const rugD = isEWTV ? Math.min(rd * 0.48, 8.0) : Math.min(rd * 0.55, 10.0);
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(rugW, rugD), rugMat);
+      rug.rotation.x = -Math.PI / 2;
+      rug.position.set(cx, 0.05, cz);
+      rug.receiveShadow = true;
+      group.add(rug);
 
-    let tvWallX = cx;
-    let tvWallZ = cz;
-    if (tvEdge === "N") tvWallZ = rz + 0.3;
-    else if (tvEdge === "S") tvWallZ = rz + rd - 0.3;
-    else if (tvEdge === "W") tvWallX = rx + 0.3;
-    else if (tvEdge === "E") tvWallX = rx + rw - 0.3;
+      const slatW = isEWTV ? Math.min(rw * 0.55, 6.0) : 0.15;
+      const slatD = isEWTV ? 0.15 : Math.min(rd * 0.55, 6.0);
+      const slatPanel = new THREE.Mesh(new THREE.BoxGeometry(slatW, 7.2, slatD), slatMat);
 
-    slatPanel.position.set(tvWallX, 4.4, tvWallZ);
+      let tvWallX = cx;
+      let tvWallZ = cz;
+      if (tvEdge === "N") tvWallZ = rz + 0.3;
+      else if (tvEdge === "S") tvWallZ = rz + rd - 0.3;
+      else if (tvEdge === "W") tvWallX = rx + 0.3;
+      else if (tvEdge === "E") tvWallX = rx + rw - 0.3;
 
-    // TV Mesh
-    const tvMeshW = isEWTV ? 4.4 : 0.12;
-    const tvMeshD = isEWTV ? 0.12 : 4.4;
-    const tvMesh = new THREE.Mesh(new THREE.BoxGeometry(tvMeshW, 2.5, tvMeshD), tvFrameMat);
+      slatPanel.position.set(tvWallX, 4.4, tvWallZ);
 
-    let tvOffX = tvWallX;
-    let tvOffZ = tvWallZ;
-    if (tvEdge === "N") tvOffZ += 0.14;
-    else if (tvEdge === "S") tvOffZ -= 0.14;
-    else if (tvEdge === "W") tvOffX += 0.14;
-    else if (tvEdge === "E") tvOffX -= 0.14;
+      const tvMeshW = isEWTV ? 4.4 : 0.12;
+      const tvMeshD = isEWTV ? 0.12 : 4.4;
+      const tvMesh = new THREE.Mesh(new THREE.BoxGeometry(tvMeshW, 2.5, tvMeshD), tvFrameMat);
 
-    tvMesh.position.set(tvOffX, 4.5, tvOffZ);
+      let tvOffX = tvWallX;
+      let tvOffZ = tvWallZ;
+      if (tvEdge === "N") tvOffZ += 0.14;
+      else if (tvEdge === "S") tvOffZ -= 0.14;
+      else if (tvEdge === "W") tvOffX += 0.14;
+      else if (tvEdge === "E") tvOffX -= 0.14;
 
-    const screenGeom = new THREE.PlaneGeometry(4.25, 2.35);
-    const screenMesh = new THREE.Mesh(screenGeom, tvScreenMat);
-    if (tvEdge === "N") {
-      screenMesh.position.set(tvWallX, 4.5, tvWallZ + 0.21);
-    } else if (tvEdge === "S") {
-      screenMesh.rotation.y = Math.PI;
-      screenMesh.position.set(tvWallX, 4.5, tvWallZ - 0.21);
-    } else if (tvEdge === "W") {
-      screenMesh.rotation.y = Math.PI / 2;
-      screenMesh.position.set(tvWallX + 0.21, 4.5, tvWallZ);
-    } else {
-      screenMesh.rotation.y = -Math.PI / 2;
-      screenMesh.position.set(tvWallX - 0.21, 4.5, tvWallZ);
-    }
+      tvMesh.position.set(tvOffX, 4.5, tvOffZ);
 
-    // Media Console
-    const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
-    const conD = isEWTV ? 1.2 : Math.min(rd * 0.48, 5.8);
-    const mediaConsole = new THREE.Mesh(new THREE.BoxGeometry(conW, 0.9, conD), consoleMat);
+      const screenGeom = new THREE.PlaneGeometry(4.25, 2.35);
+      const screenMesh = new THREE.Mesh(screenGeom, tvScreenMat);
+      if (tvEdge === "N") {
+        screenMesh.position.set(tvWallX, 4.5, tvWallZ + 0.21);
+      } else if (tvEdge === "S") {
+        screenMesh.rotation.y = Math.PI;
+        screenMesh.position.set(tvWallX, 4.5, tvWallZ - 0.21);
+      } else if (tvEdge === "W") {
+        screenMesh.rotation.y = Math.PI / 2;
+        screenMesh.position.set(tvWallX + 0.21, 4.5, tvWallZ);
+      } else {
+        screenMesh.rotation.y = -Math.PI / 2;
+        screenMesh.position.set(tvWallX - 0.21, 4.5, tvWallZ);
+      }
 
-    let conX = tvWallX;
-    let conZ = tvWallZ;
-    if (tvEdge === "N") conZ += 0.65;
-    else if (tvEdge === "S") conZ -= 0.65;
-    else if (tvEdge === "W") conX += 0.65;
-    else if (tvEdge === "E") conX -= 0.65;
+      const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
+      const conD = isEWTV ? 1.2 : Math.min(rd * 0.48, 5.8);
+      const mediaConsole = new THREE.Mesh(new THREE.BoxGeometry(conW, 0.9, conD), consoleMat);
 
-    mediaConsole.position.set(conX, 1.2, conZ);
-    mediaConsole.castShadow = true;
+      let conX = tvWallX;
+      let conZ = tvWallZ;
+      if (tvEdge === "N") conZ += 0.65;
+      else if (tvEdge === "S") conZ -= 0.65;
+      else if (tvEdge === "W") conX += 0.65;
+      else if (tvEdge === "E") conX -= 0.65;
 
-    const tvId = `builtin_${roomIndex}_tv`;
-    if (!deletedIds?.has(tvId)) {
-      const tvGroup = new THREE.Group();
-      tvGroup.add(slatPanel, tvMesh, screenMesh, mediaConsole);
-      tvGroup.userData = {
-        isFurniture: true,
-        isBuiltin: true,
-        id: tvId,
-        name: "TV Entertainment Wall",
-        type: "tv_unit",
-        x: conX,
-        y: 0,
-        z: conZ,
-        rotationY: isEWTV ? 0 : Math.PI / 2,
-      };
-      group.add(tvGroup);
-    }
+      mediaConsole.position.set(conX, 1.2, conZ);
+      mediaConsole.castShadow = true;
 
-    // 4. Sectional Sofa (Positioned directly facing the TV unit across the coffee table)
-    const sofaGroup = new THREE.Group();
-    const sofaMainW = Math.min(isEWTV ? rw * 0.44 : rd * 0.44, 7.2);
-    const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.4, 2.2), sofaMat);
-    sofaMain.position.set(0, 0.7, 0);
-    sofaMain.castShadow = true;
-    sofaGroup.add(sofaMain);
+      const tvId = `builtin_${roomIndex}_tv`;
+      if (!deletedIds?.has(tvId)) {
+        const tvGroup = new THREE.Group();
+        tvGroup.add(slatPanel, tvMesh, screenMesh, mediaConsole);
+        tvGroup.userData = {
+          isFurniture: true,
+          isBuiltin: true,
+          id: tvId,
+          name: "TV Entertainment Wall",
+          type: "tv_unit",
+          x: conX,
+          y: 0,
+          z: conZ,
+          rotationY: isEWTV ? 0 : Math.PI / 2,
+        };
+        group.add(tvGroup);
+      }
 
-    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.2, 0.5), sofaMat);
-    sofaBack.position.set(0, 1.5, 0.85);
-    sofaBack.castShadow = true;
-    sofaGroup.add(sofaBack);
+      const sofaGroup = new THREE.Group();
+      const sofaMainW = Math.min(isEWTV ? rw * 0.44 : rd * 0.44, 7.2);
+      const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.4, 2.2), sofaMat);
+      sofaMain.position.set(0, 0.7, 0);
+      sofaMain.castShadow = true;
+      sofaGroup.add(sofaMain);
 
-    const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 2.6), sofaMat);
-    sofaL.position.set(sofaMainW / 2 - 1.0, 0.7, -1.1);
-    sofaL.castShadow = true;
-    sofaGroup.add(sofaL);
+      const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.2, 0.5), sofaMat);
+      sofaBack.position.set(0, 1.5, 0.85);
+      sofaBack.castShadow = true;
+      sofaGroup.add(sofaBack);
 
-    // Pillows
-    const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), pillowMat);
-    pillow1.position.set(-sofaMainW * 0.25, 1.5, 0.5);
-    pillow1.rotation.y = 0.2;
-    sofaGroup.add(pillow1);
+      const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 2.6), sofaMat);
+      sofaL.position.set(sofaMainW / 2 - 1.0, 0.7, -1.1);
+      sofaL.castShadow = true;
+      sofaGroup.add(sofaL);
 
-    const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), cushionMat);
-    pillow2.position.set(sofaMainW * 0.25, 1.5, 0.5);
-    pillow2.rotation.y = -0.2;
-    sofaGroup.add(pillow2);
+      const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), pillowMat);
+      pillow1.position.set(-sofaMainW * 0.25, 1.5, 0.5);
+      pillow1.rotation.y = 0.2;
+      sofaGroup.add(pillow1);
 
-    // Position & Orient Sofa based on TV Wall
-    if (tvEdge === "N") {
-      sofaGroup.position.set(cx, 0, cz + Math.min(rd * 0.2, 2.4));
-      sofaGroup.rotation.y = 0;
-    } else if (tvEdge === "S") {
-      sofaGroup.position.set(cx, 0, cz - Math.min(rd * 0.2, 2.4));
-      sofaGroup.rotation.y = Math.PI;
-    } else if (tvEdge === "W") {
-      sofaGroup.position.set(cx + Math.min(rw * 0.2, 2.4), 0, cz);
-      sofaGroup.rotation.y = -Math.PI / 2;
-    } else {
-      sofaGroup.position.set(cx - Math.min(rw * 0.2, 2.4), 0, cz);
-      sofaGroup.rotation.y = Math.PI / 2;
-    }
+      const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), cushionMat);
+      pillow2.position.set(sofaMainW * 0.25, 1.5, 0.5);
+      pillow2.rotation.y = -0.2;
+      sofaGroup.add(pillow2);
 
-    const sofaId = `builtin_${roomIndex}_sofa`;
-    if (!deletedIds?.has(sofaId)) {
-      sofaGroup.userData = {
-        isFurniture: true,
-        isBuiltin: true,
-        id: sofaId,
-        name: "Living Room Sofa",
-        type: "sofa_3seater",
-        x: sofaGroup.position.x,
-        y: 0,
-        z: sofaGroup.position.z,
-        rotationY: sofaGroup.rotation.y,
-      };
-      group.add(sofaGroup);
-    }
+      if (tvEdge === "N") {
+        sofaGroup.position.set(cx, 0, cz + Math.min(rd * 0.2, 2.4));
+        sofaGroup.rotation.y = 0;
+      } else if (tvEdge === "S") {
+        sofaGroup.position.set(cx, 0, cz - Math.min(rd * 0.2, 2.4));
+        sofaGroup.rotation.y = Math.PI;
+      } else if (tvEdge === "W") {
+        sofaGroup.position.set(cx + Math.min(rw * 0.2, 2.4), 0, cz);
+        sofaGroup.rotation.y = -Math.PI / 2;
+      } else {
+        sofaGroup.position.set(cx - Math.min(rw * 0.2, 2.4), 0, cz);
+        sofaGroup.rotation.y = Math.PI / 2;
+      }
 
-    // 5. Modern Glass Coffee Table
-    const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8), glassTableMat);
-    coffeeTop.position.set(cx, 1.1, cz);
+      const sofaId = `builtin_${roomIndex}_sofa`;
+      if (!deletedIds?.has(sofaId)) {
+        sofaGroup.userData = {
+          isFurniture: true,
+          isBuiltin: true,
+          id: sofaId,
+          name: "Living Room Sofa",
+          type: "sofa_3seater",
+          x: sofaGroup.position.x,
+          y: 0,
+          z: sofaGroup.position.z,
+          rotationY: sofaGroup.rotation.y,
+        };
+        group.add(sofaGroup);
+      }
 
-    const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6), brassMat);
-    coffeeBase.position.set(cx, 0.55, cz);
+      const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8), glassTableMat);
+      coffeeTop.position.set(cx, 1.1, cz);
 
-    const coffeeId = `builtin_${roomIndex}_coffee_table`;
-    if (!deletedIds?.has(coffeeId)) {
-      const coffeeGroup = new THREE.Group();
-      coffeeGroup.add(coffeeTop, coffeeBase);
-      coffeeGroup.userData = {
-        isFurniture: true,
-        isBuiltin: true,
-        id: coffeeId,
-        name: "Glass Coffee Table",
-        type: "coffee_table",
-        x: cx,
-        y: 0,
-        z: cz,
-        rotationY: 0,
-      };
-      group.add(coffeeGroup);
-    }
+      const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6), brassMat);
+      coffeeBase.position.set(cx, 0.55, cz);
 
-    // 6. Indoor Fiddle Leaf Fig Tree (in an unobstructed corner away from any doors)
-    let plantCornerX = rx + 1.4;
-    let plantCornerZ = rz + 1.4;
-    if (doorEdges.has("N") || doorEdges.has("W")) {
-      plantCornerX = rx + 1.4;
-      plantCornerZ = rz + rd - 1.4;
-    }
-    if (doorEdges.has("S") && doorEdges.has("W")) {
-      plantCornerX = rx + rw - 1.4;
-      plantCornerZ = rz + rd - 1.4;
-    }
-
-    const potMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
-
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 1.2, 20), potMat);
-    pot.position.set(plantCornerX, 0.6, plantCornerZ);
-    pot.castShadow = true;
-
-    const plantLeaves = new THREE.Mesh(new THREE.DodecahedronGeometry(1.2, 1), leafMat);
-    plantLeaves.position.set(plantCornerX, 2.2, plantCornerZ);
-    plantLeaves.castShadow = true;
-
-    const plantId = `builtin_${roomIndex}_plant`;
-    if (!deletedIds?.has(plantId)) {
-      const plantGroup = new THREE.Group();
-      plantGroup.add(pot, plantLeaves);
-      plantGroup.userData = {
-        isFurniture: true,
-        isBuiltin: true,
-        id: plantId,
-        name: "Fiddle Leaf Fig Plant",
-        type: "plant_pot",
-        x: plantCornerX,
-        y: 0,
-        z: plantCornerZ,
-        rotationY: 0,
-      };
-      group.add(plantGroup);
+      const coffeeId = `builtin_${roomIndex}_coffee_table`;
+      if (!deletedIds?.has(coffeeId)) {
+        const coffeeGroup = new THREE.Group();
+        coffeeGroup.add(coffeeTop, coffeeBase);
+        coffeeGroup.userData = {
+          isFurniture: true,
+          isBuiltin: true,
+          id: coffeeId,
+          name: "Glass Coffee Table",
+          type: "coffee_table",
+          x: cx,
+          y: 0,
+          z: cz,
+          rotationY: 0,
+        };
+        group.add(coffeeGroup);
+      }
     }
 
   } else if (roomName === "dining") {
     const diningId = `builtin_${roomIndex}_dining`;
     if (!deletedIds?.has(diningId)) {
-      const tableMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.45 });
       const diningGroup = new THREE.Group();
 
-      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.55, 6.0), 0.2, Math.min(rd * 0.45, 3.4)), tableMat);
-      tableTop.position.set(0, 2.7, 0);
-      diningGroup.add(tableTop);
+      if (isUpgraded) {
+        // 🌟 UPGRADED OVAL NERO MARQUINA MARBLE DINING TABLE WITH CURVED CHAIRS
+        const tableMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.16, metalness: 0.08 });
+        const chairMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf6, roughness: 0.7 });
+        const brassLegMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
 
-      for (const lx of [-2.4, 2.4]) {
-        for (const lz of [-1.2, 1.2]) {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), tableMat);
-          leg.position.set(lx, 1.3, lz);
-          diningGroup.add(leg);
+        const tableW = Math.min(rw * 0.65, 7.2);
+        const tableD = Math.min(rd * 0.48, 3.6);
+
+        // Oval Marble Table Top
+        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tableW, 0.18, tableD), tableMat);
+        tableTop.position.set(0, 2.6, 0);
+        tableTop.castShadow = true;
+        diningGroup.add(tableTop);
+
+        // Double Fluted Pedestal Bases
+        for (const bx of [-tableW * 0.28, tableW * 0.28]) {
+          const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 2.5, 24), tableMat);
+          pedestal.position.set(bx, 1.25, 0);
+          diningGroup.add(pedestal);
+        }
+
+        // 8 Curved Plush Tub Chairs
+        for (const zSide of [-1, 1]) {
+          for (const chairX of [-tableW * 0.35, -tableW * 0.12, tableW * 0.12, tableW * 0.35]) {
+            const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.2, 20), chairMat);
+            seat.position.set(chairX, 1.5, zSide * (tableD / 2 + 0.9));
+            seat.castShadow = true;
+            diningGroup.add(seat);
+
+            const back = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.2, 20, 1, false, 0, Math.PI), chairMat);
+            back.rotation.y = zSide > 0 ? 0 : Math.PI;
+            back.position.set(chairX, 2.1, zSide * (tableD / 2 + 0.9));
+            diningGroup.add(back);
+
+            for (const clx of [-0.4, 0.4]) {
+              for (const clz of [-0.4, 0.4]) {
+                const cLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 1.4, 8), brassLegMat);
+                cLeg.position.set(chairX + clx, 0.7, zSide * (tableD / 2 + 0.9) + clz);
+                diningGroup.add(cLeg);
+              }
+            }
+          }
+        }
+      } else {
+        // 📐 STANDARD 6-SEATER DINING TABLE
+        const tableMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 });
+        const legMat = new THREE.MeshStandardMaterial({ color: 0xcfd4dc, metalness: 0.9, roughness: 0.2 });
+        const chairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+
+        const tableW = Math.min(rw * 0.55, 5.8);
+        const tableD = Math.min(rd * 0.45, 3.2);
+
+        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tableW, 0.15, tableD), tableMat);
+        tableTop.position.set(0, 2.6, 0);
+        tableTop.castShadow = true;
+        diningGroup.add(tableTop);
+
+        for (const lx of [-tableW / 2 + 0.3, tableW / 2 - 0.3]) {
+          for (const lz of [-tableD / 2 + 0.3, tableD / 2 - 0.3]) {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 2.5, 12), legMat);
+            leg.position.set(lx, 1.25, lz);
+            diningGroup.add(leg);
+          }
+        }
+
+        for (const zSide of [-1, 1]) {
+          for (const chairX of [-tableW * 0.32, 0, tableW * 0.32]) {
+            const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 1.2), chairMat);
+            seat.position.set(chairX, 1.5, zSide * (tableD / 2 + 0.8));
+            seat.castShadow = true;
+            diningGroup.add(seat);
+
+            const back = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.2, 0.08), chairMat);
+            back.position.set(chairX, 2.05, zSide * (tableD / 2 + 1.35));
+            diningGroup.add(back);
+
+            for (const clx of [-0.45, 0.45]) {
+              for (const clz of [-0.45, 0.45]) {
+                const cLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 1.45, 8), legMat);
+                cLeg.position.set(chairX + clx, 0.75, zSide * (tableD / 2 + 0.8) + clz);
+                diningGroup.add(cLeg);
+              }
+            }
+          }
         }
       }
 
@@ -1149,7 +1445,7 @@ export function addRoomInteriorDetails(
         isFurniture: true,
         isBuiltin: true,
         id: diningId,
-        name: "6-Seater Dining Set",
+        name: isUpgraded ? "Oval Nero Marquina Dining Suite" : "6-Seater Modern Dining Suite",
         type: "dining_6seater",
         x: cx,
         y: 0,
@@ -1163,7 +1459,7 @@ export function addRoomInteriorDetails(
     // ---------------------------------------------------------
     // BATHROOM: Wet zone & Vanity positioned away from door swing
     // ---------------------------------------------------------
-    const vanityMat = new THREE.MeshStandardMaterial({ color: 0x33241b, roughness: 0.5 });
+    const vanityMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
     const porcelainMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 });
     const mirrorMat = new THREE.MeshStandardMaterial({
       color: 0x88c0d0,
@@ -1183,9 +1479,8 @@ export function addRoomInteriorDetails(
     const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 0.45, 24), porcelainMat);
     vessel.position.set(vanityX, 2.7, vanityZ);
 
-    const mirror = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.08, 32), mirrorMat);
-    mirror.rotation.x = Math.PI / 2;
-    mirror.position.set(vanityX, 4.8, rz + 0.4);
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.12), mirrorMat);
+    mirror.position.set(vanityX, 4.4, rz + 0.4);
 
     const vanityId = `builtin_${roomIndex}_vanity`;
     if (!deletedIds?.has(vanityId)) {
@@ -1233,6 +1528,26 @@ export function addRoomInteriorDetails(
     towelBar.rotation.z = Math.PI / 2;
     towelBar.position.set(rx + rw - 1.6, 3.5, rz + rd - 0.4);
     group.add(towelBar);
+
+    // Deep Soaking Bathtub
+    const tubMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
+    const tub = new THREE.Mesh(new THREE.BoxGeometry(Math.min(4.8, rw * 0.5), 1.8, Math.min(2.4, rd * 0.4)), tubMat);
+    tub.position.set(rx + 2.8, 0.9, rz + rd - 1.6);
+    tub.castShadow = true;
+    group.add(tub);
+
+    // Front-Loading Washing Machine
+    const washerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
+    const drumMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.8 });
+    const washer = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.8, 2.0), washerMat);
+    washer.position.set(rx + rw - 1.4, 1.4, rz + rd - 1.4);
+    washer.castShadow = true;
+    group.add(washer);
+
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.08, 24), drumMat);
+    drum.rotation.x = Math.PI / 2;
+    drum.position.set(rx + rw - 1.4, 1.4, rz + rd - 2.4);
+    group.add(drum);
 
   } else if (roomName === "pooja") {
     // ---------------------------------------------------------

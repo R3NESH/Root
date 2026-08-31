@@ -1,6 +1,6 @@
 // API client — notes/build/step-3-wire-together.md: fetch from FastAPI solver backend.
 
-import { edgeSetbacksIn, Facing, Setback } from "./plot";
+import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
 import { RoomName } from "./rooms";
 
 export interface RoomSpecIn {
@@ -51,6 +51,10 @@ export interface SolveMeta {
   unknown_room_names: string[];
   entrance_edge: "N" | "S" | "E" | "W" | null;
   rooms_reachable: number;
+  // The solver's relaxation ladder handed back a layout with no Vaastu rule posted, even though
+  // the mix has rules. Distinct from an empty `vaastu_constraints_applied`, which is also the
+  // correct answer for a mix that has no ruled room in it at all.
+  vaastu_relaxed?: boolean;
 }
 
 export interface SolveResponse {
@@ -78,6 +82,10 @@ export interface SolveRequestArgs {
 
 const SOLVER_API_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000";
 
+// The status `solveClientSide()` reports. Deliberately not an OR-Tools status name: nothing about
+// this layout was solved. The UI keys its warning off this exact string.
+export const OFFLINE_ESTIMATE_STATUS = "OFFLINE_ESTIMATE";
+
 function toCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
   if (facing.includes("N")) return "N";
   if (facing.includes("S")) return "S";
@@ -86,18 +94,28 @@ function toCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
 }
 
 /**
- * Robust Client-Side Vastu Architectural Layout Engine.
- * Runs instantly in the browser if the FastAPI backend is offline or unreachable.
+ * Offline placeholder layout — NOT a solver.
+ *
+ * Runs in the browser only when the backend is unreachable. It drops rooms onto a fixed 2- or
+ * 3-column grid: no CP-SAT, no Vaastu constraint, no adjacency, no daylight rule, no door graph.
+ * It exists so the viewport has something to draw, not so the user has a plan.
+ *
+ * It must never report a guarantee it did not enforce — notes/architecture/client-side-fallback.md
+ * and the "fallback must never claim Vaastu it did not enforce" rule in CLAUDE.md. That is why
+ * `status`, `vaastu_constraints_applied` and `rooms_reachable` below say what they say.
  */
 export function solveClientSide(args: SolveRequestArgs): SolveResponse {
-  const [frontIn, rightIn, rearIn, leftIn] = args.setback
+  // edgeSetbacksIn returns FIXED WORLD ORIENTATION — [N, E, S, W] — not front/rear/left/right.
+  // Naming them front/right/rear/left is what made requestSolve() below rotate them a second
+  // time on every plot that does not face north.
+  const [northIn, eastIn, southIn, westIn] = args.setback
     ? edgeSetbacksIn(args.facing, args.setback)
-    : [60, 36, 60, 36];
+    : edgeSetbacksIn("N", DEFAULT_SETBACK);
 
-  const envOriginX = leftIn;
-  const envOriginZ = frontIn;
-  const envW = Math.max(120, args.plotWIn - leftIn - rightIn);
-  const envD = Math.max(120, args.plotDIn - frontIn - rearIn);
+  const envOriginX = westIn;
+  const envOriginZ = northIn;
+  const envW = Math.max(120, args.plotWIn - westIn - eastIn);
+  const envD = Math.max(120, args.plotDIn - northIn - southIn);
   const cardinalFacing = toCardinalEdge(args.facing);
 
   const rawRooms = args.rooms || [];
@@ -115,6 +133,7 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
         unknown_room_names: [],
         entrance_edge: cardinalFacing,
         rooms_reachable: 0,
+        vaastu_relaxed: false,
       },
     };
   }
@@ -295,21 +314,21 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
   return {
     rooms: solvedRooms,
     meta: {
-      status: "Vastu Solved (Optimal)",
+      // This engine posts no Vaastu constraint, runs no adjacency check and derives no door
+      // graph, so it may not report any of them as satisfied — notes/architecture/client-side-fallback.md.
+      status: OFFLINE_ESTIMATE_STATUS,
       solve_ms: 8,
-      vaastu_constraints_applied: [
-        "Agni SE Kitchen",
-        "Ishanya NE Hall & Entrance",
-        "Nairuthi SW Master Bedroom",
-        "Vayu NW Guest & Bath",
-      ],
+      vaastu_constraints_applied: [],
       envelope_origin_x_in: envOriginX,
       envelope_origin_z_in: envOriginZ,
       envelope_w_in: envW,
       envelope_d_in: envD,
       unknown_room_names: [],
       entrance_edge: cardinalFacing,
-      rooms_reachable: solvedRooms.length,
+      // Every opening below leaves `to_room` undefined, so the door graph is empty and the only
+      // room reachable from the start is the start room itself.
+      rooms_reachable: solvedRooms.length > 0 ? 1 : 0,
+      vaastu_relaxed: true,
     },
   };
 }
@@ -318,9 +337,11 @@ export async function requestSolve(
   args: SolveRequestArgs,
   signal?: AbortSignal
 ): Promise<SolveResponse> {
-  const [frontIn, rightIn, rearIn, leftIn] = args.setback
-    ? edgeSetbacksIn(args.facing, args.setback)
-    : [60, 36, 60, 36];
+  // SetbackIn on the wire is facing-RELATIVE: the backend runs it back through
+  // envelope.edge_setbacks_in(facing, ...) itself. Pass the caller's values straight through.
+  // Rotating them here first meant they were rotated twice, so on an east-facing plot the 5 ft
+  // road setback landed on the side boundary and the 3 ft side setback on the frontage.
+  const setback = args.setback ?? DEFAULT_SETBACK;
 
   const payload = {
     plot_w_in: args.plotWIn,
@@ -328,34 +349,36 @@ export async function requestSolve(
     facing: args.facing,
     rooms: args.rooms,
     setback: {
-      front_in: frontIn,
-      rear_in: rearIn,
-      left_in: leftIn,
-      right_in: rightIn,
+      front_in: setback.frontIn,
+      rear_in: setback.rearIn,
+      left_in: setback.leftIn,
+      right_in: setback.rightIn,
     },
     prev: args.prev,
     moved_index: args.movedIndex,
     apply_vaastu: true,
   };
 
+  let res: Response;
   try {
-    const res = await fetch(`${SOLVER_API_URL}/solve`, {
+    res = await fetch(`${SOLVER_API_URL}/solve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal,
     });
-
-    if (res.ok) {
-      return await res.json();
-    }
   } catch (err) {
     if ((err as Error)?.name === "AbortError") {
       throw err;
     }
-    // Backend fetch failed or offline -> seamlessly fall back to local client-side Vastu solver
+    // A thrown fetch is the only thing that means "the backend is not there". Fall back.
+    return solveClientSide(args);
   }
 
-  // Pure TypeScript Client-Side Fallback Engine
-  return solveClientSide(args);
+  // A reply we do not like is a bug to surface, not a reason to invent a layout. A 422 or a 500
+  // used to become a plan here — notes/architecture/client-side-fallback.md.
+  if (!res.ok) {
+    throw new Error(`Solver rejected the request (HTTP ${res.status})`);
+  }
+  return await res.json();
 }

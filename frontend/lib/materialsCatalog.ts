@@ -45,6 +45,8 @@ export interface DesignPreset {
   roomDoorColors?: Partial<Record<RoomName, string>>;
 }
 
+export type GraphicsFidelityTier = "standard" | "high" | "ultra_extreme";
+
 export interface HouseMaterialConfig {
   globalFloor: string;
   globalWallColor: string;
@@ -54,6 +56,12 @@ export interface HouseMaterialConfig {
   roomWallColors: Partial<Record<RoomName, string>>;
   roomWallTextures: Partial<Record<RoomName, string>>;
   roomDoorColors?: Partial<Record<RoomName, string>>;
+  textureSmoothness?: number; // 0.0 (Matte Textured) to 1.0 (Silky Mirror Polish)
+  floorGlossLevel?: number; // 0.0 (Matte) to 1.0 (High-Gloss Mirror Polish)
+  wallSmoothness?: number; // 0.0 (Heavy Stucco/Brick Relief) to 1.0 (Smooth Satin/Venetian Silk)
+  graphicsFidelityTier?: GraphicsFidelityTier;
+  textureResolution?: 1024 | 2048 | 4096;
+  anisotropicFiltering?: 4 | 8 | 16;
 }
 
 export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
@@ -65,6 +73,12 @@ export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
   roomWallColors: {},
   roomWallTextures: {},
   roomDoorColors: {},
+  textureSmoothness: 0.88,
+  floorGlossLevel: 0.92,
+  wallSmoothness: 0.88,
+  graphicsFidelityTier: "ultra_extreme",
+  textureResolution: 4096,
+  anisotropicFiltering: 16,
 };
 
 // --------------------------------------------------------------------------------------
@@ -121,6 +135,15 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
 
   // Hardwoods
   {
+    id: "scandinavian_oak",
+    name: "Nordic Blonde Oak Planks (Studio Clean)",
+    category: "wood",
+    description: "Light warm blonde Scandinavian oak floor planks with fine micro-bevel seams and soft satin sheen.",
+    swatchColor: "#d8c3a5",
+    roughness: 0.28,
+    metalness: 0.02,
+  },
+  {
     id: "french_chevron_oak",
     name: "French Chevron Blonde Oak",
     category: "wood",
@@ -175,7 +198,25 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
     metalness: 0.05,
   },
 
-  // Kitchen & Bath Tiles / Stones
+  // Kitchen, Bath & Balcony Tiles
+  {
+    id: "terrace_grey_paver",
+    name: "Architectural Balcony Stone Pavers",
+    category: "tile",
+    description: "Large 60x60cm modern light grey square patio tiles with subtle stone grain and dark grout lines.",
+    swatchColor: "#9ca3af",
+    roughness: 0.48,
+    metalness: 0.05,
+  },
+  {
+    id: "blue_mosaic_tile",
+    name: "Deep Oceanic Blue Glass Mosaic",
+    category: "tile",
+    description: "Luminous dark cobalt and navy blue glass mosaic tiles for luxury shower enclosures and vanity wet walls.",
+    swatchColor: "#1e3a5f",
+    roughness: 0.18,
+    metalness: 0.22,
+  },
   {
     id: "hex_slate",
     name: "Hexagonal Charcoal Slate Tile",
@@ -274,6 +315,31 @@ export const DOOR_COLORS: DoorColorDef[] = [
 ];
 
 export const DESIGN_PRESETS: DesignPreset[] = [
+  {
+    id: "architectural_studio_cutaway",
+    name: "Architectural Studio Cutaway",
+    icon: "📸",
+    description: "Nordic Blonde Oak planks, Crisp White Cutaway Plaster walls, Balcony Pavers, and Deep Blue Mosaic bathroom.",
+    globalFloor: "scandinavian_oak",
+    globalWallColor: "arctic_white",
+    globalWallTexture: "matte_paint",
+    globalDoorColor: "pure_white",
+    roomFloors: {
+      hall: "scandinavian_oak",
+      dining: "scandinavian_oak",
+      kitchen: "scandinavian_oak",
+      bedroom: "scandinavian_oak",
+      bathroom: "blue_mosaic_tile",
+      entrance: "scandinavian_oak",
+    },
+    roomWallColors: {
+      hall: "arctic_white",
+      dining: "arctic_white",
+      kitchen: "arctic_white",
+      bedroom: "arctic_white",
+      bathroom: "royal_navy",
+    },
+  },
   {
     id: "parisian_dollhouse",
     name: "Parisian Haute Dollhouse",
@@ -415,41 +481,88 @@ export const DESIGN_PRESETS: DesignPreset[] = [
 ];
 
 // --------------------------------------------------------------------------------------
-// Procedural Canvas Texture Generator & Caching Engine
+// Procedural Canvas Texture Generator & Caching Engine (Supports 4K & Anisotropy)
 // --------------------------------------------------------------------------------------
 
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
-function createAndCacheTexture(key: string, drawFn: (ctx: CanvasRenderingContext2D, size: number) => void, repeat: [number, number] = [2, 2]): THREE.CanvasTexture {
-  if (textureCache.has(key)) {
-    return textureCache.get(key)!;
+export function clearTextureCache(): void {
+  textureCache.forEach((tex) => tex.dispose());
+  textureCache.clear();
+}
+
+function createAndCacheTexture(
+  key: string,
+  drawFn: (ctx: CanvasRenderingContext2D, size: number) => void,
+  repeat: [number, number] = [2, 2],
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture {
+  const cacheKey = `${key}_${resolution}`;
+  if (textureCache.has(cacheKey)) {
+    const cached = textureCache.get(cacheKey)!;
+    cached.anisotropy = anisotropy;
+    return cached;
+  }
+
+  if (typeof document === "undefined") {
+    return new THREE.CanvasTexture(null as unknown as HTMLCanvasElement);
   }
 
   const canvas = document.createElement("canvas");
-  const size = 512;
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = resolution;
+  canvas.height = resolution;
   const ctx = canvas.getContext("2d");
 
   if (ctx) {
-    drawFn(ctx, size);
+    drawFn(ctx, resolution);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeat[0], repeat[1]);
-  textureCache.set(key, texture);
+  texture.anisotropy = anisotropy;
+  textureCache.set(cacheKey, texture);
   return texture;
+}
+
+export function getEffectiveFloorRoughness(baseRoughness: number, config: HouseMaterialConfig): number {
+  const gloss = config.floorGlossLevel ?? 0.92;
+  const smooth = config.textureSmoothness ?? 0.88;
+  return Math.max(0.03, Math.min(0.95, baseRoughness * (1.15 - gloss * 0.8) * (1.1 - smooth * 0.2)));
+}
+
+export function getEffectiveWallRoughness(baseRoughness: number, config: HouseMaterialConfig): number {
+  const smooth = config.wallSmoothness ?? 0.88;
+  return Math.max(0.08, Math.min(0.95, baseRoughness * (1.25 - smooth * 0.5)));
+}
+
+export function getEffectiveWallBumpScale(baseScale: number, config: HouseMaterialConfig): number {
+  const smooth = config.wallSmoothness ?? 0.88;
+  return Math.max(0.005, baseScale * (1.35 - smooth * 0.9));
 }
 
 /**
  * Returns procedural high-res floor canvas texture for the given material ID.
  */
-export function getFloorTexture(materialId: string): THREE.CanvasTexture {
+export function getFloorTexture(
+  materialId: string,
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture {
+  // Bind the caller's resolution and anisotropy to every case below. Both were declared and
+  // then never forwarded, so every texture was built at createAndCacheTexture's own 1024 px
+  // default and the graphics Texture Quality control did nothing.
+  const cache = (
+    key: string,
+    drawFn: (ctx: CanvasRenderingContext2D, size: number) => void,
+    repeat: [number, number] = [2, 2]
+  ) => createAndCacheTexture(key, drawFn, repeat, resolution, anisotropy);
+
   switch (materialId) {
     case "carrara_white":
-      return createAndCacheTexture("carrara_white", (ctx, size) => {
+      return cache("carrara_white", (ctx, size) => {
         ctx.fillStyle = "#f8fafc";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(100, 116, 139, 0.18)";
@@ -476,7 +589,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "marquina_black":
-      return createAndCacheTexture("marquina_black", (ctx, size) => {
+      return cache("marquina_black", (ctx, size) => {
         ctx.fillStyle = "#090d16";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
@@ -502,7 +615,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "botticino_gold":
-      return createAndCacheTexture("botticino_gold", (ctx, size) => {
+      return cache("botticino_gold", (ctx, size) => {
         ctx.fillStyle = "#fcf8ee";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(180, 140, 60, 0.25)";
@@ -528,7 +641,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "oasis_green":
-      return createAndCacheTexture("oasis_green", (ctx, size) => {
+      return cache("oasis_green", (ctx, size) => {
         ctx.fillStyle = "#064e3b";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(52, 211, 153, 0.35)";
@@ -553,7 +666,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "travertine_beige":
-      return createAndCacheTexture("travertine_beige", (ctx, size) => {
+      return cache("travertine_beige", (ctx, size) => {
         ctx.fillStyle = "#e8d6be";
         ctx.fillRect(0, 0, size, size);
         ctx.fillStyle = "rgba(180, 160, 130, 0.25)";
@@ -569,7 +682,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "french_chevron_oak":
-      return createAndCacheTexture("french_chevron_oak", (ctx, size) => {
+      return cache("french_chevron_oak", (ctx, size) => {
         ctx.fillStyle = "#dfc093";
         ctx.fillRect(0, 0, size, size);
         const step = 42;
@@ -616,8 +729,115 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
         ctx.stroke();
       }, [3, 3]);
 
+    case "scandinavian_oak":
+      return cache("scandinavian_oak", (ctx, size) => {
+        ctx.fillStyle = "#d8c3a5";
+        ctx.fillRect(0, 0, size, size);
+        const plankH = 48;
+        const plankW = 192;
+        for (let y = 0; y < size; y += plankH) {
+          const rowShift = (Math.floor(y / plankH) % 3) * (plankW / 3);
+          const tone = (y / plankH) % 2 === 0 ? "#dbc7ab" : "#d3be9f";
+          ctx.fillStyle = tone;
+          ctx.fillRect(0, y, size, plankH);
+
+          // Subtle wood fiber streaks
+          ctx.strokeStyle = "rgba(165, 135, 95, 0.22)";
+          ctx.lineWidth = 1.2;
+          for (let s = 4; s < plankH; s += 8) {
+            ctx.beginPath();
+            ctx.moveTo(0, y + s);
+            ctx.lineTo(size, y + s + (Math.sin(s) * 2));
+            ctx.stroke();
+          }
+
+          // Horizontal plank seam
+          ctx.strokeStyle = "rgba(110, 85, 55, 0.45)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y);
+          ctx.stroke();
+
+          // Vertical staggered end seams
+          for (let x = -rowShift; x < size + plankW; x += plankW) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + plankH);
+            ctx.stroke();
+          }
+        }
+      }, [3, 3]);
+
+    case "terrace_grey_paver":
+      return cache("terrace_grey_paver", (ctx, size) => {
+        ctx.fillStyle = "#a1a7b0";
+        ctx.fillRect(0, 0, size, size);
+        const tileSize = 128;
+        for (let y = 0; y < size; y += tileSize) {
+          for (let x = 0; x < size; x += tileSize) {
+            const tileTone = ((x + y) / tileSize) % 2 === 0 ? "#9ca3ac" : "#a8aeb7";
+            ctx.fillStyle = tileTone;
+            ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+
+            // Fine speckled stone texture
+            ctx.fillStyle = "rgba(0, 0, 0, 0.04)";
+            for (let dot = 0; dot < 30; dot++) {
+              const rx = x + 4 + (Math.sin(dot * 7.3) * 0.5 + 0.5) * (tileSize - 8);
+              const ry = y + 4 + (Math.cos(dot * 5.1) * 0.5 + 0.5) * (tileSize - 8);
+              ctx.fillRect(rx, ry, 2, 2);
+            }
+          }
+        }
+        // Grout grid
+        ctx.strokeStyle = "rgba(55, 60, 68, 0.75)";
+        ctx.lineWidth = 2.5;
+        for (let p = 0; p <= size; p += tileSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, p);
+          ctx.lineTo(size, p);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, size);
+          ctx.stroke();
+        }
+      }, [2, 2]);
+
+    case "blue_mosaic_tile":
+      return cache("blue_mosaic_tile", (ctx, size) => {
+        ctx.fillStyle = "#0c1e36";
+        ctx.fillRect(0, 0, size, size);
+        const mosSize = 24;
+        const blues = ["#12365e", "#1b497d", "#154273", "#0f2f54", "#235b9b", "#1a4677"];
+        for (let y = 0; y < size; y += mosSize) {
+          for (let x = 0; x < size; x += mosSize) {
+            const pick = Math.floor(Math.abs(Math.sin(x * 12.3 + y * 7.1)) * blues.length) % blues.length;
+            ctx.fillStyle = blues[pick];
+            ctx.fillRect(x + 1.5, y + 1.5, mosSize - 3, mosSize - 3);
+
+            // Glass specular highlight
+            ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+            ctx.fillRect(x + 2, y + 2, (mosSize - 3) * 0.45, (mosSize - 3) * 0.45);
+          }
+        }
+        // Dark grout grid
+        ctx.strokeStyle = "rgba(5, 12, 24, 0.85)";
+        ctx.lineWidth = 2;
+        for (let p = 0; p <= size; p += mosSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, p);
+          ctx.lineTo(size, p);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, size);
+          ctx.stroke();
+        }
+      }, [4, 4]);
+
     case "walnut_plank":
-      return createAndCacheTexture("walnut_plank", (ctx, size) => {
+      return cache("walnut_plank", (ctx, size) => {
         ctx.fillStyle = "#593318";
         ctx.fillRect(0, 0, size, size);
         const plankH = 64;
@@ -632,7 +852,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "natural_oak":
-      return createAndCacheTexture("natural_oak", (ctx, size) => {
+      return cache("natural_oak", (ctx, size) => {
         ctx.fillStyle = "#c99b5a";
         ctx.fillRect(0, 0, size, size);
         const plankH = 56;
@@ -647,7 +867,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "chevron_teak":
-      return createAndCacheTexture("chevron_teak", (ctx, size) => {
+      return cache("chevron_teak", (ctx, size) => {
         ctx.fillStyle = "#935324";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(60, 30, 10, 0.5)";
@@ -663,7 +883,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "scandi_grey_ash":
-      return createAndCacheTexture("scandi_grey_ash", (ctx, size) => {
+      return cache("scandi_grey_ash", (ctx, size) => {
         ctx.fillStyle = "#b8b9ba";
         ctx.fillRect(0, 0, size, size);
         const plankH = 56;
@@ -678,7 +898,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "herringbone_mahogany":
-      return createAndCacheTexture("herringbone_mahogany", (ctx, size) => {
+      return cache("herringbone_mahogany", (ctx, size) => {
         ctx.fillStyle = "#662619";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(40, 12, 6, 0.6)";
@@ -694,7 +914,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "hex_slate":
-      return createAndCacheTexture("hex_slate", (ctx, size) => {
+      return cache("hex_slate", (ctx, size) => {
         ctx.fillStyle = "#1e293b";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
@@ -718,7 +938,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "moroccan_talavera":
-      return createAndCacheTexture("moroccan_talavera", (ctx, size) => {
+      return cache("moroccan_talavera", (ctx, size) => {
         ctx.fillStyle = "#f8fafc";
         ctx.fillRect(0, 0, size, size);
         const tileSize = 128;
@@ -738,7 +958,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "black_granite":
-      return createAndCacheTexture("black_granite", (ctx, size) => {
+      return cache("black_granite", (ctx, size) => {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, size, size);
         ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
@@ -756,7 +976,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "terrazzo_venice":
-      return createAndCacheTexture("terrazzo_venice", (ctx, size) => {
+      return cache("terrazzo_venice", (ctx, size) => {
         ctx.fillStyle = "#f1ede4";
         ctx.fillRect(0, 0, size, size);
         const colors = ["#c2593f", "#4b7a5a", "#1e293b", "#d97706", "#78716c"];
@@ -775,7 +995,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [2, 2]);
 
     case "subway_ceramic":
-      return createAndCacheTexture("subway_ceramic", (ctx, size) => {
+      return cache("subway_ceramic", (ctx, size) => {
         ctx.fillStyle = "#f1f5f9";
         ctx.fillRect(0, 0, size, size);
         const tileW = 128;
@@ -791,7 +1011,7 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
       }, [3, 3]);
 
     case "quartzite_calacatta":
-      return createAndCacheTexture("quartzite_calacatta", (ctx, size) => {
+      return cache("quartzite_calacatta", (ctx, size) => {
         ctx.fillStyle = "#f8fafc";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(71, 85, 105, 0.3)";
@@ -832,10 +1052,16 @@ export function getFloorTexture(materialId: string): THREE.CanvasTexture {
 /**
  * Returns procedural bump map texture for wall architectural finishes.
  */
-export function getWallTextureBumpMap(textureId: string): THREE.CanvasTexture | null {
+export function getWallTextureBumpMap(
+  textureId: string,
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture | null {
   if (textureId === "matte_paint") return null;
 
-  return createAndCacheTexture(`wall_bump_${textureId}`, (ctx, size) => {
+  return createAndCacheTexture(
+    `wall_bump_${textureId}`,
+    (ctx, size) => {
     ctx.fillStyle = "#808080";
     ctx.fillRect(0, 0, size, size);
 
@@ -932,7 +1158,7 @@ export function getWallTextureBumpMap(textureId: string): THREE.CanvasTexture | 
       ctx.strokeRect(0, 0, size / 2, size);
       ctx.strokeRect(size / 2, 0, size / 2, size);
     }
-  }, [4, 4]);
+  }, [4, 4], resolution, anisotropy);
 }
 
 /**

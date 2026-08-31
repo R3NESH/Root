@@ -4,7 +4,7 @@ date: 2026-08-23
 ---
 # Codebase map
 
-> [!note] Phase 1 complete, plus an unplanned [[step-6-walkthrough]]. 25/25 tests green.
+> [!note] Phase 1 complete, plus an unplanned [[step-6-walkthrough]]. 50/50 tests green.
 > This note is the code↔note index. As files land, add a row. The point is that Obsidian's graph
 > then shows design notes and the code that implements them as one connected structure rather
 > than two disconnected clouds.
@@ -13,7 +13,7 @@ date: 2026-08-23
 > connectivity surface. Added below. See [[project-status]].
 
 > [!tip] There is now a real graph as well as this hand-kept index
-> [[knowledge-graph]] — 435 nodes, 898 edges, built with graphify over code + notes together.
+> [[knowledge-graph]] — 651 nodes, 1,536 edges, built with graphify over code + notes together.
 > It found `solve_layout()` (47 edges) and [[test-baseline]] (13 edges) as the two structural
 > centres. This note stays the human-readable index; the graph is the queryable one.
 
@@ -50,7 +50,7 @@ The module README is the graph node standing in for the code.
 | `frontend/lib/sceneDoorways.ts` | door edge arithmetic; mirrors `_edge_origin()` in [[connectivity.py]] | **done** — extracted from `Scene.tsx` 2026-08-30 |
 | `frontend/lib/blueprint2dPresets.ts` | SVG viewport + drafting preset pills | **done** — extracted from `Blueprint2DView.tsx` 2026-08-30 |
 | `frontend/lib/projectStorage.ts` | `localStorage` persistence — see [[environment-notes]] | **done** — extracted from `page.tsx` 2026-08-30 |
-| `frontend/lib/rooms.ts` | room vocabulary + colours; mirrors `solver/rooms.py` | **done** — 7 kinds |
+| `frontend/lib/rooms.ts` | room vocabulary + colours; mirrors `solver/rooms.py` | **done** — 8 kinds |
 | `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — sends `moved_index`, supports `setRoomPositions()` for contiguous blueprint layouts |
 | `frontend/lib/walkthrough.ts` | [[step-6-walkthrough]] | **done** — 5'5" eye level, room detection, spawn |
 | `frontend/lib/interiorDetails.ts` | [[step-6-walkthrough]] | **done** — procedural PBR textures, furniture, door-aware placement |
@@ -58,10 +58,10 @@ The module README is the graph node standing in for the code.
 | `backend/solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — placement, drift, Vaastu, relaxation ladder clamped bounds |
 | `backend/solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation against the built footprint, area objective |
 | `backend/solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, entrance priority, `derive_openings`, `derive_windows` |
-| `backend/solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — **7 room kinds**, each carrying `habitable` / `wet` / `max_aspect_x10` |
+| `backend/solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — **8 room kinds**, each carrying `habitable` / `wet` / `max_aspect_x10` |
 | `backend/vaastu/rules.py` | [[vaastu-as-constraints]] | **done** — corrected Ishanya NE pooja quadrant coordinates |
 | `backend/api/main.py` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
-| `backend/tests/` | [[test-baseline]] | **43/43 passing** (100%) |
+| `backend/tests/` | [[test-baseline]] | **50/50 passing** (100%) |
 
 Each module folder (`frontend/README.md`, `backend/README.md`, and per-submodule READMEs under
 `backend/`) carries the wikilinks back into this vault, per the convention above.
@@ -71,9 +71,9 @@ Ignored by the vault: `node_modules/`, `.git/`, `.venv/`, `__pycache__/`, `.next
 
 ## Size, re-measured 2026-08-30
 
-Backend **2,274** lines of Python (including 672 of tests). Frontend **20,617** lines of
-TS/TSX plus **6,005** of CSS. The earlier "~10,000 lines frontend" figure was roughly half the
-real number.
+Backend **2,809** lines of Python (including 779 of tests). Frontend **25,662** lines of
+TS/TSX plus **7,810** of CSS. Re-measured 2026-08-31; the 2026-08-30 figures below the
+structurize table were already stale by about 20%.
 
 The weight is lopsided and worth stating plainly: **93% of the code is frontend, and 100% of
 the tests are backend.**
@@ -90,6 +90,9 @@ verbatim, add `export`, add an import — and verified three ways: `tsc --noEmit
 | `components/Scene.tsx` | 3,972 | 3,878 |
 | `components/Blueprint2DView.tsx` | 3,273 | 3,263 |
 | `app/page.tsx` | 1,229 | 1,210 |
+
+Those are the numbers **on the day of that pass**. All three have grown since: measured
+2026-08-31 they are **4,834**, **3,649** and **1,337**.
 
 Two duplications died with it:
 

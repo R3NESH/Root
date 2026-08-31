@@ -19,6 +19,7 @@ interface FurnitureDrawerProps {
   onDuplicateSelected: () => void;
   onDeleteSelected: () => void;
   onDeselectObject: () => void;
+  onOpenAIFurnitureModal?: () => void;
 }
 
 export default function FurnitureDrawer({
@@ -32,6 +33,7 @@ export default function FurnitureDrawer({
   onDuplicateSelected,
   onDeleteSelected,
   onDeselectObject,
+  onOpenAIFurnitureModal,
 }: FurnitureDrawerProps) {
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
@@ -94,6 +96,48 @@ export default function FurnitureDrawer({
               ×
             </button>
           </div>
+
+          {/* AI Photo Scanner Banner */}
+          {onOpenAIFurnitureModal && (
+            <div
+              style={{
+                margin: "0 16px 12px 16px",
+                padding: "10px 14px",
+                background: "linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%)",
+                border: "1px solid rgba(56, 189, 248, 0.4)",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#f8fafc" }}>
+                  📸 AI Photo-to-3D Scanner
+                </div>
+                <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                  Upload any furniture photo to auto-model into 3D
+                </div>
+              </div>
+              <button
+                style={{
+                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                  border: "1px solid #38bdf8",
+                  color: "#ffffff",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+                onClick={onOpenAIFurnitureModal}
+              >
+                ✨ Scan Photo...
+              </button>
+            </div>
+          )}
 
           {/* Category Tabs */}
           <div className={styles.categoryTabs}>

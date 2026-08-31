@@ -30,6 +30,10 @@ import WindowShapeModal from "@/components/WindowShapeModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
 import DoorsWindowsDrawer from "@/components/DoorsWindowsDrawer";
+import FurnitureDrawer from "@/components/FurnitureDrawer";
+import AIFurnitureStudioModal from "@/components/AIFurnitureStudioModal";
+import GraphicsControlModal from "@/components/GraphicsControlModal";
+import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
 import { OpeningItemDef } from "@/lib/openingsCatalog";
 import { SelectedObjectInfo } from "@/components/Scene";
 import { PlacedCustomObject, FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
@@ -102,8 +106,29 @@ export default function Home() {
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
   const [isDoorsWindowsDrawerOpen, setIsDoorsWindowsDrawerOpen] = useState(false);
+  const [isFurnitureDrawerOpen, setIsFurnitureDrawerOpen] = useState(false);
+  const [isAIFurnitureModalOpen, setIsAIFurnitureModalOpen] = useState(false);
+  const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(DEFAULT_GRAPHICS_SETTINGS);
+  const [isGraphicsModalOpen, setIsGraphicsModalOpen] = useState(false);
   const [placingOpeningDef, setPlacingOpeningDef] = useState<OpeningItemDef | null>(null);
   const [isLayoutLocked, setIsLayoutLocked] = useState(false);
+  const [isUpgraded, setIsUpgraded] = useState(true);
+
+  const handleSpawnAIFurniture = useCallback((placedObj: PlacedCustomObject) => {
+    setCustomObjects((prev) => [...prev, placedObj]);
+    setSelectedObjectId(placedObj.id);
+    setSelectedObjectInfo({
+      id: placedObj.id,
+      name: placedObj.name,
+      type: placedObj.type,
+      x: placedObj.x,
+      y: placedObj.y,
+      z: placedObj.z,
+      rotationY: placedObj.rotationY,
+      colorHex: placedObj.colorHex,
+      scale: placedObj.scale,
+    });
+  }, []);
 
   const handleSelectPlaceOpening = useCallback((def: OpeningItemDef | null) => {
     setPlacingOpeningDef(def);
@@ -476,6 +501,20 @@ export default function Home() {
 
   const handleToggleLights = useCallback(() => {
     setLightsOn((prev) => !prev);
+  }, []);
+
+  // Global Keyboard Shortcuts (L for Day/Night Light mode, G for Graphics Studio)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === "l" || e.key === "L") {
+        setLightsOn((prev) => !prev);
+      } else if (e.key === "g" || e.key === "G") {
+        setIsGraphicsModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const selectedObject = useMemo(() => {
@@ -907,6 +946,14 @@ export default function Home() {
         setPlacingRotationY(0);
         setSelectedObjectId(null);
         setSelectedObjectInfo(null);
+        setIsGraphicsModalOpen(false);
+        setIsMaterialModalOpen(false);
+        setIsWindowModalOpen(false);
+        setIsExportModalOpen(false);
+        setIsModelBlueprintsOpen(false);
+        setIsAIFurnitureModalOpen(false);
+        setIsReplaceModalOpen(false);
+        setIsRoomDimensionsOpen(false);
       } else if (e.code === "Delete" || e.code === "Backspace") {
         if (selectedObjectId || selectedObjectInfo) {
           handleDeleteSelected();
@@ -937,13 +984,17 @@ export default function Home() {
           e.preventDefault();
           handleMoveSelected(0.5, 0);
         }
-      } else if (e.code === "KeyL") {
-        handleToggleLayoutLock();
+      } else if (e.code === "KeyG" || e.key === "g" || e.key === "G") {
+        setIsGraphicsModalOpen((prev) => !prev);
+      } else if (e.code === "KeyL" || e.key === "l" || e.key === "L") {
+        handleToggleLights();
+      } else if (e.code === "KeyU" || e.key === "u" || e.key === "U") {
+        setIsUpgraded((prev) => !prev);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLayoutLock, handleMoveSelected]);
+  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLights, handleMoveSelected, setIsUpgraded]);
 
   return (
     <div className={styles.appContainer}>
@@ -968,6 +1019,8 @@ export default function Home() {
         onChangeWindowConfig={setWindowConfig}
         lightsOn={lightsOn}
         onToggleLights={handleToggleLights}
+        isUpgraded={isUpgraded}
+        onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
         isLayoutLocked={isLayoutLocked}
         onToggleLayoutLock={handleToggleLayoutLock}
         onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
@@ -975,6 +1028,8 @@ export default function Home() {
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
+        onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
+        onOpenGraphicsModal={() => setIsGraphicsModalOpen(true)}
         placingItemType={placingItemType}
         onSelectPlaceItem={(type) => {
           setPlacingItemType(type);
@@ -1077,7 +1132,10 @@ export default function Home() {
                 teleportTarget={teleportTarget}
                 lightsOn={lightsOn}
                 furnished={furnished}
+                isUpgraded={isUpgraded}
+                onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
                 materialConfig={materialConfig}
+                graphicsSettings={graphicsSettings}
                 windowConfig={windowConfig}
                 onChangeWindowConfig={setWindowConfig}
                 placingOpeningDef={placingOpeningDef}
@@ -1237,6 +1295,42 @@ export default function Home() {
         placingOpeningDef={placingOpeningDef}
         onSelectPlaceOpening={handleSelectPlaceOpening}
         onOpenWindowShapeModal={() => setIsWindowModalOpen(true)}
+      />
+
+      {/* 3D Furniture & Objects Catalog Drawer */}
+      <FurnitureDrawer
+        isOpen={isFurnitureDrawerOpen}
+        onToggleOpen={() => setIsFurnitureDrawerOpen((prev) => !prev)}
+        placingItemType={placingItemType}
+        onSelectPlaceItem={(type) => {
+          setPlacingItemType(type);
+          if (!type) setPlacingRotationY(0);
+        }}
+        selectedObject={customObjects.find((o) => o.id === selectedObjectId) || null}
+        onRotateSelected={handleRotateSelected}
+        onScaleSelected={handleScaleSelected}
+        onDuplicateSelected={() => {}}
+        onDeleteSelected={handleDeleteSelected}
+        onDeselectObject={() => {
+          setSelectedObjectId(null);
+          setSelectedObjectInfo(null);
+        }}
+        onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
+      />
+
+      {/* AI Photo-to-3D Furniture Studio Modal */}
+      <AIFurnitureStudioModal
+        isOpen={isAIFurnitureModalOpen}
+        onClose={() => setIsAIFurnitureModalOpen(false)}
+        onSpawnFurniture={handleSpawnAIFurniture}
+      />
+
+      {/* AAA Game-Style Graphics Control Studio Modal */}
+      <GraphicsControlModal
+        isOpen={isGraphicsModalOpen}
+        onClose={() => setIsGraphicsModalOpen(false)}
+        settings={graphicsSettings}
+        onChangeSettings={setGraphicsSettings}
       />
     </div>
   );

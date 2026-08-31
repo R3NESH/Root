@@ -5,7 +5,7 @@
 // Persistent stable instance-ID position tracking: adding/removing rooms never shifts existing room placements.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { edgeSetbacksIn, Facing, Setback } from "./plot";
+import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
 import { RoomName } from "./rooms";
 import { PrevRoomIn, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
 
@@ -102,9 +102,13 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(
     async (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => {
-      const [frontIn, , , leftIn] = setback ? edgeSetbacksIn(facing, setback) : [60, 36, 60, 36];
-      const envX0 = meta ? meta.envelope_origin_x_in : leftIn;
-      const envZ0 = meta ? meta.envelope_origin_z_in : frontIn;
+      // World-oriented [N, E, S, W] — the envelope origin is the West and North setback, which
+      // is only the same thing as "left" and "front" on a north-facing plot. See solve.ts.
+      const [northIn, , , westIn] = setback
+        ? edgeSetbacksIn(facing, setback)
+        : edgeSetbacksIn("N", DEFAULT_SETBACK);
+      const envX0 = meta ? meta.envelope_origin_x_in : westIn;
+      const envZ0 = meta ? meta.envelope_origin_z_in : northIn;
 
       // Update persistent instance position immediately
       const movedId = getRoomId(roomList[roomIndex], roomIndex);
@@ -176,9 +180,13 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
       targetWIn: number,
       targetDIn: number
     ) => {
-      const [frontIn, , , leftIn] = setback ? edgeSetbacksIn(facing, setback) : [60, 36, 60, 36];
-      const envX0 = meta ? meta.envelope_origin_x_in : leftIn;
-      const envZ0 = meta ? meta.envelope_origin_z_in : frontIn;
+      // World-oriented [N, E, S, W] — the envelope origin is the West and North setback, which
+      // is only the same thing as "left" and "front" on a north-facing plot. See solve.ts.
+      const [northIn, , , westIn] = setback
+        ? edgeSetbacksIn(facing, setback)
+        : edgeSetbacksIn("N", DEFAULT_SETBACK);
+      const envX0 = meta ? meta.envelope_origin_x_in : westIn;
+      const envZ0 = meta ? meta.envelope_origin_z_in : northIn;
 
       const resizedId = getRoomId(roomList[roomIndex], roomIndex);
       savedPositionsRef.current.set(resizedId, {

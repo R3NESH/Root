@@ -764,6 +764,13 @@
   color: #38bdf8;
 }
 
+/* Offline grid layout, not a solve. Must not read like the success state above. */
+.solverStatusWarn {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
 .solverSubText {
   font-size: 10px;
   color: #94a3b8;

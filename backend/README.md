@@ -22,7 +22,8 @@ for the module ↔ note convention this README follows, and [[project-status]] f
 | `vaastu/` | [[vaastu-as-constraints]] | **done** — [[step-5-vaastu]] |
 | `envelope/` | setbacks — hardcoded gap, see [[environment-notes]] | **done** — duplicates `frontend/lib/plot.ts`, see [[duplicated-geometry]] |
 | `api/` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
-| `tests/` | [[test-baseline]] | **40/40 passing** (api 11, solver 6, stability 4, vaastu 8, realism 11) |
+| `solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — 8 room kinds, each carrying `habitable` / `wet` / `max_aspect_x10` |
+| `tests/` | [[test-baseline]] | **50/50 passing** (api 13, solver 6, stability 4, vaastu 13, realism 14) |
 
 ## Dev
 

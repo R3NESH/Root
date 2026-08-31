@@ -17,7 +17,7 @@ import {
 } from "@/lib/materialsCatalog";
 import { Facing, PLOT_PRESETS, PlotDims } from "@/lib/plot";
 import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName } from "@/lib/rooms";
-import { SolveMeta, SolvedRoom } from "@/lib/solve";
+import { OFFLINE_ESTIMATE_STATUS, SolveMeta, SolvedRoom } from "@/lib/solve";
 import { clampInches, feetToInches, inchesToFeet } from "@/lib/units";
 import {
   WINDOW_SHAPES,
@@ -75,6 +75,8 @@ interface TopRibbonTaskbarProps {
   onChangeWindowConfig?: (config: WindowConfig) => void;
   lightsOn: boolean;
   onToggleLights: () => void;
+  isUpgraded?: boolean;
+  onToggleUpgrade?: () => void;
   isLayoutLocked?: boolean;
   onToggleLayoutLock?: () => void;
   onOpenMaterialModal: () => void;
@@ -108,6 +110,7 @@ interface TopRibbonTaskbarProps {
   onClearAllFurniture: () => void;
   onDeselectObject: () => void;
   totalPlacedCount: number;
+  onOpenGraphicsModal?: () => void;
   deletedBuiltinCount: number;
   onRestoreDefaults: () => void;
   onStartFromScratch?: () => void;
@@ -121,6 +124,7 @@ interface TopRibbonTaskbarProps {
   onChangeWallType?: (type: CustomWallType) => void;
   onToggleDoorsWindowsDrawer?: () => void;
   isDoorsWindowsDrawerOpen?: boolean;
+  onOpenAIFurnitureModal?: () => void;
 }
 
 type RibbonTab = "architecture" | "furniture" | "materials" | "windows" | "blueprints";
@@ -143,6 +147,8 @@ export default function TopRibbonTaskbar({
   onChangeWindowConfig,
   lightsOn,
   onToggleLights,
+  isUpgraded = false,
+  onToggleUpgrade,
   isLayoutLocked = false,
   onToggleLayoutLock,
   onOpenMaterialModal,
@@ -150,6 +156,8 @@ export default function TopRibbonTaskbar({
   onOpenModelBlueprintsModal,
   onOpenExportModal,
   onOpenRoomDimensionsModal,
+  onOpenAIFurnitureModal,
+  onOpenGraphicsModal,
   placingItemType,
   onSelectPlaceItem,
   selectedObject,
@@ -379,12 +387,59 @@ export default function TopRibbonTaskbar({
 
           {/* Quick Scene & Workspace Controls */}
           <div className={styles.quickActionsCluster}>
+            {onOpenGraphicsModal && (
+              <button
+                className={styles.quickIconBtn}
+                style={{
+                  background: "linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%)",
+                  border: "1px solid #38bdf8",
+                  color: "#38bdf8",
+                  fontWeight: 700,
+                  fontSize: "11px",
+                }}
+                onClick={onOpenGraphicsModal}
+                title="Graphics & Performance Control (Press 'G')"
+              >
+                🎮 Graphics (4K)
+              </button>
+            )}
+
+            {onToggleUpgrade && (
+              <button
+                className={styles.quickIconBtn}
+                style={{
+                  background: isUpgraded
+                    ? "linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)"
+                    : "rgba(255, 255, 255, 0.08)",
+                  border: isUpgraded ? "1px solid #f472b6" : "1px solid rgba(244, 114, 182, 0.4)",
+                  color: "#ffffff",
+                  fontWeight: 800,
+                  fontSize: "11px",
+                  boxShadow: isUpgraded ? "0 0 12px rgba(236, 72, 153, 0.5)" : "none",
+                  letterSpacing: "0.4px",
+                }}
+                onClick={onToggleUpgrade}
+                title="Toggle Photorealistic Studio Upgrade (Curved Bouclé Cloud Sofas, Custom Library Shelving, Herringbone Oak Parquet & Wainscoting) - Press 'U'"
+              >
+                {isUpgraded ? "✨ UPGRADE ON" : "✨ UPGRADE"}
+              </button>
+            )}
+
             <button
               className={styles.quickIconBtn}
+              style={{
+                background: lightsOn
+                  ? "linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(249, 115, 22, 0.25) 100%)"
+                  : "linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%)",
+                border: lightsOn ? "1px solid #f59e0b" : "1px solid #64748b",
+                color: lightsOn ? "#fef08a" : "#94a3b8",
+                fontWeight: 700,
+                fontSize: "11px",
+              }}
               onClick={onToggleLights}
-              title={lightsOn ? "Switch to Night Ambient Lighting" : "Switch to Day Sun Lighting"}
+              title={lightsOn ? "Switch to Dark / Night Mode (Atmospheric Moonlight & Lamps)" : "Switch to Light / Day Mode (Sunny Blue Sky & Sun)"}
             >
-              {lightsOn ? "💡 Day" : "🌙 Night"}
+              {lightsOn ? "☀️ Day (Light)" : "🌙 Night (Dark)"}
             </button>
 
             {mode === "orbit" && onToggleLayoutLock && (
@@ -669,9 +724,25 @@ export default function TopRibbonTaskbar({
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.solverBadge}>
-                    <span className={styles.solverStatusText}>
-                      ✨ {meta?.status ?? "Vastu Solved"}
-                    </span>
+                    {meta?.status === OFFLINE_ESTIMATE_STATUS ? (
+                      <span
+                        className={styles.solverStatusWarn}
+                        title="The solver is unreachable, so these rooms are a rough grid. No Vaastu rule was checked and no doors were derived. Start the backend to get a real plan."
+                      >
+                        ⚠ Offline estimate — Vaastu not checked
+                      </span>
+                    ) : meta?.vaastu_relaxed ? (
+                      <span
+                        className={styles.solverStatusWarn}
+                        title="This program would not fit with the Vaastu quadrants applied, so the solver dropped them to return a layout at all. Remove a room or enlarge the plot to get a compliant plan."
+                      >
+                        ⚠ Vaastu relaxed to fit
+                      </span>
+                    ) : (
+                      <span className={styles.solverStatusText}>
+                        ✨ {meta?.status ?? "Vastu Solved"}
+                      </span>
+                    )}
                     <span className={styles.solverSubText}>
                       {widthFt}&apos; × {depthFt}&apos; ({sqFt.toLocaleString()} sq ft)
                     </span>
@@ -751,6 +822,25 @@ export default function TopRibbonTaskbar({
                   )}
                 </div>
                 <div className={styles.groupLabel}>Management</div>
+              </div>
+
+              {/* AI Vision Studio */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <button
+                    className={styles.bigStudioBtn}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(2, 132, 199, 0.45) 0%, rgba(99, 102, 241, 0.45) 100%)",
+                      borderColor: "#38bdf8",
+                      boxShadow: "0 0 15px rgba(56, 189, 248, 0.25)",
+                    }}
+                    onClick={onOpenAIFurnitureModal}
+                    title="Upload or snap any photo to let AI generate and model 3D furniture into your house"
+                  >
+                    📸 AI Photo to 3D...
+                  </button>
+                </div>
+                <div className={styles.groupLabel}>AI 3D Modeling</div>
               </div>
             </div>
           )}
@@ -913,6 +1003,44 @@ export default function TopRibbonTaskbar({
                   </div>
                 </div>
                 <div className={styles.groupLabel}>Design Themes</div>
+              </div>
+
+              {/* 4K Ultra Fidelity & Smoothness Quick-Toggle */}
+              <div className={styles.ribbonGroup}>
+                <div className={styles.groupBody}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <button
+                      className={`${styles.themePresetBtn} ${materialConfig.graphicsFidelityTier === "ultra_extreme" ? styles.themePresetBtnActive : ""}`}
+                      style={{
+                        background: materialConfig.graphicsFidelityTier === "ultra_extreme"
+                          ? "linear-gradient(135deg, rgba(2, 132, 199, 0.4) 0%, rgba(99, 102, 241, 0.4) 100%)"
+                          : undefined,
+                        borderColor: materialConfig.graphicsFidelityTier === "ultra_extreme" ? "#38bdf8" : undefined,
+                        padding: "4px 8px",
+                      }}
+                      onClick={() =>
+                        onChangeMaterialConfig({
+                          ...materialConfig,
+                          graphicsFidelityTier: materialConfig.graphicsFidelityTier === "ultra_extreme" ? "high" : "ultra_extreme",
+                          textureResolution: 4096,
+                          anisotropicFiltering: 16,
+                          textureSmoothness: 0.90,
+                          floorGlossLevel: 0.95,
+                          wallSmoothness: 0.90,
+                        })
+                      }
+                      title="Toggle 4K Ultra Textures & 16x Anisotropic Filtering"
+                    >
+                      <span>💎</span>
+                      <span>{materialConfig.graphicsFidelityTier === "ultra_extreme" ? "4K Ultra ON" : "4K Ultra Mode"}</span>
+                    </button>
+                    <div style={{ display: "flex", gap: "4px", fontSize: "10px", color: "#38bdf8", fontWeight: 700 }}>
+                      <span>Smooth: {Math.round((materialConfig.textureSmoothness ?? 0.88) * 100)}%</span>
+                      <span>• Gloss: {Math.round((materialConfig.floorGlossLevel ?? 0.92) * 100)}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.groupLabel}>Graphics Fidelity</div>
               </div>
 
               {/* Open Full Studio */}

@@ -1,5 +1,6 @@
 // 3D Architectural Furniture & Objects Catalog & Procedural Mesh Factories
 import * as THREE from "three";
+import { AIFurnitureParametricDef, createAIFurnitureMesh } from "./aiFurnitureEngine";
 
 export type FurnitureCategory = "living" | "bedroom" | "dining" | "kitchen" | "office" | "decor" | "sacred" | "walls";
 
@@ -23,6 +24,7 @@ export interface PlacedCustomObject {
   rotationY: number; // radians
   scale: number; // 0.8 - 1.5
   colorHex?: number;
+  aiParametricDef?: AIFurnitureParametricDef;
 }
 
 export const FURNITURE_COLOR_SWATCHES = [
@@ -444,7 +446,15 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
 // Procedural 3D Mesh Generator Engine
 // --------------------------------------------------------------------------------------
 
-export function createFurnitureMesh(type: string, customColor?: number): THREE.Group {
+export function createFurnitureMesh(
+  type: string,
+  customColor?: number,
+  aiDef?: AIFurnitureParametricDef
+): THREE.Group {
+  if (aiDef) {
+    return createAIFurnitureMesh(aiDef, customColor);
+  }
+
   const root = new THREE.Group();
 
   // Shared reusable materials
