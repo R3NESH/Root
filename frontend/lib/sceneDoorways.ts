@@ -20,6 +20,8 @@ export interface Doorway {
   edgeA: Edge;
   edgeB: Edge;
   center: number;
+  /** Leaf width in feet, from the solver's `width_in`. The renderer must not invent its own. */
+  widthFt: number;
 }
 
 export const oppositeEdge: Record<Edge, Edge> = {

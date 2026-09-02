@@ -1,7 +1,8 @@
 // API client — notes/build/step-3-wire-together.md: fetch from FastAPI solver backend.
 
 import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
-import { RoomName } from "./rooms";
+import { ProgramKey } from "./programs";
+import { RoomName, withCounts } from "./rooms";
 
 export interface RoomSpecIn {
   id?: string;
@@ -55,6 +56,13 @@ export interface SolveMeta {
   // the mix has rules. Distinct from an empty `vaastu_constraints_applied`, which is also the
   // correct answer for a mix that has no ruled room in it at all.
   vaastu_relaxed?: boolean;
+  // Which programme was packed and what its directional rules are called. A cafe posts
+  // service-flow zoning, not Vaastu, so `rules_applied` is the generic carrier and
+  // `vaastu_constraints_applied` stays empty for it — backend/programs/registry.py.
+  program?: string;
+  rules_label?: string;
+  rules_applied?: string[];
+  rules_relaxed?: boolean;
 }
 
 export interface SolveResponse {
@@ -78,6 +86,9 @@ export interface SolveRequestArgs {
   // Index of the room the user just dragged — only that room is released from its Vaastu
   // quadrant. See notes/solver/vaastu-and-connectivity-drop-on-edit.md.
   movedIndex?: number;
+  // Which building programme to pack. Omitted means "residence", which is what every caller
+  // meant before there was a second one.
+  program?: ProgramKey;
 }
 
 const SOLVER_API_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000";
@@ -126,6 +137,9 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
         status: "Empty Plot",
         solve_ms: 1,
         vaastu_constraints_applied: [],
+        rules_applied: [],
+        rules_relaxed: false,
+        program: args.program ?? "residence",
         envelope_origin_x_in: envOriginX,
         envelope_origin_z_in: envOriginZ,
         envelope_w_in: envW,
@@ -161,6 +175,16 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     else if (name === "pooja") { defW = 60; defD = 60; }
     else if (name === "store") { defW = 60; defD = 72; }
     else if (name === "entrance") { defW = 84; defD = 72; }
+    else if (name === "seating") { defW = 216; defD = 192; }
+    else if (name === "lounge") { defW = 144; defD = 132; }
+    else if (name === "entry") { defW = 84; defD = 72; }
+    else if (name === "queue") { defW = 54; defD = 132; }
+    else if (name === "counter") { defW = 156; defD = 60; }
+    else if (name === "prep") { defW = 156; defD = 132; }
+    else if (name === "pantry") { defW = 84; defD = 84; }
+    else if (name === "wash") { defW = 72; defD = 72; }
+    else if (name === "washroom") { defW = 72; defD = 90; }
+    else if (name === "staff") { defW = 96; defD = 96; }
 
     const wIn = isObj && r.custom_w_in ? r.custom_w_in : defW;
     const dIn = isObj && r.custom_d_in ? r.custom_d_in : defD;
@@ -199,8 +223,8 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     // Openings: Doors & Windows
     const openings: RoomOpening[] = [];
 
-    // Grand Entrance on Hall or Entrance Room
-    if (spec.name === "entrance") {
+    // Grand Entrance on Hall, Entrance Room, or a shop's street-facing Entry
+    if (spec.name === "entrance" || spec.name === "entry") {
       openings.push({
         kind: "entrance",
         edge: cardinalFacing,
@@ -329,6 +353,10 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       // room reachable from the start is the start room itself.
       rooms_reachable: solvedRooms.length > 0 ? 1 : 0,
       vaastu_relaxed: true,
+      // Same honesty for the second programme: no service-flow zoning was posted either.
+      program: args.program ?? "residence",
+      rules_applied: [],
+      rules_relaxed: true,
     },
   };
 }
@@ -357,6 +385,7 @@ export async function requestSolve(
     prev: args.prev,
     moved_index: args.movedIndex,
     apply_vaastu: true,
+    program: args.program ?? "residence",
   };
 
   let res: Response;
@@ -382,3 +411,102 @@ export async function requestSolve(
   }
   return await res.json();
 }
+
+export interface ParsedPromptClient {
+  plotWIn: number;
+  plotDIn: number;
+  facing: Facing;
+  counts: Record<RoomName, number>;
+  applyVaastu: boolean;
+  rawPrompt: string;
+}
+
+export function parsePromptClient(prompt: string): ParsedPromptClient {
+  const text = prompt.trim().toLowerCase();
+
+  // 1. Dimensions
+  let wFt = 30;
+  let dFt = 40;
+  const dimMatch = text.match(
+    /(\d+(?:\.\d+)?)\s*(?:x|\*|by|\'|ft)?\s*(?:x|\*|by)?\s*(\d+(?:\.\d+)?)\s*(?:ft|\'|feet|m|meter)?/i
+  );
+  if (dimMatch) {
+    wFt = parseFloat(dimMatch[1]);
+    dFt = parseFloat(dimMatch[2]);
+  }
+
+  // 2. Facing
+  let facing: Facing = "N";
+  if (/\b(north\s*-\s*east|ne)\b/i.test(text)) facing = "NE";
+  else if (/\b(north\s*-\s*west|nw)\b/i.test(text)) facing = "NW";
+  else if (/\b(south\s*-\s*east|se)\b/i.test(text)) facing = "SE";
+  else if (/\b(south\s*-\s*west|sw)\b/i.test(text)) facing = "SW";
+  else if (/\b(north|n\s*facing)\b/i.test(text)) facing = "N";
+  else if (/\b(east|e\s*facing)\b/i.test(text)) facing = "E";
+  else if (/\b(south|s\s*facing)\b/i.test(text)) facing = "S";
+  else if (/\b(west|w\s*facing)\b/i.test(text)) facing = "W";
+
+  // 3. BHK Counts
+  const counts: Record<RoomName, number> = withCounts({
+    hall: 1,
+    kitchen: 1,
+    bedroom: 2,
+    bathroom: 2,
+  });
+
+  const bhkMatch = text.match(/(\d+)\s*(?:bhk|bed|bedroom)/i);
+  const bhkCount = bhkMatch ? parseInt(bhkMatch[1], 10) : 2;
+
+  if (bhkCount === 1) {
+    counts.bedroom = 1;
+    counts.bathroom = 1;
+    counts.dining = 0;
+  } else if (bhkCount === 2) {
+    counts.bedroom = 2;
+    counts.bathroom = 2;
+    counts.dining = 1;
+  } else if (bhkCount === 3) {
+    counts.bedroom = 3;
+    counts.bathroom = 2;
+    counts.dining = 1;
+  } else if (bhkCount >= 4) {
+    counts.bedroom = Math.min(4, bhkCount);
+    counts.bathroom = 3;
+    counts.dining = 1;
+  }
+
+  if (/\b(pooja|puja|mandir|prayer)\b/i.test(text)) counts.pooja = 1;
+  if (/\b(store|storage|pantry)\b/i.test(text)) counts.store = 1;
+  if (/\b(dining)\b/i.test(text)) counts.dining = 1;
+  if (/\b(entrance|foyer)\b/i.test(text)) counts.entrance = 1;
+
+  const applyVaastu = !/\b(no\s*vaastu|ignore\s*vaastu|without\s*vaastu|no\s*vastu)\b/i.test(
+    text
+  );
+
+  return {
+    plotWIn: Math.round(wFt * 12),
+    plotDIn: Math.round(dFt * 12),
+    facing,
+    counts,
+    applyVaastu,
+    rawPrompt: prompt,
+  };
+}
+
+export async function solvePromptApi(prompt: string): Promise<any> {
+  try {
+    const res = await fetch(`${SOLVER_API_URL}/solve-prompt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Backend offline
+  }
+  return null;
+}
+

@@ -19,9 +19,17 @@ import {
   Facing,
   PlotDims,
 } from "@/lib/plot";
-import { findAdjacentRoomEdge, RoomName, ROOM_NAMES, ROOM_LABELS } from "@/lib/rooms";
+import { findAdjacentRoomEdge, RoomName, ROOM_NAMES, ROOM_LABELS, withCounts } from "@/lib/rooms";
+import { defaultCounts, getProgram, ProgramKey } from "@/lib/programs";
+import { seatingCapacity } from "@/lib/cafeInteriors";
+import {
+  resolveWallBandScheme,
+  roomInstanceId,
+  wallBandKey,
+  WallBandScheme,
+} from "@/lib/wallBands";
 import { useSolve } from "@/lib/useSolve";
-import { RoomOpening, RoomSpecIn } from "@/lib/solve";
+import { parsePromptClient, RoomOpening, RoomSpecIn, solvePromptApi } from "@/lib/solve";
 import { feetToInches, inchesToFeet } from "@/lib/units";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
 import ModelBlueprintsModal from "@/components/ModelBlueprintsModal";
@@ -30,7 +38,7 @@ import WindowShapeModal from "@/components/WindowShapeModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
 import DoorsWindowsDrawer from "@/components/DoorsWindowsDrawer";
-import FurnitureDrawer from "@/components/FurnitureDrawer";
+import LeftToolRail from "@/components/LeftToolRail";
 import AIFurnitureStudioModal from "@/components/AIFurnitureStudioModal";
 import GraphicsControlModal from "@/components/GraphicsControlModal";
 import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
@@ -63,21 +71,22 @@ import {
 import { clearProject, loadProject, saveProject } from "@/lib/projectStorage";
 import styles from "./page.module.css";
 
-const DEFAULT_COUNTS: Record<RoomName, number> = {
+const DEFAULT_COUNTS: Record<RoomName, number> = withCounts({
   hall: 1,
   dining: 1,
   kitchen: 1,
   bedroom: 2,
   bathroom: 1,
-  pooja: 0,
-  store: 0,
-  entrance: 0,
-};
+});
 
 export default function Home() {
   const [plot, setPlot] = useState<PlotDims>(DEFAULT_PLOT);
   const [facing, setFacing] = useState<Facing>("N");
   const [counts, setCounts] = useState<Record<RoomName, number>>(DEFAULT_COUNTS);
+  // Which building type the solver is packing. Swapping it swaps the space vocabulary, the
+  // circulation hub and the rules posted before the solve — see lib/programs.ts.
+  const [programKey, setProgramKey] = useState<ProgramKey>("residence");
+  const program = getProgram(programKey);
   const [customDims, setCustomDims] = useState<Record<string, CustomDim>>({});
   const [customOpenings, setCustomOpenings] = useState<Record<string, RoomOpening[]>>({});
   const [customWallThickness, setCustomWallThickness] = useState<Record<string, number>>({});
@@ -106,7 +115,6 @@ export default function Home() {
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
   const [isDoorsWindowsDrawerOpen, setIsDoorsWindowsDrawerOpen] = useState(false);
-  const [isFurnitureDrawerOpen, setIsFurnitureDrawerOpen] = useState(false);
   const [isAIFurnitureModalOpen, setIsAIFurnitureModalOpen] = useState(false);
   const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(DEFAULT_GRAPHICS_SETTINGS);
   const [isGraphicsModalOpen, setIsGraphicsModalOpen] = useState(false);
@@ -218,7 +226,87 @@ export default function Home() {
     facing,
     rooms: roomListWithSpecs,
     setback: DEFAULT_SETBACK,
+    program: programKey,
   });
+
+  // Why the viewport is empty, when it is. Every one of these used to render as a blank screen
+  // that looks like a rendering bug and is not one: a backend that predates a space in the mix
+  // rejects it by name and returns nothing at all. `staleBackend` already existed for the
+  // related case and was computed but never shown.
+  const requestedSpaceCount = roomListWithSpecs.length;
+  const solverNotice: { title: string; detail: string } | null = (() => {
+    if (pending) return null;
+    if (error) {
+      return {
+        title: "The solver rejected the request",
+        detail: `${error}. Check the backend terminal, then reload.`,
+      };
+    }
+    const unknown = meta?.unknown_room_names ?? [];
+    if (unknown.length > 0) {
+      return {
+        title: `The solver does not know ${unknown.length} of these spaces`,
+        detail: `It rejected ${unknown.join(", ")}. This is almost always a backend started before those spaces existed - restart it with "cd backend && .venv/Scripts/python.exe -m uvicorn api.main:app --reload".`,
+      };
+    }
+    if (requestedSpaceCount > 0 && solvedRooms.length === 0) {
+      return {
+        title: "The solver returned no layout",
+        detail: `Status ${meta?.status ?? "unknown"}. The programme may not fit this plot - remove a space or enlarge the plot.`,
+      };
+    }
+    if (staleBackend) {
+      return {
+        title: "The solver returned no doors or windows",
+        detail:
+          "The backend is out of date, so the house has solid walls and no way in. Restart it to get openings.",
+      };
+    }
+    return null;
+  })();
+
+  // Paint bands on the wall the user has selected, and the writer that changes them. Keyed by
+  // the room instance id plus the edge, the same pair the wall inspector already works in.
+  const selectedWallBands = useMemo(() => {
+    const info = selectedObjectInfo;
+    if (!info?.isWall || info.roomIndex == null || !info.edge) return undefined;
+    const room = solvedRooms[info.roomIndex];
+    if (!room) return undefined;
+    return resolveWallBandScheme(
+      materialConfig,
+      roomInstanceId(solvedRooms, info.roomIndex),
+      room.name as RoomName,
+      info.edge
+    );
+  }, [selectedObjectInfo, solvedRooms, materialConfig]);
+
+  const handleChangeSelectedWallBands = useCallback(
+    (scheme: WallBandScheme | null) => {
+      const info = selectedObjectInfo;
+      if (!info?.isWall || info.roomIndex == null || !info.edge) return;
+      const room = solvedRooms[info.roomIndex];
+      if (!room) return;
+      const key = wallBandKey(roomInstanceId(solvedRooms, info.roomIndex), info.edge);
+      setMaterialConfig((prev) => {
+        const next = { ...(prev.wallBands ?? {}) };
+        // Clearing drops the override so the wall falls back to its room, then the building.
+        if (scheme === null) delete next[key];
+        else next[key] = scheme;
+        return { ...prev, wallBands: next };
+      });
+    },
+    [selectedObjectInfo, solvedRooms]
+  );
+
+  // Covers the solved seating actually holds at the laid-out table pitch. The number a cafe
+  // owner cares about first, and the one a labelled rectangle does not give them.
+  const coverCount = useMemo(() => {
+    if (program.key !== "cafe") return 0;
+    return solvedRooms.reduce((total, r) => {
+      if (r.name !== "seating" && r.name !== "lounge") return total;
+      return total + seatingCapacity(r.w_in / 12, r.d_in / 12).seats;
+    }, 0);
+  }, [program.key, solvedRooms]);
 
   // Apply a curated or imported model blueprint to instantly configure and construct the house in 2D & 3D
   const handleRoomResize = useCallback(
@@ -250,10 +338,101 @@ export default function Home() {
     [solvedRooms, counts, resizeRoom]
   );
 
+  const [isSimulatingPrompt, setIsSimulatingPrompt] = useState(false);
+
+  const handlePromptToSimulate = useCallback(
+    async (promptText: string) => {
+      if (!promptText.trim()) return;
+      setIsSimulatingPrompt(true);
+
+      try {
+        const apiRes = await solvePromptApi(promptText);
+
+        if (apiRes && apiRes.data) {
+          const { plot: plotData, rooms: roomData } = apiRes.data;
+          setPlot({
+            widthIn: plotData.w_in,
+            depthIn: plotData.d_in,
+          });
+          setFacing(plotData.facing as Facing);
+
+          const newCounts: Record<RoomName, number> = withCounts({});
+          for (const r of roomData) {
+            const name = r.name.toLowerCase() as RoomName;
+            if (name in newCounts) {
+              newCounts[name] = (newCounts[name] || 0) + 1;
+            }
+          }
+          setCounts(newCounts);
+          setCustomDims({});
+          setCustomWalls([]);
+          setCustomRoomZones([]);
+          setDeletedBuiltinIds([]);
+          setSelectedObjectId(null);
+          setSelectedObjectInfo(null);
+          setActiveBlueprintName(null);
+
+          if (roomData.length > 0) {
+            setRoomPositions(
+              roomData.map((r: any) => ({
+                name: r.name,
+                floor: 0,
+                x_in: r.x_in,
+                y_in: r.y_in,
+                w_in: r.w_in,
+                d_in: r.d_in,
+                wall_thickness_in: r.wall_thickness_in ?? 5,
+                habitable: r.habitable ?? true,
+                wet: r.wet ?? false,
+                openings: r.openings ?? [],
+              }))
+            );
+          }
+        } else {
+          const parsed = parsePromptClient(promptText);
+          setPlot({
+            widthIn: parsed.plotWIn,
+            depthIn: parsed.plotDIn,
+          });
+          setFacing(parsed.facing);
+          setCounts(parsed.counts);
+          setCustomDims({});
+          setCustomWalls([]);
+          setCustomRoomZones([]);
+          setDeletedBuiltinIds([]);
+          setSelectedObjectId(null);
+          setSelectedObjectInfo(null);
+          setActiveBlueprintName(null);
+          resetPositions();
+        }
+
+        setMode("walkthrough");
+      } catch (err) {
+        console.error("Prompt simulation error:", err);
+      } finally {
+        setIsSimulatingPrompt(false);
+      }
+    },
+    [setRoomPositions, resetPositions]
+  );
+
+
   const handleApplyModelBlueprint = (
     bp: ModelBlueprint,
     targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint"
   ) => {
+    // A cafe plan carries cafe spaces. Applying it while the residence programme is active
+    // would send `seating` and `counter` to a solver that rejects them as unknown, so switch
+    // the programme first — and do it here rather than through handleChangeProgram(), which
+    // resets the mix to the programme default and would clobber the plan we are applying.
+    const bpProgram = bp.program ?? "residence";
+    if (bpProgram !== programKey) {
+      setProgramKey(bpProgram);
+      setCustomObjects([]);
+      setPlacingItemType(null);
+      setPlacingRotationY(0);
+    }
+
     if (bp.customPositions) {
       setRoomPositions(bp.customPositions);
     } else {
@@ -265,7 +444,7 @@ export default function Home() {
       depthIn: feetToInches(bp.plotDepthFt),
     });
     setFacing(bp.facing);
-    setCounts(bp.counts);
+    setCounts(withCounts(bp.counts));
     setCustomDims(bp.customDims);
     setCustomOpenings(bp.customOpenings ?? {});
     setCustomWallThickness(bp.customWallThickness ?? {});
@@ -355,20 +534,35 @@ export default function Home() {
     setMode(targetMode);
   };
 
+  // Switching building type restarts the programme: the mix, the custom sizes and the placed
+  // furniture all belong to the old vocabulary, and a cafe carrying a bedroom's dimensions is
+  // not a smaller edit than starting clean.
+  const handleChangeProgram = useCallback(
+    (next: ProgramKey) => {
+      if (next === programKey) return;
+      const nextProgram = getProgram(next);
+      setProgramKey(next);
+      setCounts(defaultCounts(nextProgram));
+      setCustomDims({});
+      setCustomOpenings({});
+      setCustomObjects([]);
+      setDeletedBuiltinIds([]);
+      setSelectedObjectId(null);
+      setSelectedObjectInfo(null);
+      // An armed item from the old rail no longer exists in the new one.
+      setPlacingItemType(null);
+      setPlacingRotationY(0);
+      setActiveBlueprintName(nextProgram.label);
+      resetPositions();
+    },
+    [programKey, resetPositions]
+  );
+
   // Start From Scratch Blank Canvas Mode: Clears automated pre-built rooms to allow 100% custom CAD drafting
   const handleStartFromScratch = useCallback(() => {
     resetPositions();
     setActiveBlueprintName("Custom Freehand Draft");
-    setCounts({
-      hall: 0,
-      dining: 0,
-      kitchen: 0,
-      bedroom: 0,
-      bathroom: 0,
-      pooja: 0,
-      store: 0,
-      entrance: 0,
-    });
+    setCounts(withCounts({}));
     setCustomDims({});
     setCustomOpenings({});
     setCustomWallThickness({});
@@ -1008,6 +1202,11 @@ export default function Home() {
         onChangeFacing={setFacing}
         counts={counts}
         onChangeCounts={setCounts}
+        program={program}
+        onChangeProgram={handleChangeProgram}
+        coverCount={coverCount}
+        selectedWallBands={selectedWallBands}
+        onChangeSelectedWallBands={handleChangeSelectedWallBands}
         furnished={furnished}
         onToggleFurnished={setFurnished}
         customDims={customDims}
@@ -1023,12 +1222,10 @@ export default function Home() {
         onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
         isLayoutLocked={isLayoutLocked}
         onToggleLayoutLock={handleToggleLayoutLock}
-        onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
         onOpenWindowModal={() => setIsWindowModalOpen(true)}
         onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
-        onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
         onOpenGraphicsModal={() => setIsGraphicsModalOpen(true)}
         placingItemType={placingItemType}
         onSelectPlaceItem={(type) => {
@@ -1046,14 +1243,10 @@ export default function Home() {
         onToggleRemoveWall={handleToggleRemoveWall}
         onAddWindowToWall={handleAddWindowToWall}
         onMoveSelected={handleMoveSelected}
-        onClearAllFurniture={handleClearAllFurniture}
         onDeselectObject={() => {
           setSelectedObjectId(null);
           setSelectedObjectInfo(null);
         }}
-        totalPlacedCount={customObjects.length}
-        deletedBuiltinCount={deletedBuiltinIds.length}
-        onRestoreDefaults={handleRestoreDefaults}
         onStartFromScratch={handleStartFromScratch}
         onResetDesign={handleResetDesign}
         lastSavedTime={lastSavedTime}
@@ -1065,13 +1258,42 @@ export default function Home() {
         onChangeWallType={setActiveWallType}
         onToggleDoorsWindowsDrawer={() => setIsDoorsWindowsDrawerOpen((prev) => !prev)}
         isDoorsWindowsDrawerOpen={isDoorsWindowsDrawerOpen}
+        onPromptToSimulate={handlePromptToSimulate}
+        isSimulatingPrompt={isSimulatingPrompt}
       />
 
+
       <main className={styles.mainLayout}>
+        {/* Interior design tool rail (furniture, finishes, object management) */}
+        <LeftToolRail
+          program={program}
+          placingItemType={placingItemType}
+          onSelectPlaceItem={(type) => {
+            setPlacingItemType(type);
+            if (!type) setPlacingRotationY(0);
+          }}
+          materialConfig={materialConfig}
+          onChangeMaterialConfig={setMaterialConfig}
+          onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
+          onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
+          totalPlacedCount={customObjects.length}
+          deletedBuiltinCount={deletedBuiltinIds.length}
+          onRestoreDefaults={handleRestoreDefaults}
+          onClearAllFurniture={handleClearAllFurniture}
+        />
+
         <section className={styles.viewport}>
+          {solverNotice && (
+            <div className={styles.solverNotice} role="alert">
+              <div className={styles.solverNoticeTitle}>⚠ {solverNotice.title}</div>
+              <div className={styles.solverNoticeDetail}>{solverNotice.detail}</div>
+            </div>
+          )}
+
           {mode === "blueprint" ? (
             /* 2D Architectural Blueprint View */
             <Blueprint2DView
+              spaces={program.spaces}
               plot={plot}
               facing={facing}
               setback={DEFAULT_SETBACK}
@@ -1274,6 +1496,7 @@ export default function Home() {
 
       {/* Curated Model Blueprints Catalog Modal */}
       <ModelBlueprintsModal
+        program={program}
         isOpen={isModelBlueprintsOpen}
         onClose={() => setIsModelBlueprintsOpen(false)}
         onSelectBlueprint={handleApplyModelBlueprint}
@@ -1295,27 +1518,6 @@ export default function Home() {
         placingOpeningDef={placingOpeningDef}
         onSelectPlaceOpening={handleSelectPlaceOpening}
         onOpenWindowShapeModal={() => setIsWindowModalOpen(true)}
-      />
-
-      {/* 3D Furniture & Objects Catalog Drawer */}
-      <FurnitureDrawer
-        isOpen={isFurnitureDrawerOpen}
-        onToggleOpen={() => setIsFurnitureDrawerOpen((prev) => !prev)}
-        placingItemType={placingItemType}
-        onSelectPlaceItem={(type) => {
-          setPlacingItemType(type);
-          if (!type) setPlacingRotationY(0);
-        }}
-        selectedObject={customObjects.find((o) => o.id === selectedObjectId) || null}
-        onRotateSelected={handleRotateSelected}
-        onScaleSelected={handleScaleSelected}
-        onDuplicateSelected={() => {}}
-        onDeleteSelected={handleDeleteSelected}
-        onDeselectObject={() => {
-          setSelectedObjectId(null);
-          setSelectedObjectInfo(null);
-        }}
-        onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
       />
 
       {/* AI Photo-to-3D Furniture Studio Modal */}

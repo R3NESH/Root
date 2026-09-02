@@ -33,7 +33,14 @@ The module README is the graph node standing in for the code.
 | Module | Implements | Status |
 |---|---|---|
 | `frontend/components/Scene.tsx` | [[step-1-threejs-shell]], [[architecture]], [[integer-inches]], [[step-6-walkthrough]], [[realism-gaps]] | **done** — envelope, extrusion, drag-and-drop, first-person camera, roof/parapet/chajja, strict exterior-only window filtering, and automatic doorway alignment |
-| `frontend/components/TopRibbonTaskbar.tsx` | MS Paint / CAD Ribbon Taskbar | **done** — Architectural drafting tools, furniture catalog, finishes studio, window customizer, and CAD blueprints catalog |
+| `frontend/components/TopRibbonTaskbar.tsx` | Flat CAD Ribbon Taskbar | **done** — Application bar, tab strip (Home / Structure / Blueprints / AI Prompt), panel shelf, and selection inspector |
+| `frontend/components/LeftToolRail.tsx` | Interior Design Tool Rail | **done** — Docked icon rail with flyout panels for furniture categories, finishes, and placed-object management |
+| `backend/programs/registry.py` | Building Programme Packs | **done** — Residence (Vaastu) and Café (service-flow zoning) as data; hub, parent tree, forbidden pairs and directional rules per building type |
+| `frontend/lib/programs.ts` | Programme Mirror (TS) | **done** — Space vocabulary, default mix and per-space ceilings the ribbon offers per building type |
+| `frontend/lib/cafeInteriors.ts` | Café Procedural Fit-Out | **done** — Seating grid at ADA/trade clearances, service counter with order-to-pickup split, commercial kitchen, queue, WC |
+| `frontend/lib/furnitureCatalog.ts` | Furniture & Fit-Out Catalog | **done** — 43 residential pieces plus 27 café pieces across seating, service, decor, signage, back-of-house and terrace; the left rail offers whichever set the active programme names |
+| `frontend/lib/wallBands.ts` | Wall Paint Bands | **done** — Splits any wall into 2-6 horizontal or vertical strips for side-by-side paint comparison; a finish laid on the wall face, never a geometry change. Resolves wall, then room, then building |
+| `frontend/lib/cafeBlueprints.ts` | Curated Café Floor Plans | **done** — 8 plans from a 600 sq ft takeaway kiosk to a 2,400 sq ft café restaurant, every layout checked against the solver's own zoning, adjacency and forbidden-pair rules before shipping |
 | `frontend/components/Blueprint2DView.tsx` | 2D CAD Drafting Canvas | **done** — Wall drawing, dimension lines, snapping engine, room labels, door/window markers |
 | `frontend/components/BlueprintExportModal.tsx` | High-Res CAD SVG & Blueprint Print Engine | **done** — 300 DPI architectural exports, title blocks, dimension annotations |
 | `frontend/components/ModelBlueprintsModal.tsx` | Curated Architectural Blueprints Catalog | **done** — 20 prebuilt models, directional filtering, plot size filters |

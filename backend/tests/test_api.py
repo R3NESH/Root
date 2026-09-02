@@ -171,3 +171,15 @@ def test_custom_dimensions_do_not_drop_room_semantics():
     bathroom = next(r for r in body["rooms"] if r["name"] == "bathroom")
     assert bathroom["habitable"] is False
     assert bathroom["wet"] is True
+
+
+def test_solve_prompt_endpoint():
+    req = {"prompt": "30x40 north facing 2bhk with pooja"}
+    r = client.post("/solve-prompt", json=req)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["data"]["meta"]["status"] in ("OPTIMAL", "FEASIBLE")
+    assert data["data"]["plot"]["facing"] == "N"
+    assert len(data["data"]["rooms"]) >= 5
+    assert "<svg" in data["svg"]
+

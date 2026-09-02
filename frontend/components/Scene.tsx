@@ -36,6 +36,7 @@ import {
   oppositeEdge,
 } from "@/lib/sceneDoorways";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
+import { resolveBands, resolveWallBandScheme, roomInstanceId } from "@/lib/wallBands";
 import {
   clampPlayerPosition,
   computePotentiallyVisibleRooms,
@@ -66,6 +67,7 @@ import {
   getFloorTexture,
   getRoomFloorMaterial,
   getRoomWallColorHex,
+  getWallColorHexStr,
   getRoomWallTextureId,
   getWallTextureBumpMap,
   resolveDoorColorHex,
@@ -2655,12 +2657,18 @@ export default function Scene({
     const assignedDoorways: Doorway[] = [];
     let entranceRoomIndex = -1;
     let chosenEntranceEdge: "N" | "S" | "E" | "W" = getPrimaryCardinalEdge(facing);
+    // Where the front door actually sits. Null when the solver sent no entrance opening and the
+    // edge is only a guess from the facing — then the widest exterior segment takes it.
+    let entranceCenterFt: number | null = null;
+    let entranceWidthFt = DOOR_WIDTH_FT + 0.4;
 
     rooms.forEach((r, i) => {
       for (const o of r.openings ?? []) {
         if (o.kind === "entrance") {
           entranceRoomIndex = i;
           chosenEntranceEdge = o.edge;
+          entranceCenterFt = openingCentreFt(r, o);
+          entranceWidthFt = o.width_in > 0 ? inchesToFeet(o.width_in) : DOOR_WIDTH_FT + 0.4;
         } else if (o.kind === "door" && o.to_room != null && o.to_room > i) {
           const roomAHasOpening = (r.openings ?? []).some((op) => op.kind === "opening" && op.edge === o.edge);
           const roomB = rooms[o.to_room];
@@ -2674,6 +2682,7 @@ export default function Scene({
               edgeA: o.edge,
               edgeB: oppEdge,
               center: openingCentreFt(r, o),
+              widthFt: o.width_in > 0 ? inchesToFeet(o.width_in) : DOOR_WIDTH_FT,
             });
           }
         }
@@ -2701,14 +2710,17 @@ export default function Scene({
         if (!exists) {
           // Calculate the shared wall contact interval
           let sharedCenterFt: number;
+          let sharedRunFt: number;
           if (edge === "N" || edge === "S") {
             const minX = Math.max(r1.x_in, r2.x_in);
             const maxX = Math.min(r1.x_in + r1.w_in, r2.x_in + r2.w_in);
             sharedCenterFt = inchesToFeet((minX + maxX) / 2);
+            sharedRunFt = inchesToFeet(maxX - minX);
           } else {
             const minZ = Math.max(r1.y_in, r2.y_in);
             const maxZ = Math.min(r1.y_in + r1.d_in, r2.y_in + r2.d_in);
             sharedCenterFt = inchesToFeet((minZ + maxZ) / 2);
+            sharedRunFt = inchesToFeet(maxZ - minZ);
           }
 
           assignedDoorways.push({
@@ -2717,6 +2729,7 @@ export default function Scene({
             edgeA: edge,
             edgeB: oppEdge,
             center: sharedCenterFt,
+            widthFt: Math.min(DOOR_WIDTH_FT, sharedRunFt),
           });
         }
       });
@@ -2811,6 +2824,104 @@ export default function Scene({
       });
 
       // Wall Builder
+      /**
+       * Lay paint bands over the pieces a wall was just built from.
+       *
+       * Bands are a finish, so nothing above this line changes: the wall is built exactly as it
+       * always was, openings and all, and each finished piece then gets thin coloured panels on
+       * both faces. Painting per piece rather than per wall is what keeps a band from floating
+       * across a doorway — the piece it is clipped to already stops at the opening.
+       *
+       * Band spans are measured over the WHOLE wall (its full height, or its full run along the
+       * room), not over the piece, so a dado line stays level as it crosses either side of a door.
+       */
+      const paintWallBands = (
+        pieces: THREE.Object3D[],
+        edge: "N" | "S" | "E" | "W",
+        isEW: boolean
+      ) => {
+        const scheme = resolveWallBandScheme(
+          materialConfigRef.current,
+          roomInstanceId(rooms, i),
+          room.name as RoomName,
+          edge
+        );
+        const bands = resolveBands(scheme);
+        if (bands.length === 0) return;
+
+        const vertical = scheme?.axis === "vertical";
+        // The wall's own run, for vertical bands: N/S walls run along X, E/W walls along Z.
+        const runStart = isEW ? rx : rz;
+        const runLen = isEW ? rw : rd;
+        const SKIN = 0.02; // panel thickness, and how far it stands off the wall face
+
+        for (const piece of pieces) {
+          const mesh = piece as THREE.Mesh;
+          const geom = mesh.geometry as THREE.BoxGeometry;
+          const params = geom?.parameters as { width: number; height: number; depth: number } | undefined;
+          if (!params) continue;
+
+          const { width: pw, height: ph, depth: pd } = params;
+          const px = mesh.position.x;
+          const py = mesh.position.y;
+          const pz = mesh.position.z;
+
+          for (const band of bands) {
+            const hex = getWallColorHexStr(band.colorId);
+            const mat = new THREE.MeshStandardMaterial({
+              color: new THREE.Color(hex),
+              roughness: effectiveWallRoughness,
+              metalness: 0.02,
+            });
+
+            // Clip this band's span to the piece it is being painted on.
+            let lo: number;
+            let hi: number;
+            let pieceLo: number;
+            let pieceHi: number;
+            if (vertical) {
+              lo = runStart + band.start * runLen;
+              hi = runStart + band.end * runLen;
+              pieceLo = (isEW ? px : pz) - (isEW ? pw : pd) / 2;
+              pieceHi = (isEW ? px : pz) + (isEW ? pw : pd) / 2;
+            } else {
+              lo = band.start * WALL_HEIGHT_FT;
+              hi = band.end * WALL_HEIGHT_FT;
+              pieceLo = py - ph / 2;
+              pieceHi = py + ph / 2;
+            }
+
+            const from = Math.max(lo, pieceLo);
+            const to = Math.min(hi, pieceHi);
+            const span = to - from;
+            if (span <= 0.01) continue;
+            const mid = (from + to) / 2;
+
+            // Both faces, so the band reads from inside the room and from the neighbouring one.
+            for (const side of [-1, 1]) {
+              let panel: THREE.Mesh;
+              if (isEW) {
+                panel = new THREE.Mesh(
+                  new THREE.BoxGeometry(vertical ? span : pw, vertical ? ph : span, SKIN),
+                  mat
+                );
+                panel.position.set(vertical ? mid : px, vertical ? py : mid, pz + side * (pd / 2 + SKIN / 2));
+              } else {
+                panel = new THREE.Mesh(
+                  new THREE.BoxGeometry(SKIN, vertical ? ph : span, vertical ? span : pd),
+                  mat
+                );
+                panel.position.set(px + side * (pw / 2 + SKIN / 2), vertical ? py : mid, vertical ? mid : pz);
+              }
+              panel.receiveShadow = true;
+              // Carries the wall's identity so clicking the paint still selects the wall.
+              panel.userData = { ...mesh.userData };
+              roomGroup.add(panel);
+            }
+          }
+        }
+      };
+
       const buildWall = (
         edge: "N" | "S" | "E" | "W",
         wx: number,
@@ -2819,6 +2930,7 @@ export default function Scene({
         wd: number,
         isEW: boolean
       ) => {
+        const pieceMark = roomGroup.children.length;
         interface TouchingSegment {
           start: number;
           end: number;
@@ -2900,6 +3012,56 @@ export default function Scene({
           wallSegments.push({ start: isEW ? rx : rz, end: totalEnd, adj: null });
         }
 
+        // A door belongs to exactly one segment. Every non-shared segment on the entrance edge used
+        // to claim its own front door, and every segment on a door's edge its own leaf, so a corner
+        // stub a few inches wide got a full-width door hanging off the end of the wall.
+        const MIN_DOOR_SEG_FT = 1.6;
+
+        const segmentOwning = (centre: number, adjIndex?: number) => {
+          let best = -1;
+          let bestDist = Infinity;
+          for (let k = 0; k < wallSegments.length; k++) {
+            const cand = wallSegments[k];
+            if (cand.end - cand.start < 0.2) continue;
+            if (adjIndex != null && cand.adj?.adjIndex !== adjIndex) continue;
+            const dist =
+              centre < cand.start ? cand.start - centre : centre > cand.end ? centre - cand.end : 0;
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = k;
+            }
+          }
+          return best;
+        };
+
+        const doorwaysOnEdge = assignedDoorways.filter(
+          (d) => (d.roomAIndex === i && d.edgeA === edge) || (d.roomBIndex === i && d.edgeB === edge)
+        );
+        const doorOwnerSeg = new Map<Doorway, number>();
+        for (const d of doorwaysOnEdge) {
+          const partner = d.roomAIndex === i ? d.roomBIndex : d.roomAIndex;
+          const owner = segmentOwning(d.center, partner);
+          // Never drop the doorway: if no segment is shared with that room, the nearest one takes it.
+          doorOwnerSeg.set(d, owner >= 0 ? owner : segmentOwning(d.center));
+        }
+
+        let entranceSegIdx = -1;
+        if (i === entranceRoomIndex && edge === chosenEntranceEdge) {
+          const entC = entranceCenterFt;
+          const exterior = wallSegments
+            .map((sg, idx) => ({ sg, idx }))
+            .filter(({ sg }) => !sg.adj && sg.end - sg.start >= MIN_DOOR_SEG_FT);
+          if (entC != null) {
+            const hit = exterior.find(({ sg }) => entC >= sg.start && entC <= sg.end);
+            if (hit) entranceSegIdx = hit.idx;
+          }
+          if (entranceSegIdx < 0 && exterior.length > 0) {
+            entranceSegIdx = exterior.reduce((a, b) =>
+              b.sg.end - b.sg.start > a.sg.end - a.sg.start ? b : a
+            ).idx;
+          }
+        }
+
         for (let sIdx = 0; sIdx < wallSegments.length; sIdx++) {
           const seg = wallSegments[sIdx];
           const segLen = seg.end - seg.start;
@@ -2920,14 +3082,9 @@ export default function Scene({
           const seg_ww = isEW ? segLen : ww;
           const seg_wd = isEW ? wd : segLen;
 
-          const isMainEntrance = !isShared && i === entranceRoomIndex && edge === chosenEntranceEdge;
+          const isMainEntrance = sIdx === entranceSegIdx;
 
-          const assignedDoor = assignedDoorways.find(
-            (d) =>
-              ((d.roomAIndex === i && d.edgeA === edge && (seg.adj ? d.roomBIndex === seg.adj.adjIndex : true)) ||
-                (d.roomBIndex === i && d.edgeB === edge && (seg.adj ? d.roomAIndex === seg.adj.adjIndex : true))) &&
-              (isShared ? d.center >= seg.start - 0.5 && d.center <= seg.end + 0.5 : true)
-          );
+          const assignedDoor = doorwaysOnEdge.find((d) => doorOwnerSeg.get(d) === sIdx);
 
           const openingSpec = (room.openings ?? []).find((o) => o.kind === "opening" && o.edge === edge);
           const adjOpeningSpec =
@@ -2936,8 +3093,12 @@ export default function Scene({
               : null;
           const hasFullOpening = Boolean(openingSpec || adjOpeningSpec);
 
-          const hasDoor = !hasFullOpening && (isMainEntrance || Boolean(assignedDoor));
-          const windowSpec = !isShared && !hasDoor && !hasFullOpening ? windowOn(i, edge) : undefined;
+          const wantsDoor = !hasFullOpening && (isMainEntrance || Boolean(assignedDoor));
+          // Too short to frame a door. Leave the passage open rather than sealing the rooms off
+          // (connectivity is never dropped) or hanging a door past the end of the wall.
+          const hasNarrowPassage = wantsDoor && segLen < MIN_DOOR_SEG_FT;
+          const hasDoor = wantsDoor && !hasNarrowPassage;
+          const windowSpec = !isShared && !wantsDoor && !hasFullOpening ? windowOn(i, edge) : undefined;
           const hasWindow = Boolean(windowSpec);
 
           const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
@@ -2957,7 +3118,7 @@ export default function Scene({
             name: wallTitle,
           };
 
-          if (hasFullOpening) {
+          if (hasFullOpening || hasNarrowPassage) {
             // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
             const beamH = 0.75;
             const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
@@ -2966,7 +3127,14 @@ export default function Scene({
             beam.userData = { ...wallUserData };
             roomGroup.add(beam);
           } else if (hasDoor) {
-            const doorW = isMainEntrance ? DOOR_WIDTH_FT + 0.4 : Math.min(DOOR_WIDTH_FT, segLen - 0.2);
+            // The solver's width_in wins over the DOOR_* fallback, then the segment caps it — the
+            // renderer must never draw a door wider than the wall holding it.
+            const requestedDoorW = isMainEntrance ? entranceWidthFt : assignedDoor?.widthFt ?? DOOR_WIDTH_FT;
+            const doorW = Math.min(requestedDoorW, segLen - 0.4);
+
+            // Ry(+t) sends the EW leaf's local +X to -Z and the NS leaf's local +Z to +X, so a
+            // single sign swings both into the room instead of out over the setback.
+            const swingSign = edge === "N" || edge === "E" ? -1 : 1;
             const doorH = DOOR_HEIGHT_FT;
             const lintelH = WALL_HEIGHT_FT - doorH;
 
@@ -3035,7 +3203,7 @@ export default function Scene({
               // 3D Hinged Door Leaf (Swung open at 35° angle, matching the reference architectural cutaway!)
               const doorLeafGroupEW = new THREE.Group();
               const dLeafThick = 0.12;
-              const dLeafW = Math.max(1.8, doorW - 0.25);
+              const dLeafW = Math.max(0.6, doorW - 0.25);
               const dLeafH = doorH - 0.15;
               const dLeafMat = isMainEntrance
                 ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
@@ -3051,7 +3219,7 @@ export default function Scene({
               doorLeafGroupEW.add(leverEW);
 
               doorLeafGroupEW.position.set(doorPos - doorW / 2 + 0.15, 0, seg_wz);
-              doorLeafGroupEW.rotation.y = Math.PI / 4.5;
+              doorLeafGroupEW.rotation.y = (swingSign * Math.PI) / 4.5;
               roomGroup.add(doorLeafGroupEW);
 
               if (isMainEntrance) {
@@ -3128,7 +3296,7 @@ export default function Scene({
               // 3D Hinged Door Leaf (Swung open at 35° angle, matching the reference architectural cutaway!)
               const doorLeafGroupNS = new THREE.Group();
               const dLeafThickNS = 0.12;
-              const dLeafWNS = Math.max(1.8, doorW - 0.25);
+              const dLeafWNS = Math.max(0.6, doorW - 0.25);
               const dLeafHNS = doorH - 0.15;
               const dLeafMatNS = isMainEntrance
                 ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
@@ -3144,7 +3312,7 @@ export default function Scene({
               doorLeafGroupNS.add(leverNS);
 
               doorLeafGroupNS.position.set(seg_wx, 0, doorPos - doorW / 2 + 0.15);
-              doorLeafGroupNS.rotation.y = Math.PI / 4.5;
+              doorLeafGroupNS.rotation.y = (swingSign * Math.PI) / 4.5;
               roomGroup.add(doorLeafGroupNS);
 
               if (isMainEntrance) {
@@ -3358,6 +3526,13 @@ export default function Scene({
             }
           }
         }
+
+        // Every piece of this wall now exists, so the finish can go on. Anything added since the
+        // mark and tagged as wall is a piece of it.
+        const pieces = roomGroup.children
+          .slice(pieceMark)
+          .filter((c) => (c as THREE.Mesh).isMesh && c.userData?.isWall);
+        paintWallBands(pieces, edge, isEW);
       };
 
       const wt = room.wall_thickness_in != null

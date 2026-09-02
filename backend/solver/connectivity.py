@@ -22,7 +22,8 @@ sharing a vertical edge, `overlap >= DOOR` is exactly the pair of linear constra
 
 from ortools.sat.python import cp_model
 
-from vaastu import applies_to
+from programs import RESIDENTIAL, Program, resolve_entrance_edges, resolve_rules
+from vaastu.rules import QuadrantRule
 
 # 2'8" clear — a standard Indian internal door leaf. Anything narrower is not a doorway, and a
 # "shared wall" of 2 in (observed in real solver output) is a coincidence, not a connection.
@@ -34,7 +35,7 @@ DOOR_HEIGHT_IN = 84  # 7 ft
 EXTERIOR_WALL_IN = 9
 INTERIOR_WALL_IN = 5  # 4.5 rounded up — integer inches only, per integer-inches.md
 
-HUB_ROOM = "hall"
+HUB_ROOM = "hall"  # residential default; programs/registry.py overrides per building type
 
 # Which room kinds a given kind prefers to open off, best first. A pure star — every room onto
 # the hall — is how notes/solver/rooms-do-not-form-a-house.md first fixed reachability, and it
@@ -68,11 +69,11 @@ MAX_CHILDREN = 5
 FORBIDDEN_PAIRS = {("kitchen", "bathroom"), ("pooja", "bathroom")}
 
 
-def _may_share_a_wall(a, b) -> bool:
-    return (a.name, b.name) not in FORBIDDEN_PAIRS and (b.name, a.name) not in FORBIDDEN_PAIRS
+def _may_share_a_wall(a, b, forbidden=FORBIDDEN_PAIRS) -> bool:
+    return (a.name, b.name) not in forbidden and (b.name, a.name) not in forbidden
 
 
-def _quadrants_conflict(a, b) -> bool:
+def _quadrants_conflict(a, b, rules: dict[str, QuadrantRule]) -> bool:
     """Do Vaastu rules pin these two rooms to regions that do not touch?
 
     Making one the parent of the other forces them to share a wall. If their quadrants are
@@ -84,7 +85,7 @@ def _quadrants_conflict(a, b) -> bool:
     infeasible and the ladder walked down to a rung with Vaastu switched off. On the plot size
     this product is aimed at, and on the constraint the market treats as mandatory.
     """
-    ra, rb = applies_to(a.name), applies_to(b.name)
+    ra, rb = rules.get(a.name), rules.get(b.name)
     if ra is None or rb is None:
         return False
     x_disjoint = ra.x_max_frac <= rb.x_min_frac or rb.x_max_frac <= ra.x_min_frac
@@ -92,22 +93,22 @@ def _quadrants_conflict(a, b) -> bool:
     return x_disjoint or z_disjoint
 
 
-def _may_be_parent(child, parent) -> bool:
-    return _may_share_a_wall(child, parent) and not _quadrants_conflict(child, parent)
+def _may_be_parent(child, parent, forbidden, rules: dict[str, QuadrantRule]) -> bool:
+    return _may_share_a_wall(child, parent, forbidden) and not _quadrants_conflict(child, parent, rules)
 
 
-def hub_index(rooms) -> int:
-    """Index of the circulation hub. Prefers hall, then bedroom, then room 0."""
-    for i, r in enumerate(rooms):
-        if r.name == HUB_ROOM:
-            return i
-    for i, r in enumerate(rooms):
-        if r.name == "bedroom":
-            return i
+def hub_index(rooms, program: Program = RESIDENTIAL) -> int:
+    """Index of the circulation hub: the programme's hub kind, then its fallbacks, then room 0."""
+    for kind in (program.hub, *program.hub_fallbacks):
+        for i, r in enumerate(rooms):
+            if r.name == kind:
+                return i
     return 0
 
 
-def assign_parents(rooms) -> list[int | None]:
+def assign_parents(
+    rooms, program: Program = RESIDENTIAL, facing: str = "N"
+) -> list[int | None]:
     """Pick one concrete parent room per room, forming a tree rooted at the hub.
 
     Assignment is static — decided before the model is built — so adjacency is a constraint
@@ -120,19 +121,30 @@ def assign_parents(rooms) -> list[int | None]:
         hall, because an ensuite-only house leaves guests nowhere to go.
       - **Fan-out cap.** No room takes more than MAX_CHILDREN doors.
     """
-    hub = hub_index(rooms)
+    hub = hub_index(rooms, program)
+    rules = resolve_rules(program, facing)
+    forbidden = program.forbidden_pairs
+    prefs = program.parent_preference
     parents: list[int | None] = [None] * len(rooms)
     children: dict[int, int] = {}
 
-    baths = [i for i, r in enumerate(rooms) if r.name == "bathroom"]
-    beds = [i for i, r in enumerate(rooms) if r.name == "bedroom"]
-    ensuite = baths[0] if (len(baths) >= 2 and beds and beds[0] != hub) else None
+    ensuite = None
+    if program.ensuite is not None:
+        child_kind, parent_kind = program.ensuite
+        kids = [i for i, r in enumerate(rooms) if r.name == child_kind]
+        hosts = [i for i, r in enumerate(rooms) if r.name == parent_kind]
+        ensuite = kids[0] if (len(kids) >= 2 and hosts and hosts[0] != hub) else None
+        ensuite_host = hosts[0] if hosts else None
+    else:
+        ensuite_host = None
 
     def preference(i: int) -> tuple[str, ...]:
         # A lone bathroom must not become an ensuite, so it skips the "bedroom" preference.
-        if rooms[i].name == "bathroom" and i != ensuite:
-            return ("hall", "dining", "bedroom")
-        return PARENT_PREFERENCE.get(rooms[i].name, ("hall",))
+        if program.ensuite is not None and rooms[i].name == program.ensuite[0] and i != ensuite:
+            return tuple(k for k in prefs.get(rooms[i].name, (program.hub,)) if k != program.ensuite[1]) + (
+                program.ensuite[1],
+            )
+        return prefs.get(rooms[i].name, (program.hub,))
 
     attached = {hub}
     remaining = [i for i in range(len(rooms)) if i != hub]
@@ -147,8 +159,13 @@ def assign_parents(rooms) -> list[int | None]:
         progress = False
         for i in list(remaining):
             chosen: int | None = None
-            if i == ensuite and beds[0] in attached and children.get(beds[0], 0) < MAX_CHILDREN:
-                chosen = beds[0]
+            if (
+                i == ensuite
+                and ensuite_host is not None
+                and ensuite_host in attached
+                and children.get(ensuite_host, 0) < MAX_CHILDREN
+            ):
+                chosen = ensuite_host
             else:
                 for kind in preference(i):
                     for j, r in enumerate(rooms):
@@ -157,7 +174,7 @@ def assign_parents(rooms) -> list[int | None]:
                             and j in attached
                             and r.name == kind
                             and children.get(j, 0) < MAX_CHILDREN
-                            and _may_be_parent(rooms[i], r)
+                            and _may_be_parent(rooms[i], r, forbidden, rules)
                         ):
                             chosen = j
                             break
@@ -175,7 +192,9 @@ def assign_parents(rooms) -> list[int | None]:
             best: tuple[int, int] | None = None
             for i in remaining:
                 candidates = [
-                    j for j in attached if j != i and _may_be_parent(rooms[i], rooms[j])
+                    j
+                    for j in attached
+                    if j != i and _may_be_parent(rooms[i], rooms[j], forbidden, rules)
                 ]
                 if not candidates:
                     continue
@@ -233,23 +252,31 @@ def add_tree_adjacency(
         model.add_bool_or(options)
 
 
-def add_room_separation(model: cp_model.CpModel, vars_by_index: list[dict], rooms, hub: int) -> None:
+def add_room_separation(
+    model: cp_model.CpModel,
+    vars_by_index: list[dict],
+    rooms,
+    hub: int,
+    program: Program = RESIDENTIAL,
+) -> None:
     """Forbid incompatible rooms from sharing a wall (e.g. Kitchen <-> Bathroom, Pooja <-> Bathroom).
 
     Sharing a common partition between Kitchen and Bathroom (or Pooja and Bathroom) is a strict
     construction and cultural taboo in Indian architecture.
     """
+    forbidden = program.forbidden_pairs
+    hub_kinds = (program.hub, *program.hub_fallbacks)
     for i, r_i in enumerate(rooms):
         for j, r_j in enumerate(rooms):
             if j <= i:
                 continue
             pair = (r_i.name, r_j.name)
             rev_pair = (r_j.name, r_i.name)
-            if pair not in FORBIDDEN_PAIRS and rev_pair not in FORBIDDEN_PAIRS:
+            if pair not in forbidden and rev_pair not in forbidden:
                 continue
 
             # If there's no intermediate room and one of these is the forced hub, separation is not applicable
-            if (i == hub or j == hub) and not any(r.name in ("hall", "bedroom") for r in rooms):
+            if (i == hub or j == hub) and not any(r.name in hub_kinds for r in rooms):
                 continue
 
             v_i, v_j = vars_by_index[i], vars_by_index[j]
@@ -477,18 +504,24 @@ def derive_windows(rooms, openings: list[list[dict]]) -> None:
             })
 
 
-ENTRANCE_EDGE_PREFERENCE = ["N", "E", "W", "S"]
+def add_entrance(
+    rooms,
+    openings: list[list[dict]],
+    hub: int,
+    program: Program = RESIDENTIAL,
+    facing: str = "N",
+) -> str | None:
+    """Cut the front door in the outermost wall of the programme's entrance space, else the hub.
 
-
-def add_entrance(rooms, openings: list[list[dict]], hub: int) -> str | None:
-    """Cut the front door in the outermost wall, preferring entrance room then hub, N then E per Vaastu.
-
-    Returns the edge used, or None if no suitable room touches an exterior wall.
+    Edge order is the programme's: a house prefers N then E per Vaastu, a shop opens onto the
+    road whichever edge that is. Returns the edge used, or None if no suitable room touches an
+    exterior wall.
     """
     fx0, fz0, fx1, fz1 = footprint(rooms)
+    edge_preference = resolve_entrance_edges(program, facing)
 
     # Check entrance room first if present, otherwise circulation hub
-    target_indices = [i for i, r in enumerate(rooms) if r.name == "entrance"]
+    target_indices = [i for i, r in enumerate(rooms) if r.name == program.entrance_space]
     if not target_indices:
         target_indices = [hub]
     elif hub not in target_indices:
@@ -502,7 +535,7 @@ def add_entrance(rooms, openings: list[list[dict]], hub: int) -> str | None:
             "W": room.x_in == fx0,
             "E": room.x_in + room.w_in == fx1,
         }
-        for edge in ENTRANCE_EDGE_PREFERENCE:
+        for edge in edge_preference:
             if not on_exterior[edge]:
                 continue
             run = room.d_in if edge in ("E", "W") else room.w_in

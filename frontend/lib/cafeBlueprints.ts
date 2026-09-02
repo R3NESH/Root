@@ -1,0 +1,447 @@
+// Curated cafe floor plans — the cafe half of the blueprint catalogue.
+//
+// Kept beside modelBlueprints.ts rather than inside it: that file is twenty houses, and a
+// second building type has no business growing it. ModelBlueprintsModal merges the two and
+// shows whichever matches the active programme.
+//
+// Every layout below is checked against the rules the solver actually posts, so the card
+// preview matches what the backend returns instead of being rearranged the moment it loads:
+// spaces inside their catalogue min/max and aspect caps, no overlaps, everything inside the
+// buildable envelope, every space touching another so the door tree can reach it, the entry on
+// the street edge, back of house strictly behind front of house, and no customer washroom
+// sharing a wall with food prep or the dry store.
+//
+// Sizes follow the trade bands in notes/programs/cafe-layout-standards.md: 600-900 sq ft is a
+// small cafe, 900-1,200 seats 25-40, and 15-20 sq ft per seated customer is the target.
+//
+// Positions are envelope-relative feet and reach the solver as `prev` hints, not as fixed
+// placements — the drift objective honours them, the constraints still win.
+
+import { ModelBlueprint } from "./modelBlueprints";
+
+export const CAFE_BLUEPRINTS: ModelBlueprint[] = [
+
+  // 20×30 (600 sq ft) — Grab-and-Go Coffee Kiosk
+  {
+    id: "cafe_kiosk_20x30_n",
+    name: "Grab-and-Go Coffee Kiosk",
+    type: "Takeaway",
+    program: "cafe",
+    plotSizeLabel: "20×30 (600 sq ft)",
+    plotWidthFt: 20,
+    plotDepthFt: 30,
+    facing: "N",
+    builtUpAreaSqFt: 280,
+    totalSqFt: 600,
+    rating: "Linear order-to-pickup flow",
+    description:
+      "A pure takeaway kiosk on a 20x30 plot. No seating floor at all: the whole 280 sq ft envelope is entry, queue, a full-width counter and the kitchen behind it, so one barista can run the morning rush without leaving the bar.",
+    highlights: [
+      "Zero seating, 100% of the envelope working",
+      "Full-width counter: order one end, pickup the other",
+      "Kitchen and dry store directly behind the till",
+      "Fits a corner site or a mall unit",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      counter: 1,
+      prep: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 9, dFt: 8 },
+      queue_0: { wFt: 5, dFt: 8 },
+      counter_0: { wFt: 14, dFt: 4 },
+      prep_0: { wFt: 9, dFt: 8 },
+      pantry_0: { wFt: 5, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 9, yFt: 0 },
+      counter_0: { xFt: 0, yFt: 8 },
+      prep_0: { xFt: 0, yFt: 12 },
+      pantry_0: { xFt: 9, yFt: 12 },
+    },
+  },
+
+  // 25×40 (1,000 sq ft) — Corner Coffee Bar · 8 covers
+  {
+    id: "cafe_coffeebar_25x40_n",
+    name: "Corner Coffee Bar",
+    type: "Coffee Bar",
+    program: "cafe",
+    plotSizeLabel: "25×40 (1,000 sq ft)",
+    plotWidthFt: 25,
+    plotDepthFt: 40,
+    facing: "N",
+    builtUpAreaSqFt: 522,
+    totalSqFt: 1000,
+    rating: "8 covers, front-of-house daylit",
+    description:
+      "A narrow 19x30 ft shop with a single seating room on the daylit street side, the queue tucked down the entry wall, and the counter running the full width behind it. Under-counter storage instead of a dry store, which is how a shop this size actually works.",
+    highlights: [
+      "8 covers at 26 sq ft each",
+      "Queue runs along the entry wall, clear of the door",
+      "Washroom reached from the seating, never from the kitchen",
+      "Counter spans the room, splitting front from back of house",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 6, dFt: 7 },
+      queue_0: { wFt: 6, dFt: 9 },
+      seating_0: { wFt: 13, dFt: 16 },
+      counter_0: { wFt: 13, dFt: 6 },
+      washroom_0: { wFt: 6, dFt: 6 },
+      prep_0: { wFt: 13, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 0, yFt: 7 },
+      seating_0: { xFt: 6, yFt: 0 },
+      counter_0: { xFt: 0, yFt: 16 },
+      washroom_0: { xFt: 13, yFt: 16 },
+      prep_0: { xFt: 0, yFt: 22 },
+    },
+  },
+
+  // 30×40 (1,200 sq ft) — Neighbourhood Cafe · 12 covers
+  {
+    id: "cafe_neighbourhood_30x40_n",
+    name: "Neighbourhood Cafe",
+    type: "Cafe",
+    program: "cafe",
+    plotSizeLabel: "30×40 (1,200 sq ft)",
+    plotWidthFt: 30,
+    plotDepthFt: 40,
+    facing: "N",
+    builtUpAreaSqFt: 664,
+    totalSqFt: 1200,
+    rating: "12 covers, 60/40 zoned",
+    description:
+      "The reference plan on the plot size this product was built for: a 24x30 ft envelope, 720 sq ft, squarely in the trade's small-cafe band. Eighteen feet of seating across the shopfront, a 17 ft counter, and kitchen plus dry store behind it.",
+    highlights: [
+      "12 covers at 24 sq ft each",
+      "18 ft seating room on the street frontage",
+      "17 ft counter with room for a pastry case and pickup shelf",
+      "Kitchen and dry store share the back band",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 6, dFt: 7 },
+      queue_0: { wFt: 6, dFt: 9 },
+      seating_0: { wFt: 18, dFt: 16 },
+      counter_0: { wFt: 17, dFt: 6 },
+      washroom_0: { wFt: 7, dFt: 6 },
+      prep_0: { wFt: 9, dFt: 8 },
+      pantry_0: { wFt: 8, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 0, yFt: 7 },
+      seating_0: { xFt: 6, yFt: 0 },
+      counter_0: { xFt: 0, yFt: 16 },
+      washroom_0: { xFt: 17, yFt: 16 },
+      prep_0: { xFt: 0, yFt: 22 },
+      pantry_0: { xFt: 9, yFt: 22 },
+    },
+  },
+
+  // 30×50 (1,500 sq ft) — Daylight Cafe & Lounge · 12 covers
+  {
+    id: "cafe_daylight_lounge_30x50_s",
+    name: "Daylight Cafe & Lounge",
+    type: "Cafe",
+    program: "cafe",
+    plotSizeLabel: "30×50 (1,500 sq ft)",
+    plotWidthFt: 30,
+    plotDepthFt: 50,
+    facing: "S",
+    builtUpAreaSqFt: 880,
+    totalSqFt: 1500,
+    rating: "12 covers plus a lounge",
+    description:
+      "South-facing shopfront with two seating characters: a table floor for turns and a deep lounge strip down the side for laptops and long stays. The kitchen sits at the far end with its own dry store.",
+    highlights: [
+      "Separate table floor and 8x16 ft lounge strip",
+      "South frontage: the door and glazing take the sun",
+      "Washroom off the lounge, well clear of food prep",
+      "Kitchen at the deepest point, farthest from the customer",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      lounge: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 8, dFt: 8 },
+      queue_0: { wFt: 6, dFt: 8 },
+      seating_0: { wFt: 16, dFt: 18 },
+      lounge_0: { wFt: 8, dFt: 16 },
+      counter_0: { wFt: 16, dFt: 6 },
+      washroom_0: { wFt: 8, dFt: 8 },
+      prep_0: { wFt: 16, dFt: 8 },
+      pantry_0: { wFt: 8, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 32 },
+      queue_0: { xFt: 8, yFt: 32 },
+      seating_0: { xFt: 0, yFt: 14 },
+      lounge_0: { xFt: 16, yFt: 24 },
+      counter_0: { xFt: 0, yFt: 8 },
+      washroom_0: { xFt: 16, yFt: 16 },
+      prep_0: { xFt: 0, yFt: 0 },
+      pantry_0: { xFt: 16, yFt: 0 },
+    },
+  },
+
+  // 36×48 (1,728 sq ft) — Bakery Cafe & Bake-Off Kitchen · 16 covers
+  {
+    id: "cafe_bakery_36x48_n",
+    name: "Bakery Cafe & Bake-Off Kitchen",
+    type: "Cafe + Kitchen",
+    program: "cafe",
+    plotSizeLabel: "36×48 (1,728 sq ft)",
+    plotWidthFt: 36,
+    plotDepthFt: 48,
+    facing: "N",
+    builtUpAreaSqFt: 970,
+    totalSqFt: 1728,
+    rating: "16 covers, full BOH",
+    description:
+      "A 30x38 ft envelope with a real back of house: a 16x9 ft kitchen, a separate wash-up, a dry store and a staff room. The lounge sits beside the entry so the queue never crosses the table floor.",
+    highlights: [
+      "16 covers plus a 14x10 ft lounge",
+      "Wash-up separated from the kitchen, as a bake-off needs",
+      "Staff room at the deepest corner",
+      "Queue, counter and pickup all on the entry side",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      lounge: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+      wash: 1,
+      pantry: 1,
+      staff: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 8, dFt: 8 },
+      queue_0: { wFt: 6, dFt: 8 },
+      seating_0: { wFt: 16, dFt: 18 },
+      lounge_0: { wFt: 14, dFt: 10 },
+      counter_0: { wFt: 16, dFt: 6 },
+      washroom_0: { wFt: 7, dFt: 6 },
+      prep_0: { wFt: 16, dFt: 9 },
+      wash_0: { wFt: 7, dFt: 6 },
+      pantry_0: { wFt: 7, dFt: 6 },
+      staff_0: { wFt: 8, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 8, yFt: 0 },
+      seating_0: { xFt: 14, yFt: 0 },
+      lounge_0: { xFt: 0, yFt: 8 },
+      counter_0: { xFt: 0, yFt: 18 },
+      washroom_0: { xFt: 16, yFt: 18 },
+      prep_0: { xFt: 0, yFt: 24 },
+      wash_0: { xFt: 16, yFt: 24 },
+      pantry_0: { xFt: 23, yFt: 24 },
+      staff_0: { xFt: 16, yFt: 30 },
+    },
+  },
+
+  // 35×50 (1,750 sq ft) — Roastery & Tasting Bar · 20 covers
+  {
+    id: "cafe_roastery_35x50_n",
+    name: "Roastery & Tasting Bar",
+    type: "Roastery",
+    program: "cafe",
+    plotSizeLabel: "35×50 (1,750 sq ft)",
+    plotWidthFt: 35,
+    plotDepthFt: 50,
+    facing: "N",
+    builtUpAreaSqFt: 1054,
+    totalSqFt: 1750,
+    rating: "20 covers, roaster visible",
+    description:
+      "The largest single seating floor in the set at 15x20 ft, with a 20-cover table plan and an 18 ft tasting counter. The roasting room is the deep 18x12 ft kitchen, put against the shopfront wall so the drum stays in the customer's sightline.",
+    highlights: [
+      "20 covers at 23 sq ft each",
+      "18 ft tasting counter across the full front of house",
+      "18x12 ft roasting room with its own wash-up",
+      "Lounge beside the entry for cupping and retail",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      lounge: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+      wash: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 8, dFt: 8 },
+      queue_0: { wFt: 6, dFt: 8 },
+      seating_0: { wFt: 15, dFt: 20 },
+      lounge_0: { wFt: 14, dFt: 12 },
+      counter_0: { wFt: 18, dFt: 6 },
+      washroom_0: { wFt: 8, dFt: 6 },
+      prep_0: { wFt: 18, dFt: 12 },
+      wash_0: { wFt: 8, dFt: 6 },
+      pantry_0: { wFt: 9, dFt: 6 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 8, yFt: 0 },
+      seating_0: { xFt: 14, yFt: 0 },
+      lounge_0: { xFt: 0, yFt: 8 },
+      counter_0: { xFt: 0, yFt: 20 },
+      washroom_0: { xFt: 18, yFt: 20 },
+      prep_0: { xFt: 0, yFt: 26 },
+      wash_0: { xFt: 18, yFt: 26 },
+      pantry_0: { xFt: 18, yFt: 32 },
+    },
+  },
+
+  // 25×50 (1,250 sq ft) — Laneway Cafe · 12 covers
+  {
+    id: "cafe_laneway_25x50_s",
+    name: "Laneway Cafe",
+    type: "Cafe",
+    program: "cafe",
+    plotSizeLabel: "25×50 (1,250 sq ft)",
+    plotWidthFt: 25,
+    plotDepthFt: 50,
+    facing: "S",
+    builtUpAreaSqFt: 722,
+    totalSqFt: 1250,
+    rating: "12 covers on a narrow lot",
+    description:
+      "A long, narrow 19x40 ft lot worked end to end: entry and queue down one edge, a 13x18 ft seating room beside them, then counter, kitchen, staff room and dry store stacked behind. 95% of the envelope is built on.",
+    highlights: [
+      "95% envelope fill, the tightest plan in the set",
+      "12 covers on a 19 ft frontage",
+      "South-facing door onto the lane",
+      "Staff room and dry store stacked behind the kitchen",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      counter: 1,
+      washroom: 1,
+      prep: 1,
+      staff: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 6, dFt: 8 },
+      queue_0: { wFt: 6, dFt: 10 },
+      seating_0: { wFt: 13, dFt: 18 },
+      counter_0: { wFt: 13, dFt: 6 },
+      washroom_0: { wFt: 6, dFt: 6 },
+      prep_0: { wFt: 13, dFt: 14 },
+      staff_0: { wFt: 6, dFt: 6 },
+      pantry_0: { wFt: 6, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 32 },
+      queue_0: { xFt: 0, yFt: 22 },
+      seating_0: { xFt: 6, yFt: 22 },
+      counter_0: { xFt: 0, yFt: 16 },
+      washroom_0: { xFt: 13, yFt: 16 },
+      prep_0: { xFt: 0, yFt: 2 },
+      staff_0: { xFt: 13, yFt: 10 },
+      pantry_0: { xFt: 13, yFt: 2 },
+    },
+  },
+
+  // 40×60 (2,400 sq ft) — Cafe Restaurant & Full Kitchen · 26 covers
+  {
+    id: "cafe_restaurant_40x60_n",
+    name: "Cafe Restaurant & Full Kitchen",
+    type: "Cafe + Kitchen",
+    program: "cafe",
+    plotSizeLabel: "40×60 (2,400 sq ft)",
+    plotWidthFt: 40,
+    plotDepthFt: 60,
+    facing: "N",
+    builtUpAreaSqFt: 1356,
+    totalSqFt: 2400,
+    rating: "26 covers, two washrooms",
+    description:
+      "The full-service end: 26 covers across an 18x22 ft table floor and a 16x14 ft lounge, two customer washrooms, and a 16x14 ft kitchen with its own wash-up, dry store and staff room. Built-up stops at 80% of the envelope, leaving the frontage for terrace covers.",
+    highlights: [
+      "26 covers plus a 16x14 ft lounge",
+      "Two washrooms, sized for a full-service occupancy",
+      "Kitchen, wash-up, dry store and staff room all separated",
+      "20% of the envelope left open for a terrace",
+    ],
+    counts: {
+      entry: 1,
+      queue: 1,
+      seating: 1,
+      lounge: 1,
+      counter: 1,
+      washroom: 2,
+      prep: 1,
+      wash: 1,
+      staff: 1,
+      pantry: 1,
+    },
+    customDims: {
+      entry_0: { wFt: 10, dFt: 8 },
+      queue_0: { wFt: 6, dFt: 8 },
+      seating_0: { wFt: 18, dFt: 22 },
+      lounge_0: { wFt: 16, dFt: 14 },
+      counter_0: { wFt: 18, dFt: 6 },
+      washroom_0: { wFt: 8, dFt: 6 },
+      washroom_1: { wFt: 8, dFt: 6 },
+      prep_0: { wFt: 16, dFt: 14 },
+      wash_0: { wFt: 8, dFt: 6 },
+      staff_0: { wFt: 10, dFt: 6 },
+      pantry_0: { wFt: 9, dFt: 8 },
+    },
+    customPositions: {
+      entry_0: { xFt: 0, yFt: 0 },
+      queue_0: { xFt: 10, yFt: 0 },
+      seating_0: { xFt: 16, yFt: 0 },
+      lounge_0: { xFt: 0, yFt: 8 },
+      counter_0: { xFt: 0, yFt: 22 },
+      washroom_0: { xFt: 18, yFt: 22 },
+      washroom_1: { xFt: 26, yFt: 22 },
+      prep_0: { xFt: 0, yFt: 28 },
+      wash_0: { xFt: 16, yFt: 28 },
+      staff_0: { xFt: 24, yFt: 28 },
+      pantry_0: { xFt: 16, yFt: 34 },
+    },
+  },
+
+];

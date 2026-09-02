@@ -1,4 +1,5 @@
 import { Facing } from "./plot";
+import { ProgramKey } from "./programs";
 import { RoomName } from "./rooms";
 import { RoomOpening } from "./solve";
 import { CustomDim } from "@/components/RoomCustomizer";
@@ -6,17 +7,29 @@ import { CustomDim } from "@/components/RoomCustomizer";
 export interface ModelBlueprint {
   id: string;
   name: string;
-  type: "1BHK" | "2BHK" | "3BHK" | "4BHK";
+  /**
+   * Layout class, and what the modal's type filter chips list. A residence uses "1BHK".."4BHK";
+   * a cafe uses its trade format ("Takeaway", "Coffee Bar", "Cafe", "Roastery", ...). Left as a
+   * plain string because the vocabulary belongs to the programme, not to this type.
+   */
+  type: string;
+  /** Which building programme this plan belongs to. Absent means the residence. */
+  program?: ProgramKey;
   plotSizeLabel: string;
   plotWidthFt: number;
   plotDepthFt: number;
   facing: Facing;
   builtUpAreaSqFt: number;
   totalSqFt: number;
-  vaastuRating: string;
+  /**
+   * One-line quality claim shown on the card. Vaastu compliance for a residence, service-flow
+   * wording for a cafe — never Vaastu for a plan that never checked it.
+   */
+  rating: string;
   description: string;
   highlights: string[];
-  counts: Record<RoomName, number>;
+  // Sparse: a blueprint names the rooms it uses. Widen with withCounts() before it hits state.
+  counts: Partial<Record<RoomName, number>>;
   customDims: Record<string, CustomDim>;
   customPositions?: Record<string, { xFt: number; yFt: number }>;
   customOpenings?: Record<string, RoomOpening[]>;
@@ -35,7 +48,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1052,
     totalSqFt: 1728,
-    vaastuRating: "Architectural Showcase",
+    rating: "Architectural Showcase",
     description:
       "A grand French Parisian open-concept penthouse with Chevron blonde oak parquet, boiserie picture paneling, salon living room with classical fireplace, grand Nero Marquina dining room, and an open-concept walnut chef kitchen.",
     highlights: [
@@ -87,7 +100,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 329,
     totalSqFt: 600,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "A smart, ultra-efficient compact home designed for urban plots. Features an airy front living room, a Vaastu-compliant South-East kitchen, and a private master bedroom suite.",
     highlights: [
@@ -133,7 +146,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 344,
     totalSqFt: 600,
-    vaastuRating: "East-Facing Sunlit",
+    rating: "East-Facing Sunlit",
     description:
       "Clever dual-bedroom layout maximizing every square inch with morning natural sunlight, dual bedrooms, and a central gathering hall.",
     highlights: [
@@ -179,7 +192,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 512,
     totalSqFt: 800,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "Engineered specifically for narrow frontages with deep lot profiles. Features a generous North-East living lounge, separate dining, South-East modular kitchen, and two private rear bedrooms.",
     highlights: [
@@ -229,7 +242,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 640,
     totalSqFt: 1000,
-    vaastuRating: "East-Facing Eco-Plan",
+    rating: "East-Facing Eco-Plan",
     description:
       "A breezy East-facing home planned with cross-ventilation corridors, expansive living lounge, integrated breakfast counter dining, and spacious master suite.",
     highlights: [
@@ -277,7 +290,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 840,
     totalSqFt: 1250,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "A high-efficiency 3BHK residence on a 25×50 plot. Boasts an impressive living lounge, private pooja mandir, separate dining, and 3 full-sized bedrooms.",
     highlights: [
@@ -329,7 +342,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 748,
     totalSqFt: 1200,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "The quintessential Indian family home plan. Spacious living hall with North-East entry, dedicated dining space, South-East modular kitchen, Ishanya Pooja mandir, and South-West Master Suite.",
     highlights: [
@@ -379,7 +392,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 755,
     totalSqFt: 1200,
-    vaastuRating: "East-Facing Master Plan",
+    rating: "East-Facing Master Plan",
     description:
       "A high-demand 3-bedroom blueprint crafted for growing families. Generous living area, three well-proportioned bedrooms, separate dining and pantry store room.",
     highlights: [
@@ -429,7 +442,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "S",
     builtUpAreaSqFt: 768,
     totalSqFt: 1200,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "Expertly configured for South-facing plots following traditional Agni entrance pada. Places the front living hall in the South-East, kitchen in Agni zone, and master suite securely in South-West.",
     highlights: [
@@ -479,7 +492,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "W",
     builtUpAreaSqFt: 768,
     totalSqFt: 1200,
-    vaastuRating: "West-Facing Master Plan",
+    rating: "West-Facing Master Plan",
     description:
       "A harmonious West-facing plan aligned with Varuna devata. Welcomes guests through the North-West entry lounge, with serene North-East pooja and commanding South-West master suite.",
     highlights: [
@@ -531,7 +544,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 1009,
     totalSqFt: 1500,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "A grand 1,500 sq ft layout with elongated depth. Expansive living hall, formal dining, chef's kitchen with attached utility/store, luxurious master suite with ensuite bath, and sacred pooja mandir.",
     highlights: [
@@ -585,7 +598,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1009,
     totalSqFt: 1500,
-    vaastuRating: "Premium North-Facing",
+    rating: "Premium North-Facing",
     description:
       "Designed for spacious living with extra-large bedroom suites, huge light-filled living salon, dining overlooking gardens, and maximum setbacks for cross breezes.",
     highlights: [
@@ -637,7 +650,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 1176,
     totalSqFt: 1750,
-    vaastuRating: "100% Vaastu / Thachu Shastra",
+    rating: "100% Vaastu / Thachu Shastra",
     description:
       "Inspired by classical Kerala Nalukettu architecture. Highlights a grand central gathering hall, traditional granary store, pooja sanctum, and airy veranda cross-ventilation.",
     highlights: [
@@ -691,7 +704,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1176,
     totalSqFt: 1750,
-    vaastuRating: "Architectural Showcase",
+    rating: "Architectural Showcase",
     description:
       "Nordic minimalism featuring floor-to-ceiling glass daylighting, light birch woodwork, seamless open dining, and private bedroom sanctuaries.",
     highlights: [
@@ -741,7 +754,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1391,
     totalSqFt: 2400,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "An estate-class single-level bungalow with an impressive double-door entrance, formal living salon, banquet-ready dining, gourmet kitchen, pantry store, and three grand king-size bedroom suites with attached baths.",
     highlights: [
@@ -793,7 +806,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 1397,
     totalSqFt: 2400,
-    vaastuRating: "East-Facing Royal Plan",
+    rating: "East-Facing Royal Plan",
     description:
       "A complete 4-bedroom luxury layout offering separate zones for entertaining, private family gatherings, culinary prep, traditional pooja, and 4 dedicated master suites.",
     highlights: [
@@ -843,7 +856,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "S",
     builtUpAreaSqFt: 1650,
     totalSqFt: 2400,
-    vaastuRating: "100% Traditional Heritage",
+    rating: "100% Traditional Heritage",
     description:
       "Inspired by the palatial mansions of Karaikudi and Chettinad. Features pillared front verandah entrance (Thinnai), grand central courtyard hall, traditional granary, and royal master suites.",
     highlights: [
@@ -895,7 +908,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1650,
     totalSqFt: 2400,
-    vaastuRating: "Zen Architectural Design",
+    rating: "Zen Architectural Design",
     description:
       "A serene sanctuary centered around Engawa porch connections, minimalist sliding partitions, open tea room dining, and peaceful nature views.",
     highlights: [
@@ -945,7 +958,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1969,
     totalSqFt: 4000,
-    vaastuRating: "100% Vaastu Compliant",
+    rating: "100% Vaastu Compliant",
     description:
       "A magnificent luxury mansion designed for expansive 50×80 plots. Grand royal salon, banquet dining, chef's kitchen, presidential master wing with private bath, and 3 guest/children suites.",
     highlights: [
@@ -999,7 +1012,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 2856,
     totalSqFt: 4000,
-    vaastuRating: "East-Facing Sovereign Plan",
+    rating: "East-Facing Sovereign Plan",
     description:
       "The pinnacle of residential architecture. Features an expansive 24×38 ft Grand Reception Hall, 18×22 ft Banquet Dining, full commercial chef kitchen, and 4 presidential en-suite suites.",
     highlights: [

@@ -4,6 +4,7 @@
 // notes/decisions/rejected-approaches.md.
 
 export type RoomName =
+  // residence
   | "hall"
   | "dining"
   | "kitchen"
@@ -11,8 +12,22 @@ export type RoomName =
   | "bathroom"
   | "pooja"
   | "store"
-  | "entrance";
+  | "entrance"
+  // cafe / small restaurant
+  | "seating"
+  | "lounge"
+  | "entry"
+  | "queue"
+  | "counter"
+  | "prep"
+  | "pantry"
+  | "wash"
+  | "washroom"
+  | "staff";
 
+// One vocabulary across every building type; lib/programs.ts decides which subset a given
+// programme offers. Keeping it one union means every Record below stays total and the twenty-odd
+// consumers of RoomName keep compiling.
 export const ROOM_NAMES: RoomName[] = [
   "hall",
   "dining",
@@ -22,6 +37,16 @@ export const ROOM_NAMES: RoomName[] = [
   "pooja",
   "store",
   "entrance",
+  "seating",
+  "lounge",
+  "entry",
+  "queue",
+  "counter",
+  "prep",
+  "pantry",
+  "wash",
+  "washroom",
+  "staff",
 ];
 
 export const ROOM_LABELS: Record<RoomName, string> = {
@@ -33,6 +58,16 @@ export const ROOM_LABELS: Record<RoomName, string> = {
   pooja: "Pooja",
   store: "Store",
   entrance: "Entrance",
+  seating: "Seating",
+  lounge: "Lounge",
+  entry: "Entry",
+  queue: "Order Queue",
+  counter: "Counter",
+  prep: "Kitchen",
+  pantry: "Store",
+  wash: "Wash-up",
+  washroom: "Washroom",
+  staff: "Staff",
 };
 
 // Distinct hues so adjacent rooms read as separate volumes in the 3D model.
@@ -45,6 +80,17 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   pooja: 0xd9b64a,
   store: 0x8d8577,
   entrance: 0xe8912d,
+  // Cafe: front of house warm, back of house cool, so the 60/40 split reads at a glance in 3D.
+  seating: 0xc98a5e,
+  lounge: 0xb9745c,
+  entry: 0xe8912d,
+  queue: 0xd8b26a,
+  counter: 0x8c5a3c,
+  prep: 0x5b8ba0,
+  pantry: 0x7d8792,
+  wash: 0x6a93a8,
+  washroom: 0x8a6fc4,
+  staff: 0x6f7f6a,
 };
 
 // Rooms people spend time in. Drives the interior detailing.
@@ -54,9 +100,32 @@ export const HABITABLE: ReadonlySet<RoomName> = new Set<RoomName>([
   "kitchen",
   "bedroom",
   "entrance",
+  "seating",
+  "lounge",
+  "entry",
+  "prep",
 ]);
 
 export const DEFAULT_MIX: RoomName[] = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"];
+
+/** Every space at zero. The base for a counts map, so callers only name what they want. */
+export const ZERO_COUNTS: Record<RoomName, number> = ROOM_NAMES.reduce((acc, name) => {
+  acc[name] = 0;
+  return acc;
+}, {} as Record<RoomName, number>);
+
+/**
+ * Fill a sparse mix out to every space in the vocabulary.
+ *
+ * A counts map is total over RoomName so consumers can index it without a null check, but no
+ * caller wants to write eighteen zeroes — and a residence literal listing only house rooms
+ * would stop compiling the moment a programme adds a space.
+ */
+export function withCounts(
+  partial: Partial<Record<RoomName, number>>
+): Record<RoomName, number> {
+  return { ...ZERO_COUNTS, ...partial };
+}
 
 export interface AdjacentRoomEdgeMatch {
   adjIndex: number;

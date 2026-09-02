@@ -2,7 +2,25 @@
 import * as THREE from "three";
 import { AIFurnitureParametricDef, createAIFurnitureMesh } from "./aiFurnitureEngine";
 
-export type FurnitureCategory = "living" | "bedroom" | "dining" | "kitchen" | "office" | "decor" | "sacred" | "walls";
+export type FurnitureCategory =
+  // residence
+  | "living"
+  | "bedroom"
+  | "dining"
+  | "kitchen"
+  | "office"
+  | "decor"
+  | "sacred"
+  // shared
+  | "walls"
+  // cafe. Split by where the piece lives in the service flow rather than lumped under one
+  // "cafe" heading, so the left rail can offer a fit-out toolset instead of a bin.
+  | "cafe_seating"
+  | "cafe_service"
+  | "cafe_decor"
+  | "cafe_signage"
+  | "cafe_boh"
+  | "cafe_outdoor";
 
 export interface FurnitureItemDef {
   type: string;
@@ -439,6 +457,254 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     dimensions: { widthFt: 3.5, depthFt: 0.3, heightFt: 3.5 },
     description: "Asymmetrical organic pebble gilded mirror with brushed brass frame and beveled reflective glass.",
     defaultColor: 0xd4af37,
+  },
+  // --------------------------------------------------------------------------------------
+  // Cafe & small restaurant. Sizes follow notes/programs/cafe-layout-standards.md: a 2.5 ft
+  // top with 42 in between tables, a 42 in bar stool at a 42 in counter, and a communal table
+  // wide enough to seat both sides without breaking the 36 in aisle.
+  // --------------------------------------------------------------------------------------
+  {
+    type: "cafe_two_top",
+    name: "Two-Top Cafe Table",
+    category: "cafe_seating",
+    icon: "☕",
+    dimensions: { widthFt: 2.5, depthFt: 5.5, heightFt: 2.9 },
+    description: "Round pedestal two-top with a chair either side. The unit a cover count is built from.",
+    defaultColor: 0x8b5a2b,
+  },
+  {
+    type: "cafe_communal_table",
+    name: "Communal Table & Benches",
+    category: "cafe_seating",
+    icon: "🍽️",
+    dimensions: { widthFt: 8.0, depthFt: 5.0, heightFt: 2.5 },
+    description: "Long shared table with a bench each side. Seats eight in the floor area of three two-tops.",
+    defaultColor: 0x6b4423,
+  },
+  {
+    type: "cafe_banquette_run",
+    name: "Banquette Bench Run",
+    category: "cafe_seating",
+    icon: "🛋️",
+    dimensions: { widthFt: 8.0, depthFt: 2.6, heightFt: 3.6 },
+    description: "Upholstered wall bench. Buys covers along a wall where free-standing chairs would eat the aisle.",
+    defaultColor: 0x4a5a68,
+  },
+  {
+    type: "cafe_bar_stool",
+    name: "Counter Bar Stool",
+    category: "cafe_seating",
+    icon: "🪑",
+    dimensions: { widthFt: 1.4, depthFt: 1.4, heightFt: 3.5 },
+    description: "Backless stool at 42 in for a bar-height counter or window ledge.",
+    defaultColor: 0x1a1d21,
+  },
+  {
+    type: "cafe_display_case",
+    name: "Pastry Display Case",
+    category: "cafe_service",
+    icon: "🥐",
+    dimensions: { widthFt: 4.0, depthFt: 2.2, heightFt: 4.6 },
+    description: "Refrigerated glass case. Belongs at the order end of the counter, before the till.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_planter_divider",
+    name: "Planter Room Divider",
+    category: "cafe_decor",
+    icon: "🪴",
+    dimensions: { widthFt: 5.0, depthFt: 1.4, heightFt: 5.0 },
+    description: "Planted trough on a frame. Splits the queue from the seating without building a wall.",
+    defaultColor: 0x3f7d4f,
+  },
+  {
+    type: "cafe_menu_board",
+    name: "Hanging Menu Board",
+    category: "cafe_signage",
+    icon: "📋",
+    dimensions: { widthFt: 5.0, depthFt: 0.3, heightFt: 3.0 },
+    description: "Board over the counter, readable from the back of the queue.",
+    defaultColor: 0x1f2733,
+  },
+  {
+    type: "cafe_four_top",
+    name: "Four-Top Table",
+    category: "cafe_seating",
+    icon: "🍴",
+    dimensions: { widthFt: 5.5, depthFt: 5.5, heightFt: 2.9 },
+    description: "Square four-top with a chair a side. Doubles a two-top's covers on 1.6x the floor area.",
+    defaultColor: 0x8b5a2b,
+  },
+  {
+    type: "cafe_window_bar",
+    name: "Window Bar & Stools",
+    category: "cafe_seating",
+    icon: "🪟",
+    dimensions: { widthFt: 8.0, depthFt: 1.6, heightFt: 3.6 },
+    description: "Bar-height ledge against the glazing with three stools. Buys solo covers out of a wall.",
+    defaultColor: 0x6b4423,
+  },
+  {
+    type: "cafe_lounge_armchair",
+    name: "Lounge Armchair",
+    category: "cafe_seating",
+    icon: "💺",
+    dimensions: { widthFt: 2.8, depthFt: 2.9, heightFt: 2.7 },
+    description: "Soft armchair for the slow corner. Commercial frame, not a domestic one.",
+    defaultColor: 0x4a5a68,
+  },
+  {
+    type: "cafe_espresso_station",
+    name: "Espresso Machine & Grinder",
+    category: "cafe_service",
+    icon: "☕",
+    dimensions: { widthFt: 4.5, depthFt: 2.2, heightFt: 4.8 },
+    description: "Two-group machine, grinder and knock box on a bench. The production heart of the bar.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_pos_counter",
+    name: "POS & Till Stand",
+    category: "cafe_service",
+    icon: "🧾",
+    dimensions: { widthFt: 2.4, depthFt: 2.0, heightFt: 4.2 },
+    description: "Register on a plinth. Belongs at the order end, well clear of the pickup point.",
+    defaultColor: 0x1a1d21,
+  },
+  {
+    type: "cafe_condiment_station",
+    name: "Condiment Station",
+    category: "cafe_service",
+    icon: "🥛",
+    dimensions: { widthFt: 3.6, depthFt: 1.8, heightFt: 3.6 },
+    description: "Milk, sugar, lids and napkins. Keep it off the queue so topping up does not block the line.",
+    defaultColor: 0x6b4423,
+  },
+  {
+    type: "cafe_retail_shelf",
+    name: "Retail & Bean Shelf",
+    category: "cafe_service",
+    icon: "🛍️",
+    dimensions: { widthFt: 4.0, depthFt: 1.4, heightFt: 6.0 },
+    description: "Merchandising unit for retail bags, mugs and brew kit. Works as a queue guide too.",
+    defaultColor: 0x5d4037,
+  },
+  {
+    type: "cafe_pendant_cluster",
+    name: "Pendant Light Cluster",
+    category: "cafe_decor",
+    icon: "💡",
+    dimensions: { widthFt: 4.0, depthFt: 1.6, heightFt: 3.0 },
+    description: "Three dropped pendants on a rail. Hangs over the counter or a communal table.",
+    defaultColor: 0x1a1d21,
+  },
+  {
+    type: "cafe_neon_sign",
+    name: "Neon Wall Sign",
+    category: "cafe_decor",
+    icon: "🔆",
+    dimensions: { widthFt: 4.4, depthFt: 0.3, heightFt: 2.2 },
+    description: "Glowing wall script. The photo wall every branch gets tagged in.",
+    defaultColor: 0xff5da2,
+  },
+  {
+    type: "cafe_wall_art",
+    name: "Framed Art Set",
+    category: "cafe_decor",
+    icon: "🖼️",
+    dimensions: { widthFt: 5.0, depthFt: 0.2, heightFt: 3.2 },
+    description: "Three framed prints in a gallery row, hung at eye level.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "cafe_floor_plant",
+    name: "Large Floor Plant",
+    category: "cafe_decor",
+    icon: "🌿",
+    dimensions: { widthFt: 3.0, depthFt: 3.0, heightFt: 6.5 },
+    description: "Potted fiddle-leaf. Softens a corner and screens a table from the door draught.",
+    defaultColor: 0x3f7d4f,
+  },
+  {
+    type: "cafe_bookshelf",
+    name: "Open Book & Plant Shelf",
+    category: "cafe_decor",
+    icon: "📚",
+    dimensions: { widthFt: 5.0, depthFt: 1.2, heightFt: 6.4 },
+    description: "Open shelving of books and trailing plants. Reads as a divider without closing the room.",
+    defaultColor: 0x5d4037,
+  },
+  {
+    type: "cafe_a_frame",
+    name: "A-Frame Chalkboard",
+    category: "cafe_signage",
+    icon: "🪧",
+    dimensions: { widthFt: 2.4, depthFt: 2.0, heightFt: 3.6 },
+    description: "Pavement sandwich board. Lives outside the door, never inside the decompression zone.",
+    defaultColor: 0x1f2733,
+  },
+  {
+    type: "cafe_reach_in_fridge",
+    name: "Reach-In Fridge",
+    category: "cafe_boh",
+    icon: "🧊",
+    dimensions: { widthFt: 3.0, depthFt: 2.8, heightFt: 6.6 },
+    description: "Upright commercial fridge for milk and cold stock. Back of house, off the customer path.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_prep_table",
+    name: "Stainless Prep Table",
+    category: "cafe_boh",
+    icon: "🔪",
+    dimensions: { widthFt: 6.0, depthFt: 2.6, heightFt: 3.0 },
+    description: "Stainless bench with an undershelf. The commercial-kitchen workhorse.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_dunnage_rack",
+    name: "Dry Store Racking",
+    category: "cafe_boh",
+    icon: "🗄️",
+    dimensions: { widthFt: 5.0, depthFt: 1.6, heightFt: 6.4 },
+    description: "Four-tier wire racking. Dry goods off the floor, as the inspector expects.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_ice_machine",
+    name: "Ice Machine",
+    category: "cafe_boh",
+    icon: "❄️",
+    dimensions: { widthFt: 2.6, depthFt: 2.6, heightFt: 5.4 },
+    description: "Bin-on-maker unit. Needs a drain and back-of-house air, not a spot behind the bar.",
+    defaultColor: 0xc3c9ce,
+  },
+  {
+    type: "cafe_patio_set",
+    name: "Patio Set & Parasol",
+    category: "cafe_outdoor",
+    icon: "⛱️",
+    dimensions: { widthFt: 6.5, depthFt: 6.5, heightFt: 7.5 },
+    description: "Outdoor two-top under a parasol. Terrace covers are where a lot of Indian cafe seating lives.",
+    defaultColor: 0x6b7f6a,
+  },
+  {
+    type: "cafe_bollard_rope",
+    name: "Terrace Rope Bollards",
+    category: "cafe_outdoor",
+    icon: "⛓️",
+    dimensions: { widthFt: 6.0, depthFt: 0.8, heightFt: 3.2 },
+    description: "Two posts and a slung rope. Marks the terrace boundary without a fence.",
+    defaultColor: 0xd4af37,
+  },
+  {
+    type: "cafe_bike_rack",
+    name: "Bike Rack",
+    category: "cafe_outdoor",
+    icon: "🚲",
+    dimensions: { widthFt: 5.0, depthFt: 1.4, heightFt: 2.8 },
+    description: "Hooped stand by the frontage. Cheap footfall, and it keeps bikes off the shopfront glass.",
+    defaultColor: 0x1a1d21,
   },
 ];
 
@@ -2064,6 +2330,648 @@ export function createFurnitureMesh(
       glass.rotation.x = Math.PI / 2;
       glass.position.set(0, 1.8, 0.1);
       root.add(glass);
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Cafe & small restaurant
+    // ----------------------------------------------------------------------------------
+    case "cafe_two_top": {
+      const topR = 1.25;
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR, 0.14, 24), walnutMat);
+      top.position.y = 2.42;
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 2.35, 12), darkWoodMat);
+      column.position.y = 1.2;
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.1, 20), darkWoodMat);
+      foot.position.y = 0.05;
+      root.add(top, column, foot);
+
+      for (const side of [-1, 1]) {
+        const cz = side * 2.05;
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.16, 1.4), fabricMat);
+        seat.position.set(0, 1.48, cz);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.55, 0.14), fabricMat);
+        back.position.set(0, 2.3, cz + side * 0.62);
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 1.05), darkWoodMat);
+        frame.position.set(0, 0.7, cz);
+        root.add(seat, back, frame);
+      }
+      break;
+    }
+
+    case "cafe_communal_table": {
+      const w = 8.0;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, 3.0), walnutMat);
+      top.position.y = 2.44;
+      root.add(top);
+
+      for (const sx of [-1, 1]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.35, 2.6), darkWoodMat);
+        leg.position.set(sx * (w / 2 - 0.6), 1.18, 0);
+        root.add(leg);
+
+        const bench = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 0.22, 1.2), walnutMat);
+        bench.position.set(0, 1.48, sx * 2.2);
+        root.add(bench);
+
+        for (const bx of [-1, 1]) {
+          const benchLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.4, 1.0), darkWoodMat);
+          benchLeg.position.set(bx * (w / 2 - 1.1), 0.7, sx * 2.2);
+          root.add(benchLeg);
+        }
+      }
+      break;
+    }
+
+    case "cafe_banquette_run": {
+      const w = 8.0;
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(w, 1.35, 2.4), fabricMat);
+      seat.position.set(0, 0.68, 0);
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.3, 2.2), cushionMat);
+      cushion.position.set(0, 1.5, 0);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w, 2.2, 0.5), fabricMat);
+      back.position.set(0, 2.4, -1.2);
+      root.add(seat, cushion, back);
+
+      // Buttoned tufting, three points along the back
+      for (let i = -1; i <= 1; i++) {
+        const button = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), brassMat);
+        button.position.set(i * (w / 4), 2.6, -0.94);
+        root.add(button);
+      }
+      break;
+    }
+
+    case "cafe_bar_stool": {
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.24, 20), fabricMat);
+      seat.position.y = 3.4;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 3.3, 12), chromeMat);
+      post.position.y = 1.7;
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.1, 20), chromeMat);
+      base.position.y = 0.05;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 8, 24), chromeMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 1.1;
+      root.add(seat, post, base, ring);
+      break;
+    }
+
+    case "cafe_display_case": {
+      const caseGlass = new THREE.MeshStandardMaterial({
+        color: 0xdfefff,
+        roughness: 0.05,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.3,
+      });
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.6, 2.2), chromeMat);
+      plinth.position.y = 1.3;
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.12, 2.2), chromeMat);
+      deck.position.y = 2.66;
+      const vitrine = new THREE.Mesh(new THREE.BoxGeometry(3.9, 1.8, 2.1), caseGlass);
+      vitrine.position.y = 3.6;
+      root.add(plinth, deck, vitrine);
+
+      // Two trays of stock so the case does not read as an empty box
+      for (const y of [3.1, 3.9]) {
+        const tray = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.08, 1.6), chromeMat);
+        tray.position.y = y;
+        root.add(tray);
+        for (let i = -1; i <= 1; i++) {
+          const pastry = new THREE.Mesh(
+            new THREE.SphereGeometry(0.22, 10, 8),
+            new THREE.MeshStandardMaterial({ color: 0xd8a05a, roughness: 0.8 })
+          );
+          pastry.scale.set(1.3, 0.7, 1.0);
+          pastry.position.set(i * 1.1, y + 0.2, 0);
+          root.add(pastry);
+        }
+      }
+      break;
+    }
+
+    case "cafe_planter_divider": {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.16, 1.4), darkWoodMat);
+      frame.position.y = 2.6;
+      root.add(frame);
+      for (const sx of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5.0, 0.2), darkWoodMat);
+        post.position.set(sx * 2.4, 2.5, 0);
+        root.add(post);
+      }
+      const trough = new THREE.Mesh(new THREE.BoxGeometry(4.6, 1.1, 1.2), walnutMat);
+      trough.position.y = 0.55;
+      root.add(trough);
+
+      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x3f7d4f, roughness: 0.9 });
+      for (let i = -2; i <= 2; i++) {
+        const bush = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 8), foliageMat);
+        bush.scale.set(1.0, 1.4, 0.8);
+        bush.position.set(i * 0.95, 1.7, 0);
+        root.add(bush);
+      }
+      break;
+    }
+
+    case "cafe_menu_board": {
+      const boardMat = new THREE.MeshStandardMaterial({ color: 0x1f2733, roughness: 0.85 });
+      const board = new THREE.Mesh(new THREE.BoxGeometry(5.0, 3.0, 0.16), boardMat);
+      board.position.y = 6.0;
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.2, 0.08), walnutMat);
+      trim.position.set(0, 6.0, -0.06);
+      root.add(board, trim);
+
+      // Three chalked menu lines
+      const chalkMat = new THREE.MeshStandardMaterial({ color: 0xe8eef5, roughness: 0.95 });
+      for (let i = 0; i < 3; i++) {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(3.6 - i * 0.6, 0.14, 0.02), chalkMat);
+        line.position.set(-0.3, 6.8 - i * 0.75, 0.1);
+        root.add(line);
+      }
+
+      for (const sx of [-1, 1]) {
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 8), brassMat);
+        rod.position.set(sx * 2.2, 8.3, 0);
+        root.add(rod);
+      }
+      break;
+    }
+
+    case "cafe_four_top": {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 3.0), walnutMat);
+      top.position.y = 2.42;
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.35, 12), darkWoodMat);
+      column.position.y = 1.2;
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, 0.1, 20), darkWoodMat);
+      foot.position.y = 0.05;
+      root.add(top, column, foot);
+
+      const chairAt = (x: number, z: number, ry: number) => {
+        const chair = new THREE.Group();
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.16, 1.4), fabricMat);
+        seat.position.y = 1.48;
+        const back = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.55, 0.14), fabricMat);
+        back.position.set(0, 2.3, -0.62);
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 1.05), darkWoodMat);
+        frame.position.y = 0.7;
+        chair.add(seat, back, frame);
+        chair.position.set(x, 0, z);
+        chair.rotation.y = ry;
+        root.add(chair);
+      };
+      chairAt(0, 2.2, Math.PI);
+      chairAt(0, -2.2, 0);
+      chairAt(2.2, 0, -Math.PI / 2);
+      chairAt(-2.2, 0, Math.PI / 2);
+      break;
+    }
+
+    case "cafe_window_bar": {
+      const ledge = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.2, 1.4), walnutMat);
+      ledge.position.set(0, 3.5, 0);
+      root.add(ledge);
+
+      for (const sx of [-1, 1]) {
+        const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 1.1), chromeMat);
+        bracket.position.set(sx * 3.4, 2.9, -0.15);
+        root.add(bracket);
+      }
+
+      for (let i = -1; i <= 1; i++) {
+        const stool = new THREE.Group();
+        const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.22, 18), fabricMat);
+        seat.position.y = 2.6;
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.5, 10), chromeMat);
+        post.position.y = 1.3;
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.75, 0.1, 18), chromeMat);
+        base.position.y = 0.05;
+        stool.add(seat, post, base);
+        stool.position.set(i * 2.4, 0, 1.4);
+        root.add(stool);
+      }
+      break;
+    }
+
+    case "cafe_lounge_armchair": {
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.55, 2.4), fabricMat);
+      seat.position.y = 1.25;
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.3, 2.1), cushionMat);
+      cushion.position.y = 1.65;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.7, 0.45), fabricMat);
+      back.position.set(0, 2.2, -1.0);
+      root.add(seat, cushion, back);
+
+      for (const sx of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 2.2), fabricMat);
+        arm.position.set(sx * 1.1, 1.75, 0.1);
+        root.add(arm);
+        for (const sz of [-1, 1]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.07, 1.0, 8), walnutMat);
+          leg.position.set(sx * 1.0, 0.5, sz * 1.0);
+          root.add(leg);
+        }
+      }
+      break;
+    }
+
+    case "cafe_espresso_station": {
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3.2, 2.2), chromeMat);
+      bench.position.y = 1.6;
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.14, 2.3), chromeMat);
+      deck.position.y = 3.27;
+      root.add(bench, deck);
+
+      // Two-group machine
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 1.5, 1.6), chromeMat);
+      body.position.set(-0.6, 4.1, 0);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.5, 0.1), darkWoodMat);
+      panel.position.set(-0.6, 4.5, 0.82);
+      root.add(body, panel);
+      for (const gx of [-1.2, 0.0]) {
+        const group = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.55, 12), chromeMat);
+        group.position.set(gx, 3.7, 0.55);
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.6), darkWoodMat);
+        handle.position.set(gx, 3.55, 0.95);
+        root.add(group, handle);
+      }
+
+      // Grinder and knock box
+      const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 14), darkWoodMat);
+      hopper.position.set(1.7, 4.6, 0);
+      const grinder = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 1.0), chromeMat);
+      grinder.position.set(1.7, 3.95, 0);
+      const knock = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.6, 14), darkWoodMat);
+      knock.position.set(0.9, 3.64, 0.6);
+      root.add(hopper, grinder, knock);
+      break;
+    }
+
+    case "cafe_pos_counter": {
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.3, 2.0), darkWoodMat);
+      plinth.position.y = 1.65;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 2.2), walnutMat);
+      top.position.y = 3.4;
+      root.add(plinth, top);
+
+      const screen = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 0.12), fabricMat);
+      screen.position.set(0, 4.1, -0.2);
+      screen.rotation.x = -0.22;
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, 0.55, 10), chromeMat);
+      stand.position.set(0, 3.72, -0.2);
+      const drawer = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.5, 1.6), chromeMat);
+      drawer.position.set(0, 3.0, 0.1);
+      root.add(screen, stand, drawer);
+      break;
+    }
+
+    case "cafe_condiment_station": {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.0, 1.8), walnutMat);
+      body.position.y = 1.5;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.16, 2.0), darkWoodMat);
+      top.position.y = 3.08;
+      const bin = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.4, 1.2), chromeMat);
+      bin.position.set(1.2, 3.3, 0);
+      root.add(body, top, bin);
+
+      // Milk jugs and a napkin caddy
+      for (let i = 0; i < 2; i++) {
+        const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 12), chromeMat);
+        jug.position.set(-1.2 + i * 0.7, 3.5, 0.1);
+        root.add(jug);
+      }
+      const caddy = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.7), chromeMat);
+      caddy.position.set(0.2, 3.33, -0.2);
+      root.add(caddy);
+      break;
+    }
+
+    case "cafe_retail_shelf": {
+      const frameMat = darkWoodMat;
+      for (const sx of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 6.0, 1.3), frameMat);
+        post.position.set(sx * 1.9, 3.0, 0);
+        root.add(post);
+      }
+      const bagMat = new THREE.MeshStandardMaterial({ color: 0x8d6e5a, roughness: 0.85 });
+      for (let s = 0; s < 4; s++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.14, 1.3), walnutMat);
+        shelf.position.y = 1.1 + s * 1.5;
+        root.add(shelf);
+        for (let i = -1; i <= 1; i++) {
+          const bag = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.95, 0.5), bagMat);
+          bag.position.set(i * 1.2, 1.65 + s * 1.5, 0);
+          root.add(bag);
+        }
+      }
+      break;
+    }
+
+    case "cafe_pendant_cluster": {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.12, 0.3), darkWoodMat);
+      rail.position.y = 8.4;
+      root.add(rail);
+      for (let i = -1; i <= 1; i++) {
+        const drop = 0.8 + Math.abs(i) * 0.5;
+        const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, drop, 6), darkWoodMat);
+        cord.position.set(i * 1.5, 8.35 - drop / 2, 0);
+        const shade = new THREE.Mesh(
+          new THREE.ConeGeometry(0.55, 0.7, 18, 1, true),
+          new THREE.MeshStandardMaterial({ color: 0x1a1d21, roughness: 0.4, side: THREE.DoubleSide })
+        );
+        shade.position.set(i * 1.5, 8.35 - drop - 0.3, 0);
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.17, 12, 12),
+          new THREE.MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xffca6a, emissiveIntensity: 1.5 })
+        );
+        bulb.position.set(i * 1.5, 8.35 - drop - 0.55, 0);
+        root.add(cord, shade, bulb);
+      }
+      const glow = new THREE.PointLight(0xffc978, 0.7, 16, 1.6);
+      glow.position.set(0, 6.6, 0);
+      root.add(glow);
+      break;
+    }
+
+    case "cafe_neon_sign": {
+      const neonColor = customColor ?? 0xff5da2;
+      const backing = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.2, 0.12), darkWoodMat);
+      backing.position.y = 5.2;
+      root.add(backing);
+
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: neonColor,
+        emissive: neonColor,
+        emissiveIntensity: 1.8,
+        roughness: 0.2,
+      });
+      // A looping script suggested with torus arcs and a connecting bar
+      for (let i = -1; i <= 1; i++) {
+        const loop = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 8, 20, Math.PI * 1.5), tubeMat);
+        loop.position.set(i * 1.2, 5.3, 0.12);
+        loop.rotation.z = -0.4;
+        root.add(loop);
+      }
+      const stroke = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.12), tubeMat);
+      stroke.position.set(0, 4.5, 0.12);
+      root.add(stroke);
+
+      const wash = new THREE.PointLight(neonColor, 0.8, 12, 1.8);
+      wash.position.set(0, 5.2, 0.9);
+      root.add(wash);
+      break;
+    }
+
+    case "cafe_wall_art": {
+      const matteMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.9 });
+      const artMat = new THREE.MeshStandardMaterial({ color: 0x8a6f5a, roughness: 0.85 });
+      for (let i = -1; i <= 1; i++) {
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.9, 0.12), darkWoodMat);
+        frame.position.set(i * 1.7, 5.0, 0);
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.7, 0.04), matteMat);
+        mount.position.set(i * 1.7, 5.0, 0.08);
+        const art = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.25, 0.02), artMat);
+        art.position.set(i * 1.7, 5.0, 0.11);
+        root.add(frame, mount, art);
+      }
+      break;
+    }
+
+    case "cafe_floor_plant": {
+      const potMat = new THREE.MeshStandardMaterial({ color: 0x9c6b4f, roughness: 0.8 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f7d4f, roughness: 0.9 });
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.7, 2.0, 18), potMat);
+      pot.position.y = 1.0;
+      const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 18), darkWoodMat);
+      soil.position.y = 2.0;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 3.4, 8), darkWoodMat);
+      stem.position.y = 3.7;
+      root.add(pot, soil, stem);
+
+      for (let i = 0; i < 7; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.62, 10, 8), leafMat);
+        leaf.scale.set(1.0, 0.35, 1.4);
+        const a = (i / 7) * Math.PI * 2;
+        leaf.position.set(Math.cos(a) * 0.75, 4.2 + (i % 3) * 0.75, Math.sin(a) * 0.75);
+        leaf.rotation.y = a;
+        leaf.rotation.z = 0.35;
+        root.add(leaf);
+      }
+      break;
+    }
+
+    case "cafe_bookshelf": {
+      for (const sx of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 6.4, 1.1), darkWoodMat);
+        post.position.set(sx * 2.4, 3.2, 0);
+        root.add(post);
+      }
+      const bookColors = [0x8c3b3b, 0x2f4f6d, 0x6b7f4a, 0xb08442, 0x5a4a6b];
+      for (let s = 0; s < 4; s++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.14, 1.1), walnutMat);
+        shelf.position.y = 1.0 + s * 1.6;
+        root.add(shelf);
+        for (let b = 0; b < 8; b++) {
+          const book = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.95 + (b % 3) * 0.12, 0.75),
+            new THREE.MeshStandardMaterial({ color: bookColors[(s + b) % bookColors.length], roughness: 0.85 })
+          );
+          book.position.set(-2.0 + b * 0.24, 1.58 + s * 1.6, 0);
+          root.add(book);
+        }
+        if (s % 2 === 1) {
+          const trail = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 10, 8),
+            new THREE.MeshStandardMaterial({ color: 0x3f7d4f, roughness: 0.9 })
+          );
+          trail.scale.set(1.0, 0.8, 0.8);
+          trail.position.set(1.7, 1.5 + s * 1.6, 0);
+          root.add(trail);
+        }
+      }
+      break;
+    }
+
+    case "cafe_a_frame": {
+      const boardMat = new THREE.MeshStandardMaterial({ color: 0x1f2733, roughness: 0.9 });
+      const chalkMat = new THREE.MeshStandardMaterial({ color: 0xe8eef5, roughness: 0.95 });
+      for (const sz of [-1, 1]) {
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 0.12), boardMat);
+        panel.position.set(0, 1.7, sz * 0.45);
+        panel.rotation.x = sz * 0.22;
+        root.add(panel);
+        const trim = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.4, 0.06), walnutMat);
+        trim.position.set(0, 1.7, sz * 0.53);
+        trim.rotation.x = sz * 0.22;
+        root.add(trim);
+        for (let i = 0; i < 3; i++) {
+          const line = new THREE.Mesh(new THREE.BoxGeometry(1.5 - i * 0.3, 0.1, 0.02), chalkMat);
+          line.position.set(-0.15, 2.5 - i * 0.6, sz * 0.52);
+          line.rotation.x = sz * 0.22;
+          root.add(line);
+        }
+      }
+      const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.3, 8), brassMat);
+      hinge.rotation.z = Math.PI / 2;
+      hinge.position.y = 3.35;
+      root.add(hinge);
+      break;
+    }
+
+    case "cafe_reach_in_fridge": {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(3.0, 6.2, 2.8), chromeMat);
+      body.position.y = 3.4;
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, 2.8), darkWoodMat);
+      plinth.position.y = 0.2;
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.1), darkWoodMat);
+      vent.position.set(0, 6.2, 1.42);
+      root.add(body, plinth, vent);
+
+      const glassDoorMat = new THREE.MeshStandardMaterial({
+        color: 0xdfefff,
+        roughness: 0.05,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.32,
+      });
+      const door = new THREE.Mesh(new THREE.BoxGeometry(2.6, 4.6, 0.1), glassDoorMat);
+      door.position.set(0, 3.6, 1.42);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 3.0, 0.12), chromeMat);
+      handle.position.set(1.1, 3.6, 1.55);
+      root.add(door, handle);
+      break;
+    }
+
+    case "cafe_prep_table": {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.16, 2.6), chromeMat);
+      top.position.y = 2.95;
+      const under = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.12, 2.2), chromeMat);
+      under.position.y = 0.9;
+      root.add(top, under);
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.9, 10), chromeMat);
+          leg.position.set(sx * 2.7, 1.45, sz * 1.1);
+          root.add(leg);
+        }
+      }
+      const board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 1.3), walnutMat);
+      board.position.set(-1.5, 3.09, 0);
+      root.add(board);
+      break;
+    }
+
+    case "cafe_dunnage_rack": {
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 6.4, 10), chromeMat);
+          post.position.set(sx * 2.4, 3.2, sz * 0.7);
+          root.add(post);
+        }
+      }
+      const cratMat = new THREE.MeshStandardMaterial({ color: 0x8d6e5a, roughness: 0.9 });
+      for (let s = 0; s < 4; s++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.1, 1.6), chromeMat);
+        shelf.position.y = 0.8 + s * 1.7;
+        root.add(shelf);
+        for (let i = -1; i <= 1; i++) {
+          const crate = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.8, 1.2), cratMat);
+          crate.position.set(i * 1.5, 1.25 + s * 1.7, 0);
+          root.add(crate);
+        }
+      }
+      break;
+    }
+
+    case "cafe_ice_machine": {
+      const bin = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.0, 2.6), chromeMat);
+      bin.position.y = 1.5;
+      const maker = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.2, 2.6), chromeMat);
+      maker.position.y = 4.1;
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.1, 2.7), darkWoodMat);
+      seam.position.y = 3.02;
+      const scoopDoor = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.1), darkWoodMat);
+      scoopDoor.position.set(0, 2.1, 1.32);
+      root.add(bin, maker, seam, scoopDoor);
+      break;
+    }
+
+    case "cafe_patio_set": {
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x6b7f6a, roughness: 0.5, metalness: 0.4 });
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.14, 20), metalMat);
+      top.position.y = 2.42;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.35, 10), metalMat);
+      post.position.y = 1.2;
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.12, 18), metalMat);
+      foot.position.y = 0.06;
+      root.add(top, post, foot);
+
+      for (const side of [-1, 1]) {
+        const chair = new THREE.Group();
+        const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.16, 16), metalMat);
+        seat.position.y = 1.5;
+        const back = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 0.12), metalMat);
+        back.position.set(0, 2.3, -0.6);
+        chair.add(seat, back);
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.45, 8), metalMat);
+          leg.position.set(Math.cos(a) * 0.5, 0.73, Math.sin(a) * 0.5);
+          chair.add(leg);
+        }
+        chair.position.set(0, 0, side * 2.4);
+        chair.rotation.y = side > 0 ? Math.PI : 0;
+        root.add(chair);
+      }
+
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 7.4, 10), walnutMat);
+      mast.position.y = 3.7;
+      const canopy = new THREE.Mesh(
+        new THREE.ConeGeometry(3.2, 1.5, 8),
+        new THREE.MeshStandardMaterial({ color: 0xe0d5c0, roughness: 0.9, side: THREE.DoubleSide })
+      );
+      canopy.position.y = 7.0;
+      root.add(mast, canopy);
+      break;
+    }
+
+    case "cafe_bollard_rope": {
+      const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb08442, roughness: 0.9 });
+      for (const sx of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 12), brassMat);
+        post.position.set(sx * 3.0, 1.5, 0);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), brassMat);
+        cap.position.set(sx * 3.0, 3.1, 0);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.16, 16), darkWoodMat);
+        base.position.set(sx * 3.0, 0.08, 0);
+        root.add(post, cap, base);
+      }
+      // Slung rope, approximated as three segments dipping in the middle
+      const spans: [number, number, number][] = [
+        [-2.0, 2.35, 0.35],
+        [0.0, 2.1, 0.0],
+        [2.0, 2.35, -0.35],
+      ];
+      for (const [x, y, tilt] of spans) {
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.1, 8), ropeMat);
+        seg.rotation.z = Math.PI / 2 + tilt;
+        seg.position.set(x, y, 0);
+        root.add(seg);
+      }
+      break;
+    }
+
+    case "cafe_bike_rack": {
+      const rackMat = new THREE.MeshStandardMaterial({ color: 0x1a1d21, roughness: 0.45, metalness: 0.7 });
+      for (let i = -1; i <= 1; i++) {
+        const hoop = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.09, 10, 20, Math.PI), rackMat);
+        hoop.position.set(i * 2.0, 1.5, 0);
+        root.add(hoop);
+        for (const sx of [-1, 1]) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.5, 10), rackMat);
+          leg.position.set(i * 2.0 + sx * 1.0, 0.75, 0);
+          root.add(leg);
+        }
+      }
       break;
     }
 

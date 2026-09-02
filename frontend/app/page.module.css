@@ -374,3 +374,34 @@
   line-height: 1.4;
   opacity: 0.6;
 }
+
+/* Why the viewport is empty, when it is. A blank screen looks like a rendering bug; this says
+   which of the four real causes it actually is. */
+.solverNotice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 520px;
+  background: #16202f;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.solverNoticeTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fca5a5;
+  margin-bottom: 6px;
+}
+
+.solverNoticeDetail {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  word-break: break-word;
+}

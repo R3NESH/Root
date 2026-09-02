@@ -47,6 +47,8 @@ import styles from "./Blueprint2DView.module.css";
 type CropHandle = "N" | "S" | "E" | "W" | "NW" | "NE" | "SW" | "SE";
 
 interface Blueprint2DViewProps {
+  /** Spaces the active building programme offers. Defaults to the whole vocabulary. */
+  spaces?: RoomName[];
   plot: PlotDims;
   facing: Facing;
   setback: Setback;
@@ -120,6 +122,7 @@ export default function Blueprint2DView({
   onOpenModelBlueprintsModal,
   onApplyBlueprint,
   onStartFromScratch,
+  spaces,
 }: Blueprint2DViewProps) {
   // Layer visibility state
   const [showDimensions, setShowDimensions] = useState(true);
@@ -266,7 +269,7 @@ export default function Blueprint2DView({
           facing: facingVal,
           builtUpAreaSqFt: parsed.builtUpAreaSqFt || Math.round(widthFt * depthFt * 0.75),
           totalSqFt: widthFt * depthFt,
-          vaastuRating: parsed.vaastuRating || "Custom Imported Plan",
+          rating: parsed.rating || parsed.vaastuRating || "Custom Imported Plan",
           description: parsed.description || "User-imported architectural blueprint model.",
           highlights: parsed.highlights || ["Custom Imported Plan", "Ready to Build in 2D & 3D"],
           counts: countsVal,
@@ -1510,7 +1513,7 @@ export default function Blueprint2DView({
         {/* Quick "+ Add Room" Toolbar */}
         <div className={styles.addRoomGroup}>
           <span className={styles.addRoomLabel}>+ Add:</span>
-          {ROOM_NAMES.map((name) => (
+          {(spaces ?? ROOM_NAMES).map((name) => (
             <button
               key={name}
               className={styles.addRoomChip}

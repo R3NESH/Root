@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import { RoomName } from "./rooms";
+import { WallBandScheme } from "./wallBands";
 
 export type FloorCategory = "marble" | "wood" | "tile";
 export type WallCategory = "color" | "texture";
@@ -56,6 +57,11 @@ export interface HouseMaterialConfig {
   roomWallColors: Partial<Record<RoomName, string>>;
   roomWallTextures: Partial<Record<RoomName, string>>;
   roomDoorColors?: Partial<Record<RoomName, string>>;
+  // Wall paint bands — see lib/wallBands.ts. A band is a finish laid on the wall face, so it
+  // lives here beside the wall colours rather than anywhere near the geometry.
+  wallBands?: Record<string, WallBandScheme>;
+  roomWallBands?: Partial<Record<RoomName, WallBandScheme>>;
+  globalWallBands?: WallBandScheme;
   textureSmoothness?: number; // 0.0 (Matte Textured) to 1.0 (Silky Mirror Polish)
   floorGlossLevel?: number; // 0.0 (Matte) to 1.0 (High-Gloss Mirror Polish)
   wallSmoothness?: number; // 0.0 (Heavy Stucco/Brick Relief) to 1.0 (Smooth Satin/Venetian Silk)

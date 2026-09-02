@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
+import { ProgramKey } from "./programs";
 import { RoomName } from "./rooms";
 import { PrevRoomIn, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
 
@@ -17,6 +18,8 @@ interface UseSolveArgs {
   facing: Facing;
   rooms: (RoomName | RoomSpecIn)[];
   setback: Setback;
+  /** Which building programme to pack. Omitted means the residence. */
+  program?: ProgramKey;
 }
 
 function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
@@ -24,7 +27,7 @@ function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
   return r.id || `${r.name}_${index}`;
 }
 
-export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }: UseSolveArgs) {
+export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
   const [pending, setPending] = useState(false);
@@ -64,6 +67,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
             facing,
             rooms: roomList,
             setback,
+            program,
             prev: prevPayload.length > 0 ? prevPayload : undefined,
           },
           controller.signal
@@ -97,7 +101,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback }:
       clearTimeout(timer);
       controller.abort();
     };
-  }, [plotWIn, plotDIn, facing, roomList, setback]);
+  }, [plotWIn, plotDIn, facing, roomList, setback, program]);
 
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(

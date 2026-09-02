@@ -2,7 +2,7 @@
 .triggerBtn {
   position: absolute;
   top: 18px;
-  right: 180px;
+  right: 24px;
   display: flex;
   align-items: center;
   gap: 8px;

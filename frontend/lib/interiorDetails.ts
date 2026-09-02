@@ -3,6 +3,7 @@
 // automatically adapt to all attached room doorways and entrance doors to guarantee 100% obstruction-free walkways.
 
 import * as THREE from "three";
+import { addCafeInteriorDetails, CAFE_SPACES } from "./cafeInteriors";
 import { RoomName, ROOM_LABELS } from "./rooms";
 
 export interface RoomDoorInfo {
@@ -648,6 +649,12 @@ export function addRoomInteriorDetails(
   const cx = rx + rw / 2;
   const cz = rz + rd / 2;
   const doorEdges = new Set(doors.map((d) => d.edge));
+
+  // A cafe space is fitted out by lib/cafeInteriors.ts. Everything below this line is a house.
+  if (CAFE_SPACES.has(roomName)) {
+    addCafeInteriorDetails(group, roomName, rx, rz, rw, rd, roomIndex, deletedIds);
+    return;
+  }
 
   if (roomName === "bedroom") {
     // ---------------------------------------------------------

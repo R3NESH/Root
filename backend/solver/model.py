@@ -15,7 +15,9 @@ from dataclasses import dataclass, field
 
 from ortools.sat.python import cp_model
 
-from vaastu import add_quadrant_constraint, applies_to
+from programs import RESIDENTIAL, Program, primary_cardinal, resolve_rules
+from vaastu import add_quadrant_constraint
+from vaastu.rules import QuadrantRule
 
 from .connectivity import (
     EXTERIOR_WALL_IN,
@@ -35,6 +37,7 @@ from .realism import (
     DRIFT_WEIGHT,
     add_aspect_constraints,
     add_daylight_constraints,
+    add_street_edge_constraints,
     area_terms,
 )
 from .rooms import ROOM_CATALOG, Room
@@ -43,7 +46,25 @@ from .rooms import ROOM_CATALOG, Room
 # from 2 s to 5 s moved envelope fill by about one point on the common case and never changed
 # reachability or Vaastu. Three extra seconds of blank screen bought nothing anyone can see.
 SOLVE_TIME_LIMIT_SECONDS = 2.0
+
+# Interactive budget, for a solve that already has previous positions to drift from. 0.4 s is
+# right for the five- and six-room house this was tuned on, and measurably wrong past that: an
+# eleven-space cafe returns UNKNOWN in 429 ms and the UI draws nothing, because CP-SAT has not
+# even found a first solution before the deadline. Measured need is 0.8 s at eleven spaces, so
+# the budget grows with the programme instead of staying flat.
+#
+# This is a ceiling, not a cost. A six-room house still proves optimality in ~130 ms and returns
+# then; only a program that actually needs the time spends it.
 INTERACTIVE_TIME_LIMIT_SECONDS = 0.4
+INTERACTIVE_TIME_PER_ROOM_SECONDS = 0.12
+INTERACTIVE_TIME_CEILING_SECONDS = 1.2
+INTERACTIVE_FREE_ROOMS = 6
+
+
+def interactive_budget(room_count: int) -> float:
+    """Seconds an edit-time solve gets, scaled by how many spaces are in the programme."""
+    extra = max(0, room_count - INTERACTIVE_FREE_ROOMS) * INTERACTIVE_TIME_PER_ROOM_SECONDS
+    return min(INTERACTIVE_TIME_CEILING_SECONDS, INTERACTIVE_TIME_LIMIT_SECONDS + extra)
 
 
 @dataclass(frozen=True)
@@ -75,6 +96,10 @@ class SolveResult:
     # rule to apply and is not a relaxed one. Callers need the difference — a plan that breaks
     # Vaastu is a rejected plan, not a worse one (notes/decisions/vaastu-as-constraints.md).
     vaastu_relaxed: bool = False
+    # Which building programme was packed, and what its directional rules are called. A cafe
+    # posts a service-flow zoning, not Vaastu, and must not be reported as if it did.
+    program: str = RESIDENTIAL.key
+    rules_label: str = RESIDENTIAL.rules_label
 
 
 def _on_exterior(room, bounds: tuple[int, int, int, int]) -> bool:
@@ -92,11 +117,17 @@ def _on_exterior(room, bounds: tuple[int, int, int, int]) -> bool:
     )
 
 
-def _vaastu_targets(rooms: list[Room]) -> dict[int, str]:
+def _rule_targets(rooms: list[Room], rules: dict[str, QuadrantRule]) -> dict[int, str]:
+    """Which room index carries which directional rule.
+
+    First room of a kind only: constraining two bedrooms into the same half-plane
+    over-constrains the model for no Vaastu reason, and pinning every one of four cafe tables
+    zones to the same band does the same.
+    """
     targets: dict[int, str] = {}
     claimed: set[str] = set()
     for i, room in enumerate(rooms):
-        rule = applies_to(room.name)
+        rule = rules.get(room.name)
         if rule is None or room.name in claimed:
             continue
         claimed.add(room.name)
@@ -115,6 +146,8 @@ def _build_and_solve(
     vaastu_exempt: frozenset[int] = frozenset(),
     require_daylight: bool = True,
     maximise_area: bool = True,
+    program: Program = RESIDENTIAL,
+    facing: str = "N",
 ) -> tuple[int, cp_model.CpSolver, list[tuple[Room, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar]], list[str]]:
     model = cp_model.CpModel()
 
@@ -141,10 +174,12 @@ def _build_and_solve(
 
     model.add_no_overlap_2d(x_intervals, y_intervals)
 
-    hub = hub_index(rooms)
+    rules = resolve_rules(program, facing)
+
+    hub = hub_index(rooms, program)
     if connect_rooms and len(rooms) > 1:
-        add_tree_adjacency(model, var_dicts, assign_parents(rooms))
-        add_room_separation(model, var_dicts, rooms, hub)
+        add_tree_adjacency(model, var_dicts, assign_parents(rooms, program, facing))
+        add_room_separation(model, var_dicts, rooms, hub, program)
 
     # notes/solver/realism-gaps.md — proportion is free, daylight costs four booleans a room.
     add_aspect_constraints(model, var_dicts, rooms)
@@ -153,14 +188,24 @@ def _build_and_solve(
 
     applied: list[str] = []
     if apply_vaastu:
-        for i, description in _vaastu_targets(rooms).items():
+        if program.street_edge_spaces:
+            add_street_edge_constraints(
+                model,
+                var_dicts,
+                rooms,
+                program.street_edge_spaces,
+                primary_cardinal(facing),
+                env_w_in,
+                env_d_in,
+            )
+        for i, description in _rule_targets(rooms, rules).items():
             # A room the user dragged is released from its quadrant — but only that room.
             # notes/solver/vaastu-and-connectivity-drop-on-edit.md: releasing the whole rule set
             # because `prev` was supplied is what silently un-Vaastu'd every edit.
             if i in vaastu_exempt:
                 continue
             room, x, y, w, d = placements[i]
-            rule = applies_to(room.name)
+            rule = rules.get(room.name)
             assert rule is not None
             add_quadrant_constraint(model, rule, x, y, w, d, env_w_in, env_d_in)
             applied.append(description)
@@ -210,6 +255,8 @@ def solve_layout(
     apply_vaastu: bool = False,
     connect_rooms: bool = True,
     moved_index: int | None = None,
+    program: Program = RESIDENTIAL,
+    facing: str = "N",
 ) -> SolveResult:
     if not rooms or env_w_in <= 0 or env_d_in <= 0:
         return SolveResult(status="EMPTY", rooms=[], solve_ms=0.0)
@@ -219,7 +266,7 @@ def solve_layout(
         if r.min_w_in > env_w_in or r.min_d_in > env_d_in:
             return SolveResult(status="INFEASIBLE", rooms=[], solve_ms=0.0)
 
-    time_limit = INTERACTIVE_TIME_LIMIT_SECONDS if prev else SOLVE_TIME_LIMIT_SECONDS
+    time_limit = interactive_budget(len(rooms)) if prev else SOLVE_TIME_LIMIT_SECONDS
 
     # Only the room the user actually dragged is released from its Vaastu quadrant. Having
     # `prev` at all means "we have previous positions", which is true on every solve after the
@@ -237,6 +284,7 @@ def solve_layout(
         return _build_and_solve(
             env_w_in, env_d_in, rs, prev, vaastu, connect_rooms, time_limit,
             vaastu_exempt, require_daylight=daylight, maximise_area=area,
+            program=program, facing=facing,
         )
 
     def ok(st) -> bool:
@@ -290,11 +338,11 @@ def solve_layout(
         for room, x, y, w, d in placements
     ]
 
-    hub = hub_index(rooms)
-    parents = assign_parents(rooms)
+    hub = hub_index(rooms, program)
+    parents = assign_parents(rooms, program, facing)
     bounds = footprint(placed)
     openings = derive_openings(placed, parents)
-    entrance_edge = add_entrance(placed, openings, hub)
+    entrance_edge = add_entrance(placed, openings, hub, program, facing)
     derive_windows(placed, openings)
 
     placed = [
@@ -314,7 +362,11 @@ def solve_layout(
 
     # Which rules the mix *should* have carried, ignoring the room the user is dragging — it is
     # released on purpose and its absence is not a relaxation.
-    expected_rules = {i for i in _vaastu_targets(rooms) if i not in vaastu_exempt}
+    expected_rules = {
+        i
+        for i in _rule_targets(rooms, resolve_rules(program, facing))
+        if i not in vaastu_exempt
+    }
 
     return SolveResult(
         status=status_name,
@@ -324,4 +376,6 @@ def solve_layout(
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub),
         vaastu_relaxed=bool(apply_vaastu and expected_rules and not applied),
+        program=program.key,
+        rules_label=program.rules_label,
     )

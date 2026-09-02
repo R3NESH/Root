@@ -1,13 +1,17 @@
 "use client";
  
 import React, { useState, useEffect, useRef } from "react";
+import { CAFE_BLUEPRINTS } from "@/lib/cafeBlueprints";
 import { MODEL_BLUEPRINTS, ModelBlueprint } from "@/lib/modelBlueprints";
+import { BuildingProgram } from "@/lib/programs";
 import { ROOM_COLORS, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import styles from "./ModelBlueprintsModal.module.css";
 
 interface ModelBlueprintsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Only this programme's plans are listed — a cafe catalogue has no 3BHKs in it. */
+  program: BuildingProgram;
   onSelectBlueprint: (
     blueprint: ModelBlueprint,
     targetMode?: "blueprint" | "orbit" | "walkthrough"
@@ -17,6 +21,7 @@ interface ModelBlueprintsModalProps {
 export default function ModelBlueprintsModal({
   isOpen,
   onClose,
+  program,
   onSelectBlueprint,
 }: ModelBlueprintsModalProps) {
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("All");
@@ -25,6 +30,14 @@ export default function ModelBlueprintsModal({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [customBlueprints, setCustomBlueprints] = useState<ModelBlueprint[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The filter chips are programme-specific, so a size or type left selected from the other
+  // catalogue would silently match nothing.
+  useEffect(() => {
+    setSelectedSizeFilter("All");
+    setSelectedTypeFilter("All");
+    setSelectedFacingFilter("All");
+  }, [program.key]);
 
   // Close on Escape key
   useEffect(() => {
@@ -67,14 +80,15 @@ export default function ModelBlueprintsModal({
         const newBlueprint: ModelBlueprint = {
           id: `custom_import_${Date.now()}`,
           name: parsed.name || file.name.replace(/\.json$/i, "") || "Imported Custom Blueprint",
-          type: parsed.type || "2BHK",
+          type: parsed.type || (program.key === "cafe" ? "Cafe" : "2BHK"),
+          program: program.key,
           plotSizeLabel: `${widthFt}×${depthFt} (${widthFt * depthFt} sq ft)`,
           plotWidthFt: widthFt,
           plotDepthFt: depthFt,
           facing,
           builtUpAreaSqFt: parsed.builtUpAreaSqFt || Math.round(widthFt * depthFt * 0.75),
           totalSqFt: widthFt * depthFt,
-          vaastuRating: parsed.vaastuRating || "Custom Imported Plan",
+          rating: parsed.rating || parsed.vaastuRating || "Custom Imported Plan",
           description: parsed.description || "User-imported architectural blueprint model.",
           highlights: parsed.highlights || ["Custom Imported Plan", "Ready to Build in 2D & 3D"],
           counts,
@@ -97,17 +111,31 @@ export default function ModelBlueprintsModal({
 
   if (!isOpen) return null;
 
-  const sizeOptions = ["All", "20×30", "20×40", "25×40", "25×50", "30×40", "30×50", "35×50", "36×48", "40×60", "50×80"];
-  const typeOptions = ["All", "1BHK", "2BHK", "3BHK", "4BHK"];
+  const catalogue = [...customBlueprints, ...MODEL_BLUEPRINTS, ...CAFE_BLUEPRINTS].filter(
+    (bp) => (bp.program ?? "residence") === program.key
+  );
+
+  // Chips come from what is actually in the catalogue, so a programme never offers a filter
+  // that matches nothing.
+  const sizeOptions = [
+    "All",
+    ...Array.from(new Set(catalogue.map((bp) => bp.plotSizeLabel.split(" ")[0]))).sort((a, b) => {
+      const [aw, ad] = a.split("×").map(Number);
+      const [bw, bd] = b.split("×").map(Number);
+      return aw * ad - bw * bd;
+    }),
+  ];
+  const typeOptions = ["All", ...Array.from(new Set(catalogue.map((bp) => bp.type)))];
+  const presentFacings = new Set(catalogue.map((bp) => bp.facing));
   const facingOptions: { label: string; value: string }[] = [
     { label: "All", value: "All" },
     { label: "🧭 North", value: "N" },
     { label: "🌅 East", value: "E" },
     { label: "☀️ South", value: "S" },
     { label: "🌇 West", value: "W" },
-  ];
+  ].filter((opt) => opt.value === "All" || presentFacings.has(opt.value as "N" | "E" | "S" | "W"));
 
-  const allBlueprints = [...customBlueprints, ...MODEL_BLUEPRINTS];
+  const allBlueprints = catalogue;
 
   const filteredBlueprints = allBlueprints.filter((bp) => {
     const matchesSize =
@@ -138,11 +166,14 @@ export default function ModelBlueprintsModal({
         <div className={styles.modalHeader}>
           <div className={styles.titleArea}>
             <div className={styles.modalTitle}>
-              <span>🏛️ Model Blueprints Catalog</span>
+              <span>
+                {program.icon} {program.label} Blueprints Catalog
+              </span>
             </div>
             <div className={styles.modalSubtitle}>
-              Explore authentic, Vaastu-compliant architectural floor plans or import custom blueprints. Select any model to
-              import directly into the 2D layout or 3D view.
+              {program.key === "cafe"
+                ? "Curated cafe floor plans from a takeaway kiosk to a full-service restaurant, each laid out to trade clearances and checked against the solver's own zoning rules. Select any model to import into the 2D layout or 3D view."
+                : "Explore authentic, Vaastu-compliant architectural floor plans or import custom blueprints. Select any model to import directly into the 2D layout or 3D view."}
             </div>
           </div>
           <div className={styles.headerActions}>
@@ -253,7 +284,7 @@ export default function ModelBlueprintsModal({
                   <span className={styles.facingBadge}>
                     Facing {blueprint.facing === "N" ? "North" : blueprint.facing === "E" ? "East" : blueprint.facing === "S" ? "South" : "West"}
                   </span>
-                  <span className={styles.vaastuBadge}>{blueprint.vaastuRating}</span>
+                  <span className={styles.vaastuBadge}>{blueprint.rating}</span>
                 </div>
 
                 {/* Description */}

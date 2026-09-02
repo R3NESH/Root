@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from envelope import DEFAULT_SETBACK, FACINGS, Setback, buildable_envelope
+from programs import PROGRAMS, RESIDENTIAL, get_program
 from solver.model import solve_layout
 from solver.rooms import ROOM_CATALOG, Room
 
@@ -59,6 +60,9 @@ class SolveRequest(BaseModel):
     setback: SetbackIn | None = None
     prev: list[PrevRoom] | None = None
     apply_vaastu: bool = True
+    # Which building programme to pack — "residence" (default) or "cafe". An old client that
+    # sends nothing keeps the behaviour it has always had; see programs/registry.py.
+    program: str = RESIDENTIAL.key
     # Index of the room the user just dragged. Only that room is released from its Vaastu
     # quadrant — notes/solver/vaastu-and-connectivity-drop-on-edit.md.
     moved_index: int | None = None
@@ -88,6 +92,14 @@ class SolveMeta(BaseModel):
     unknown_room_names: list[str]
     entrance_edge: str | None = None
     rooms_reachable: int = 0
+    # Which programme was packed and what its directional rules are called. `rules_applied` is
+    # the generic carrier; `vaastu_constraints_applied` stays for older clients and is only
+    # populated for a residence, because a cafe posts service-flow zoning and claiming Vaastu it
+    # never enforced is the dishonesty notes/decisions/vaastu-as-constraints.md forbids.
+    program: str = RESIDENTIAL.key
+    rules_label: str = RESIDENTIAL.rules_label
+    rules_applied: list[str] = []
+    rules_relaxed: bool = False
     # The relaxation ladder handed back a layout with no Vaastu rule posted, even though the mix
     # has rules and the caller asked for them. The UI must say so rather than present it as a
     # normal plan — notes/decisions/vaastu-as-constraints.md.
@@ -114,6 +126,7 @@ def solve(req: SolveRequest) -> SolveResponse:
     )
 
     env = buildable_envelope(req.plot_w_in, req.plot_d_in, facing, setback)
+    program = get_program(req.program)
 
     unknown: list[str] = []
     rooms: list[Room] = []
@@ -128,7 +141,10 @@ def solve(req: SolveRequest) -> SolveResponse:
             custom_w = item.custom_w_in
             custom_d = item.custom_d_in
 
-        if r_name not in ROOM_CATALOG:
+        # A bedroom in a cafe is a client bug, not a room. Rejecting it here keeps the mix
+        # inside the programme's own vocabulary, which is what its hub, parent preferences and
+        # zoning were written against.
+        if r_name not in ROOM_CATALOG or r_name not in program.spaces:
             unknown.append(r_name)
             continue
 
@@ -182,6 +198,8 @@ def solve(req: SolveRequest) -> SolveResponse:
                 envelope_w_in=env.width_in,
                 envelope_d_in=env.depth_in,
                 unknown_room_names=unknown,
+                program=program.key,
+                rules_label=program.rules_label,
             ),
         )
 
@@ -193,7 +211,10 @@ def solve(req: SolveRequest) -> SolveResponse:
         prev=prev,
         apply_vaastu=req.apply_vaastu,
         moved_index=req.moved_index,
+        program=program,
+        facing=facing,
     )
+    is_residence = program.key == RESIDENTIAL.key
 
     return SolveResponse(
         rooms=[
@@ -214,7 +235,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         meta=SolveMeta(
             status=result.status,
             solve_ms=round(result.solve_ms, 2),
-            vaastu_constraints_applied=result.vaastu_constraints_applied,
+            vaastu_constraints_applied=result.vaastu_constraints_applied if is_residence else [],
             envelope_origin_x_in=env.origin_x_in,
             envelope_origin_z_in=env.origin_z_in,
             envelope_w_in=env.width_in,
@@ -222,7 +243,11 @@ def solve(req: SolveRequest) -> SolveResponse:
             unknown_room_names=unknown,
             entrance_edge=result.entrance_edge,
             rooms_reachable=result.rooms_reachable,
-            vaastu_relaxed=result.vaastu_relaxed,
+            vaastu_relaxed=result.vaastu_relaxed and is_residence,
+            program=result.program,
+            rules_label=result.rules_label,
+            rules_applied=result.vaastu_constraints_applied,
+            rules_relaxed=result.vaastu_relaxed,
         ),
     )
 
@@ -627,4 +652,14 @@ def model_furniture(req: AIModelFurnitureRequest) -> AIModelFurnitureResponse:
         tags=["AI Modeled", "Armchair", "Accent Furniture"],
         components=components,
     )
+
+
+class PromptSolveRequest(BaseModel):
+    prompt: str
+
+
+@app.post("/solve-prompt")
+def solve_prompt_endpoint(req: PromptSolveRequest):
+    from prompt_to_plan import solve_from_prompt
+    return solve_from_prompt(req.prompt)
 

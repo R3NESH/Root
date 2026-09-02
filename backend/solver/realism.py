@@ -119,3 +119,52 @@ def catalog_fill_ceiling(rooms, env_w_in: int, env_d_in: int) -> float:
         return 0.0
     best = sum(r.max_w_in * r.max_d_in for r in rooms)
     return best / (env_w_in * env_d_in)
+
+
+def add_street_edge_constraints(
+    model: cp_model.CpModel,
+    var_dicts: list[dict],
+    rooms,
+    street_spaces: tuple[str, ...],
+    street: str,
+    env_w_in: int,
+    env_d_in: int,
+) -> list[int]:
+    """Pin named spaces to the building's street-facing face.
+
+    A quadrant rule holds a room's *centre* inside a band, which is enough for "kitchen in the
+    south-east" and not enough for a shopfront: an entry whose centre is in the front third can
+    still sit an inch behind the seating floor, and then the front door gets cut in whichever
+    side wall happens to be exterior. A shop entrance is on the road, so the constraint is on
+    the room's near edge, not its centre.
+
+    Measured against the *footprint*, not the envelope, for the same reason
+    add_daylight_constraints() does: rooms have maximums, so the built footprint does not span a
+    large plot and nothing could reach the plot edge.
+
+    Returns the indices actually constrained.
+    """
+    targets = [i for i, r in enumerate(rooms) if r.name in street_spaces]
+    if not targets:
+        return []
+
+    fx0 = model.new_int_var(0, env_w_in, "street_x0")
+    fx1 = model.new_int_var(0, env_w_in, "street_x1")
+    fz0 = model.new_int_var(0, env_d_in, "street_z0")
+    fz1 = model.new_int_var(0, env_d_in, "street_z1")
+    model.add_min_equality(fx0, [v["x"] for v in var_dicts])
+    model.add_max_equality(fx1, [v["xe"] for v in var_dicts])
+    model.add_min_equality(fz0, [v["y"] for v in var_dicts])
+    model.add_max_equality(fz1, [v["ye"] for v in var_dicts])
+
+    for i in targets:
+        v = var_dicts[i]
+        if street == "N":
+            model.add(v["y"] == fz0)
+        elif street == "S":
+            model.add(v["ye"] == fz1)
+        elif street == "E":
+            model.add(v["xe"] == fx1)
+        else:  # "W"
+            model.add(v["x"] == fx0)
+    return targets
