@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import { RoomName } from "./rooms";
+import { WallGlazing } from "./glazing";
 import { WallBandScheme } from "./wallBands";
 
 export type FloorCategory = "marble" | "wood" | "tile";
@@ -62,6 +63,11 @@ export interface HouseMaterialConfig {
   wallBands?: Record<string, WallBandScheme>;
   roomWallBands?: Partial<Record<RoomName, WallBandScheme>>;
   globalWallBands?: WallBandScheme;
+  // Glazed walls and glass doors — see lib/glazing.ts. Same wall/room/building resolution as
+  // the paint bands above; a glazed wall changes no geometry, only what the wall is made of.
+  wallGlazing?: Record<string, WallGlazing>;
+  roomGlazing?: Partial<Record<RoomName, WallGlazing>>;
+  globalGlazing?: WallGlazing;
   textureSmoothness?: number; // 0.0 (Matte Textured) to 1.0 (Silky Mirror Polish)
   floorGlossLevel?: number; // 0.0 (Matte) to 1.0 (High-Gloss Mirror Polish)
   wallSmoothness?: number; // 0.0 (Heavy Stucco/Brick Relief) to 1.0 (Smooth Satin/Venetian Silk)
@@ -75,7 +81,10 @@ export const DEFAULT_MATERIAL_CONFIG: HouseMaterialConfig = {
   globalWallColor: "arctic_white",
   globalWallTexture: "matte_paint",
   globalDoorColor: "dark_walnut",
-  roomFloors: {},
+  // Reception rooms ship in chevron parquet. This is a DEFAULT, not an override: picking any
+  // floor in the Finishes panel clears roomFloors and wins. It used to be enforced at render
+  // time inside Scene.tsx, where nothing in the UI could displace it.
+  roomFloors: { hall: "french_chevron_oak", dining: "french_chevron_oak" },
   roomWallColors: {},
   roomWallTextures: {},
   roomDoorColors: {},
@@ -502,7 +511,11 @@ function createAndCacheTexture(
   drawFn: (ctx: CanvasRenderingContext2D, size: number) => void,
   repeat: [number, number] = [2, 2],
   resolution: number = 1024,
-  anisotropy: number = 16
+  anisotropy: number = 16,
+  // Colour maps carry sRGB values and must say so, or the renderer treats the canvas as if it
+  // were already linear and every mid-tone comes out too bright. Height and normal data is not
+  // colour and stays linear.
+  colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace
 ): THREE.CanvasTexture {
   const cacheKey = `${key}_${resolution}`;
   if (textureCache.has(cacheKey)) {
@@ -529,6 +542,7 @@ function createAndCacheTexture(
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeat[0], repeat[1]);
   texture.anisotropy = anisotropy;
+  texture.colorSpace = colorSpace;
   textureCache.set(cacheKey, texture);
   return texture;
 }
@@ -1164,7 +1178,215 @@ export function getWallTextureBumpMap(
       ctx.strokeRect(0, 0, size / 2, size);
       ctx.strokeRect(size / 2, 0, size / 2, size);
     }
-  }, [4, 4], resolution, anisotropy);
+  }, [4, 4], resolution, anisotropy, THREE.NoColorSpace);
+}
+
+
+// --------------------------------------------------------------------------------------
+// Derived Normal & Roughness Maps
+// --------------------------------------------------------------------------------------
+// Every finish above is drawn as a single colour canvas, and for walls a second height canvas.
+// A colour map on its own gives a surface one uniform response to light: the veins in the
+// marble and the grout between the tiles read as stripes painted on glass, because nothing
+// tells the shader that the surface itself changes. Rather than hand-author a second and third
+// canvas per finish - 30-odd more draw functions to keep in step with the first set - these
+// derive the missing maps from the canvases that already exist. A new finish gets them by
+// being drawn once.
+
+const derivedCache = new Map<string, THREE.CanvasTexture>();
+
+// Derivation runs on the CPU, one pass per pixel, so it is capped well below the colour map's
+// resolution. Relief and roughness are low-frequency next to albedo; the 4K setting exists for
+// the veining, which lives in the colour map and is untouched by this.
+const DERIVED_SIZE = 512;
+
+/** How much rougher a seam is allowed to be than the polished face around it. */
+export const ROUGHNESS_MAP_HEADROOM = 1.6;
+
+export function clearDerivedMapCache(): void {
+  derivedCache.forEach((tex) => tex.dispose());
+  derivedCache.clear();
+}
+
+function sampleSource(source: THREE.CanvasTexture): ImageData | null {
+  const image = source.image as HTMLCanvasElement | undefined;
+  if (typeof document === "undefined" || !image || !image.width) return null;
+
+  const scratch = document.createElement("canvas");
+  scratch.width = DERIVED_SIZE;
+  scratch.height = DERIVED_SIZE;
+  const ctx = scratch.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, DERIVED_SIZE, DERIVED_SIZE);
+  return ctx.getImageData(0, 0, DERIVED_SIZE, DERIVED_SIZE);
+}
+
+function finishDerived(
+  key: string,
+  canvas: HTMLCanvasElement,
+  source: THREE.CanvasTexture,
+  anisotropy: number
+): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = source.wrapS;
+  tex.wrapT = source.wrapT;
+  tex.repeat.copy(source.repeat);
+  tex.anisotropy = anisotropy;
+  tex.colorSpace = THREE.NoColorSpace;
+  derivedCache.set(key, tex);
+  return tex;
+}
+
+function luminanceField(src: ImageData): Float32Array {
+  const out = new Float32Array(DERIVED_SIZE * DERIVED_SIZE);
+  for (let i = 0; i < out.length; i++) {
+    out[i] =
+      (0.2126 * src.data[i * 4] + 0.7152 * src.data[i * 4 + 1] + 0.0722 * src.data[i * 4 + 2]) / 255;
+  }
+  return out;
+}
+
+/**
+ * Sobel over the source's luminance, treated as a height field. Sampling wraps at the edges so
+ * the tiling seam stays invisible.
+ */
+function deriveNormalMap(
+  key: string,
+  source: THREE.CanvasTexture | null,
+  strength: number,
+  anisotropy: number
+): THREE.CanvasTexture | null {
+  if (!source) return null;
+  const cacheKey = "normal_" + key;
+  const hit = derivedCache.get(cacheKey);
+  if (hit) {
+    hit.anisotropy = anisotropy;
+    return hit;
+  }
+
+  const src = sampleSource(source);
+  if (!src) return null;
+
+  const n = DERIVED_SIZE;
+  const height = luminanceField(src);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = n;
+  canvas.height = n;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const out = ctx.createImageData(n, n);
+
+  const at = (x: number, y: number) => height[((y + n) % n) * n + ((x + n) % n)];
+
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const dx =
+        at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1) -
+        (at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1));
+      const dy =
+        at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1) -
+        (at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1));
+
+      const nx = -dx * strength;
+      const ny = -dy * strength;
+      const len = Math.hypot(nx, ny, 1) || 1;
+
+      const i = (y * n + x) * 4;
+      out.data[i] = ((nx / len) * 0.5 + 0.5) * 255;
+      out.data[i + 1] = ((ny / len) * 0.5 + 0.5) * 255;
+      out.data[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      out.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+  return finishDerived(cacheKey, canvas, source, anisotropy);
+}
+
+/**
+ * Grout, seams and the gaps between planks sit darker than the surface they interrupt, and they
+ * are also the parts that never take a polish. Mapping darkness to roughness turns that one
+ * observation into the difference between a printed floor and a laid one.
+ */
+function deriveRoughnessMap(
+  key: string,
+  source: THREE.CanvasTexture | null,
+  anisotropy: number
+): THREE.CanvasTexture | null {
+  if (!source) return null;
+  const cacheKey = "rough_" + key;
+  const hit = derivedCache.get(cacheKey);
+  if (hit) {
+    hit.anisotropy = anisotropy;
+    return hit;
+  }
+
+  const src = sampleSource(source);
+  if (!src) return null;
+
+  const n = DERIVED_SIZE;
+  const lum = luminanceField(src);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = n;
+  canvas.height = n;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const out = ctx.createImageData(n, n);
+
+  const floorValue = 1 / ROUGHNESS_MAP_HEADROOM;
+  for (let i = 0; i < n * n; i++) {
+    // The map multiplies the material's scalar roughness, so it can only ever reduce it. The
+    // scalar is raised by ROUGHNESS_MAP_HEADROOM at the call site to make room: a bright,
+    // polished pixel lands back on the roughness the finish asked for, and a dark seam keeps
+    // the raised one.
+    const v = 1 - (1 - floorValue) * lum[i];
+    const b = Math.round(Math.max(0, Math.min(1, v)) * 255);
+    const o = i * 4;
+    out.data[o] = b;
+    out.data[o + 1] = b;
+    out.data[o + 2] = b;
+    out.data[o + 3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  return finishDerived(cacheKey, canvas, source, anisotropy);
+}
+
+/** Surface relief for a floor finish, derived from its colour map. */
+export function getFloorNormalMap(
+  materialId: string,
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture | null {
+  // Colour stands in for height here, it does not measure it, so the gain stays low - enough to
+  // catch the light along a vein or a plank edge, not enough to emboss the pattern.
+  return deriveNormalMap(materialId, getFloorTexture(materialId, resolution, anisotropy), 1.6, anisotropy);
+}
+
+/** Per-pixel roughness for a floor finish, derived from its colour map. */
+export function getFloorRoughnessMap(
+  materialId: string,
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture | null {
+  return deriveRoughnessMap(materialId, getFloorTexture(materialId, resolution, anisotropy), anisotropy);
+}
+
+/**
+ * Surface relief for a wall finish. Unlike the floors this comes off a real height canvas - the
+ * one that used to drive `bumpMap` - so the gain can be far higher.
+ */
+export function getWallNormalMap(
+  textureId: string,
+  resolution: number = 1024,
+  anisotropy: number = 16
+): THREE.CanvasTexture | null {
+  return deriveNormalMap(
+    "wall_" + textureId,
+    getWallTextureBumpMap(textureId, resolution, anisotropy),
+    3.2,
+    anisotropy
+  );
 }
 
 /**

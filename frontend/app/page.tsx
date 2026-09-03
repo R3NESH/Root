@@ -28,6 +28,7 @@ import {
   wallBandKey,
   WallBandScheme,
 } from "@/lib/wallBands";
+import { resolveWallGlazing, WallGlazing } from "@/lib/glazing";
 import { useSolve } from "@/lib/useSolve";
 import { parsePromptClient, RoomOpening, RoomSpecIn, solvePromptApi } from "@/lib/solve";
 import { feetToInches, inchesToFeet } from "@/lib/units";
@@ -41,6 +42,10 @@ import DoorsWindowsDrawer from "@/components/DoorsWindowsDrawer";
 import LeftToolRail from "@/components/LeftToolRail";
 import AIFurnitureStudioModal from "@/components/AIFurnitureStudioModal";
 import GraphicsControlModal from "@/components/GraphicsControlModal";
+import BOQCostModal from "@/components/BOQCostModal";
+import CustomWallBlendModal from "@/components/CustomWallBlendModal";
+
+
 import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
 import { OpeningItemDef } from "@/lib/openingsCatalog";
 import { SelectedObjectInfo } from "@/components/Scene";
@@ -68,7 +73,7 @@ import {
   CustomWallType,
   CadTool,
 } from "@/lib/customArchitecture";
-import { clearProject, loadProject, saveProject } from "@/lib/projectStorage";
+import { clearProject, loadProject, programOfSavedProject, saveProject } from "@/lib/projectStorage";
 import styles from "./page.module.css";
 
 const DEFAULT_COUNTS: Record<RoomName, number> = withCounts({
@@ -121,6 +126,12 @@ export default function Home() {
   const [placingOpeningDef, setPlacingOpeningDef] = useState<OpeningItemDef | null>(null);
   const [isLayoutLocked, setIsLayoutLocked] = useState(false);
   const [isUpgraded, setIsUpgraded] = useState(true);
+  const [isRaytracing, setIsRaytracing] = useState(false);
+  const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
+  const [isCustomWallBlendModalOpen, setIsCustomWallBlendModalOpen] = useState(false);
+
+
+
 
   const handleSpawnAIFurniture = useCallback((placedObj: PlacedCustomObject) => {
     setCustomObjects((prev) => [...prev, placedObj]);
@@ -160,6 +171,8 @@ export default function Home() {
     if (data) {
       if (data.plot) setPlot(data.plot);
       if (data.facing) setFacing(data.facing);
+      // Before the counts, so the mix and the programme it belongs to are never out of step.
+      setProgramKey(programOfSavedProject(data));
       if (data.counts) setCounts(data.counts);
       if (data.customDims) setCustomDims(data.customDims);
       if (data.customOpenings) setCustomOpenings(data.customOpenings);
@@ -212,6 +225,7 @@ export default function Home() {
 
   const {
     rooms: solvedRooms,
+    quantities,
     meta,
     pending,
     error,
@@ -293,6 +307,70 @@ export default function Home() {
         if (scheme === null) delete next[key];
         else next[key] = scheme;
         return { ...prev, wallBands: next };
+      });
+    },
+    [selectedObjectInfo, solvedRooms]
+  );
+
+  const handleApplyCustomWallBlend = useCallback(
+    (scheme: WallBandScheme, scope: "wall" | "room" | "global") => {
+      const info = selectedObjectInfo;
+      if (scope === "wall" && info?.isWall && info.roomIndex != null && info.edge) {
+        handleChangeSelectedWallBands(scheme);
+      } else if (scope === "room" && info?.isWall && info.roomIndex != null) {
+        const room = solvedRooms[info.roomIndex];
+        if (room) {
+          setMaterialConfig((prev) => ({
+            ...prev,
+            roomWallBands: {
+              ...(prev.roomWallBands ?? {}),
+              [room.name as RoomName]: scheme,
+            },
+          }));
+        }
+      } else {
+        setMaterialConfig((prev) => ({
+          ...prev,
+          globalWallBands: scheme,
+          wallBands: {},
+          roomWallBands: {},
+        }));
+      }
+    },
+    [selectedObjectInfo, solvedRooms, handleChangeSelectedWallBands]
+  );
+
+
+  // Glazing on the selected wall. Same key and same resolution as the paint bands — a wall is
+  // either glazed or painted, never both.
+  const selectedWallGlazing = useMemo(() => {
+    const info = selectedObjectInfo;
+    if (!info?.isWall || info.roomIndex == null || !info.edge) return undefined;
+    const room = solvedRooms[info.roomIndex];
+    if (!room) return undefined;
+    return resolveWallGlazing(
+      materialConfig,
+      wallBandKey(roomInstanceId(solvedRooms, info.roomIndex), info.edge),
+      room.name as RoomName
+    );
+  }, [selectedObjectInfo, solvedRooms, materialConfig]);
+
+  const handleChangeSelectedWallGlazing = useCallback(
+    (glazing: WallGlazing | null) => {
+      const info = selectedObjectInfo;
+      if (!info?.isWall || info.roomIndex == null || !info.edge) return;
+      const room = solvedRooms[info.roomIndex];
+      if (!room) return;
+      const key = wallBandKey(roomInstanceId(solvedRooms, info.roomIndex), info.edge);
+      setMaterialConfig((prev) => {
+        const next = { ...(prev.wallGlazing ?? {}) };
+        if (glazing === null) delete next[key];
+        else next[key] = glazing;
+        // Glazing wins over a paint band on the same wall; leaving the band would mean the
+        // renderer picks one and the panel shows the other.
+        const bands = { ...(prev.wallBands ?? {}) };
+        if (glazing?.wall) delete bands[key];
+        return { ...prev, wallGlazing: next, wallBands: bands };
       });
     },
     [selectedObjectInfo, solvedRooms]
@@ -599,6 +677,7 @@ export default function Home() {
       const saved = saveProject({
         plot,
         facing,
+        program: programKey,
         counts,
         customDims,
         customOpenings,
@@ -623,6 +702,7 @@ export default function Home() {
     isLoadedFromStorage,
     plot,
     facing,
+    programKey,
     counts,
     customDims,
     customOpenings,
@@ -1148,6 +1228,8 @@ export default function Home() {
         setIsAIFurnitureModalOpen(false);
         setIsReplaceModalOpen(false);
         setIsRoomDimensionsOpen(false);
+        setIsBOQModalOpen(false);
+        setIsCustomWallBlendModalOpen(false);
       } else if (e.code === "Delete" || e.code === "Backspace") {
         if (selectedObjectId || selectedObjectInfo) {
           handleDeleteSelected();
@@ -1184,11 +1266,13 @@ export default function Home() {
         handleToggleLights();
       } else if (e.code === "KeyU" || e.key === "u" || e.key === "U") {
         setIsUpgraded((prev) => !prev);
+      } else if (e.code === "KeyP" || e.key === "p" || e.key === "P") {
+        setIsRaytracing((prev) => !prev);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLights, handleMoveSelected, setIsUpgraded]);
+  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLights, handleMoveSelected, setIsUpgraded, setIsRaytracing]);
 
   return (
     <div className={styles.appContainer}>
@@ -1207,6 +1291,8 @@ export default function Home() {
         coverCount={coverCount}
         selectedWallBands={selectedWallBands}
         onChangeSelectedWallBands={handleChangeSelectedWallBands}
+        selectedWallGlazing={selectedWallGlazing}
+        onChangeSelectedWallGlazing={handleChangeSelectedWallGlazing}
         furnished={furnished}
         onToggleFurnished={setFurnished}
         customDims={customDims}
@@ -1220,6 +1306,8 @@ export default function Home() {
         onToggleLights={handleToggleLights}
         isUpgraded={isUpgraded}
         onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
+        isRaytracing={isRaytracing}
+        onToggleRaytrace={() => setIsRaytracing((prev) => !prev)}
         isLayoutLocked={isLayoutLocked}
         onToggleLayoutLock={handleToggleLayoutLock}
         onOpenWindowModal={() => setIsWindowModalOpen(true)}
@@ -1227,6 +1315,11 @@ export default function Home() {
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
         onOpenGraphicsModal={() => setIsGraphicsModalOpen(true)}
+        onOpenBOQModal={() => setIsBOQModalOpen(true)}
+        onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
+
+
+
         placingItemType={placingItemType}
         onSelectPlaceItem={(type) => {
           setPlacingItemType(type);
@@ -1276,7 +1369,9 @@ export default function Home() {
           onChangeMaterialConfig={setMaterialConfig}
           onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
           onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
+          onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
           totalPlacedCount={customObjects.length}
+
           deletedBuiltinCount={deletedBuiltinIds.length}
           onRestoreDefaults={handleRestoreDefaults}
           onClearAllFurniture={handleClearAllFurniture}
@@ -1356,7 +1451,10 @@ export default function Home() {
                 furnished={furnished}
                 isUpgraded={isUpgraded}
                 onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
+                isRaytracing={isRaytracing}
+                onToggleRaytrace={() => setIsRaytracing((prev) => !prev)}
                 materialConfig={materialConfig}
+
                 graphicsSettings={graphicsSettings}
                 windowConfig={windowConfig}
                 onChangeWindowConfig={setWindowConfig}
@@ -1485,6 +1583,7 @@ export default function Home() {
 
       {/* Architectural Blueprint Export Dialog Modal */}
       <BlueprintExportModal
+        quantities={quantities}
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         plot={plot}
@@ -1534,6 +1633,26 @@ export default function Home() {
         settings={graphicsSettings}
         onChangeSettings={setGraphicsSettings}
       />
+
+      {/* Engineering Bill of Quantities (BOQ) & Cost Takeoff Modal */}
+      <BOQCostModal
+        isOpen={isBOQModalOpen}
+        onClose={() => setIsBOQModalOpen(false)}
+        plot={plot}
+        facing={facing}
+        rooms={rooms}
+      />
+
+      {/* Custom Wall Partitions & Permutations Studio Modal */}
+      <CustomWallBlendModal
+        isOpen={isCustomWallBlendModalOpen}
+        onClose={() => setIsCustomWallBlendModalOpen(false)}
+        initialScheme={selectedWallBands || materialConfig.globalWallBands}
+        selectedWallName={selectedObjectInfo?.isWall ? (selectedObjectInfo.name || "Selected Wall") : undefined}
+        onApplyScheme={handleApplyCustomWallBlend}
+      />
     </div>
   );
+
+
 }

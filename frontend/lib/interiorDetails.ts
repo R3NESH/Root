@@ -3,14 +3,28 @@
 // automatically adapt to all attached room doorways and entrance doors to guarantee 100% obstruction-free walkways.
 
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { addCafeInteriorDetails, CAFE_SPACES } from "./cafeInteriors";
 import { RoomName, ROOM_LABELS } from "./rooms";
+
+export function createRoundedBox(
+  w: number,
+  h: number,
+  d: number,
+  radius: number = 0.05,
+  segments: number = 4
+): THREE.BufferGeometry {
+  const minDim = Math.min(w, h, d);
+  const safeRadius = Math.max(0.003, Math.min(radius, minDim / 2 - 0.002));
+  return new RoundedBoxGeometry(w, h, d, segments, safeRadius);
+}
 
 export interface RoomDoorInfo {
   edge: "N" | "S" | "E" | "W";
   center: number; // feet along the axis
   isEntrance?: boolean;
 }
+
 
 // --------------------------------------------------------------------------------------
 // 1. Procedural PBR Floor Texture Generators (Cached Singletons)
@@ -677,39 +691,40 @@ export function addRoomInteriorDetails(
     const bedW = Math.min(rw * 0.48, 6.2);
     const bedL = Math.min(rd * 0.52, 6.6);
 
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.9, bedL), woodMat);
+    const frame = new THREE.Mesh(createRoundedBox(bedW, 0.9, bedL, 0.05, 4), woodMat);
     frame.position.y = 0.45;
     frame.castShadow = true;
     bedGroup.add(frame);
 
-    const mattress = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.2, 0.7, bedL - 0.2), linenMat);
+    const mattress = new THREE.Mesh(createRoundedBox(bedW - 0.2, 0.7, bedL - 0.2, 0.12, 5), linenMat);
     mattress.position.y = 1.1;
     mattress.castShadow = true;
     bedGroup.add(mattress);
 
-    const duvet = new THREE.Mesh(new THREE.BoxGeometry(bedW - 0.15, 0.72, bedL * 0.65), duvetMat);
+    const duvet = new THREE.Mesh(createRoundedBox(bedW - 0.15, 0.72, bedL * 0.65, 0.1, 5), duvetMat);
     duvet.position.set(0, 1.12, bedL * 0.15);
     duvet.castShadow = true;
     bedGroup.add(duvet);
 
-    const headboard = new THREE.Mesh(new THREE.BoxGeometry(bedW + 0.4, 3.8, 0.4), woodMat);
+    const headboard = new THREE.Mesh(createRoundedBox(bedW + 0.4, 3.8, 0.4, 0.08, 4), woodMat);
     headboard.position.set(0, 1.9, -bedL / 2 + 0.1);
     headboard.castShadow = true;
     bedGroup.add(headboard);
 
-    const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(bedW * 0.38, 0.35, 1.3), linenMat);
+    const pillow1 = new THREE.Mesh(createRoundedBox(bedW * 0.38, 0.35, 1.3, 0.14, 5), linenMat);
     pillow1.position.set(-bedW * 0.24, 1.5, -bedL / 2 + 1.2);
     bedGroup.add(pillow1);
 
-    const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(bedW * 0.38, 0.35, 1.3), linenMat);
+    const pillow2 = new THREE.Mesh(createRoundedBox(bedW * 0.38, 0.35, 1.3, 0.14, 5), linenMat);
     pillow2.position.set(bedW * 0.24, 1.5, -bedL / 2 + 1.2);
     bedGroup.add(pillow2);
 
     for (const side of [-1, 1]) {
-      const stand = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.4), woodMat);
+      const stand = new THREE.Mesh(createRoundedBox(1.6, 1.4, 1.4, 0.08, 4), woodMat);
       stand.position.set(side * (bedW / 2 + 1.1), 0.7, -bedL / 2 + 0.9);
       stand.castShadow = true;
       bedGroup.add(stand);
+
 
       const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.1, 16), brassMat);
       lampBase.position.set(side * (bedW / 2 + 1.1), 1.45, -bedL / 2 + 0.9);
@@ -760,7 +775,7 @@ export function addRoomInteriorDetails(
     }
 
     const closetW = Math.min(rw * 0.36, 5.8);
-    const closet = new THREE.Mesh(new THREE.BoxGeometry(closetW, 7.8, 2.0), closetMat);
+    const closet = new THREE.Mesh(createRoundedBox(closetW, 7.8, 2.0, 0.08, 4), closetMat);
 
     if (closetEdge === "E") {
       closet.position.set(rx + rw - 1.2, 3.9, cz);
@@ -775,7 +790,7 @@ export function addRoomInteriorDetails(
     }
     closet.castShadow = true;
 
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.6, 0.08), handleMat);
+    const handle = new THREE.Mesh(createRoundedBox(0.06, 1.6, 0.08, 0.02, 3), handleMat);
     handle.position.set(closet.position.x, 3.8, closet.position.z + 1.05);
 
     const wardrobeId = `builtin_${roomIndex}_wardrobe`;
@@ -813,14 +828,14 @@ export function addRoomInteriorDetails(
       const standMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 });
 
       // Desk Top & Legs
-      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.15, 1.8), deskMat);
+      const deskTop = new THREE.Mesh(createRoundedBox(3.6, 0.15, 1.8, 0.04, 3), deskMat);
       deskTop.position.set(0, 2.3, 0);
       deskTop.castShadow = true;
       deskGroup.add(deskTop);
 
       for (const lx of [-1.6, 1.6]) {
         for (const lz of [-0.7, 0.7]) {
-          const dLeg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), standMat);
+          const dLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 2.2, 12), standMat);
           dLeg.position.set(lx, 1.1, lz);
           deskGroup.add(dLeg);
         }
@@ -832,7 +847,7 @@ export function addRoomInteriorDetails(
         monArm.position.set(mx, 2.65, -0.5);
         deskGroup.add(monArm);
 
-        const monitor = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.08), screenMat);
+        const monitor = new THREE.Mesh(createRoundedBox(1.4, 0.8, 0.08, 0.03, 3), screenMat);
         monitor.position.set(mx, 3.0, -0.5);
         monitor.rotation.y = mx < 0 ? 0.15 : -0.15;
         deskGroup.add(monitor);
@@ -840,19 +855,33 @@ export function addRoomInteriorDetails(
 
       // Keyboard
       const kbMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.5 });
-      const keyboard = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.4), kbMat);
+      const keyboard = new THREE.Mesh(createRoundedBox(1.2, 0.04, 0.4, 0.02, 3), kbMat);
       keyboard.position.set(0, 2.4, 0.15);
       deskGroup.add(keyboard);
 
       // Ergonomic Swivel Chair
-      const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.2, 1.4), chairMat);
+      const chairSeat = new THREE.Mesh(createRoundedBox(1.4, 0.2, 1.4, 0.08, 4), chairMat);
       chairSeat.position.set(0, 1.4, 1.1);
       chairSeat.castShadow = true;
       deskGroup.add(chairSeat);
 
-      const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 0.15), chairMat);
-      chairBack.position.set(0, 2.1, 1.7);
+      const chairBack = new THREE.Mesh(createRoundedBox(1.3, 1.6, 0.15, 0.08, 4), chairMat);
+      chairBack.position.set(0, 2.2, 1.75);
+      chairBack.castShadow = true;
       deskGroup.add(chairBack);
+
+      const chairPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 12), standMat);
+      chairPole.position.set(0, 0.6, 1.1);
+      deskGroup.add(chairPole);
+
+      for (let b = 0; b < 5; b++) {
+        const bAng = (b * Math.PI * 2) / 5;
+        const bLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.7, 8), standMat);
+        bLeg.rotation.z = Math.PI / 2;
+        bLeg.rotation.y = bAng;
+        bLeg.position.set(Math.cos(bAng) * 0.35, 0.1, 1.1 + Math.sin(bAng) * 0.35);
+        deskGroup.add(bLeg);
+      }
 
       // Positioning Desk against wall
       if (deskEdge === "N") {
@@ -900,25 +929,25 @@ export function addRoomInteriorDetails(
     const counterW = rw - 1.4;
     const counterZ = counterRunEdge === "N" ? rz + 1.2 : rz + rd - 1.2;
 
-    const counter1 = new THREE.Mesh(new THREE.BoxGeometry(counterW, 2.8, 2.0), cabinetMat);
+    const counter1 = new THREE.Mesh(createRoundedBox(counterW, 2.8, 2.0, 0.05, 4), cabinetMat);
     counter1.position.set(rx + counterW / 2 + 0.7, 1.4, counterZ);
     counter1.castShadow = true;
 
-    const top1 = new THREE.Mesh(new THREE.BoxGeometry(counterW + 0.1, 0.25, 2.1), quartzMat);
+    const top1 = new THREE.Mesh(createRoundedBox(counterW + 0.1, 0.25, 2.1, 0.06, 4), quartzMat);
     top1.position.set(rx + counterW / 2 + 0.7, 2.85, counterZ);
 
     const cooktopMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.1, metalness: 0.8 });
-    const cooktop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 1.8), cooktopMat);
+    const cooktop = new THREE.Mesh(createRoundedBox(2.4, 0.06, 1.8, 0.02, 3), cooktopMat);
     cooktop.position.set(rx + counterW * 0.35 + 0.7, 2.98, counterZ);
 
-    const chimney = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 1.6), chromeMat);
+    const chimney = new THREE.Mesh(createRoundedBox(2.6, 0.8, 1.6, 0.06, 4), chromeMat);
     chimney.position.set(rx + counterW * 0.35 + 0.7, 6.2, counterZ);
 
-    const duct = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.0, 1.0), chromeMat);
+    const duct = new THREE.Mesh(createRoundedBox(1.0, 2.0, 1.0, 0.04, 3), chromeMat);
     duct.position.set(rx + counterW * 0.35 + 0.7, 7.6, counterZ);
 
     const sinkMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 });
-    const sink = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 1.5), sinkMat);
+    const sink = new THREE.Mesh(createRoundedBox(2.0, 0.8, 1.5, 0.06, 4), sinkMat);
     sink.position.set(rx + counterW * 0.75 + 0.7, 2.5, counterZ);
 
     const faucet = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 12, 24, Math.PI), chromeMat);
@@ -944,11 +973,12 @@ export function addRoomInteriorDetails(
     }
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 });
-    const fridge = new THREE.Mesh(new THREE.BoxGeometry(2.8, 6.8, 2.4), fridgeMat);
+    const fridge = new THREE.Mesh(createRoundedBox(2.8, 6.8, 2.4, 0.12, 5), fridgeMat);
     const fridgeX = rx + rw - 1.8;
     const fridgeZ = counterRunEdge === "N" ? rz + rd - 1.6 : rz + 1.6;
     fridge.position.set(fridgeX, 3.4, fridgeZ);
     fridge.castShadow = true;
+
 
     const fridgeId = `builtin_${roomIndex}_fridge`;
     if (!deletedIds?.has(fridgeId)) {
@@ -1242,7 +1272,7 @@ export function addRoomInteriorDetails(
 
       const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
       const conD = isEWTV ? 1.2 : Math.min(rd * 0.48, 5.8);
-      const mediaConsole = new THREE.Mesh(new THREE.BoxGeometry(conW, 0.9, conD), consoleMat);
+      const mediaConsole = new THREE.Mesh(createRoundedBox(conW, 0.9, conD, 0.08, 4), consoleMat);
 
       let conX = tvWallX;
       let conZ = tvWallZ;
@@ -1274,27 +1304,27 @@ export function addRoomInteriorDetails(
 
       const sofaGroup = new THREE.Group();
       const sofaMainW = Math.min(isEWTV ? rw * 0.44 : rd * 0.44, 7.2);
-      const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.4, 2.2), sofaMat);
+      const sofaMain = new THREE.Mesh(createRoundedBox(sofaMainW, 1.4, 2.2, 0.16, 5), sofaMat);
       sofaMain.position.set(0, 0.7, 0);
       sofaMain.castShadow = true;
       sofaGroup.add(sofaMain);
 
-      const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(sofaMainW, 1.2, 0.5), sofaMat);
+      const sofaBack = new THREE.Mesh(createRoundedBox(sofaMainW, 1.2, 0.5, 0.14, 5), sofaMat);
       sofaBack.position.set(0, 1.5, 0.85);
       sofaBack.castShadow = true;
       sofaGroup.add(sofaBack);
 
-      const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 2.6), sofaMat);
+      const sofaL = new THREE.Mesh(createRoundedBox(2.0, 1.4, 2.6, 0.16, 5), sofaMat);
       sofaL.position.set(sofaMainW / 2 - 1.0, 0.7, -1.1);
       sofaL.castShadow = true;
       sofaGroup.add(sofaL);
 
-      const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), pillowMat);
+      const pillow1 = new THREE.Mesh(createRoundedBox(0.8, 0.8, 0.3, 0.14, 5), pillowMat);
       pillow1.position.set(-sofaMainW * 0.25, 1.5, 0.5);
       pillow1.rotation.y = 0.2;
       sofaGroup.add(pillow1);
 
-      const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.3), cushionMat);
+      const pillow2 = new THREE.Mesh(createRoundedBox(0.8, 0.8, 0.3, 0.14, 5), cushionMat);
       pillow2.position.set(sofaMainW * 0.25, 1.5, 0.5);
       pillow2.rotation.y = -0.2;
       sofaGroup.add(pillow2);
@@ -1319,8 +1349,8 @@ export function addRoomInteriorDetails(
           isFurniture: true,
           isBuiltin: true,
           id: sofaId,
-          name: "Living Room Sofa",
-          type: "sofa_3seater",
+          name: "Sectional Corner Sofa",
+          type: "sofa_l_shape",
           x: sofaGroup.position.x,
           y: 0,
           z: sofaGroup.position.z,
@@ -1329,10 +1359,10 @@ export function addRoomInteriorDetails(
         group.add(sofaGroup);
       }
 
-      const coffeeTop = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8), glassTableMat);
+      const coffeeTop = new THREE.Mesh(createRoundedBox(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8, 0.03, 3), glassTableMat);
       coffeeTop.position.set(cx, 1.1, cz);
 
-      const coffeeBase = new THREE.Mesh(new THREE.BoxGeometry(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6), brassMat);
+      const coffeeBase = new THREE.Mesh(createRoundedBox(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6, 0.06, 4), brassMat);
       coffeeBase.position.set(cx, 0.55, cz);
 
       const coffeeId = `builtin_${roomIndex}_coffee_table`;
@@ -1369,7 +1399,7 @@ export function addRoomInteriorDetails(
         const tableD = Math.min(rd * 0.48, 3.6);
 
         // Oval Marble Table Top
-        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tableW, 0.18, tableD), tableMat);
+        const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.18, tableD, 0.1, 4), tableMat);
         tableTop.position.set(0, 2.6, 0);
         tableTop.castShadow = true;
         diningGroup.add(tableTop);
@@ -1412,7 +1442,7 @@ export function addRoomInteriorDetails(
         const tableW = Math.min(rw * 0.55, 5.8);
         const tableD = Math.min(rd * 0.45, 3.2);
 
-        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tableW, 0.15, tableD), tableMat);
+        const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.15, tableD, 0.06, 4), tableMat);
         tableTop.position.set(0, 2.6, 0);
         tableTop.castShadow = true;
         diningGroup.add(tableTop);
@@ -1427,12 +1457,12 @@ export function addRoomInteriorDetails(
 
         for (const zSide of [-1, 1]) {
           for (const chairX of [-tableW * 0.32, 0, tableW * 0.32]) {
-            const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 1.2), chairMat);
+            const seat = new THREE.Mesh(createRoundedBox(1.2, 0.1, 1.2, 0.04, 3), chairMat);
             seat.position.set(chairX, 1.5, zSide * (tableD / 2 + 0.8));
             seat.castShadow = true;
             diningGroup.add(seat);
 
-            const back = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.2, 0.08), chairMat);
+            const back = new THREE.Mesh(createRoundedBox(1.1, 1.2, 0.08, 0.04, 3), chairMat);
             back.position.set(chairX, 2.05, zSide * (tableD / 2 + 1.35));
             diningGroup.add(back);
 
@@ -1452,8 +1482,8 @@ export function addRoomInteriorDetails(
         isFurniture: true,
         isBuiltin: true,
         id: diningId,
-        name: isUpgraded ? "Oval Nero Marquina Dining Suite" : "6-Seater Modern Dining Suite",
-        type: "dining_6seater",
+        name: isUpgraded ? "Nero Marquina Oval Dining Set" : "6-Seater Modern Dining Set",
+        type: "dining_table",
         x: cx,
         y: 0,
         z: cz,
@@ -1480,13 +1510,13 @@ export function addRoomInteriorDetails(
     const vanityX = rx + rw - 1.6;
     const vanityZ = rz + 1.4;
 
-    const vanity = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.4, 1.6), vanityMat);
+    const vanity = new THREE.Mesh(createRoundedBox(2.6, 1.4, 1.6, 0.08, 4), vanityMat);
     vanity.position.set(vanityX, 1.8, vanityZ);
 
     const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.48, 0.45, 24), porcelainMat);
     vessel.position.set(vanityX, 2.7, vanityZ);
 
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.12), mirrorMat);
+    const mirror = new THREE.Mesh(createRoundedBox(2.4, 2.0, 0.12, 0.06, 4), mirrorMat);
     mirror.position.set(vanityX, 4.4, rz + 0.4);
 
     const vanityId = `builtin_${roomIndex}_vanity`;
@@ -1507,11 +1537,11 @@ export function addRoomInteriorDetails(
       group.add(vanityGroup);
     }
 
-    const commode = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 1.8), porcelainMat);
+    const commode = new THREE.Mesh(createRoundedBox(1.4, 1.3, 1.8, 0.22, 5), porcelainMat);
     commode.position.set(rx + 1.4, 1.1, rz + 1.4);
     group.add(commode);
 
-    const flushPlate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.04), chromeMat);
+    const flushPlate = new THREE.Mesh(createRoundedBox(0.8, 0.5, 0.04, 0.02, 3), chromeMat);
     flushPlate.position.set(rx + 1.4, 3.2, rz + 0.4);
     group.add(flushPlate);
 
@@ -1538,7 +1568,7 @@ export function addRoomInteriorDetails(
 
     // Deep Soaking Bathtub
     const tubMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
-    const tub = new THREE.Mesh(new THREE.BoxGeometry(Math.min(4.8, rw * 0.5), 1.8, Math.min(2.4, rd * 0.4)), tubMat);
+    const tub = new THREE.Mesh(createRoundedBox(Math.min(4.8, rw * 0.5), 1.8, Math.min(2.4, rd * 0.4), 0.22, 5), tubMat);
     tub.position.set(rx + 2.8, 0.9, rz + rd - 1.6);
     tub.castShadow = true;
     group.add(tub);
@@ -1546,7 +1576,7 @@ export function addRoomInteriorDetails(
     // Front-Loading Washing Machine
     const washerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
     const drumMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.8 });
-    const washer = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.8, 2.0), washerMat);
+    const washer = new THREE.Mesh(createRoundedBox(2.0, 2.8, 2.0, 0.08, 4), washerMat);
     washer.position.set(rx + rw - 1.4, 1.4, rz + rd - 1.4);
     washer.castShadow = true;
     group.add(washer);
@@ -1577,11 +1607,11 @@ export function addRoomInteriorDetails(
       roughness: 0.1,
     });
 
-    const altarBase = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.65, 3.8), 1.2, Math.min(rd * 0.48, 2.4)), mandirMat);
+    const altarBase = new THREE.Mesh(createRoundedBox(Math.min(rw * 0.65, 3.8), 1.2, Math.min(rd * 0.48, 2.4), 0.08, 4), mandirMat);
     altarBase.position.set(cx, 0.6, rz + 1.2);
     altarBase.castShadow = true;
 
-    const altarTier = new THREE.Mesh(new THREE.BoxGeometry(Math.min(rw * 0.45, 2.8), 0.8, Math.min(rd * 0.35, 1.8)), mandirMat);
+    const altarTier = new THREE.Mesh(createRoundedBox(Math.min(rw * 0.45, 2.8), 0.8, Math.min(rd * 0.35, 1.8), 0.06, 4), mandirMat);
     altarTier.position.set(cx, 1.6, rz + 1.2);
 
     const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);

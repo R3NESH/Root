@@ -1335,3 +1335,16 @@
   background: rgba(239, 68, 68, 0.24);
   color: #ffffff;
 }
+
+/* Glazing toggles: an on-state for the Wall / Door buttons */
+.bandPresetActive {
+  background: #0284c7;
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}

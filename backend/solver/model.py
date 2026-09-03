@@ -34,13 +34,17 @@ from .connectivity import (
 )
 from .realism import (
     AREA_WEIGHT,
+    COMPACT_WEIGHT,
     DRIFT_WEIGHT,
     add_aspect_constraints,
     add_daylight_constraints,
     add_street_edge_constraints,
     area_terms,
+    footprint_perimeter_term,
 )
+from .quantities import Quantities, take_off
 from .rooms import ROOM_CATALOG, Room
+from .walls import Wall, derive_walls
 
 # Cold solve budget. Measured 2026-08-25 across a 3BHK and a twelve-room program: raising this
 # from 2 s to 5 s moved envelope fill by about one point on the common case and never changed
@@ -100,6 +104,10 @@ class SolveResult:
     # posts a service-flow zoning, not Vaastu, and must not be reported as if it did.
     program: str = RESIDENTIAL.key
     rules_label: str = RESIDENTIAL.rules_label
+    # Walls as objects, and what they cost to build. Derived post-solve from the placed rooms and
+    # their openings — see solver/walls.py for why a wall needs an identity at all.
+    walls: list[Wall] = field(default_factory=list)
+    quantities: Quantities | None = None
 
 
 def _on_exterior(room, bounds: tuple[int, int, int, int]) -> bool:
@@ -229,6 +237,11 @@ def _build_and_solve(
     if maximise_area:
         objective = objective - AREA_WEIGHT * sum(
             area_terms(model, var_dicts, rooms, env_w_in, env_d_in)
+        )
+        # ... and against the box those rooms occupy, so the two together minimise the void
+        # inside the footprint rather than only growing rooms wherever they happen to sit.
+        objective = objective + COMPACT_WEIGHT * footprint_perimeter_term(
+            model, var_dicts, env_w_in, env_d_in
         )
     if objective_terms or maximise_area:
         model.minimize(objective)
@@ -368,10 +381,14 @@ def solve_layout(
         if i not in vaastu_exempt
     }
 
+    walls = derive_walls(placed, openings)
+
     return SolveResult(
         status=status_name,
         rooms=placed,
         solve_ms=solve_ms,
+        walls=walls,
+        quantities=take_off(placed, walls),
         vaastu_constraints_applied=applied,
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub),

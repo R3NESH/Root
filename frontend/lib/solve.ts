@@ -65,8 +65,60 @@ export interface SolveMeta {
   rules_relaxed?: boolean;
 }
 
+/**
+ * A wall as an object: an identity, two endpoints, a thickness, and the openings it hosts.
+ *
+ * Mirrors backend/solver/walls.py. Before it existed, walls were derived per room per edge at
+ * draw time and two rooms sharing a partition each believed they owned one — which is why
+ * anything needing to name a wall had to invent a `room_edge` key.
+ */
+export interface SolvedWall {
+  id: string;
+  x0_in: number;
+  y0_in: number;
+  x1_in: number;
+  y1_in: number;
+  length_in: number;
+  thickness_in: number;
+  height_in: number;
+  is_exterior: boolean;
+  /** One room for an exterior wall, two for a partition. */
+  room_indices: number[];
+  openings: RoomOpening[];
+}
+
+export interface OpeningTally {
+  kind: string;
+  width_in: number;
+  height_in: number;
+  count: number;
+  label: string;
+}
+
+/** Bill of quantities. Quantities only — the backend deliberately ships no rates. */
+export interface Quantities {
+  carpet_area_sqft: number;
+  wall_footprint_sqft: number;
+  built_up_area_sqft: number;
+  wall_run_ft: number;
+  wall_gross_area_sqft: number;
+  opening_area_sqft: number;
+  wall_net_area_sqft: number;
+  masonry_volume_cuft: number;
+  brick_spec: string;
+  brick_count: number;
+  mortar_volume_cuft: number;
+  plaster_area_sqft: number;
+  plaster_volume_cuft: number;
+  openings: OpeningTally[];
+  per_room: { name: string; w_ft: number; d_ft: number; area_sqft: number }[];
+}
+
 export interface SolveResponse {
   rooms: SolvedRoom[];
+  // Absent from an older backend and from the offline fallback, which derives neither.
+  walls?: SolvedWall[];
+  quantities?: Quantities | null;
   meta: SolveMeta;
 }
 
@@ -372,18 +424,33 @@ export async function requestSolve(
   const setback = args.setback ?? DEFAULT_SETBACK;
 
   const payload = {
-    plot_w_in: args.plotWIn,
-    plot_d_in: args.plotDIn,
+    plot_w_in: Math.round(args.plotWIn),
+    plot_d_in: Math.round(args.plotDIn),
     facing: args.facing,
-    rooms: args.rooms,
+    rooms: args.rooms.map((r) => {
+      if (typeof r === "string") return r;
+      return {
+        name: r.name,
+        custom_w_in: r.custom_w_in != null ? Math.round(r.custom_w_in) : undefined,
+        custom_d_in: r.custom_d_in != null ? Math.round(r.custom_d_in) : undefined,
+        min_w_in: r.min_w_in != null ? Math.round(r.min_w_in) : undefined,
+        max_w_in: r.max_w_in != null ? Math.round(r.max_w_in) : undefined,
+        min_d_in: r.min_d_in != null ? Math.round(r.min_d_in) : undefined,
+        max_d_in: r.max_d_in != null ? Math.round(r.max_d_in) : undefined,
+      };
+    }),
     setback: {
-      front_in: setback.frontIn,
-      rear_in: setback.rearIn,
-      left_in: setback.leftIn,
-      right_in: setback.rightIn,
+      front_in: Math.round(setback.frontIn),
+      rear_in: Math.round(setback.rearIn),
+      left_in: Math.round(setback.leftIn),
+      right_in: Math.round(setback.rightIn),
     },
-    prev: args.prev,
-    moved_index: args.movedIndex,
+    prev: args.prev?.map((p) => ({
+      index: Math.round(p.index),
+      x_in: Math.round(p.x_in),
+      y_in: Math.round(p.y_in),
+    })),
+    moved_index: args.movedIndex != null ? Math.round(args.movedIndex) : undefined,
     apply_vaastu: true,
     program: args.program ?? "residence",
   };
@@ -407,10 +474,23 @@ export async function requestSolve(
   // A reply we do not like is a bug to surface, not a reason to invent a layout. A 422 or a 500
   // used to become a plan here — notes/architecture/client-side-fallback.md.
   if (!res.ok) {
-    throw new Error(`Solver rejected the request (HTTP ${res.status})`);
+    let detailMsg = `HTTP ${res.status}`;
+    try {
+      const errJson = await res.json();
+      if (errJson?.detail) {
+        if (typeof errJson.detail === "string") {
+          detailMsg = `${errJson.detail} (HTTP ${res.status})`;
+        } else if (Array.isArray(errJson.detail)) {
+          const reasons = errJson.detail.map((d: any) => `${d.loc?.slice(-1)[0] || "field"}: ${d.msg}`).join(", ");
+          detailMsg = `${reasons} (HTTP ${res.status})`;
+        }
+      }
+    } catch {}
+    throw new Error(`Solver rejected the request (${detailMsg})`);
   }
   return await res.json();
 }
+
 
 export interface ParsedPromptClient {
   plotWIn: number;

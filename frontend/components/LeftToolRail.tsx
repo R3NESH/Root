@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { FURNITURE_CATALOG, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { BuildingProgram } from "@/lib/programs";
 import { WALL_BAND_PRESETS } from "@/lib/wallBands";
+import { GLAZING_PRESETS } from "@/lib/glazing";
 import {
   DESIGN_PRESETS,
   DOOR_COLORS,
@@ -24,7 +25,9 @@ interface LeftToolRailProps {
   onChangeMaterialConfig: (config: HouseMaterialConfig) => void;
   onOpenMaterialModal: () => void;
   onOpenAIFurnitureModal?: () => void;
+  onOpenCustomWallBlendModal?: () => void;
   totalPlacedCount: number;
+
   deletedBuiltinCount: number;
   onRestoreDefaults: () => void;
   onClearAllFurniture: () => void;
@@ -71,7 +74,9 @@ export default function LeftToolRail({
   onChangeMaterialConfig,
   onOpenMaterialModal,
   onOpenAIFurnitureModal,
+  onOpenCustomWallBlendModal,
   totalPlacedCount,
+
   deletedBuiltinCount,
   onRestoreDefaults,
   onClearAllFurniture,
@@ -242,13 +247,103 @@ export default function LeftToolRail({
                 </div>
 
                 <div className={styles.panelGroup}>
-                  <div className={styles.panelGroupLabel}>Wall bands</div>
+                  <div className={styles.panelGroupLabel}>Glazing</div>
                   <div className={styles.hint}>
-                    Splits every wall so you can compare paints. Select one wall in 3D to band just
+                    Turns real walls and their doors to glass. Select one wall in 3D to glaze just
                     that one.
                   </div>
                   <div className={styles.themeGrid}>
+                    {GLAZING_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        className={`${styles.themeBtn} ${
+                          materialConfig.globalGlazing &&
+                          materialConfig.globalGlazing.styleId === preset.glazing.styleId &&
+                          materialConfig.globalGlazing.wall === preset.glazing.wall &&
+                          materialConfig.globalGlazing.door === preset.glazing.door
+                            ? styles.matBtnActive
+                            : ""
+                        }`}
+                        onClick={() =>
+                          onChangeMaterialConfig({
+                            ...materialConfig,
+                            globalGlazing: preset.glazing,
+                            // Per-wall experiments would otherwise outrank the building-wide
+                            // choice that was just made.
+                            wallGlazing: {},
+                            roomGlazing: {},
+                          })
+                        }
+                        title={preset.description}
+                      >
+                        <span className={styles.themeIcon}>{preset.glazing.wall ? "\u25A7" : "\u25AF"}</span>
+                        <span className={styles.themeName}>{preset.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {materialConfig.globalGlazing && (
+                    <button
+                      className={styles.wideBtn}
+                      onClick={() =>
+                        onChangeMaterialConfig({
+                          ...materialConfig,
+                          globalGlazing: undefined,
+                          wallGlazing: {},
+                          roomGlazing: {},
+                        })
+                      }
+                    >
+                      Back to solid walls
+                    </button>
+                  )}
+                </div>
+
+                <div className={styles.panelGroup}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <div className={styles.panelGroupLabel}>Wall Blends &amp; Partitions</div>
+                    {onOpenCustomWallBlendModal && (
+                      <button
+                        className={styles.themeBtn}
+                        onClick={onOpenCustomWallBlendModal}
+                        style={{
+                          background: "linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(79, 70, 229, 0.25))",
+                          border: "1px solid #38bdf8",
+                          color: "#38bdf8",
+                          fontWeight: 700,
+                          padding: "3px 8px",
+                          fontSize: "11px",
+                        }}
+                        title="Custom wall partition permutations & combinations"
+                      >
+                        🎨 Custom
+                      </button>
+                    )}
+                  </div>
+                  <div className={styles.hint}>
+                    Splits wall surfaces horizontally or vertically to test different permutations and color/material combinations.
+                  </div>
+
+                  {onOpenCustomWallBlendModal && (
+                    <button
+                      className={styles.wideBtn}
+                      onClick={onOpenCustomWallBlendModal}
+                      style={{
+                        background: "linear-gradient(135deg, #0284c7, #4f46e5)",
+                        border: "1px solid #38bdf8",
+                        color: "#ffffff",
+                        fontWeight: 700,
+                        marginBottom: "10px",
+                        padding: "8px 12px",
+                        fontSize: "12px",
+                      }}
+                    >
+                      ✨ Custom Partition &amp; Permutations Studio
+                    </button>
+                  )}
+
+                  <div className={styles.themeGrid}>
                     {WALL_BAND_PRESETS.map((preset) => (
+
                       <button
                         key={preset.id}
                         className={`${styles.themeBtn} ${

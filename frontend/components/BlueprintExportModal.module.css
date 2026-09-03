@@ -246,3 +246,94 @@
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
+
+/* Bill of quantities — measured off the solver's wall objects */
+.boqPanel {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.boqTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.boqNote {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #64748b;
+}
+
+.boqGrid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 14px;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.boqGrid strong {
+  color: #f1f5f9;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.boqBrick {
+  margin-top: 8px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.boqSubTitle {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.boqSchedule {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.boqRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.boqCount {
+  color: #38bdf8;
+  font-weight: 800;
+  min-width: 26px;
+}
+
+.boqKind {
+  color: #cbd5e1;
+  text-transform: capitalize;
+  min-width: 66px;
+}
+
+.boqSize {
+  color: #94a3b8;
+}

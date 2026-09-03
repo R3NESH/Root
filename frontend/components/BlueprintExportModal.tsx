@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { PlotDims, Facing, Setback } from "@/lib/plot";
-import { SolvedRoom, SolveMeta } from "@/lib/solve";
+import { Quantities, SolvedRoom, SolveMeta } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
 import {
   generateBlueprintSvg,
@@ -20,6 +20,8 @@ interface BlueprintExportModalProps {
   setback: Setback;
   rooms: SolvedRoom[];
   meta: SolveMeta | null;
+  /** Null from an older backend or the offline fallback, which derive no quantities. */
+  quantities?: Quantities | null;
 }
 
 export default function BlueprintExportModal({
@@ -30,6 +32,7 @@ export default function BlueprintExportModal({
   setback,
   rooms,
   meta,
+  quantities,
 }: BlueprintExportModalProps) {
   const [theme, setTheme] = useState<"blueprint" | "dark" | "drafting">("blueprint");
   const [isExportingPng, setIsExportingPng] = useState(false);
@@ -109,6 +112,8 @@ export default function BlueprintExportModal({
         if (r.wall_thickness_in) acc[`${r.name}_${i}`] = r.wall_thickness_in;
         return acc;
       }, {} as Record<string, number>),
+      // Measured off the solver's wall objects. Quantities only — no rates, deliberately.
+      quantities: quantities ?? null,
     };
 
     const blob = new Blob([JSON.stringify(blueprintData, null, 2)], {
@@ -185,6 +190,52 @@ export default function BlueprintExportModal({
           <div className={styles.metaInfo}>
             Plot: <span className={styles.metaHighlight}>{inchesToFeet(plot.widthIn)}′ × {inchesToFeet(plot.depthIn)}′ ft</span> ({totalPlotSqFt.toFixed(0)} sq.ft) • Built: <span className={styles.metaHighlight}>{totalBuiltSqFt.toFixed(0)} sq.ft</span> • {rooms.length} Rooms
           </div>
+
+            {quantities && (
+              <div className={styles.boqPanel}>
+                <div className={styles.boqTitle}>
+                  Bill of Quantities
+                  <span className={styles.boqNote}>measured, no rates</span>
+                </div>
+
+                <div className={styles.boqGrid}>
+                  <span>Carpet area</span>
+                  <strong>{quantities.carpet_area_sqft.toLocaleString()} sq ft</strong>
+                  <span>Built-up area</span>
+                  <strong>{quantities.built_up_area_sqft.toLocaleString()} sq ft</strong>
+                  <span>Wall run</span>
+                  <strong>{quantities.wall_run_ft.toLocaleString()} ft</strong>
+                  <span>Masonry (net of openings)</span>
+                  <strong>{quantities.masonry_volume_cuft.toLocaleString()} cu ft</strong>
+                  <span>Bricks</span>
+                  <strong>{quantities.brick_count.toLocaleString()}</strong>
+                  <span>Mortar</span>
+                  <strong>{quantities.mortar_volume_cuft.toLocaleString()} cu ft</strong>
+                  <span>Plaster</span>
+                  <strong>
+                    {quantities.plaster_area_sqft.toLocaleString()} sq ft ·{" "}
+                    {quantities.plaster_volume_cuft.toLocaleString()} cu ft
+                  </strong>
+                </div>
+
+                <div className={styles.boqBrick}>{quantities.brick_spec}, 10 mm joint</div>
+
+                {quantities.openings.length > 0 && (
+                  <>
+                    <div className={styles.boqSubTitle}>Door &amp; window schedule</div>
+                    <div className={styles.boqSchedule}>
+                      {quantities.openings.map((o) => (
+                        <div key={`${o.kind}_${o.width_in}_${o.height_in}`} className={styles.boqRow}>
+                          <span className={styles.boqCount}>{o.count}×</span>
+                          <span className={styles.boqKind}>{o.kind}</span>
+                          <span className={styles.boqSize}>{o.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
           <div className={styles.actionButtonsGroup}>
             <button

@@ -11,7 +11,7 @@ rather than blanking them — notes/architecture/duplicated-geometry.md.
 from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from envelope import DEFAULT_SETBACK, FACINGS, Setback, buildable_envelope
 from programs import PROGRAMS, RESIDENTIAL, get_program
@@ -29,17 +29,33 @@ app.add_middleware(
 )
 
 
+def _coerce_round_int(v):
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return int(round(v))
+    return v
+
+
 class SetbackIn(BaseModel):
     front_in: int = Field(ge=0)
     rear_in: int = Field(ge=0)
     left_in: int = Field(ge=0)
     right_in: int = Field(ge=0)
 
+    @field_validator("front_in", "rear_in", "left_in", "right_in", mode="before")
+    def coerce(cls, v):
+        return _coerce_round_int(v)
+
 
 class PrevRoom(BaseModel):
     index: int = Field(ge=0)
     x_in: int
     y_in: int
+
+    @field_validator("index", "x_in", "y_in", mode="before")
+    def coerce(cls, v):
+        return _coerce_round_int(v)
 
 
 class RoomSpecIn(BaseModel):
@@ -50,6 +66,10 @@ class RoomSpecIn(BaseModel):
     max_w_in: int | None = None
     min_d_in: int | None = None
     max_d_in: int | None = None
+
+    @field_validator("custom_w_in", "custom_d_in", "min_w_in", "max_w_in", "min_d_in", "max_d_in", mode="before")
+    def coerce(cls, v):
+        return _coerce_round_int(v)
 
 
 class SolveRequest(BaseModel):
@@ -67,6 +87,11 @@ class SolveRequest(BaseModel):
     # quadrant — notes/solver/vaastu-and-connectivity-drop-on-edit.md.
     moved_index: int | None = None
 
+    @field_validator("plot_w_in", "plot_d_in", "moved_index", mode="before")
+    def coerce(cls, v):
+        return _coerce_round_int(v)
+
+
 
 class RoomOut(BaseModel):
     name: str
@@ -79,6 +104,50 @@ class RoomOut(BaseModel):
     openings: list[dict]
     habitable: bool = True
     wet: bool = False
+
+
+class WallOut(BaseModel):
+    """A wall as an object, not as four edges of a room — see solver/walls.py."""
+
+    id: str
+    x0_in: int
+    y0_in: int
+    x1_in: int
+    y1_in: int
+    length_in: int
+    thickness_in: int
+    height_in: int
+    is_exterior: bool
+    room_indices: list[int]
+    openings: list[dict]
+
+
+class OpeningTallyOut(BaseModel):
+    kind: str
+    width_in: int
+    height_in: int
+    count: int
+    label: str
+
+
+class QuantitiesOut(BaseModel):
+    """Bill of quantities. Quantities only — rates are the caller's, see solver/quantities.py."""
+
+    carpet_area_sqft: float
+    wall_footprint_sqft: float
+    built_up_area_sqft: float
+    wall_run_ft: float
+    wall_gross_area_sqft: float
+    opening_area_sqft: float
+    wall_net_area_sqft: float
+    masonry_volume_cuft: float
+    brick_spec: str
+    brick_count: int
+    mortar_volume_cuft: float
+    plaster_area_sqft: float
+    plaster_volume_cuft: float
+    openings: list[OpeningTallyOut]
+    per_room: list[dict]
 
 
 class SolveMeta(BaseModel):
@@ -108,6 +177,9 @@ class SolveMeta(BaseModel):
 
 class SolveResponse(BaseModel):
     rooms: list[RoomOut]
+    # Present whenever a layout was returned. An older client that ignores them is unaffected.
+    walls: list[WallOut] = []
+    quantities: QuantitiesOut | None = None
     meta: SolveMeta
 
 
@@ -216,7 +288,56 @@ def solve(req: SolveRequest) -> SolveResponse:
     )
     is_residence = program.key == RESIDENTIAL.key
 
+    walls_out = [
+        WallOut(
+            id=w.id,
+            # Envelope-relative to plot-relative, the same shift the rooms get.
+            x0_in=w.x0_in + env.origin_x_in,
+            y0_in=w.y0_in + env.origin_z_in,
+            x1_in=w.x1_in + env.origin_x_in,
+            y1_in=w.y1_in + env.origin_z_in,
+            length_in=w.length_in,
+            thickness_in=w.thickness_in,
+            height_in=w.height_in,
+            is_exterior=w.is_exterior,
+            room_indices=list(w.room_indices),
+            openings=w.openings,
+        )
+        for w in result.walls
+    ]
+
+    q = result.quantities
+    quantities_out = (
+        QuantitiesOut(
+            carpet_area_sqft=q.carpet_area_sqft,
+            wall_footprint_sqft=q.wall_footprint_sqft,
+            built_up_area_sqft=q.built_up_area_sqft,
+            wall_run_ft=q.wall_run_ft,
+            wall_gross_area_sqft=q.wall_gross_area_sqft,
+            opening_area_sqft=q.opening_area_sqft,
+            wall_net_area_sqft=q.wall_net_area_sqft,
+            masonry_volume_cuft=q.masonry_volume_cuft,
+            brick_spec=q.brick_spec,
+            brick_count=q.brick_count,
+            mortar_volume_cuft=q.mortar_volume_cuft,
+            plaster_area_sqft=q.plaster_area_sqft,
+            plaster_volume_cuft=q.plaster_volume_cuft,
+            openings=[
+                OpeningTallyOut(
+                    kind=o.kind, width_in=o.width_in, height_in=o.height_in,
+                    count=o.count, label=o.label,
+                )
+                for o in q.openings
+            ],
+            per_room=q.per_room,
+        )
+        if q is not None
+        else None
+    )
+
     return SolveResponse(
+        walls=walls_out,
+        quantities=quantities_out,
         rooms=[
             RoomOut(
                 name=r.name,

@@ -13,6 +13,7 @@ import {
 import { PlacedCustomObject } from "@/lib/furnitureCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
 import { Facing, PlotDims } from "@/lib/plot";
+import { DEFAULT_PROGRAM, PROGRAMS, ProgramKey } from "@/lib/programs";
 import { RoomName } from "@/lib/rooms";
 import { RoomOpening } from "@/lib/solve";
 import { WindowConfig } from "@/lib/windowCatalog";
@@ -22,6 +23,15 @@ export const PROJECT_STORAGE_KEY = "vastu_builder_project_data_v1";
 export interface SavedProject {
   plot: PlotDims;
   facing: Facing;
+  /**
+   * Which building programme the mix belongs to.
+   *
+   * Optional because projects saved before programmes existed do not carry it — those are
+   * recovered by inferring it from the spaces in `counts`. Without this field a cafe saved and
+   * reloaded came back as a residence still holding `seating` and `counter`, and the solver
+   * rejected every one of them as an unknown space.
+   */
+  program?: ProgramKey;
   counts: Record<RoomName, number>;
   customDims: Record<string, CustomDim>;
   customOpenings: Record<string, RoomOpening[]>;
@@ -65,4 +75,27 @@ export function clearProject(): void {
   try {
     localStorage.removeItem(PROJECT_STORAGE_KEY);
   } catch {}
+}
+
+
+/**
+ * The programme a saved project belongs to.
+ *
+ * Prefers the stored field. Falls back to reading the mix: a project holding any space that only
+ * one programme offers belongs to that programme. This is what repairs projects saved before the
+ * field existed, rather than leaving them permanently unsolvable.
+ */
+export function programOfSavedProject(data: Partial<SavedProject> | null): ProgramKey {
+  if (!data) return DEFAULT_PROGRAM.key;
+  if (data.program && PROGRAMS.some((p) => p.key === data.program)) return data.program;
+
+  const used = Object.entries(data.counts ?? {})
+    .filter(([, n]) => (n ?? 0) > 0)
+    .map(([name]) => name as RoomName);
+  if (used.length === 0) return DEFAULT_PROGRAM.key;
+
+  const match = PROGRAMS.find(
+    (p) => p.key !== DEFAULT_PROGRAM.key && used.some((space) => p.spaces.includes(space))
+  );
+  return match ? match.key : DEFAULT_PROGRAM.key;
 }

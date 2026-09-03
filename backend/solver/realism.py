@@ -23,6 +23,23 @@ from ortools.sat.python import cp_model
 # differentiator; room size is a nicety. 100000 sq in is larger than any envelope we solve.
 DRIFT_WEIGHT = 100_000
 AREA_WEIGHT = 1
+# Half-perimeter of the built footprint, minimised alongside maximised room area, so the plan
+# reads as one building instead of scattered pavilions. See footprint_perimeter_term().
+#
+# 120 is measured. Sweeping it on the six-room 30x40 fixture, five cold runs each:
+#
+#   weight   fill/ceiling      void   status
+#        0   100%  (0.0pt)      25%   OPTIMAL x5
+#       50   100%  (0.0pt)      17%   OPTIMAL x5
+#      120   94-96% (1.9pt)    5-7%   FEASIBLE x5
+#      250   80%                 0%   FEASIBLE
+#
+# 50 keeps the optimality proof and only takes a quarter off the void. 250 buys the last of it
+# by shrinking rooms, which is the opposite of what is wanted. 120 removes four fifths of the
+# void for two points of fill, and the run-to-run spread stays under two points, so
+# test_the_house_fills_most_of_what_the_catalog_allows is still measuring the objective rather
+# than the time limit — the thing its comment warns about.
+COMPACT_WEIGHT = 120
 
 
 def add_aspect_constraints(model: cp_model.CpModel, var_dicts: list[dict], rooms) -> None:
@@ -168,3 +185,36 @@ def add_street_edge_constraints(
         else:  # "W"
             model.add(v["x"] == fx0)
     return targets
+
+
+def footprint_perimeter_term(
+    model: cp_model.CpModel, var_dicts: list[dict], env_w_in: int, env_d_in: int
+) -> cp_model.IntVar:
+    """Half-perimeter of the box the built footprint sits in, for use in the objective.
+
+    Nothing else in this model cares where the rooms sit relative to each other. Non-overlap,
+    the adjacency tree and the daylight rule are all satisfied by a straggling L just as well as
+    by a tight rectangle, and the area objective scores the two identically because it counts
+    room area and never looks at the gaps. Measured on a 40x60: two OPTIMAL layouts of the same
+    rooms, one with 8% void inside its footprint and one with 28%. The difference was luck.
+
+    **Half-perimeter, not area, and that is the whole point.** The first version multiplied the
+    two spans to get the box's area, which reads more directly as "minimise the void" — and it
+    cost the cold solve its proof. A six-room 30x40 stopped reaching OPTIMAL inside the budget
+    and its fill started varying 85.6% to 98.3% run to run, which is
+    test_the_house_fills_most_of_what_the_catalog_allows measuring the time limit instead of the
+    objective, exactly as that test's comment predicted. `span_w + span_d` is linear, keeps the
+    model in the same complexity class as before, and pulls the footprint just as tight.
+    """
+    fx0 = model.new_int_var(0, env_w_in, "bbox_x0")
+    fx1 = model.new_int_var(0, env_w_in, "bbox_x1")
+    fz0 = model.new_int_var(0, env_d_in, "bbox_z0")
+    fz1 = model.new_int_var(0, env_d_in, "bbox_z1")
+    model.add_min_equality(fx0, [v["x"] for v in var_dicts])
+    model.add_max_equality(fx1, [v["xe"] for v in var_dicts])
+    model.add_min_equality(fz0, [v["y"] for v in var_dicts])
+    model.add_max_equality(fz1, [v["ye"] for v in var_dicts])
+
+    half_perimeter = model.new_int_var(0, env_w_in + env_d_in, "bbox_half_perimeter")
+    model.add(half_perimeter == (fx1 - fx0) + (fz1 - fz0))
+    return half_perimeter

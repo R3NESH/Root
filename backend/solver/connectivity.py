@@ -411,6 +411,12 @@ def footprint(rooms) -> tuple[int, int, int, int]:
 WINDOW_SILL_IN = 36
 WINDOW_HEIGHT_IN = 48
 WINDOW_MIN_WALL_IN = 60          # below this the wall is too short to take a window
+# A vent is not a window and does not need a window's wall. The minimum that actually works is
+# the 18 in opening enforced below plus a pier of one exterior wall thickness at each end:
+# 18 + 9 + 9 = 36. Gating vents on WINDOW_MIN_WALL_IN was a real constraint on room sizes for no
+# reason - it made a 4 ft bathroom unventilatable, so the bathroom minimum had to be 5 ft wide,
+# and that alone put a 3BHK back out of reach on a 30x40 plot.
+VENT_MIN_WALL_IN = 36
 WINDOW_MAX_WIDTH_IN = 72         # 6 ft, a large-but-buildable opening
 # Indian bye-laws generally require openable area of roughly a tenth of the floor area for a
 # habitable room. Approximated here as a target window width per exterior wall.
@@ -481,7 +487,7 @@ def derive_windows(rooms, openings: list[list[dict]]) -> None:
                 continue
             g0, g1 = max(gaps, key=lambda g: g[1] - g[0])
             free = g1 - g0
-            if free < WINDOW_MIN_WALL_IN:
+            if free < (WINDOW_MIN_WALL_IN if habitable else VENT_MIN_WALL_IN):
                 continue
 
             # Leave a pier of at least a wall thickness at each end of the gap.

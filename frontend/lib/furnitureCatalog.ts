@@ -1,6 +1,19 @@
-// 3D Architectural Furniture & Objects Catalog & Procedural Mesh Factories
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { AIFurnitureParametricDef, createAIFurnitureMesh } from "./aiFurnitureEngine";
+
+function createRoundedBox(
+  w: number,
+  h: number,
+  d: number,
+  radius: number = 0.05,
+  segments: number = 4
+): THREE.BufferGeometry {
+  const minDim = Math.min(w, h, d);
+  const safeRadius = Math.max(0.003, Math.min(radius, minDim / 2 - 0.002));
+  return new RoundedBoxGeometry(w, h, d, segments, safeRadius);
+}
+
 
 export type FurnitureCategory =
   // residence
@@ -30,6 +43,7 @@ export interface FurnitureItemDef {
   dimensions: { widthFt: number; depthFt: number; heightFt: number };
   description: string;
   defaultColor?: number;
+  glbUrl?: string;
 }
 
 export interface PlacedCustomObject {
@@ -43,7 +57,9 @@ export interface PlacedCustomObject {
   scale: number; // 0.8 - 1.5
   colorHex?: number;
   aiParametricDef?: AIFurnitureParametricDef;
+  glbUrl?: string;
 }
+
 
 export const FURNITURE_COLOR_SWATCHES = [
   { name: "Royal Velvet Navy", hex: 0x1e3a8a, bg: "#1e3a8a" },
@@ -744,23 +760,23 @@ export function createFurnitureMesh(
       const seatH = 1.3;
 
       // Base & Seat Cushions
-      const base = new THREE.Mesh(new THREE.BoxGeometry(w, seatH * 0.4, d), fabricMat);
+      const base = new THREE.Mesh(createRoundedBox(w, seatH * 0.4, d, 0.08, 4), fabricMat);
       base.position.y = 0.4 + (seatH * 0.4) / 2;
       root.add(base);
 
       for (let i = -1; i <= 1; i++) {
-        const cushion = new THREE.Mesh(new THREE.BoxGeometry(w / 3 - 0.08, 0.4, d - 0.3), fabricMat);
+        const cushion = new THREE.Mesh(createRoundedBox(w / 3 - 0.08, 0.4, d - 0.3, 0.12, 5), fabricMat);
         cushion.position.set(i * (w / 3), seatH + 0.1, 0.1);
         root.add(cushion);
       }
 
       // Backrest
-      const back = new THREE.Mesh(new THREE.BoxGeometry(w, 1.6, 0.5), fabricMat);
+      const back = new THREE.Mesh(createRoundedBox(w, 1.6, 0.5, 0.12, 5), fabricMat);
       back.position.set(0, seatH + 0.8, -d / 2 + 0.25);
       root.add(back);
 
       // Armrests
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, d), fabricMat);
+      const armL = new THREE.Mesh(createRoundedBox(0.45, 1.2, d, 0.1, 4), fabricMat);
       armL.position.set(-w / 2 + 0.225, seatH + 0.3, 0);
       const armR = armL.clone();
       armR.position.x = w / 2 - 0.225;
@@ -768,7 +784,7 @@ export function createFurnitureMesh(
 
       // Throw Pillows
       const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
-      const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.25), pillowMat);
+      const p1 = new THREE.Mesh(createRoundedBox(0.8, 0.8, 0.25, 0.12, 5), pillowMat);
       p1.position.set(-w / 2 + 0.75, seatH + 0.5, -d / 2 + 0.6);
       p1.rotation.y = 0.2;
       const p2 = p1.clone();
@@ -797,40 +813,40 @@ export function createFurnitureMesh(
       const seatH = 1.3;
 
       // Main Section Base
-      const mainBase = new THREE.Mesh(new THREE.BoxGeometry(mainW, seatH * 0.4, mainD), fabricMat);
+      const mainBase = new THREE.Mesh(createRoundedBox(mainW, seatH * 0.4, mainD, 0.08, 4), fabricMat);
       mainBase.position.set(0, 0.4 + (seatH * 0.4) / 2, 0);
       root.add(mainBase);
 
       // Chaise Lounge Extension (on the right)
-      const chaiseBase = new THREE.Mesh(new THREE.BoxGeometry(3.0, seatH * 0.4, chaiseL - mainD), fabricMat);
+      const chaiseBase = new THREE.Mesh(createRoundedBox(3.0, seatH * 0.4, chaiseL - mainD, 0.08, 4), fabricMat);
       chaiseBase.position.set(mainW / 2 - 1.5, 0.4 + (seatH * 0.4) / 2, (chaiseL - mainD) / 2 + mainD / 2);
       root.add(chaiseBase);
 
       // Main Backrest
-      const back = new THREE.Mesh(new THREE.BoxGeometry(mainW, 1.6, 0.5), fabricMat);
+      const back = new THREE.Mesh(createRoundedBox(mainW, 1.6, 0.5, 0.12, 5), fabricMat);
       back.position.set(0, seatH + 0.8, -mainD / 2 + 0.25);
       root.add(back);
 
       // Left Armrest
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, mainD), fabricMat);
+      const armL = new THREE.Mesh(createRoundedBox(0.45, 1.2, mainD, 0.1, 4), fabricMat);
       armL.position.set(-mainW / 2 + 0.225, seatH + 0.3, 0);
       root.add(armL);
 
       // Cushions on main sofa
       for (let i = 0; i < 3; i++) {
-        const cushion = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, mainD - 0.4), fabricMat);
+        const cushion = new THREE.Mesh(createRoundedBox(1.8, 0.4, mainD - 0.4, 0.12, 5), fabricMat);
         cushion.position.set(-mainW / 2 + 1.2 + i * 1.9, seatH + 0.1, 0.1);
         root.add(cushion);
       }
 
       // Chaise Long Cushion
-      const chaiseCushion = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, chaiseL - 0.4), fabricMat);
+      const chaiseCushion = new THREE.Mesh(createRoundedBox(2.8, 0.4, chaiseL - 0.4, 0.12, 5), fabricMat);
       chaiseCushion.position.set(mainW / 2 - 1.5, seatH + 0.1, (chaiseL - mainD) / 2);
       root.add(chaiseCushion);
 
       // Throw Pillows
       const pillowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
-      const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.25), pillowMat);
+      const p1 = new THREE.Mesh(createRoundedBox(0.9, 0.9, 0.25, 0.12, 5), pillowMat);
       p1.position.set(-mainW / 2 + 0.8, seatH + 0.5, -mainD / 2 + 0.6);
       p1.rotation.y = 0.2;
       root.add(p1);
@@ -855,23 +871,40 @@ export function createFurnitureMesh(
     // ----------------------------------------------------------------------------------
     case "sofa_curved": {
       const radius = 4.0;
-      const tube = 1.0;
-      const arc = Math.PI * 0.65;
+      const arc = Math.PI * 0.75;
+      const seatH = 1.3;
 
-      const curveGeom = new THREE.TorusGeometry(radius, tube * 0.7, 16, 32, arc);
-      const curveMesh = new THREE.Mesh(curveGeom, fabricMat);
-      curveMesh.rotation.x = Math.PI / 2;
-      curveMesh.rotation.z = -arc / 2 - Math.PI / 2;
-      curveMesh.position.set(0, 0.8, -1.2);
-      root.add(curveMesh);
+      // Curved Base Segment
+      const curveSegments = 16;
+      for (let i = 0; i < curveSegments; i++) {
+        const theta1 = -arc / 2 + (i * arc) / curveSegments;
+        const theta2 = -arc / 2 + ((i + 1) * arc) / curveSegments;
+        const midTheta = (theta1 + theta2) / 2;
+        const segW = (radius * arc) / curveSegments;
 
-      // Curved Backrest
-      const backGeom = new THREE.TorusGeometry(radius + 0.4, tube * 0.55, 16, 32, arc);
-      const backMesh = new THREE.Mesh(backGeom, fabricMat);
-      backMesh.rotation.x = Math.PI / 2;
-      backMesh.rotation.z = -arc / 2 - Math.PI / 2;
-      backMesh.position.set(0, 1.6, -1.2);
-      root.add(backMesh);
+        const seg = new THREE.Mesh(createRoundedBox(segW + 0.1, 0.5, 2.6, 0.1, 4), fabricMat);
+        seg.position.set(Math.sin(midTheta) * radius, 0.45, Math.cos(midTheta) * radius - radius * 0.6);
+        seg.rotation.y = midTheta;
+        root.add(seg);
+
+        // Curved Backrest
+        const backSeg = new THREE.Mesh(createRoundedBox(segW + 0.1, 1.4, 0.6, 0.1, 4), fabricMat);
+        backSeg.position.set(
+          Math.sin(midTheta) * (radius + 0.9),
+          seatH + 0.6,
+          Math.cos(midTheta) * (radius + 0.9) - radius * 0.6
+        );
+        backSeg.rotation.y = midTheta;
+        root.add(backSeg);
+      }
+
+      // Plush Curved Throw Pillows
+      for (const ang of [-0.6, 0, 0.6]) {
+        const p = new THREE.Mesh(createRoundedBox(0.85, 0.85, 0.25, 0.12, 5), cushionMat);
+        p.position.set(Math.sin(ang) * (radius + 0.4), seatH + 0.4, Math.cos(ang) * (radius + 0.4) - radius * 0.6);
+        p.rotation.y = ang;
+        root.add(p);
+      }
       break;
     }
 
@@ -881,67 +914,55 @@ export function createFurnitureMesh(
     case "sofa_loveseat": {
       const w = 5.0;
       const d = 3.0;
-      const seatH = 1.2;
+      const seatH = 1.3;
 
-      const base = new THREE.Mesh(new THREE.BoxGeometry(w, seatH * 0.4, d), fabricMat);
+      const base = new THREE.Mesh(createRoundedBox(w, seatH * 0.4, d, 0.08, 4), fabricMat);
       base.position.y = 0.4 + (seatH * 0.4) / 2;
       root.add(base);
 
       for (let i = -0.5; i <= 0.5; i += 1.0) {
-        const cushion = new THREE.Mesh(new THREE.BoxGeometry(w / 2 - 0.1, 0.4, d - 0.3), fabricMat);
+        const cushion = new THREE.Mesh(createRoundedBox(w / 2 - 0.12, 0.4, d - 0.35, 0.12, 5), fabricMat);
         cushion.position.set(i * (w / 2), seatH + 0.1, 0.1);
         root.add(cushion);
       }
 
-      const back = new THREE.Mesh(new THREE.BoxGeometry(w, 1.5, 0.5), fabricMat);
+      const back = new THREE.Mesh(createRoundedBox(w, 1.5, 0.5, 0.12, 5), fabricMat);
       back.position.set(0, seatH + 0.75, -d / 2 + 0.25);
       root.add(back);
 
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.1, d), fabricMat);
+      const armL = new THREE.Mesh(createRoundedBox(0.4, 1.1, d, 0.1, 4), fabricMat);
       armL.position.set(-w / 2 + 0.2, seatH + 0.25, 0);
       const armR = armL.clone();
       armR.position.x = w / 2 - 0.2;
       root.add(armL, armR);
-
-      for (const lx of [-w / 2 + 0.3, w / 2 - 0.3]) {
-        for (const lz of [-d / 2 + 0.3, d / 2 - 0.3]) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.4, 16), brassMat);
-          leg.position.set(lx, 0.2, lz);
-          root.add(leg);
-        }
-      }
       break;
     }
 
     // ----------------------------------------------------------------------------------
-    // 5. Armchair
+    // 5. Classic Armchair
     // ----------------------------------------------------------------------------------
     case "armchair": {
-      const w = 2.8;
-      const d = 2.8;
+      const w = 3.2;
+      const d = 3.0;
       const seatH = 1.3;
 
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(w - 0.5, 0.4, d - 0.4), fabricMat);
-      seat.position.set(0, seatH, 0.1);
-      root.add(seat);
+      const base = new THREE.Mesh(createRoundedBox(w, seatH * 0.4, d, 0.08, 4), fabricMat);
+      base.position.y = 0.4 + (seatH * 0.4) / 2;
+      root.add(base);
 
-      const back = new THREE.Mesh(new THREE.BoxGeometry(w - 0.5, 1.4, 0.4), fabricMat);
-      back.position.set(0, seatH + 0.7, -d / 2 + 0.3);
+      const cushion = new THREE.Mesh(createRoundedBox(w - 0.8, 0.45, d - 0.4, 0.12, 5), fabricMat);
+      cushion.position.set(0, seatH + 0.1, 0.1);
+      root.add(cushion);
+
+      const back = new THREE.Mesh(createRoundedBox(w, 1.7, 0.5, 0.12, 5), fabricMat);
+      back.position.set(0, seatH + 0.85, -d / 2 + 0.25);
       root.add(back);
 
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, d - 0.2), fabricMat);
-      armL.position.set(-w / 2 + 0.15, seatH + 0.25, 0);
+      const armL = new THREE.Mesh(createRoundedBox(0.4, 1.1, d, 0.1, 4), fabricMat);
+      armL.position.set(-w / 2 + 0.2, seatH + 0.25, 0);
       const armR = armL.clone();
-      armR.position.x = w / 2 - 0.15;
+      armR.position.x = w / 2 - 0.2;
       root.add(armL, armR);
-
-      for (const lx of [-w / 2 + 0.3, w / 2 - 0.3]) {
-        for (const lz of [-d / 2 + 0.3, d / 2 - 0.3]) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, seatH, 16), brassMat);
-          leg.position.set(lx, seatH / 2, lz);
-          root.add(leg);
-        }
-      }
       break;
     }
 
@@ -957,20 +978,20 @@ export function createFurnitureMesh(
       baseRing.position.y = 0.08;
       root.add(baseRing);
 
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 0.6, d - 0.8), leatherMat);
+      const seat = new THREE.Mesh(createRoundedBox(w - 0.6, 0.6, d - 0.8, 0.14, 5), leatherMat);
       seat.position.set(0, 1.3, 0);
       root.add(seat);
 
-      const back = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 2.0, 0.5), leatherMat);
+      const back = new THREE.Mesh(createRoundedBox(w - 0.6, 2.0, 0.5, 0.14, 5), leatherMat);
       back.position.set(0, 2.2, -d / 2 + 0.5);
       back.rotation.x = -0.15;
       root.add(back);
 
-      const headrest = new THREE.Mesh(new THREE.BoxGeometry(w - 0.8, 0.6, 0.4), leatherMat);
+      const headrest = new THREE.Mesh(createRoundedBox(w - 0.8, 0.6, 0.4, 0.12, 4), leatherMat);
       headrest.position.set(0, 3.2, -d / 2 + 0.35);
       root.add(headrest);
 
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.8, d - 0.6), leatherMat);
+      const armL = new THREE.Mesh(createRoundedBox(0.35, 0.8, d - 0.6, 0.1, 4), leatherMat);
       armL.position.set(-w / 2 + 0.2, 1.6, 0);
       const armR = armL.clone();
       armR.position.x = w / 2 - 0.2;
@@ -982,7 +1003,7 @@ export function createFurnitureMesh(
     // 7. Coffee Table
     // ----------------------------------------------------------------------------------
     case "coffee_table": {
-      const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.15, 2.4), marbleMat);
+      const top = new THREE.Mesh(createRoundedBox(3.8, 0.15, 2.4, 0.06, 4), marbleMat);
       top.position.y = 1.4;
       root.add(top);
 
@@ -1001,18 +1022,18 @@ export function createFurnitureMesh(
     // ----------------------------------------------------------------------------------
     case "tv_unit": {
       const w = 6.5;
-      const consoleMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, 1.4), walnutMat);
+      const consoleMesh = new THREE.Mesh(createRoundedBox(w, 1.0, 1.4, 0.08, 4), walnutMat);
       consoleMesh.position.set(0, 1.2, 0);
       root.add(consoleMesh);
 
       // Backing Wall Slat Panel
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 4.2, 0.15), darkWoodMat);
+      const panel = new THREE.Mesh(createRoundedBox(w + 0.5, 4.2, 0.15, 0.04, 3), darkWoodMat);
       panel.position.set(0, 3.0, -0.6);
       root.add(panel);
 
       // 65" TV Screen
       const tvScreen = new THREE.Mesh(
-        new THREE.BoxGeometry(5.0, 2.8, 0.1),
+        createRoundedBox(5.0, 2.8, 0.1, 0.04, 3),
         new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
       );
       tvScreen.position.set(0, 3.2, -0.45);
@@ -1028,27 +1049,27 @@ export function createFurnitureMesh(
       const d = 7.0;
 
       // Base
-      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, d), darkWoodMat);
+      const base = new THREE.Mesh(createRoundedBox(w, 0.8, d, 0.06, 4), darkWoodMat);
       base.position.set(0, 0.4, 0);
       root.add(base);
 
       // Mattress & Duvet
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.7, d - 0.4), cushionMat);
+      const mattress = new THREE.Mesh(createRoundedBox(w - 0.2, 0.7, d - 0.4, 0.12, 5), cushionMat);
       mattress.position.set(0, 1.15, 0.1);
       root.add(mattress);
 
-      const duvet = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.15, d * 0.65), fabricMat);
+      const duvet = new THREE.Mesh(createRoundedBox(w - 0.3, 0.15, d * 0.65, 0.08, 4), fabricMat);
       duvet.position.set(0, 1.55, 0.5);
       root.add(duvet);
 
       // Tufted Headboard
-      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.2, 0.4), fabricMat);
+      const headboard = new THREE.Mesh(createRoundedBox(w + 0.4, 3.2, 0.4, 0.08, 4), fabricMat);
       headboard.position.set(0, 2.0, -d / 2 + 0.2);
       root.add(headboard);
 
       // Pillows
       for (const px of [-1.5, 1.5]) {
-        const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 1.2), cushionMat);
+        const pillow = new THREE.Mesh(createRoundedBox(1.8, 0.35, 1.2, 0.14, 5), cushionMat);
         pillow.position.set(px, 1.6, -d / 2 + 1.2);
         pillow.rotation.x = 0.2;
         root.add(pillow);
@@ -1056,7 +1077,7 @@ export function createFurnitureMesh(
 
       // Dual Nightstands
       for (const side of [-1, 1]) {
-        const stand = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.4), darkWoodMat);
+        const stand = new THREE.Mesh(createRoundedBox(1.6, 1.2, 1.4, 0.08, 4), darkWoodMat);
         stand.position.set(side * (w / 2 + 1.0), 0.6, -d / 2 + 1.0);
         root.add(stand);
 
@@ -1074,19 +1095,19 @@ export function createFurnitureMesh(
       const w = 5.5;
       const d = 6.8;
 
-      const platform = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.4, d + 0.6), walnutMat);
+      const platform = new THREE.Mesh(createRoundedBox(w + 1.2, 0.4, d + 0.6, 0.06, 4), walnutMat);
       platform.position.set(0, 0.2, 0);
       root.add(platform);
 
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w, 0.7, d), cushionMat);
+      const mattress = new THREE.Mesh(createRoundedBox(w, 0.7, d, 0.12, 5), cushionMat);
       mattress.position.set(0, 0.75, 0);
       root.add(mattress);
 
-      const duvet = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.15, d * 0.6), fabricMat);
+      const duvet = new THREE.Mesh(createRoundedBox(w - 0.2, 0.15, d * 0.6, 0.08, 4), fabricMat);
       duvet.position.set(0, 1.15, 0.5);
       root.add(duvet);
 
-      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 2.2, 0.25), walnutMat);
+      const headboard = new THREE.Mesh(createRoundedBox(w + 1.2, 2.2, 0.25, 0.06, 4), walnutMat);
       headboard.position.set(0, 1.3, -d / 2 - 0.1);
       root.add(headboard);
       break;
@@ -1099,15 +1120,15 @@ export function createFurnitureMesh(
       const w = 3.6;
       const d = 6.5;
 
-      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.6, d), darkWoodMat);
+      const base = new THREE.Mesh(createRoundedBox(w, 0.6, d, 0.06, 4), darkWoodMat);
       base.position.set(0, 0.3, 0);
       root.add(base);
 
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(w - 0.2, 0.6, d - 0.2), cushionMat);
+      const mattress = new THREE.Mesh(createRoundedBox(w - 0.2, 0.6, d - 0.2, 0.12, 5), cushionMat);
       mattress.position.set(0, 0.9, 0);
       root.add(mattress);
 
-      const headboard = new THREE.Mesh(new THREE.BoxGeometry(w, 2.2, 0.3), darkWoodMat);
+      const headboard = new THREE.Mesh(createRoundedBox(w, 2.2, 0.3, 0.06, 4), darkWoodMat);
       headboard.position.set(0, 1.3, -d / 2 + 0.15);
       root.add(headboard);
       break;
@@ -1131,17 +1152,17 @@ export function createFurnitureMesh(
       }
 
       // Bottom Bunk
-      const bed1 = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.5, d - 0.3), cushionMat);
+      const bed1 = new THREE.Mesh(createRoundedBox(w - 0.3, 0.5, d - 0.3, 0.1, 4), cushionMat);
       bed1.position.set(0, 1.2, 0);
       root.add(bed1);
 
       // Top Bunk
-      const bed2 = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.5, d - 0.3), cushionMat);
+      const bed2 = new THREE.Mesh(createRoundedBox(w - 0.3, 0.5, d - 0.3, 0.1, 4), cushionMat);
       bed2.position.set(0, 4.2, 0);
       root.add(bed2);
 
       // Safety Guard Rail
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.8, 0.15), darkWoodMat);
+      const rail = new THREE.Mesh(createRoundedBox(w - 0.3, 0.8, 0.15, 0.04, 3), darkWoodMat);
       rail.position.set(0, 4.8, d / 2 - 0.2);
       root.add(rail);
       break;
@@ -1155,17 +1176,17 @@ export function createFurnitureMesh(
       const d = 2.0;
       const h = 7.8;
 
-      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), walnutMat);
+      const body = new THREE.Mesh(createRoundedBox(w, h, d, 0.08, 4), walnutMat);
       body.position.set(0, h / 2, 0);
       root.add(body);
 
       // 3 Doors with Grooves
       for (let i = -1; i <= 1; i++) {
-        const door = new THREE.Mesh(new THREE.BoxGeometry(w / 3 - 0.06, h - 0.2, 0.05), darkWoodMat);
+        const door = new THREE.Mesh(createRoundedBox(w / 3 - 0.06, h - 0.2, 0.05, 0.02, 3), darkWoodMat);
         door.position.set(i * (w / 3), h / 2, d / 2 + 0.03);
         root.add(door);
 
-        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.2, 0.1), brassMat);
+        const handle = new THREE.Mesh(createRoundedBox(0.06, 1.2, 0.1, 0.02, 3), brassMat);
         handle.position.set(i * (w / 3) + (i === 1 ? -0.5 : 0.5), h / 2, d / 2 + 0.08);
         root.add(handle);
       }
@@ -1176,7 +1197,7 @@ export function createFurnitureMesh(
     // 14. Vanity Table
     // ----------------------------------------------------------------------------------
     case "vanity_table": {
-      const desk = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.8, 1.6), walnutMat);
+      const desk = new THREE.Mesh(createRoundedBox(3.6, 0.8, 1.6, 0.06, 4), walnutMat);
       desk.position.set(0, 2.4, 0);
       root.add(desk);
 
@@ -1202,13 +1223,13 @@ export function createFurnitureMesh(
     case "dining_6seater": {
       const tw = 6.2;
       const td = 3.5;
-      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(tw, 0.2, td), darkWoodMat);
+      const tableTop = new THREE.Mesh(createRoundedBox(tw, 0.2, td, 0.08, 4), darkWoodMat);
       tableTop.position.set(0, 2.7, 0);
       root.add(tableTop);
 
       for (const lx of [-tw / 2 + 0.4, tw / 2 - 0.4]) {
         for (const lz of [-td / 2 + 0.4, td / 2 - 0.4]) {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), darkWoodMat);
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.05, 2.6, 12), darkWoodMat);
           leg.position.set(lx, 1.3, lz);
           root.add(leg);
         }
@@ -1218,9 +1239,9 @@ export function createFurnitureMesh(
       for (let i = -1; i <= 1; i++) {
         for (const side of [-1, 1]) {
           const chair = new THREE.Group();
-          const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 1.3), fabricMat);
+          const seat = new THREE.Mesh(createRoundedBox(1.3, 0.15, 1.3, 0.05, 3), fabricMat);
           seat.position.y = 1.5;
-          const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 0.15), darkWoodMat);
+          const chairBack = new THREE.Mesh(createRoundedBox(1.3, 1.4, 0.15, 0.06, 3), darkWoodMat);
           chairBack.position.set(0, 2.2, side * 0.6);
           chair.add(seat, chairBack);
           chair.position.set(i * 1.8, 0, side * (td / 2 + 0.8));
@@ -1256,11 +1277,11 @@ export function createFurnitureMesh(
     // 17. Kitchen Island
     // ----------------------------------------------------------------------------------
     case "kitchen_island": {
-      const body = new THREE.Mesh(new THREE.BoxGeometry(5.8, 2.7, 2.6), darkWoodMat);
+      const body = new THREE.Mesh(createRoundedBox(5.8, 2.7, 2.6, 0.06, 4), darkWoodMat);
       body.position.set(0, 1.35, 0);
       root.add(body);
 
-      const top = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.25, 3.0), quartzMat);
+      const top = new THREE.Mesh(createRoundedBox(6.2, 0.25, 3.0, 0.08, 4), quartzMat);
       top.position.set(0, 2.8, 0);
       root.add(top);
 
@@ -1277,7 +1298,7 @@ export function createFurnitureMesh(
     // 18. Refrigerator
     // ----------------------------------------------------------------------------------
     case "refrigerator": {
-      const fridge = new THREE.Mesh(new THREE.BoxGeometry(3.0, 6.8, 2.6), chromeMat);
+      const fridge = new THREE.Mesh(createRoundedBox(3.0, 6.8, 2.6, 0.12, 5), chromeMat);
       fridge.position.set(0, 3.4, 0);
       root.add(fridge);
 
@@ -1294,23 +1315,23 @@ export function createFurnitureMesh(
     // 19. Executive Study Desk
     // ----------------------------------------------------------------------------------
     case "study_desk": {
-      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.2, 2.2), darkWoodMat);
+      const deskTop = new THREE.Mesh(createRoundedBox(4.5, 0.2, 2.2, 0.05, 3), darkWoodMat);
       deskTop.position.set(0, 2.5, 0);
       root.add(deskTop);
 
       for (const lx of [-2.0, 2.0]) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.4, 2.0), chromeMat);
+        const leg = new THREE.Mesh(createRoundedBox(0.2, 2.4, 2.0, 0.04, 3), chromeMat);
         leg.position.set(lx, 1.2, 0);
         root.add(leg);
       }
 
       // Laptop
-      const laptop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.9), chromeMat);
+      const laptop = new THREE.Mesh(createRoundedBox(1.2, 0.05, 0.9, 0.02, 3), chromeMat);
       laptop.position.set(0, 2.65, 0);
       root.add(laptop);
 
       // Office Chair
-      const chair = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.6, 1.4), fabricMat);
+      const chair = new THREE.Mesh(createRoundedBox(1.5, 1.6, 1.4, 0.14, 5), fabricMat);
       chair.position.set(0, 1.8, 1.6);
       root.add(chair);
       break;
@@ -1320,13 +1341,13 @@ export function createFurnitureMesh(
     // 20. Tall Open Bookshelf
     // ----------------------------------------------------------------------------------
     case "bookshelf": {
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 6.5, 1.2), darkWoodMat);
+      const frame = new THREE.Mesh(createRoundedBox(3.6, 6.5, 1.2, 0.06, 4), darkWoodMat);
       frame.position.set(0, 3.25, 0);
       root.add(frame);
 
       // 4 Internal Shelves with decorative items
       for (let s = 1; s <= 4; s++) {
-        const shelf = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 1.15), brassMat);
+        const shelf = new THREE.Mesh(createRoundedBox(3.4, 0.1, 1.15, 0.02, 3), brassMat);
         shelf.position.set(0, s * 1.3, 0.05);
         root.add(shelf);
       }

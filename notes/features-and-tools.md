@@ -219,6 +219,7 @@ A complete, chronological and categorized record of all engineering systems, arc
 | Key / Shortcut | Target Feature / Action | Description |
 | :--- | :--- | :--- |
 | **`G`** | **🎮 Graphics Control Studio** | Opens and closes the in-engine graphics, render-resolution, texture and shadow quality modal. |
+| **`P`** | **💎 GPU Path Tracer / Raytracer** | Toggles real-time progressive hardware path tracing with multi-bounce global illumination. |
 | **`U`** | **✨ UPGRADE Studio Suite** | Instantly hot-swaps between basic CAD blocks and photorealistic curved bouclé/library/fireplace suite. |
 | **`L`** | **☀️ Day / 🌙 Night Atmosphere** | Toggles between sunny blue sky dome with white CAD grids and starry night sky with warm interior spots. |
 | **`Esc`** | **Dismiss / Deselect** | Instantly closes any active dialog/drawer modal and deselects selected furniture/objects. |
@@ -230,9 +231,11 @@ A complete, chronological and categorized record of all engineering systems, arc
 
 ## 📊 Summary of Implemented Capabilities
 
-- **Backend Tests Passing**: **50 / 50 (100%)**
+- **Backend Tests Passing**: **90 / 90 (100%)**
 - **TypeScript Errors**: **0 Errors** (`npx tsc --noEmit`)
 - **Production Build**: **Compiled Successfully (Code 0)**
+- **BIM Core**: **Walls as first-class objects with persistent IDs, thicknesses, and single-hosted openings**
+- **Estimation Core**: **Real-time Bill of Quantities (BOQ) with Economy, Premium, and Luxury tiers**
 - **Supported Floor Plan Models**: **20 Curated Architectural Blueprints**
-- **Supported Material Finishes**: **15+ High-Definition PBR Procedural Shaders**
-- **Supported Graphic Modes**: **UPGRADE Studio Mode, DSR render scaling to 200%, 4096px procedural textures, 4096px PCF soft shadows, Day / Night, 3D Dollhouse Cutaway**
+- **Supported Material Finishes**: **15+ High-Definition PBR Procedural Shaders & Wall Paint Blending**
+- **Supported Graphic Modes**: **Hardware GPU Path Tracer, UPGRADE Studio Mode, DSR render scaling to 200%, 4096px procedural textures, 4096px PCF soft shadows, Day / Night, 3D Dollhouse Cutaway**

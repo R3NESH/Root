@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { WebGLPathTracer } from "three-gpu-pathtracer";
+
 import {
   DEFAULT_SETBACK,
   edgeSetbacksIn,
@@ -21,6 +23,9 @@ import {
   DOOR_HEIGHT_FT,
   DOOR_WIDTH_FT,
   HANDLE_RADIUS_FT,
+  DAY_GROUND_COLOR,
+  DAY_PLOT_COLOR,
+  NIGHT_PLOT_COLOR,
   PLOT_COLOR,
   WALL_HEIGHT_FT,
   WALL_THICK_INT_FT,
@@ -36,7 +41,8 @@ import {
   oppositeEdge,
 } from "@/lib/sceneDoorways";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
-import { resolveBands, resolveWallBandScheme, roomInstanceId } from "@/lib/wallBands";
+import { resolveBands, resolveWallBandScheme, roomInstanceId, wallBandKey } from "@/lib/wallBands";
+import { findGlazingStyle, resolveWallGlazing } from "@/lib/glazing";
 import {
   clampPlayerPosition,
   computePotentiallyVisibleRooms,
@@ -61,6 +67,14 @@ import {
   FURNITURE_CATALOG,
   PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
+import { loadGlbModel, loadGlbFromFile } from "@/lib/modelLoader";
+import { mountRealModels } from "@/lib/furnitureModels";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { SolidGeometryGTAOPass } from "@/lib/aoPass";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+
 import {
   DEFAULT_MATERIAL_CONFIG,
   FLOOR_MATERIALS,
@@ -76,6 +90,10 @@ import {
   getEffectiveWallBumpScale,
   clearTextureCache,
   HouseMaterialConfig,
+  getFloorNormalMap,
+  getFloorRoughnessMap,
+  getWallNormalMap,
+  ROUGHNESS_MAP_HEADROOM,
 } from "@/lib/materialsCatalog";
 import {
   GraphicsSettings,
@@ -187,7 +205,10 @@ interface SceneProps {
   graphicsSettings?: GraphicsSettings;
   isUpgraded?: boolean;
   onToggleUpgrade?: () => void;
+  isRaytracing?: boolean;
+  onToggleRaytrace?: () => void;
 }
+
 
 function createDaySkyTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -246,6 +267,118 @@ function createNightSkyTexture(): THREE.CanvasTexture {
   }
   const tex = new THREE.CanvasTexture(canvas);
   return tex;
+}
+
+// Equirectangular radiance map for image-based lighting. PMREM prefilters it into the ambient
+// and reflection source every MeshStandardMaterial samples, and it is the only environment light
+// three-gpu-pathtracer gets — it zeroes environmentIntensity when scene.environment is null.
+//
+// This is half-float, not a canvas, on purpose. A canvas is LDR: its brightest possible sun is
+// 1.0, the same value as plain white sky, so a polished floor reflects a sun that is not any
+// brighter than the sky around it and the reflection reads as flat ambient. Radiance here is
+// linear and unbounded, so the sun disc sits ~60x above the sky and blows out where it lands.
+// The sharp horizon matters for the same reason: a smooth gradient reflects as a smooth
+// gradient, which is indistinguishable from the hemisphere light this replaces. Reflections
+// only read as reflections when the environment has edges.
+const SUN_DIR = new THREE.Vector3(60, 95, 45).normalize();
+
+function createSkyEnvTexture(night: boolean): THREE.DataTexture {
+  const W = 256;
+  const H = 128;
+  const data = new Uint16Array(W * H * 4);
+  const dir = new THREE.Vector3();
+
+  const zenith = night ? [0.004, 0.008, 0.022] : [0.09, 0.19, 0.44];
+  const horizon = night ? [0.020, 0.034, 0.062] : [0.62, 0.74, 0.92];
+  const groundNear = night ? [0.012, 0.013, 0.016] : [0.20, 0.175, 0.140];
+  const groundFar = night ? [0.002, 0.002, 0.003] : [0.055, 0.048, 0.040];
+  const discRadiance = night ? [7, 8, 11] : [62, 55, 44];
+  const discCos = Math.cos((night ? 1.6 : 2.4) * Math.PI / 180);
+  const glowCos = Math.cos((night ? 9 : 26) * Math.PI / 180);
+  const glowRadiance = night ? [0.10, 0.12, 0.18] : [2.6, 2.1, 1.4];
+
+  for (let y = 0; y < H; y++) {
+    // DataTexture is flipY = false, so row 0 is uv v = 0, which equirect maps to straight down.
+    const v = (y + 0.5) / H;
+    const dy = Math.sin((v - 0.5) * Math.PI);
+    const horiz = Math.sqrt(Math.max(0, 1 - dy * dy));
+
+    for (let x = 0; x < W; x++) {
+      const phi = ((x + 0.5) / W - 0.5) * Math.PI * 2;
+      dir.set(Math.cos(phi) * horiz, dy, Math.sin(phi) * horiz);
+
+      let r: number;
+      let g: number;
+      let b: number;
+
+      if (dy >= 0) {
+        // Sky. Biased towards the horizon colour so the band just above the ground stays bright,
+        // which is what a glossy floor actually catches at a grazing angle.
+        const t = Math.pow(dy, 0.55);
+        r = horizon[0] + (zenith[0] - horizon[0]) * t;
+        g = horizon[1] + (zenith[1] - horizon[1]) * t;
+        b = horizon[2] + (zenith[2] - horizon[2]) * t;
+      } else {
+        const t = Math.pow(-dy, 0.6);
+        r = groundNear[0] + (groundFar[0] - groundNear[0]) * t;
+        g = groundNear[1] + (groundFar[1] - groundNear[1]) * t;
+        b = groundNear[2] + (groundFar[2] - groundNear[2]) * t;
+      }
+
+      // Sun disc and its glow, at the direction of the sun DirectionalLight itself, so the
+      // highlight in a polished floor sits where the cast shadows say it should.
+      const cosSun = dir.dot(SUN_DIR);
+      if (cosSun > discCos) {
+        r = discRadiance[0];
+        g = discRadiance[1];
+        b = discRadiance[2];
+      } else if (cosSun > glowCos) {
+        const f = Math.pow((cosSun - glowCos) / (discCos - glowCos), 3);
+        r += glowRadiance[0] * f;
+        g += glowRadiance[1] * f;
+        b += glowRadiance[2] * f;
+      }
+
+      const i = (y * W + x) * 4;
+      data[i] = THREE.DataUtils.toHalfFloat(r);
+      data[i + 1] = THREE.DataUtils.toHalfFloat(g);
+      data[i + 2] = THREE.DataUtils.toHalfFloat(b);
+      data[i + 3] = THREE.DataUtils.toHalfFloat(1);
+    }
+  }
+
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.colorSpace = THREE.LinearSRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+interface EnvMapCache {
+  day: THREE.Texture | null;
+  night: THREE.Texture | null;
+}
+
+// Prefilters the sky into a mipped radiance map and hangs it on the scene. Built once per sky
+// and cached — the PMREM pass is a handful of GPU draws but it does not belong in a toggle.
+function applyEnvironment(
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer | null,
+  cache: EnvMapCache,
+  night: boolean
+): void {
+  if (!renderer) return;
+  const key = night ? "night" : "day";
+  if (!cache[key]) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const src = createSkyEnvTexture(night);
+    cache[key] = pmrem.fromEquirectangular(src).texture;
+    src.dispose();
+    pmrem.dispose();
+  }
+  scene.environment = cache[key];
 }
 
 function createDayLawnTexture(): THREE.CanvasTexture {
@@ -325,6 +458,8 @@ export default function Scene({
   graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
   isUpgraded = false,
   onToggleUpgrade,
+  isRaytracing = false,
+  onToggleRaytrace,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -335,7 +470,18 @@ export default function Scene({
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
   const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
   const skyFillRef = useRef<THREE.DirectionalLight | null>(null);
+  // Ground-truth ambient occlusion. The rasterizer draws through this composer instead of
+  // straight to the canvas; the path tracer computes its own occlusion and bypasses it.
+  const composerRef = useRef<EffectComposer | null>(null);
+  const gtaoPassRef = useRef<GTAOPass | null>(null);
+
+  // Prefiltered day/night radiance maps. Kept across toggles so flipping the sky is a pointer
+  // swap, not a re-prefilter.
+  const envMapsRef = useRef<EnvMapCache>({ day: null, night: null });
   const groundMeshRef = useRef<THREE.Mesh | null>(null);
+  // The plot slab. Held so day/night can recolour it without waiting for a re-solve — it is
+  // built inside the layout effect, which only runs when the plan changes.
+  const plotMeshRef = useRef<THREE.Mesh | null>(null);
   const darkGridRef = useRef<THREE.GridHelper | null>(null);
   const whiteGridRef = useRef<THREE.GridHelper | null>(null);
   const roomLightsRef = useRef<THREE.PointLight[]>([]);
@@ -343,6 +489,20 @@ export default function Scene({
   const [currentFrameTime, setCurrentFrameTime] = useState<number>(6.9);
   const [renderRes, setRenderRes] = useState<string>("3840 × 2160");
   const [isDollhouseCutaway, setIsDollhouseCutaway] = useState<boolean>(true);
+
+  // Real-Time GPU Path Tracer States & Refs
+  const [raytraceSamples, setRaytraceSamples] = useState<number>(0);
+  const [raytraceTargetSamples, setRaytraceTargetSamples] = useState<number>(60);
+  const [raytraceBounces, setRaytraceBounces] = useState<number>(4);
+  const [isRaytraceBuilding, setIsRaytraceBuilding] = useState<boolean>(false);
+
+  const pathTracerRef = useRef<WebGLPathTracer | null>(null);
+  const isRaytracingRef = useRef<boolean>(isRaytracing);
+  const isPathTracerReadyRef = useRef<boolean>(false);
+  const targetSamplesRef = useRef<number>(60);
+  const bouncesRef = useRef<number>(4);
+  const onToggleRaytraceRef = useRef(onToggleRaytrace);
+
   const fpsFrames = useRef<number>(0);
   const lastFpsUpdate = useRef<number>(performance.now());
   const graphicsSettingsRef = useRef<GraphicsSettings>(graphicsSettings);
@@ -525,6 +685,7 @@ export default function Scene({
     onChangeCustomWallsRef.current = onChangeCustomWalls;
     onChangeCustomRoomZonesRef.current = onChangeCustomRoomZones;
     onChangeCustomOpeningsRef.current = onChangeCustomOpenings;
+    onToggleRaytraceRef.current = onToggleRaytrace;
 
     if (widthHandleRef.current) widthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
     if (depthHandleRef.current) depthHandleRef.current.visible = modeRef.current !== "walkthrough" && !isLayoutLocked;
@@ -564,7 +725,73 @@ export default function Scene({
     windowConfig,
     isLayoutLocked,
     onToggleLayoutLock,
+    onToggleRaytrace,
   ]);
+
+  // Real-Time GPU Path Tracer Lifecycle Effect
+  useEffect(() => {
+    isRaytracingRef.current = isRaytracing;
+    if (isRaytracing) {
+      let isSubscribed = true;
+      const startPT = async () => {
+        const renderer = rendererRef.current;
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        if (!renderer || !scene || !camera) return;
+
+        setIsRaytraceBuilding(true);
+
+        // Hide gizmos & grids so they don't get baked into BVH
+        if (widthHandleRef.current) widthHandleRef.current.visible = false;
+        if (depthHandleRef.current) depthHandleRef.current.visible = false;
+        if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = false;
+        if (customWallHandlesGroupRef.current) customWallHandlesGroupRef.current.visible = false;
+        if (whiteGridRef.current) whiteGridRef.current.visible = false;
+        if (darkGridRef.current) darkGridRef.current.visible = false;
+
+        let pt = pathTracerRef.current;
+        if (!pt) {
+          pt = new WebGLPathTracer(renderer);
+          pathTracerRef.current = pt;
+        }
+        pt.bounces = bouncesRef.current;
+        pt.renderScale = 1.0;
+        pt.tiles.set(2, 2);
+        pt.filterGlossyFactor = 0.5;
+        pt.dynamicLowRes = true;
+        pt.lowResScale = 0.25;
+
+        try {
+          await pt.setSceneAsync(scene, camera);
+          if (!isSubscribed) return;
+          isPathTracerReadyRef.current = true;
+          setRaytraceSamples(0);
+        } catch (err) {
+          console.warn("Path tracer setScene error:", err);
+        } finally {
+          if (isSubscribed) setIsRaytraceBuilding(false);
+        }
+      };
+      startPT();
+
+      return () => {
+        isSubscribed = false;
+      };
+    } else {
+      isPathTracerReadyRef.current = false;
+      if (modeRef.current !== "walkthrough" && !isLayoutLockedRef.current) {
+        if (widthHandleRef.current) widthHandleRef.current.visible = true;
+        if (depthHandleRef.current) depthHandleRef.current.visible = true;
+        if (roomHandlesGroupRef.current) roomHandlesGroupRef.current.visible = true;
+      }
+      if (lightsOnRef.current) {
+        if (whiteGridRef.current) whiteGridRef.current.visible = true;
+      } else {
+        if (darkGridRef.current) darkGridRef.current.visible = true;
+      }
+    }
+  }, [isRaytracing]);
+
 
   // Dynamic Day (Light Mode) vs Night (Dark Mode) Environment & Sky Dome
   useEffect(() => {
@@ -575,13 +802,22 @@ export default function Scene({
       // ☀️ DAY / LIGHT MODE: Clear Blue Sky, Radiant Sun & Clean White Grids
       const daySky = createDaySkyTexture();
       scene.background = daySky;
+      applyEnvironment(scene, rendererRef.current, envMapsRef.current, false);
 
       if (groundMeshRef.current) {
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).map = null;
-        (groundMeshRef.current.material as THREE.MeshStandardMaterial).color.set(0x5a8ec6); // Soft sky-blue architectural ground
+        (groundMeshRef.current.material as THREE.MeshStandardMaterial).color.set(DAY_GROUND_COLOR);
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).roughness = 0.88;
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).metalness = 0.02;
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).needsUpdate = true;
+      }
+
+      if (plotMeshRef.current) {
+        const m = plotMeshRef.current.material as THREE.MeshStandardMaterial;
+        m.color.set(DAY_PLOT_COLOR);
+        m.roughness = 0.96;
+        m.metalness = 0.0;
+        m.needsUpdate = true;
       }
 
       if (darkGridRef.current) darkGridRef.current.visible = false;
@@ -596,7 +832,7 @@ export default function Scene({
       if (hemiLightRef.current) {
         hemiLightRef.current.color.set(0x93c5fd); // Clear blue sky light
         hemiLightRef.current.groundColor.set(0xdcfce7); // Ground bounce
-        hemiLightRef.current.intensity = 1.25;
+        hemiLightRef.current.intensity = 0.3;
       }
 
       if (skyFillRef.current) {
@@ -611,6 +847,7 @@ export default function Scene({
     } else {
       // 🌙 NIGHT / DARK MODE: Exact Previous Default Dark Mode
       scene.background = new THREE.Color(0x0a0e17);
+      applyEnvironment(scene, rendererRef.current, envMapsRef.current, true);
 
       if (groundMeshRef.current) {
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).map = null;
@@ -618,6 +855,14 @@ export default function Scene({
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).roughness = 0.95;
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).metalness = 0.05;
         (groundMeshRef.current.material as THREE.MeshStandardMaterial).needsUpdate = true;
+      }
+
+      if (plotMeshRef.current) {
+        const m = plotMeshRef.current.material as THREE.MeshStandardMaterial;
+        m.color.set(NIGHT_PLOT_COLOR);
+        m.roughness = 0.9;
+        m.metalness = 0.1;
+        m.needsUpdate = true;
       }
 
       if (darkGridRef.current) darkGridRef.current.visible = true;
@@ -632,7 +877,7 @@ export default function Scene({
       if (hemiLightRef.current) {
         hemiLightRef.current.color.set(0xe8f0fe); // Previous default hemi
         hemiLightRef.current.groundColor.set(0x1e2630);
-        hemiLightRef.current.intensity = 0.9;
+        hemiLightRef.current.intensity = 0.25;
       }
 
       if (skyFillRef.current) {
@@ -697,8 +942,17 @@ export default function Scene({
     controls.enablePan = false; // Strictly keeps rotation centered on the house model
     controlsRef.current = controls;
 
+    controls.addEventListener("change", () => {
+      if (isRaytracingRef.current && pathTracerRef.current && isPathTracerReadyRef.current) {
+        pathTracerRef.current.updateCamera();
+        pathTracerRef.current.reset();
+        setRaytraceSamples(0);
+      }
+    });
+
+
     // Architectural Lighting setup
-    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0xdcfce7, 1.2);
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0xdcfce7, 0.3);
     scene.add(hemiLight);
     hemiLightRef.current = hemiLight;
 
@@ -727,7 +981,7 @@ export default function Scene({
     // Ground Plane & Sky Initializer
     const groundGeom = new THREE.PlaneGeometry(360, 360);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x5a8ec6,
+      color: DAY_GROUND_COLOR,
       roughness: 0.88,
       metalness: 0.02,
     });
@@ -745,8 +999,9 @@ export default function Scene({
     scene.add(darkGrid);
     darkGridRef.current = darkGrid;
 
-    // Light Mode CAD Grid (Clean White Primary Lines + Soft Sky Secondary Lines)
-    const whiteGrid = new THREE.GridHelper(260, 130, 0xffffff, 0xdbeafe);
+    // Light Mode CAD Grid. The lines used to be white on a sky-blue ground; now the ground is
+    // white, so the lines have to be the darker of the two or the tiles have no seams at all.
+    const whiteGrid = new THREE.GridHelper(260, 130, 0x9fb0c2, 0xd4dde6);
     whiteGrid.position.y = -0.01;
     (whiteGrid.material as THREE.Material).transparent = true;
     (whiteGrid.material as THREE.Material).opacity = 0.85;
@@ -756,6 +1011,7 @@ export default function Scene({
 
     // Initial Sky Background (Day Light Mode: Clear Blue Sky & Sun)
     scene.background = createDaySkyTexture();
+    applyEnvironment(scene, renderer, envMapsRef.current, false);
 
     const group = new THREE.Group();
     scene.add(group);
@@ -790,6 +1046,38 @@ export default function Scene({
     scene.add(snapGuideLine);
     snapGuideMeshRef.current = snapGuideLine;
 
+    // Ambient occlusion. Nothing in the scene carried contact darkening before this: corners,
+    // the gap under a sofa and the join where a wall meets the floor all lit as if open sky
+    // reached them. Skipped on mobile and weak GPUs, where the extra depth-normal pass and the
+    // denoise cost more than the look is worth.
+    if (!isMobileOrLowGPU) {
+      const composer = new EffectComposer(renderer);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(mount.clientWidth, mount.clientHeight);
+      composer.addPass(new RenderPass(scene, camera));
+
+      const gtao = new SolidGeometryGTAOPass(scene, camera, mount.clientWidth, mount.clientHeight);
+      // The scene is measured in feet, and GTAO's radius is in world units — the 0.25 default is
+      // three inches, which reads as a thin outline rather than occlusion. A foot and a half is
+      // about the depth of the gaps that actually want darkening.
+      gtao.updateGtaoMaterial({
+        radius: 1.5,
+        distanceExponent: 1.0,
+        thickness: 1.0,
+        scale: 1.0,
+        samples: 16,
+        screenSpaceRadius: false,
+      });
+      gtao.blendIntensity = 0.85;
+      composer.addPass(gtao);
+      // Tone mapping and the sRGB transform move here: three skips both when a pass renders
+      // into a render target, so without this the composed image goes out untonemapped.
+      composer.addPass(new OutputPass());
+
+      composerRef.current = composer;
+      gtaoPassRef.current = gtao;
+    }
+
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -797,6 +1085,7 @@ export default function Scene({
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
         renderer.setSize(width, height);
+        composerRef.current?.setSize(width, height);
       }
     });
     resizeObserver.observe(mount);
@@ -2138,8 +2427,15 @@ export default function Scene({
       if (ev.code === "KeyL" && onToggleLayoutLockRef.current) {
         onToggleLayoutLockRef.current();
       }
+      // 'P' Key: Toggle Real-Time GPU Path Tracer
+      if (ev.code === "KeyP" && onToggleRaytraceRef.current) {
+        onToggleRaytraceRef.current();
+      }
       // Escape: Deselect or cancel placement or draft wall
       if (ev.code === "Escape") {
+        if (isRaytracingRef.current && onToggleRaytraceRef.current) {
+          onToggleRaytraceRef.current();
+        }
         draftWallStartFtRef.current = null;
         setDraftWallStartFt(null);
         setDrafting3DDescription(null);
@@ -2150,6 +2446,7 @@ export default function Scene({
           onSelectObjectRef.current(null);
         }
       }
+
     }
 
     function onKeyUp(ev: KeyboardEvent) {
@@ -2164,12 +2461,58 @@ export default function Scene({
       }
     }
 
+    function onDragOver(ev: DragEvent) {
+      ev.preventDefault();
+      if (ev.dataTransfer) {
+        ev.dataTransfer.dropEffect = "copy";
+      }
+    }
+
+    function onDrop(ev: DragEvent) {
+      ev.preventDefault();
+      const files = ev.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      if (file.name.toLowerCase().endsWith(".glb") || file.name.toLowerCase().endsWith(".gltf")) {
+        const raycaster = new THREE.Raycaster();
+        const rect = renderer.domElement.getBoundingClientRect();
+        const mouseX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        const mouseY = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const intersectPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(groundPlane, intersectPoint);
+
+        const newId = "custom_glb_" + Date.now();
+        const blobUrl = URL.createObjectURL(file);
+        const newObj: PlacedCustomObject = {
+          id: newId,
+          type: "custom_3d_model",
+          name: file.name.replace(/\.[^/.]+$/, ""),
+          x: Math.round((intersectPoint.x || 10) * 10) / 10,
+          y: 0,
+          z: Math.round((intersectPoint.z || 10) * 10) / 10,
+          rotationY: 0,
+          scale: 1.0,
+          glbUrl: blobUrl,
+        };
+
+        if (onAddCustomObjectRef.current) {
+          onAddCustomObjectRef.current(newObj);
+        }
+      }
+    }
+
     renderer.domElement.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
     renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
+    renderer.domElement.addEventListener("dragover", onDragOver);
+    renderer.domElement.addEventListener("drop", onDrop);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+
 
     // Animation & Physics Loop
     let frameId = 0;
@@ -2312,6 +2655,13 @@ export default function Scene({
           if (now - lastPlayerReportTime.current > 80 || distMoved > 0.15 || yawDiff > 0.08) {
             lastPlayerReportTime.current = now;
             lastReportedPos.current = { x: p.x, z: p.z, yaw: p.yaw };
+
+            if (isRaytracingRef.current && pathTracerRef.current && isPathTracerReadyRef.current) {
+              pathTracerRef.current.updateCamera();
+              pathTracerRef.current.reset();
+              setRaytraceSamples(0);
+            }
+
             onPlayerUpdateRef.current({
               ...p,
               y: effectiveCameraY,
@@ -2348,8 +2698,22 @@ export default function Scene({
         lastFpsUpdate.current = nowMs;
       }
 
-      renderer.render(scene, camera);
+      // Real-Time GPU Path Tracer execution or standard WebGL rasterizer
+      if (isRaytracingRef.current && pathTracerRef.current && isPathTracerReadyRef.current) {
+        const pt = pathTracerRef.current;
+        if (pt.samples < targetSamplesRef.current) {
+          pt.renderSample();
+          if (pt.samples % 2 === 0 || pt.samples >= targetSamplesRef.current) {
+            setRaytraceSamples(pt.samples);
+          }
+        }
+      } else if (composerRef.current) {
+        composerRef.current.render();
+      } else {
+        renderer.render(scene, camera);
+      }
     }
+
     frameId = requestAnimationFrame(animate);
 
     return () => {
@@ -2357,11 +2721,21 @@ export default function Scene({
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
       renderer.domElement.removeEventListener("wheel", onWheel);
+      renderer.domElement.removeEventListener("dragover", onDragOver);
+      renderer.domElement.removeEventListener("drop", onDrop);
       window.removeEventListener("pointermove", onPointerMove);
+
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       controls.dispose();
+      composerRef.current?.dispose();
+      composerRef.current = null;
+      gtaoPassRef.current = null;
+      envMapsRef.current.day?.dispose();
+      envMapsRef.current.night?.dispose();
+      envMapsRef.current = { day: null, night: null };
+      scene.environment = null;
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       scene.traverse((obj) => {
@@ -2447,6 +2821,7 @@ export default function Scene({
     // 1. Dynamic Resolution Scale / Super-Sampling
     const targetDPR = Math.min(window.devicePixelRatio * (graphicsSettings.renderScale || 1.0), 3.5);
     renderer.setPixelRatio(targetDPR);
+    composerRef.current?.setPixelRatio(targetDPR);
 
     if (mountRef.current) {
       const w = Math.round(mountRef.current.clientWidth * targetDPR);
@@ -2466,7 +2841,14 @@ export default function Scene({
     }
     renderer.toneMappingExposure = graphicsSettings.exposure ?? 1.15;
 
-    // 3. Dynamic Shadow Quality
+    // 3. Dynamic Shadow Quality. The Low / Eco preset turns shadows off to buy back frames, and
+    // occlusion is the other per-frame cost in the same class, so it follows the same switch
+    // rather than growing a control of its own — see the note above GraphicsSettings about
+    // settings that were never wired to anything.
+    if (gtaoPassRef.current) {
+      gtaoPassRef.current.enabled = graphicsSettings.shadowQuality !== "off";
+    }
+
     if (sunLightRef.current) {
       const shadowRes = getShadowMapResolution(graphicsSettings.shadowQuality);
       if (shadowRes > 0) {
@@ -2592,9 +2974,12 @@ export default function Scene({
     const plotMesh = new THREE.Mesh(
       plotShape,
       new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
-        roughness: 0.9,
-        metalness: 0.1,
+        // Lawn by day, dark slate by night. Read from the ref rather than the prop because this
+        // effect rebuilds on the plan, not on the light switch — the day/night effect keeps it
+        // in step after that.
+        color: lightsOnRef.current ? DAY_PLOT_COLOR : NIGHT_PLOT_COLOR,
+        roughness: lightsOnRef.current ? 0.96 : 0.9,
+        metalness: lightsOnRef.current ? 0.0 : 0.1,
         side: THREE.DoubleSide,
       })
     );
@@ -2602,6 +2987,7 @@ export default function Scene({
     plotMesh.position.set(wFt / 2, 0, dFt / 2);
     plotMesh.receiveShadow = true;
     group.add(plotMesh);
+    plotMeshRef.current = plotMesh;
 
     const plotOutline = new THREE.LineLoop(
       new THREE.BufferGeometry().setFromPoints([
@@ -2760,10 +3146,15 @@ export default function Scene({
       const roomGroup = new THREE.Group();
 
       // Floor Mesh (Customized via Material & Finishes Studio & Texture Smoothness)
-      let floorId = materialConfigRef.current.roomFloors?.[room.name as RoomName] || materialConfigRef.current.globalFloor;
-      if (isUpgradedRef.current && !materialConfigRef.current.roomFloors?.[room.name as RoomName] && (room.name === "hall" || room.name === "dining" || room.name === "foyer")) {
-        floorId = "french_chevron_oak";
-      }
+      // The floor is whatever the config says, full stop. Upgrade mode used to force chevron
+      // parquet onto the hall, dining and foyer here, which meant picking a floor in the
+      // Finishes panel changed every room except those — the panel sets `globalFloor` and clears
+      // `roomFloors`, and this override beat both. The chevron reception floor is now seeded
+      // into DEFAULT_MATERIAL_CONFIG.roomFloors instead: same look out of the box, visible in
+      // the UI, and cleared the moment the user picks anything.
+      const floorId =
+        materialConfigRef.current.roomFloors?.[room.name as RoomName] ||
+        materialConfigRef.current.globalFloor;
       const floorMatDef = FLOOR_MATERIALS.find((f) => f.id === floorId) || getRoomFloorMaterial(room.name as RoomName, materialConfigRef.current);
       const res = graphicsSettingsRef.current
         ? getTextureResolution(graphicsSettingsRef.current.textureQuality)
@@ -2772,13 +3163,23 @@ export default function Scene({
         ? graphicsSettingsRef.current.anisotropicFiltering
         : (materialConfigRef.current.anisotropicFiltering || 16);
       const floorTexture = getFloorTexture(floorMatDef.id, res, aniso);
+      const floorNormalMap = getFloorNormalMap(floorMatDef.id, res, aniso);
+      const floorRoughnessMap = getFloorRoughnessMap(floorMatDef.id, res, aniso);
 
       const effectiveFloorRoughness = getEffectiveFloorRoughness(floorMatDef.roughness, materialConfigRef.current);
 
       const floorGeom = new THREE.PlaneGeometry(rw, rd);
       const floorMat = new THREE.MeshStandardMaterial({
         map: floorTexture,
-        roughness: effectiveFloorRoughness,
+        normalMap: floorNormalMap,
+        normalScale: new THREE.Vector2(0.6, 0.6),
+        roughnessMap: floorRoughnessMap,
+        // A roughness map can only scale the material's value down, so when one is present the
+        // scalar carries the headroom the grout lines need and the map returns the polished
+        // face to the roughness the finish actually asked for.
+        roughness: floorRoughnessMap
+          ? Math.min(1, effectiveFloorRoughness * ROUGHNESS_MAP_HEADROOM)
+          : effectiveFloorRoughness,
         metalness: floorMatDef.metalness,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
@@ -2790,7 +3191,7 @@ export default function Scene({
       // Wall Materials & Textures (Customized via Material & Finishes Studio & Smoothness)
       const wallColorHex = getRoomWallColorHex(room.name as RoomName, materialConfigRef.current);
       const wallTextureId = getRoomWallTextureId(room.name as RoomName, materialConfigRef.current);
-      const wallBumpMap = getWallTextureBumpMap(wallTextureId, res, aniso);
+      const wallNormalMap = getWallNormalMap(wallTextureId, res, aniso);
 
       const baseWallRoughness =
         wallTextureId === "wood_slat"
@@ -2799,12 +3200,14 @@ export default function Scene({
           ? 0.65
           : 0.82;
       const effectiveWallRoughness = getEffectiveWallRoughness(baseWallRoughness, materialConfigRef.current);
-      const effectiveWallBumpScale = getEffectiveWallBumpScale(0.05, materialConfigRef.current);
+      // Same smoothness curve the bump scale used, read at unit depth: a normal map carries
+      // the relief itself, so all this has to supply is how far to lean on it.
+      const wallRelief = getEffectiveWallBumpScale(1.0, materialConfigRef.current);
 
       const wallMaterial = new THREE.MeshStandardMaterial({
         color: wallColorHex,
-        bumpMap: wallBumpMap,
-        bumpScale: wallBumpMap ? effectiveWallBumpScale : 0,
+        normalMap: wallNormalMap,
+        normalScale: new THREE.Vector2(wallRelief, wallRelief),
         roughness: effectiveWallRoughness,
         metalness: 0.02,
       });
@@ -2922,6 +3325,94 @@ export default function Scene({
         }
       };
 
+      /**
+       * Turn a finished wall into glass.
+       *
+       * A material pass, not a geometry one. Every piece the segment loop produced — the piers
+       * either side of a door, the lintel over it, the sill under a window — is already the
+       * right shape, so glazing swaps what it is made of and thins it on its own axis. The
+       * door hole the solver cut stays cut. Nothing above this line has to know about glass.
+       */
+      const glazeWall = (
+        pieces: THREE.Object3D[],
+        edge: "N" | "S" | "E" | "W",
+        isEW: boolean
+      ) => {
+        const glazing = resolveWallGlazing(
+          materialConfigRef.current,
+          wallBandKey(roomInstanceId(rooms, i), edge),
+          room.name as RoomName
+        );
+        if (!glazing?.wall) return;
+
+        const style = findGlazingStyle(glazing.styleId);
+        const glassMat = new THREE.MeshStandardMaterial({
+          color: style.colorHex,
+          transparent: true,
+          opacity: style.opacity,
+          roughness: style.roughness,
+          metalness: style.metalness,
+          // Architectural glass writing depth makes everything behind it sort badly.
+          depthWrite: false,
+        });
+        const frameMat = new THREE.MeshStandardMaterial({
+          color: style.frameHex,
+          roughness: 0.35,
+          metalness: 0.6,
+        });
+
+        for (const piece of pieces) {
+          const mesh = piece as THREE.Mesh;
+          const params = (mesh.geometry as THREE.BoxGeometry)?.parameters as
+            | { width: number; height: number; depth: number }
+            | undefined;
+          if (!params) continue;
+
+          mesh.material = glassMat;
+          // Glass is a sheet, not a 9 in brick. Scale on the thickness axis rather than
+          // rebuilding the geometry, so the piece keeps its position and its userData.
+          if (isEW) mesh.scale.z = 0.18;
+          else mesh.scale.x = 0.18;
+          // A transparent pane casting a solid shadow is the giveaway that it is faked.
+          mesh.castShadow = false;
+
+          const { width: pw, height: ph, depth: pd } = params;
+          const px = mesh.position.x;
+          const py = mesh.position.y;
+          const pz = mesh.position.z;
+          const runLen = isEW ? pw : pd;
+          const thin = 0.16;
+
+          // Head and cill rails frame every pane, so a glazed pier still reads as joinery.
+          for (const railY of [py + ph / 2 - thin / 2, py - ph / 2 + thin / 2]) {
+            const rail = new THREE.Mesh(
+              new THREE.BoxGeometry(isEW ? pw : thin * 1.6, thin, isEW ? thin * 1.6 : pd),
+              frameMat
+            );
+            rail.position.set(px, railY, pz);
+            rail.castShadow = true;
+            roomGroup.add(rail);
+          }
+
+          // Vertical mullions, spaced across this piece. Because they are per piece, a door
+          // opening never gets one across it.
+          const bays = glazing.mullions;
+          if (bays > 0 && runLen > 2.0) {
+            for (let m = 1; m <= bays; m++) {
+              const t = m / (bays + 1);
+              const offset = -runLen / 2 + t * runLen;
+              const mullion = new THREE.Mesh(
+                new THREE.BoxGeometry(isEW ? thin : thin * 1.6, ph - thin * 2, isEW ? thin * 1.6 : thin),
+                frameMat
+              );
+              mullion.position.set(isEW ? px + offset : px, py, isEW ? pz : pz + offset);
+              mullion.castShadow = true;
+              roomGroup.add(mullion);
+            }
+          }
+        }
+      };
+
       const buildWall = (
         edge: "N" | "S" | "E" | "W",
         wx: number,
@@ -2931,6 +3422,33 @@ export default function Scene({
         isEW: boolean
       ) => {
         const pieceMark = roomGroup.children.length;
+
+        // Glazing for this wall, resolved once: the door branches below need it, and so does the
+        // material pass after the loop.
+        const wallGlazing = resolveWallGlazing(
+          materialConfigRef.current,
+          wallBandKey(roomInstanceId(rooms, i), edge),
+          room.name as RoomName
+        );
+        const glassDoor = Boolean(wallGlazing?.door);
+        const glassDoorStyle = glassDoor ? findGlazingStyle(wallGlazing!.styleId) : null;
+
+        /** A glazed leaf: a pane in stiles and rails, rather than a painted slab. */
+        const glassLeafMaterial = () =>
+          new THREE.MeshStandardMaterial({
+            color: glassDoorStyle!.colorHex,
+            transparent: true,
+            opacity: glassDoorStyle!.opacity,
+            roughness: glassDoorStyle!.roughness,
+            metalness: glassDoorStyle!.metalness,
+            depthWrite: false,
+          });
+        const glassFrameMaterial = () =>
+          new THREE.MeshStandardMaterial({
+            color: glassDoorStyle!.frameHex,
+            roughness: 0.35,
+            metalness: 0.6,
+          });
         interface TouchingSegment {
           start: number;
           end: number;
@@ -3103,9 +3621,17 @@ export default function Scene({
 
           const roomLabel = ROOM_LABELS[room.name as RoomName] || room.name;
 
-          const wallTitle = isShared
-            ? `${roomLabel} / ${adjLabel} Partition Wall${hasFullOpening ? " [Open-Concept]" : ""}`
-            : `${roomLabel} (${edge} Wall)${hasFullOpening ? " [Open-Concept]" : ""}`;
+          // A shared run is a 4.5 in partition; an unshared one carries the 9 in load-bearing
+          // wall. Only the second needs a beam over the opening — see the demolition branch.
+          const isLoadBearing = !isShared;
+
+          const wallTitle = hasFullOpening
+            ? isLoadBearing
+              ? `${roomLabel} (${edge}) — Lintel Beam over Opening`
+              : `${roomLabel} / ${adjLabel} — Open-Concept Opening`
+            : isShared
+            ? `${roomLabel} / ${adjLabel} Partition Wall`
+            : `${roomLabel} (${edge} Wall)`;
 
           const wallUserData = {
             isWall: true,
@@ -3119,13 +3645,32 @@ export default function Scene({
           };
 
           if (hasFullOpening || hasNarrowPassage) {
-            // Open-Concept Demolished Wall: Render top architectural lintel beam and tag for interaction
-            const beamH = 0.75;
-            const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
-            beam.position.set(seg_wx, WALL_HEIGHT_FT - beamH / 2, seg_wz);
-            beam.castShadow = true;
-            beam.userData = { ...wallUserData };
-            roomGroup.add(beam);
+            // Demolished wall. A 9 in load-bearing wall cannot simply be taken away — the slab
+            // above it has to land on something — so a lintel beam stays and is named as one.
+            // A 4.5 in partition carries nothing, so "delete" means the whole thing goes: the
+            // beam used to be left on those too, which reads on screen as the top of the wall
+            // failing to delete.
+            if (isLoadBearing) {
+              const beamH = 0.75;
+              const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
+              beam.position.set(seg_wx, WALL_HEIGHT_FT - beamH / 2, seg_wz);
+              beam.castShadow = true;
+              beam.userData = { ...wallUserData, isLintel: true };
+              roomGroup.add(beam);
+            } else {
+              // The partition is gone, but the opening still has to be clickable or there is no
+              // way back — the beam used to be what you clicked to rebuild. A floor threshold is
+              // what actually remains on site where a partition was taken out, it is an inch
+              // tall so it cannot be mistaken for the wall, and it keeps the selection target.
+              const threshold = new THREE.Mesh(
+                new THREE.BoxGeometry(seg_ww, 0.08, seg_wd),
+                baseboardMaterial
+              );
+              threshold.position.set(seg_wx, 0.04, seg_wz);
+              threshold.receiveShadow = true;
+              threshold.userData = { ...wallUserData, isThreshold: true };
+              roomGroup.add(threshold);
+            }
           } else if (hasDoor) {
             // The solver's width_in wins over the DOOR_* fallback, then the segment caps it — the
             // renderer must never draw a door wider than the wall holding it.
@@ -3205,13 +3750,47 @@ export default function Scene({
               const dLeafThick = 0.12;
               const dLeafW = Math.max(0.6, doorW - 0.25);
               const dLeafH = doorH - 0.15;
-              const dLeafMat = isMainEntrance
+              const dLeafMat = glassDoor
+                ? glassLeafMaterial()
+                : isMainEntrance
                 ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
                 : new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
               const dLeafMeshEW = new THREE.Mesh(new THREE.BoxGeometry(dLeafW, dLeafH, dLeafThick), dLeafMat);
               dLeafMeshEW.position.set(dLeafW / 2, dLeafH / 2, 0);
-              dLeafMeshEW.castShadow = true;
+              dLeafMeshEW.castShadow = !glassDoor;
               doorLeafGroupEW.add(dLeafMeshEW);
+
+              if (glassDoor) {
+                // Stiles and rails. Without them a glass door is an invisible rectangle and the
+                // opening reads as a hole.
+                const fm = glassFrameMaterial();
+                const bar = 0.18;
+                for (const sx of [bar / 2, dLeafW - bar / 2]) {
+                  const stile = new THREE.Mesh(
+                    new THREE.BoxGeometry(bar, dLeafH, dLeafThick * 1.4),
+                    fm
+                  );
+                  stile.position.set(sx, dLeafH / 2, 0);
+                  stile.castShadow = true;
+                  doorLeafGroupEW.add(stile);
+                }
+                for (const sy of [bar / 2, dLeafH - bar / 2, dLeafH * 0.32]) {
+                  const rail = new THREE.Mesh(
+                    new THREE.BoxGeometry(dLeafW, bar, dLeafThick * 1.4),
+                    fm
+                  );
+                  rail.position.set(dLeafW / 2, sy, 0);
+                  rail.castShadow = true;
+                  doorLeafGroupEW.add(rail);
+                }
+                // A glass door takes a pull, not a lever.
+                const pull = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.06, 0.06, 2.4, 10),
+                  fm
+                );
+                pull.position.set(dLeafW - 0.45, dLeafH * 0.5, dLeafThick / 2 + 0.12);
+                doorLeafGroupEW.add(pull);
+              }
 
               const leverMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
               const leverEW = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.18), leverMat);
@@ -3298,13 +3877,44 @@ export default function Scene({
               const dLeafThickNS = 0.12;
               const dLeafWNS = Math.max(0.6, doorW - 0.25);
               const dLeafHNS = doorH - 0.15;
-              const dLeafMatNS = isMainEntrance
+              const dLeafMatNS = glassDoor
+                ? glassLeafMaterial()
+                : isMainEntrance
                 ? new THREE.MeshStandardMaterial({ color: 0x181e29, roughness: 0.35 })
                 : new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
               const dLeafMeshNS = new THREE.Mesh(new THREE.BoxGeometry(dLeafThickNS, dLeafHNS, dLeafWNS), dLeafMatNS);
               dLeafMeshNS.position.set(0, dLeafHNS / 2, dLeafWNS / 2);
-              dLeafMeshNS.castShadow = true;
+              dLeafMeshNS.castShadow = !glassDoor;
               doorLeafGroupNS.add(dLeafMeshNS);
+
+              if (glassDoor) {
+                const fmNS = glassFrameMaterial();
+                const barNS = 0.18;
+                for (const sz of [barNS / 2, dLeafWNS - barNS / 2]) {
+                  const stile = new THREE.Mesh(
+                    new THREE.BoxGeometry(dLeafThickNS * 1.4, dLeafHNS, barNS),
+                    fmNS
+                  );
+                  stile.position.set(0, dLeafHNS / 2, sz);
+                  stile.castShadow = true;
+                  doorLeafGroupNS.add(stile);
+                }
+                for (const sy of [barNS / 2, dLeafHNS - barNS / 2, dLeafHNS * 0.32]) {
+                  const rail = new THREE.Mesh(
+                    new THREE.BoxGeometry(dLeafThickNS * 1.4, barNS, dLeafWNS),
+                    fmNS
+                  );
+                  rail.position.set(0, sy, dLeafWNS / 2);
+                  rail.castShadow = true;
+                  doorLeafGroupNS.add(rail);
+                }
+                const pullNS = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.06, 0.06, 2.4, 10),
+                  fmNS
+                );
+                pullNS.position.set(dLeafThickNS / 2 + 0.12, dLeafHNS * 0.5, dLeafWNS - 0.45);
+                doorLeafGroupNS.add(pullNS);
+              }
 
               const leverMatNS = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
               const leverNS = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.35), leverMatNS);
@@ -3529,10 +4139,24 @@ export default function Scene({
 
         // Every piece of this wall now exists, so the finish can go on. Anything added since the
         // mark and tagged as wall is a piece of it.
+        // A lintel beam is wall and gets painted; a floor threshold is not, and a band on an
+        // inch-tall strip reads as a smear.
         const pieces = roomGroup.children
           .slice(pieceMark)
-          .filter((c) => (c as THREE.Mesh).isMesh && c.userData?.isWall);
-        paintWallBands(pieces, edge, isEW);
+          .filter(
+            (c) => (c as THREE.Mesh).isMesh && c.userData?.isWall && !c.userData?.isThreshold
+          );
+        // Glass first: a glazed wall is not painted, it is glazed.
+        const glazedHere = resolveWallGlazing(
+          materialConfigRef.current,
+          wallBandKey(roomInstanceId(rooms, i), edge),
+          room.name as RoomName
+        );
+        if (glazedHere?.wall) {
+          glazeWall(pieces, edge, isEW);
+        } else {
+          paintWallBands(pieces, edge, isEW);
+        }
       };
 
       const wt = room.wall_thickness_in != null
@@ -3659,26 +4283,68 @@ export default function Scene({
       }
     }
 
-    // 8. Custom Interactive Placed Furniture & Decor Objects
+    // 8. Custom Interactive Placed Furniture & Decor Objects (Procedural + Real 3D GLTF/GLB)
     const customList = customObjectsRef.current || [];
     for (const obj of customList) {
-      const objGroup = createFurnitureMesh(obj.type, obj.colorHex, obj.aiParametricDef);
-      objGroup.position.set(obj.x, obj.y || 0, obj.z);
-      objGroup.rotation.y = obj.rotationY || 0;
-      const s = obj.scale || 1.0;
-      objGroup.scale.set(s, s, s);
-      objGroup.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type, aiParametricDef: obj.aiParametricDef };
+      if (obj.glbUrl) {
+        // Load real 3D GLB model asynchronously with procedural fallback
+        const placeholder = new THREE.Group();
+        placeholder.position.set(obj.x, obj.y || 0, obj.z);
+        placeholder.rotation.y = obj.rotationY || 0;
+        const s = obj.scale || 1.0;
+        placeholder.scale.set(s, s, s);
+        placeholder.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type, glbUrl: obj.glbUrl };
 
-      objGroup.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
+        const fallback = createFurnitureMesh(obj.type, obj.colorHex, obj.aiParametricDef);
+        placeholder.add(fallback);
+        group.add(placeholder);
+        customObjectMeshesRef.current.set(obj.id, placeholder);
 
-      group.add(objGroup);
-      customObjectMeshesRef.current.set(obj.id, objGroup);
+        const def = FURNITURE_CATALOG.find((f) => f.type === obj.type);
+        const dims = def?.dimensions || { widthFt: 3, heightFt: 3, depthFt: 3 };
+        loadGlbModel(obj.glbUrl, dims)
+          .then((loadedMesh) => {
+            placeholder.clear();
+            placeholder.add(loadedMesh);
+            if (pathTracerRef.current && isRaytracingRef.current) {
+              pathTracerRef.current.reset();
+              setRaytraceSamples(0);
+            }
+          })
+          .catch((err) => {
+            console.warn(`GLB asset load failed, using procedural geometry:`, err);
+          });
+      } else {
+        const objGroup = createFurnitureMesh(obj.type, obj.colorHex, obj.aiParametricDef);
+        objGroup.position.set(obj.x, obj.y || 0, obj.z);
+        objGroup.rotation.y = obj.rotationY || 0;
+        const s = obj.scale || 1.0;
+        objGroup.scale.set(s, s, s);
+        objGroup.userData = { isCustomObject: true, id: obj.id, name: obj.name, type: obj.type, aiParametricDef: obj.aiParametricDef };
+
+        objGroup.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        group.add(objGroup);
+        customObjectMeshesRef.current.set(obj.id, objGroup);
+      }
     }
+
+
+    // 9. Swap procedural boxes for real scanned models wherever the catalog has one. Runs over
+    // the finished group so it catches both the auto-furnished rooms and hand-placed pieces,
+    // and it runs before the selection ring below so the ring is never one of the children a
+    // swap removes.
+    mountRealModels(group, () => {
+      if (pathTracerRef.current && isRaytracingRef.current) {
+        pathTracerRef.current.reset();
+        setRaytraceSamples(0);
+      }
+    });
 
     // Add Glowing Selection Ring around ANY selected object (custom or built-in)
     if (selectedObjectIdRef.current) {
@@ -5004,6 +5670,231 @@ export default function Scene({
           {doorAlert}
         </div>
       )}
+
+      {/* Real-Time GPU Path Tracer Loading Modal */}
+      {isRaytraceBuilding && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(10, 15, 29, 0.7)",
+            backdropFilter: "blur(6px)",
+            zIndex: 150,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "14px",
+            color: "#ffffff",
+          }}
+        >
+          <div
+            style={{
+              width: "42px",
+              height: "42px",
+              border: "3px solid rgba(56, 189, 248, 0.2)",
+              borderTopColor: "#38bdf8",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <span style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.03em" }}>
+            Building BVH Acceleration Geometry Tree...
+          </span>
+          <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+            Preparing hardware raytracing buffers &amp; light sources
+          </span>
+        </div>
+      )}
+
+      {/* Real-Time GPU Path Tracer HUD */}
+      {isRaytracing && !isRaytraceBuilding && (
+        <div
+          style={{
+            position: "absolute",
+            top: 64,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.92))",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.25)",
+            color: "#ffffff",
+            padding: "10px 20px",
+            borderRadius: "16px",
+            zIndex: 120,
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            backdropFilter: "blur(12px)",
+            minWidth: "460px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "15px" }}>📸</span>
+              <span style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.03em" }}>
+                GPU Path Tracer
+              </span>
+              <span
+                style={{
+                  fontSize: "11px",
+                  background: "rgba(56, 189, 248, 0.2)",
+                  color: "#38bdf8",
+                  padding: "2px 8px",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                }}
+              >
+                Sample {raytraceSamples} / {raytraceTargetSamples}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                onClick={() => {
+                  const renderer = rendererRef.current;
+                  if (!renderer) return;
+                  const dataUrl = renderer.domElement.toDataURL("image/png");
+                  const a = document.createElement("a");
+                  a.href = dataUrl;
+                  a.download = `architectural_raytrace_${Date.now()}.png`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+                style={{
+                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                  border: "1px solid #38bdf8",
+                  color: "#ffffff",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                💾 Save 4K PNG
+              </button>
+
+              <button
+                onClick={() => {
+                  if (pathTracerRef.current) {
+                    pathTracerRef.current.reset();
+                    setRaytraceSamples(0);
+                  }
+                }}
+                style={{
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+                title="Restart light accumulation"
+              >
+                🔄 Reset
+              </button>
+
+              <button
+                onClick={() => onToggleRaytraceRef.current?.()}
+                style={{
+                  background: "rgba(239, 68, 68, 0.2)",
+                  border: "1px solid rgba(239, 68, 68, 0.5)",
+                  color: "#fca5a5",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+                title="Exit Path Tracer (Press 'P')"
+              >
+                ✕ Exit (P)
+              </button>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div
+            style={{
+              width: "100%",
+              height: "4px",
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "2px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${Math.min(100, (raytraceSamples / raytraceTargetSamples) * 100)}%`,
+                background: "linear-gradient(90deg, #38bdf8, #818cf8)",
+                transition: "width 0.15s ease",
+              }}
+            />
+          </div>
+
+          {/* Preset buttons */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px", color: "#94a3b8" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>Quality:</span>
+              {[25, 60, 120].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setRaytraceTargetSamples(s);
+                    targetSamplesRef.current = s;
+                  }}
+                  style={{
+                    background: raytraceTargetSamples === s ? "rgba(56, 189, 248, 0.3)" : "transparent",
+                    color: raytraceTargetSamples === s ? "#38bdf8" : "#94a3b8",
+                    border: raytraceTargetSamples === s ? "1px solid #38bdf8" : "1px solid transparent",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                  }}
+                >
+                  {s === 25 ? "Draft (25)" : s === 60 ? "HD (60)" : "Studio (120)"}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>Bounces:</span>
+              {[2, 4, 8].map((b) => (
+                <button
+                  key={b}
+                  onClick={() => {
+                    setRaytraceBounces(b);
+                    bouncesRef.current = b;
+                    if (pathTracerRef.current) {
+                      pathTracerRef.current.bounces = b;
+                      pathTracerRef.current.reset();
+                      setRaytraceSamples(0);
+                    }
+                  }}
+                  style={{
+                    background: raytraceBounces === b ? "rgba(56, 189, 248, 0.3)" : "transparent",
+                    color: raytraceBounces === b ? "#38bdf8" : "#94a3b8",
+                    border: raytraceBounces === b ? "1px solid #38bdf8" : "1px solid transparent",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                  }}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

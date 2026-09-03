@@ -38,19 +38,42 @@ def ft(feet: float) -> int:
     return round(feet * 12)
 
 
-# Deliberately generous ranges relative to a 30x40 ft (360x480 in) test envelope — see
-# backend/tests/test_solver.py for why headroom matters for reliably-feasible test fixtures.
+# Minimums are the National Building Code of India 2016 floor, not a test fixture.
+#
+# They used to be "deliberately generous ranges relative to a 30x40 test envelope", which is a
+# sentence about making tests pass, and solver/bench_realism.py measured what it cost: a 1BHK
+# would not fit a 20x30 plot, a 2BHK would not fit a 25x40, and a 3BHK would not fit a 30x40 —
+# the three most common things India builds in this band. The old hall minimum alone was 11x12,
+# a foot wider than any code or builder asks for.
+#
+# NBC 2016: a habitable room is at least 9.5 m2 (~102 sq ft) in a single-room dwelling and
+# 7.5 m2 (~81 sq ft) for the second room onward, with a minimum width of 2.4 m (~7.9 ft) and a
+# clear height of 2.75 m (~9 ft) — which is where WALL_HEIGHT_FT = 9.0 already sits. Bathrooms
+# have a 1.5 m2 (~16 sq ft) floor. Market-typical sizes, which set the maximums, come from what
+# Indian builders actually draw. Both are cited in notes/solver/room-sizes-from-code.md.
+#
+# Maximums are unchanged where they were already sane. They matter for a different reason:
+# fill measured against catalog_fill_ceiling() shows when the CATALOG, not the plot, is what
+# stops a house growing.
 ROOM_CATALOG: dict[str, Room] = {
     # --- habitable, dry ---------------------------------------------------------------
-    "bedroom": Room("bedroom", ft(10), ft(14), ft(10), ft(13)),
-    "hall": Room("hall", ft(11), ft(15), ft(12), ft(16)),
+    # 10x10 is the NBC-compliant bedroom floor (100 sq ft, 10 ft wide); 12x14 is a master.
+    "bedroom": Room("bedroom", ft(10), ft(14), ft(10), ft(14)),
+    # A 10x12 living room is the practical Indian minimum; 15x16 is a large hall.
+    "hall": Room("hall", ft(10), ft(15), ft(12), ft(16)),
     "dining": Room("dining", ft(8), ft(12), ft(8), ft(12)),
-    "entrance": Room("entrance", ft(5), ft(8), ft(4), ft(7)),
+    "entrance": Room("entrance", ft(4), ft(8), ft(4), ft(7)),
     # --- habitable, wet ---------------------------------------------------------------
-    "kitchen": Room("kitchen", ft(8), ft(11), ft(8), ft(10), wet=True),
+    # 7x8 is the smallest kitchen that still works as one; below 7 ft wide the counter run and
+    # the walkway stop coexisting.
+    "kitchen": Room("kitchen", ft(7), ft(11), ft(8), ft(10), wet=True),
     # --- service: no daylight requirement ---------------------------------------------
     "pooja": Room("pooja", ft(3), ft(5), ft(3), ft(5), habitable=False),
-    "bathroom": Room("bathroom", ft(5), ft(7), ft(7), ft(8), habitable=False, wet=True),
+    # 4x6 clears the NBC 1.5 m2 floor and is a real Indian bathroom. A 5 ft minimum was carried
+    # briefly because test_every_room_gets_a_window_or_a_vent_where_it_can failed at 4 ft - but
+    # the cause was connectivity gating VENTS on a WINDOW-sized wall, not the room being too
+    # small. See VENT_MIN_WALL_IN.
+    "bathroom": Room("bathroom", ft(4), ft(7), ft(6), ft(8), habitable=False, wet=True),
     "store": Room("store", ft(4), ft(7), ft(4), ft(7), habitable=False),
 
     # --- cafe / small restaurant -------------------------------------------------------

@@ -223,3 +223,128 @@ export function withBandColor(scheme: WallBandScheme, index: number, colorId: st
 export function withAxis(scheme: WallBandScheme, axis: WallBandAxis): WallBandScheme {
   return { axis, bands: scheme.bands.map((b) => ({ ...b })) };
 }
+
+export interface DesignerPalette {
+  id: string;
+  name: string;
+  theme: string;
+  colors: string[];
+}
+
+export const DESIGNER_PERMUTATION_PALETTES: DesignerPalette[] = [
+  {
+    id: "japandi",
+    name: "Japandi Serenity",
+    theme: "Minimalist warm neutrals with organic calm",
+    colors: ["#faf7f2", "#e2ded6", "#7c7267", "#2c2a29"],
+  },
+  {
+    id: "art_deco",
+    name: "Art Deco Prestige",
+    theme: "Deep royal blue with champagne brass and crisp alabaster",
+    colors: ["#0f2b5c", "#d4af37", "#f8f9fa", "#1a1a24"],
+  },
+  {
+    id: "biophilic",
+    name: "Biophilic Earth",
+    theme: "Sage green, warm terracotta, and sun-bleached linen",
+    colors: ["#8a9a86", "#c86d51", "#f4efe6", "#4a5d4e"],
+  },
+  {
+    id: "scandinavian",
+    name: "Nordic Warmth",
+    theme: "Pale birch, soft charcoal, and dusty clay rose",
+    colors: ["#f7f7f7", "#374151", "#d8b4a6", "#9ca3af"],
+  },
+  {
+    id: "monochrome",
+    name: "Architectural Contrast",
+    theme: "Sharp monochrome lines and warm concrete grays",
+    colors: ["#0f172a", "#f8fafc", "#64748b", "#334155"],
+  },
+  {
+    id: "sunset_terracotta",
+    name: "Tuscan Sunset",
+    theme: "Earthy terracotta, warm ochre, and creamy stucco",
+    colors: ["#b45309", "#ea580c", "#fef3c7", "#78350f"],
+  },
+  {
+    id: "coastal_breeze",
+    name: "Aegean Coast",
+    theme: "Mediterranean navy, sky mist, and sea-foam chalk",
+    colors: ["#1e3a8a", "#93c5fd", "#f0f9ff", "#0284c7"],
+  },
+  {
+    id: "forest_sanctuary",
+    name: "Evergreen Woodland",
+    theme: "Deep forest pine, muted olive, and parchment white",
+    colors: ["#14532d", "#4d7c0f", "#fefce8", "#166534"],
+  },
+];
+
+const RATIO_TEMPLATES: Record<number, number[][]> = {
+  2: [
+    [0.5, 0.5],       // Half and half
+    [0.35, 0.65],     // Classic dado / wainscot
+    [0.72, 0.28],     // High frieze
+    [0.2, 0.8],       // Baseboard accent
+  ],
+  3: [
+    [0.33, 0.34, 0.33], // Equal thirds
+    [0.18, 0.64, 0.18], // Chair rail sandwich
+    [0.3, 0.5, 0.2],    // Tri-band graduation
+    [0.15, 0.7, 0.15],  // Subtle borders
+  ],
+  4: [
+    [0.25, 0.25, 0.25, 0.25], // Equal quads
+    [0.15, 0.35, 0.35, 0.15], // Balanced frame
+    [0.1, 0.4, 0.4, 0.1],     // Gallery stripes
+  ],
+  5: [
+    [0.2, 0.2, 0.2, 0.2, 0.2],
+    [0.1, 0.25, 0.3, 0.25, 0.1],
+  ],
+};
+
+/**
+ * Generates an aesthetic random permutation of colors and partition ratios.
+ */
+export function generateRandomPermutation(
+  preferredAxis?: WallBandAxis,
+  preferredCount?: number
+): WallBandScheme {
+  const axis: WallBandAxis = preferredAxis ?? (Math.random() > 0.5 ? "horizontal" : "vertical");
+  const count = preferredCount ?? (Math.floor(Math.random() * 3) + 2); // 2, 3, or 4
+  const palette = DESIGNER_PERMUTATION_PALETTES[Math.floor(Math.random() * DESIGNER_PERMUTATION_PALETTES.length)];
+
+  const templates = RATIO_TEMPLATES[count] || RATIO_TEMPLATES[2];
+  const templateRatios = templates[Math.floor(Math.random() * templates.length)];
+
+  // Shuffle colors from palette
+  const shuffledColors = [...palette.colors].sort(() => Math.random() - 0.5);
+
+  const bands: WallBand[] = [];
+  for (let i = 0; i < count; i++) {
+    bands.push({
+      sizeFrac: templateRatios[i] ?? 1,
+      colorId: shuffledColors[i % shuffledColors.length],
+    });
+  }
+
+  return { axis, bands };
+}
+
+/**
+ * Updates a scheme with custom proportional slice splits (e.g. [35, 65] or [30, 40, 30])
+ */
+export function withCustomPartitionSplit(
+  scheme: WallBandScheme,
+  splits: number[]
+): WallBandScheme {
+  const bands: WallBand[] = scheme.bands.map((b, i) => ({
+    ...b,
+    sizeFrac: splits[i] ?? b.sizeFrac,
+  }));
+  return { axis: scheme.axis, bands };
+}
+

@@ -10,6 +10,17 @@
 // matters: the renderer inventing its own geometry is the bug that note records.
 
 export const PLOT_COLOR = 0xffffff;
+
+// Day-mode site colours. The ground outside the plot used to be a sky blue (0x5a8ec6) that read
+// as water rather than as a drawing sheet, and the plot itself a dark slate (0x1e293b) that made
+// the house look like it sat on tarmac. White sheet, green plot: the plan reads as a building on
+// a lawn, which is what the plot actually is before anyone builds on it.
+//
+// Not pure 0xffffff — under the day sun at 2.2 intensity with ACES tone mapping, pure white
+// clips and the ground loses every shadow the building casts on it.
+export const DAY_GROUND_COLOR = 0xf3f6f9;
+export const DAY_PLOT_COLOR = 0x7fa663;   // mown lawn, not a golf green
+export const NIGHT_PLOT_COLOR = 0x1e293b; // unchanged: the previous default dark slate
 export const ACCENT = 0xe8912d;
 export const HANDLE_RADIUS_FT = 0.55;
 

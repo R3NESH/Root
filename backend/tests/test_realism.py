@@ -84,13 +84,54 @@ def test_the_house_fills_most_of_what_the_catalog_allows():
     # would be measuring the time limit rather than the objective.
     mix = ["hall", "kitchen", "bedroom", "bedroom", "bathroom", "pooja"]
     rooms, result = _solve(mix, w=360, d=480)
-    assert result.status == "OPTIMAL", "this mix should solve to optimality inside the budget"
+    # This used to assert OPTIMAL, as a guard so the fill floor below could not silently become a
+    # measurement of the time limit. COMPACT_WEIGHT (solver/realism.py) put this mix past the cold
+    # budget: the footprint min/max variables couple every room to four globals and the proof no
+    # longer closes in 2 s. The guard is kept in spirit by measurement instead. Five cold runs:
+    #
+    #   without the compactness term   fill/ceiling 100%     spread 0.0 pt   void 25%
+    #   with it                        fill/ceiling 94-96%   spread 1.9 pt   void 5-7%
+    #
+    # A 1.9 point spread is the objective being measured, not the clock. The layout the term buys
+    # is locked down separately by test_the_house_reads_as_one_building.
+    assert result.status in ("OPTIMAL", "FEASIBLE"), result.status
     fill = sum(r.w_in * r.d_in for r in result.rooms) / (360 * 480)
     ceiling = catalog_fill_ceiling(rooms, 360, 480)
     # Measured across four mixes on two plot sizes: seven of eight reach the ceiling exactly.
     # This one lands at 92% because the pooja room's north-east rule and a tight 30x40 cannot
     # both be satisfied at full size. 90% is the floor, not the target.
     assert fill / ceiling >= 0.90, f"fill {fill:.1%} of a {ceiling:.1%} ceiling"
+
+
+def test_the_house_reads_as_one_building():
+    """No large void inside the building's own outline.
+
+    Non-overlap, the adjacency tree and the daylight rule are all satisfied by a straggling L as
+    well as by a tight rectangle, and the area objective scores the two identically because it
+    counts room area and never looks at the gaps. Measured on a 40x60: two OPTIMAL layouts of the
+    same rooms, 8% void and 28% void, the difference decided by nothing in the model. On screen
+    the 28% one is a set of scattered pavilions rather than a house.
+
+    The large plot is the case that matters. A 30x40 is tight enough that the rooms have nowhere
+    to scatter to; slack is what exposes the gap.
+    """
+    mix = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]
+    _rooms, result = _solve(mix, w=(40 - 6) * 12, d=(60 - 10) * 12)
+    assert result.rooms
+
+    fx0 = min(r.x_in for r in result.rooms)
+    fx1 = max(r.x_in + r.w_in for r in result.rooms)
+    fz0 = min(r.y_in for r in result.rooms)
+    fz1 = max(r.y_in + r.d_in for r in result.rooms)
+    bbox = (fx1 - fx0) * (fz1 - fz0)
+    built = sum(r.w_in * r.d_in for r in result.rooms)
+    void = 1 - built / bbox
+
+    # A tripwire against the scattered layout, not a quality target. Six cold runs on this
+    # scenario measured 3.4% to 15.5% void, against 27.6% with COMPACT_WEIGHT switched off. The
+    # spread is real: these solves hit the cold budget and return FEASIBLE, so the incumbent
+    # varies. 20% sits above the observed worst and well under the regression it guards.
+    assert void <= 0.20, f"{void:.0%} of the footprint is void; the plan is scattered"
 
 
 def test_second_bathroom_is_an_ensuite_off_the_master_bedroom():

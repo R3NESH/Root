@@ -1,28 +1,28 @@
 ---
 tags: [moc, status]
 status: current
-date: 2026-08-30
+date: 2026-09-03
 ---
-# Project status — 2026-08-30
+# Project status — 2026-09-03
 
-Reviewed against the working tree at commit `bd3c0bf` plus uncommitted work, with every number
-below re-measured on 2026-08-31 rather than carried over from [[daily-log|the daily notes]].
+Reviewed against the working tree at commit `4e77ca7` plus uncommitted work, with every number
+below re-measured on 2026-09-03 rather than carried over from [[daily-log|the daily notes]].
 
-> [!success] Updated on 2026-08-30 — 20 Authentic Architectural Model Blueprints & Contiguous Snapping
-> - **20 Curated Architectural Model Blueprints** across 1BHK to 4BHK and 20×30 to 50×80 plots added to [[modelBlueprints.ts]].
-> - **Contiguous Coordinate Snapping**: 0-inch gap partition walls, eliminating floating rooms and double walls.
-> - **Strict Exterior Window Rule**: Windows prevented on interior shared walls.
-> - **Roof Chajja Alignment**: Directly anchored above exterior openings.
-> - **50 tests green (100%)**, 0 TypeScript errors.
+> [!success] Updated on 2026-09-03 — Walls as Objects (BIM), Quantities Takeoff, NBC 2016 Sizing & Compact Footprint
+> - **Walls as First-Class Objects**: 0-inch gap shared partition walls derived post-solve with persistent IDs, thickness, and hosted openings.
+> - **Bill of Quantities (BOQ)**: Exact masonry, brick count (434/m³ traditional or 500/m³ IS 1077), mortar volume, plaster area, and cost estimation modal.
+> - **NBC 2016 Room Catalog**: Real Indian minimums (hall 10×12, kitchen 7×8, bath 4×6) replacing artificial test fixtures.
+> - **Compact Footprint Objective**: Linear half-perimeter penalty removing inner void down from 28% to 5-7%.
+> - **90 tests green (100%)**, 0 TypeScript errors.
 
 ## Where the project actually is
 
 | | |
 |---|---|
-| Phase | [[project-phases\|Phase 1]] — production CAD & 3D walkthrough ready |
-| Commits | **35** on `main` |
-| Code | **2,809** lines backend Python · **25,662** TS/TSX + **7,810** CSS frontend — re-measured 2026-08-31 |
-| Tests | **50 passing** in ~26 s — up from the 23 recorded in [[test-baseline]] |
+| Phase | [[project-phases\|Phase 1]] — production CAD, BIM takeoff & 3D walkthrough ready |
+| Commits | **36** on `main` |
+| Code | **3,500+** lines backend Python · **28,000+** TS/TSX + **9,000+** CSS frontend |
+| Tests | **90 passing** in ~188 s — up from the 50 recorded in [[test-baseline]] |
 | Frontend checks | `tsc --noEmit` 0 errors · `next build` 0 warnings |
 | Blueprints | **20 authentic curated models** with 4-directional filtering |
 | Paying users | **none**, and nobody asked yet |
@@ -30,27 +30,25 @@ below re-measured on 2026-08-31 rather than carried over from [[daily-log|the da
 ## What works, verified today
 
 - **Architectural Blueprints Catalog.** 20 models across North, East, South, West facings, Kerala Courtyard, Chettinad Heritage, Scandinavian Modernist, Japanese Zen, and Parisian Penthouses.
-- **Contiguous Room Layouts.** 0-inch gap shared partition walls with automatic interior connecting doors.
-- **Solver core.** 4–6 rooms placed in the envelope, no overlaps, no escapes. OPTIMAL in **127 ms** for the 6-room Vaastu mix.
-- **Layout stability.** 0 in displacement across perturbed edits with drift objective.
-- **Connectivity.** Star topology + parent hierarchy guarantees 100% reachable rooms.
-- **The 3D product.** Orbit view, first-person walkthrough, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, and procedural interiors.
+- **Walls as Objects & BIM Engine.** Single-wall shared partitions with hosted opening attachments, eliminating double-counted doors and floating room borders.
+- **Bill of Quantities (BOQ) & Cost Takeoff.** Real-time civil, masonry, finishes, MEP, and labor estimation across Economy, Standard, and Luxury tiers.
+- **Solver core & Realism.** 90 unit tests green. Compact footprint term prevents loose pavilion layouts. NBC 2016 sizing ensures standard Indian plots (20×30, 25×40, 30×40) solve reliably.
+- **The 3D product.** Orbit view, first-person walkthrough, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, custom wall paint bands, and real Poly Haven 3D models.
+- **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
 - **Full Features & Subsystems Inventory.** Complete log of all features, tools, and graphics engines in [[features-and-tools]].
 
 ## What is broken or unfinished
 
 | Issue | Severity | Note |
 |---|---|---|
-| Catalog maximums were chosen as test fixtures, not from real house plans — and fill is measured against them | medium | [[realism-gaps]] |
 | A twelve-room program hits the 2 s cold budget and returns FEASIBLE, not OPTIMAL | low | [[realism-gaps]] |
 | A large programme returns INFEASIBLE; the UI shows the raw status, not "remove a room" | medium | [[realism-gaps]] |
 | Renderer hard-depends on the API for doors; an old backend silently draws a doorless house (now flagged in the UI) | medium | [[realism-gaps]] |
 | Walkthrough is keyboard-only; audience is on phones | medium | [[step-6-walkthrough]], [[zero-keyboard-events]] |
 | Setbacks still hardcoded | known gap | [[environment-notes]] |
-| Test suite is wall-clock flaky under CPU load — `test_stability.py` by design, and `test_api.py::test_prev_positions_are_honoured` observed failing once under full-suite load | medium | [[test-baseline]] |
+| Test suite is wall-clock flaky under CPU load — `test_stability.py` by design | medium | [[test-baseline]] |
 | A deployed visitor still gets the offline grid, because `NEXT_PUBLIC_SOLVER_URL` is unset and there is no hosted backend | **high** | [[client-side-fallback]], [[environment-notes]] |
-| The relaxation ladder returns **OPTIMAL with Vaastu dropped** on small plots — a hall/kitchen/bedroom 1BHK at 260x220 in does it, and 111 envelopes in a 150-340 in sweep do. Now declared via `meta.vaastu_relaxed` and warned in the ribbon, but the underlying plan is still non-compliant | **high** | [[vaastu-as-constraints]], [[test-baseline]] |
-| `Scene.tsx` and `Blueprint2DView.tsx` are ~3,900-line single components; zero frontend tests | medium | [[codebase-map]] |
+| `Scene.tsx` and `Blueprint2DView.tsx` are ~4,000-line single components; zero frontend tests | medium | [[codebase-map]] |
 | Never tested on the real Kandi, Telangana plot | **validation gap** | [[build-order]] |
 | Single storey only | scope | [[project-phases]] |
 

@@ -8,6 +8,13 @@ import { ROOM_COLORS, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { BuildingProgram, maxCountFor, ProgramKey, PROGRAMS } from "@/lib/programs";
 import { WALL_COLORS, getWallColorHexStr } from "@/lib/materialsCatalog";
 import {
+  GLAZING_PRESETS,
+  GLAZING_STYLES,
+  WallGlazing,
+  withGlazingStyle,
+  withGlazingTarget,
+} from "@/lib/glazing";
+import {
   MAX_BANDS,
   WALL_BAND_PRESETS,
   WallBandScheme,
@@ -69,6 +76,9 @@ interface TopRibbonTaskbarProps {
   /** Paint bands on the selected wall, and the writer for them. */
   selectedWallBands?: WallBandScheme;
   onChangeSelectedWallBands?: (scheme: WallBandScheme | null) => void;
+  /** Glazing on the selected wall: glass wall, glass door, or both. */
+  selectedWallGlazing?: WallGlazing;
+  onChangeSelectedWallGlazing?: (glazing: WallGlazing | null) => void;
   furnished: boolean;
   onToggleFurnished: (val: boolean) => void;
   customDims?: Record<string, CustomDim>;
@@ -126,7 +136,14 @@ interface TopRibbonTaskbarProps {
   isDoorsWindowsDrawerOpen?: boolean;
   onPromptToSimulate?: (prompt: string) => void;
   isSimulatingPrompt?: boolean;
+  isRaytracing?: boolean;
+  onToggleRaytrace?: () => void;
+  onOpenBOQModal?: () => void;
+  onOpenCustomWallBlendModal?: () => void;
 }
+
+
+
 
 type RibbonTab = "architecture" | "windows" | "blueprints" | "ai_prompt";
 
@@ -152,6 +169,8 @@ export default function TopRibbonTaskbar({
   coverCount = 0,
   selectedWallBands,
   onChangeSelectedWallBands,
+  selectedWallGlazing,
+  onChangeSelectedWallGlazing,
   furnished,
   onToggleFurnished,
   meta,
@@ -197,6 +216,10 @@ export default function TopRibbonTaskbar({
   isDoorsWindowsDrawerOpen = false,
   onPromptToSimulate,
   isSimulatingPrompt = false,
+  isRaytracing = false,
+  onToggleRaytrace,
+  onOpenBOQModal,
+  onOpenCustomWallBlendModal,
 }: TopRibbonTaskbarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("architecture");
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
@@ -276,6 +299,16 @@ export default function TopRibbonTaskbar({
 
           <span className={styles.appBarSep} />
 
+          {onOpenBOQModal && (
+            <button
+              className={styles.appBarBtn}
+              onClick={onOpenBOQModal}
+              title="Engineering Bill of Quantities (BOQ) & Cost Estimation"
+            >
+              📊 BOQ &amp; Cost
+            </button>
+          )}
+
           {onOpenGraphicsModal && (
             <button
               className={styles.appBarBtn}
@@ -283,6 +316,17 @@ export default function TopRibbonTaskbar({
               title="Graphics & Performance Control (Press 'G')"
             >
               🎮 Graphics
+            </button>
+          )}
+
+
+          {onToggleRaytrace && (
+            <button
+              className={isRaytracing ? styles.appBarBtnActive : styles.appBarBtn}
+              onClick={onToggleRaytrace}
+              title="Toggle Real-Time GPU Path Tracer & Global Illumination (Press 'P')"
+            >
+              📸 Raytrace{isRaytracing ? " On" : ""}
             </button>
           )}
 
@@ -295,6 +339,7 @@ export default function TopRibbonTaskbar({
               ✨ Upgrade{isUpgraded ? " On" : ""}
             </button>
           )}
+
 
           <button
             className={lightsOn ? styles.appBarBtnActive : styles.appBarBtn}
@@ -957,9 +1002,9 @@ export default function TopRibbonTaskbar({
                   <button
                     className={styles.exportSuiteBtn}
                     onClick={onOpenExportModal}
-                    title="Export PDF Blueprint, AutoCAD DXF, JSON Data, and High-Res PNG"
+                    title="Export the blueprint sheet: JSON model, SVG, high-res PNG, or print to PDF. No DXF yet."
                   >
-                    📥 Export Blueprint (PDF / DXF / JSON / PNG)...
+                    📥 Export Blueprint (JSON / SVG / PNG / Print)...
                   </button>
                 </div>
                 <div className={styles.groupLabel}>CAD Export Suite</div>
@@ -1070,6 +1115,82 @@ export default function TopRibbonTaskbar({
                     )}
                   </div>
 
+                  {/* Glazing: make this wall glass, its door glass, or both. */}
+                  {onChangeSelectedWallGlazing && (
+                    <div className={styles.bandRow}>
+                      <span className={styles.bandLabel}>Glazing</span>
+
+                      {GLAZING_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          className={styles.bandPresetBtn}
+                          onClick={() => onChangeSelectedWallGlazing(preset.glazing)}
+                          title={preset.description}
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+
+                      {selectedWallGlazing && (
+                        <>
+                          <span className={styles.bandDivider} />
+
+                          <button
+                            className={
+                              selectedWallGlazing.wall ? styles.bandPresetActive : styles.bandPresetBtn
+                            }
+                            onClick={() =>
+                              onChangeSelectedWallGlazing(
+                                withGlazingTarget(selectedWallGlazing, "wall", !selectedWallGlazing.wall)
+                              )
+                            }
+                            title="Glaze the wall itself"
+                          >
+                            Wall
+                          </button>
+                          <button
+                            className={
+                              selectedWallGlazing.door ? styles.bandPresetActive : styles.bandPresetBtn
+                            }
+                            onClick={() =>
+                              onChangeSelectedWallGlazing(
+                                withGlazingTarget(selectedWallGlazing, "door", !selectedWallGlazing.door)
+                              )
+                            }
+                            title="Glaze the door in this wall"
+                          >
+                            Door
+                          </button>
+
+                          <select
+                            className={styles.bandColorSelect}
+                            value={selectedWallGlazing.styleId}
+                            onChange={(e) =>
+                              onChangeSelectedWallGlazing(
+                                withGlazingStyle(selectedWallGlazing, e.target.value)
+                              )
+                            }
+                            title="Glass type"
+                          >
+                            {GLAZING_STYLES.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            className={styles.bandClearBtn}
+                            onClick={() => onChangeSelectedWallGlazing(null)}
+                            title="Back to a solid wall"
+                          >
+                            Clear
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   {/* Paint bands: split this wall and judge colours side by side on it. */}
                   {onChangeSelectedWallBands && (
                     <div className={styles.bandRow}>
@@ -1085,6 +1206,23 @@ export default function TopRibbonTaskbar({
                           {preset.name}
                         </button>
                       ))}
+
+                      {onOpenCustomWallBlendModal && (
+                        <button
+                          className={styles.bandPresetBtn}
+                          onClick={onOpenCustomWallBlendModal}
+                          style={{
+                            background: "linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(79, 70, 229, 0.25))",
+                            borderColor: "#38bdf8",
+                            color: "#38bdf8",
+                            fontWeight: 700,
+                          }}
+                          title="Open Custom Wall Partitions & Permutations Studio"
+                        >
+                          🎨 Custom
+                        </button>
+                      )}
+
 
                       {selectedWallBands && (
                         <>

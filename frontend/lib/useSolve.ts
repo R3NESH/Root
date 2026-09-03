@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
 import { ProgramKey } from "./programs";
 import { RoomName } from "./rooms";
-import { PrevRoomIn, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom } from "./solve";
+import { PrevRoomIn, Quantities, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom, SolvedWall } from "./solve";
 
 const DEBOUNCE_MS = 350;
 
@@ -30,6 +30,10 @@ function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
 export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
+  // Walls as objects and their bill of quantities. Absent from an older backend and from the
+  // offline fallback, which derives neither — both stay null rather than being faked.
+  const [walls, setWalls] = useState<SolvedWall[]>([]);
+  const [quantities, setQuantities] = useState<Quantities | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // True when the API answers without any openings at all. The renderer draws doors and windows
@@ -74,6 +78,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         );
         setRooms(res.rooms);
         setMeta(res.meta);
+        setWalls(res.walls ?? []);
+        setQuantities(res.quantities ?? null);
         setError(null);
         setStaleBackend(
           res.rooms.length > 0 && res.rooms.every((r) => !r.openings?.length)
@@ -155,6 +161,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         });
         setRooms(res.rooms);
         setMeta(res.meta);
+        setWalls(res.walls ?? []);
+        setQuantities(res.quantities ?? null);
         setError(null);
 
         res.rooms.forEach((r, i) => {
@@ -242,6 +250,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         });
         setRooms(res.rooms);
         setMeta(res.meta);
+        setWalls(res.walls ?? []);
+        setQuantities(res.quantities ?? null);
         setError(null);
 
         res.rooms.forEach((r, i) => {
@@ -276,5 +286,5 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
     });
   }, []);
 
-  return { rooms, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions, setRoomPositions };
+  return { rooms, walls, quantities, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions, setRoomPositions };
 }
