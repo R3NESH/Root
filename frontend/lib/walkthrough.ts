@@ -111,6 +111,92 @@ export function clampPlayerPosition(
   };
 }
 
+export interface ObstacleBox {
+  id: string;
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+  isDoor?: boolean;
+  isOpen?: boolean;
+}
+
+export const PLAYER_COLLISION_RADIUS = 0.72; // ~8.6 inches radius (17 in shoulder clearance)
+
+export function pointCollidesWithBox(
+  px: number,
+  pz: number,
+  radius: number,
+  box: ObstacleBox
+): boolean {
+  if (box.isDoor && box.isOpen) return false;
+  const closestX = Math.max(box.minX, Math.min(px, box.maxX));
+  const closestZ = Math.max(box.minZ, Math.min(pz, box.maxZ));
+  const dx = px - closestX;
+  const dz = pz - closestZ;
+  return dx * dx + dz * dz < radius * radius;
+}
+
+export function checkPlayerCollision(
+  px: number,
+  pz: number,
+  radius: number,
+  obstacles: ObstacleBox[]
+): boolean {
+  for (let i = 0; i < obstacles.length; i++) {
+    if (pointCollidesWithBox(px, pz, radius, obstacles[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Axis-separated sliding collision resolver.
+ * Allows fluid sliding along wall faces when walking diagonally,
+ * preventing sticky or abrupt halts.
+ */
+export function resolvePlayerMovement(
+  currentX: number,
+  currentZ: number,
+  targetX: number,
+  targetZ: number,
+  radius: number,
+  obstacles: ObstacleBox[]
+): { x: number; z: number } {
+  if (currentX === targetX && currentZ === targetZ) {
+    return { x: currentX, z: currentZ };
+  }
+
+  // 1. Direct candidate move
+  if (!checkPlayerCollision(targetX, targetZ, radius, obstacles)) {
+    return { x: targetX, z: targetZ };
+  }
+
+  // 2. Slide along X axis only
+  const canMoveX = !checkPlayerCollision(targetX, currentZ, radius, obstacles);
+
+  // 3. Slide along Z axis only
+  const canMoveZ = !checkPlayerCollision(currentX, targetZ, radius, obstacles);
+
+  if (canMoveX && !canMoveZ) {
+    return { x: targetX, z: currentZ };
+  }
+  if (canMoveZ && !canMoveX) {
+    return { x: currentX, z: targetZ };
+  }
+  if (canMoveX && canMoveZ) {
+    const distSqX = (targetX - currentX) * (targetX - currentX);
+    const distSqZ = (targetZ - currentZ) * (targetZ - currentZ);
+    return distSqX >= distSqZ
+      ? { x: targetX, z: currentZ }
+      : { x: currentX, z: targetZ };
+  }
+
+  // Blocked on both axes
+  return { x: currentX, z: currentZ };
+}
+
 export interface DoorwayConnection {
   roomAIndex: number;
   roomBIndex: number;

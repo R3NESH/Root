@@ -51,7 +51,10 @@ import {
   DoorwayConnection,
   EYE_LEVEL_FT,
   getSpawnPosition,
+  ObstacleBox,
+  PLAYER_COLLISION_RADIUS,
   PlayerTransform,
+  resolvePlayerMovement,
   ROTATE_SPEED_RAD,
   SPRINT_SPEED_FPS,
   WALK_SPEED_FPS,
@@ -202,6 +205,8 @@ interface SceneProps {
   onRequestDelete?: () => void;
   onRotateSelected?: (angleDelta: number) => void;
   onRotatePlacing?: (angleDelta: number) => void;
+  onNearestDoorChange?: (prompt: { doorId: string; label: string; isOpen: boolean } | null) => void;
+  onRegisterDoorTrigger?: (trigger: () => void) => void;
   graphicsSettings?: GraphicsSettings;
   isUpgraded?: boolean;
   onToggleUpgrade?: () => void;
@@ -460,6 +465,8 @@ export default function Scene({
   onToggleUpgrade,
   isRaytracing = false,
   onToggleRaytrace,
+  onNearestDoorChange,
+  onRegisterDoorTrigger,
 }: SceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -637,6 +644,37 @@ export default function Scene({
   const isLayoutLockedRef = useRef(isLayoutLocked);
   const onToggleLayoutLockRef = useRef(onToggleLayoutLock);
   const isUpgradedRef = useRef(isUpgraded);
+
+  interface InteractiveDoorItem {
+    id: string;
+    group: THREE.Group;
+    doorPos: THREE.Vector3;
+    widthFt: number;
+    edge: string;
+    swingSign: number;
+    isOpen: boolean;
+    currentAngle: number;
+    targetAngle: number;
+    label: string;
+  }
+
+  const interactiveDoorsRef = useRef<Map<string, InteractiveDoorItem>>(new Map());
+  const sceneObstaclesRef = useRef<ObstacleBox[]>([]);
+  const activeNearDoorRef = useRef<InteractiveDoorItem | null>(null);
+  const doorPromptRef = useRef<{ doorId: string; label: string; isOpen: boolean } | null>(null);
+  const toggleDoorRef = useRef<((doorId?: string) => void) | null>(null);
+  const onNearestDoorChangeRef = useRef(onNearestDoorChange);
+  onNearestDoorChangeRef.current = onNearestDoorChange;
+
+  useEffect(() => {
+    if (onRegisterDoorTrigger) {
+      onRegisterDoorTrigger(() => {
+        if (toggleDoorRef.current) {
+          toggleDoorRef.current();
+        }
+      });
+    }
+  }, [onRegisterDoorTrigger]);
 
   useEffect(() => {
     isUpgradedRef.current = isUpgraded;
@@ -2285,6 +2323,30 @@ export default function Scene({
             return;
           }
 
+          // 1.5. In walkthrough mode, check if user clicked an interactive door leaf within reaching distance
+          setPointerNdc(ev);
+          raycaster.setFromCamera(pointerNdc, camera);
+          const doorHits = raycaster.intersectObjects(group.children, true);
+          for (const hit of doorHits) {
+            let cur: THREE.Object3D | null = hit.object;
+            while (cur && cur !== group) {
+              if (cur.userData && cur.userData.isDoorLeaf && cur.userData.doorId) {
+                const targetDoor = interactiveDoorsRef.current.get(cur.userData.doorId);
+                if (targetDoor) {
+                  const dist = Math.hypot(
+                    playerRef.current.x - targetDoor.doorPos.x,
+                    playerRef.current.z - targetDoor.doorPos.z
+                  );
+                  if (dist <= 8.5) {
+                    toggleDoor(targetDoor.id);
+                    return;
+                  }
+                }
+              }
+              cur = cur.parent;
+            }
+          }
+
           // 2. Otherwise check object pick from mouse point OR center crosshair
           let hitObj = pickFurnitureObject(ev);
           if (!hitObj) {
@@ -2393,6 +2455,39 @@ export default function Scene({
       }
     }
 
+    const toggleDoor = (doorId?: string) => {
+      let targetDoor: InteractiveDoorItem | undefined;
+      if (doorId) {
+        targetDoor = interactiveDoorsRef.current.get(doorId);
+      } else if (activeNearDoorRef.current) {
+        targetDoor = activeNearDoorRef.current;
+      }
+      if (!targetDoor) return;
+
+      targetDoor.isOpen = !targetDoor.isOpen;
+      targetDoor.targetAngle = targetDoor.isOpen ? (targetDoor.swingSign * Math.PI) / 2.05 : 0;
+
+      // Update doorway obstacle in collision engine
+      const obs = sceneObstaclesRef.current.find((o) => o.id === targetDoor!.id && o.isDoor);
+      if (obs) {
+        obs.isOpen = targetDoor.isOpen;
+      }
+
+      const prompt = {
+        doorId: targetDoor.id,
+        label: targetDoor.label,
+        isOpen: targetDoor.isOpen,
+      };
+      doorPromptRef.current = prompt;
+      if (onNearestDoorChangeRef.current) {
+        onNearestDoorChangeRef.current(prompt);
+      }
+
+      setDoorAlert(`🚪 ${targetDoor.label} ${targetDoor.isOpen ? "Opened" : "Closed"}`);
+      setTimeout(() => setDoorAlert(null), 2500);
+    };
+    toggleDoorRef.current = toggleDoor;
+
     function onKeyDown(ev: KeyboardEvent) {
       keysPressed.current[ev.code] = true;
       if (ev.code === "KeyF" && onToggleLightsRef.current && modeRef.current === "walkthrough") {
@@ -2402,8 +2497,12 @@ export default function Scene({
         jumpVelocityY.current = 10.0;
         isJumping.current = true;
       }
-      // 'E' Key: Interact / Select object directly in center crosshair
+      // 'E' Key: Interact / Open or Close door (if near one), or inspect crosshair object
       if (ev.code === "KeyE" && modeRef.current === "walkthrough") {
+        if (activeNearDoorRef.current) {
+          toggleDoor(activeNearDoorRef.current.id);
+          return;
+        }
         const hitObj = pickFurnitureObject(null, new THREE.Vector2(0, 0));
         if (hitObj && onSelectObjectRef.current) {
           onSelectObjectRef.current(hitObj);
@@ -2536,6 +2635,38 @@ export default function Scene({
         const keys = keysPressed.current;
         const cmd = activeMoveCmdRef.current;
 
+        // Animate all interactive hinged doors smoothly
+        for (const door of interactiveDoorsRef.current.values()) {
+          if (Math.abs(door.currentAngle - door.targetAngle) > 0.001) {
+            door.currentAngle += (door.targetAngle - door.currentAngle) * Math.min(1.0, 9.0 * dt);
+            door.group.rotation.y = door.currentAngle;
+          }
+        }
+
+        // Proximity detection for nearest interactive door
+        let closestDoor: InteractiveDoorItem | null = null;
+        let closestDist = 6.0;
+        for (const door of interactiveDoorsRef.current.values()) {
+          const dist = Math.hypot(p.x - door.doorPos.x, p.z - door.doorPos.z);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestDoor = door;
+          }
+        }
+        activeNearDoorRef.current = closestDoor;
+        const currentPrompt = closestDoor
+          ? { doorId: closestDoor.id, label: closestDoor.label, isOpen: closestDoor.isOpen }
+          : null;
+        if (
+          currentPrompt?.doorId !== doorPromptRef.current?.doorId ||
+          currentPrompt?.isOpen !== doorPromptRef.current?.isOpen
+        ) {
+          doorPromptRef.current = currentPrompt;
+          if (onNearestDoorChangeRef.current) {
+            onNearestDoorChangeRef.current(currentPrompt);
+          }
+        }
+
         const isSprinting = Boolean(keys["ShiftLeft"] || keys["ShiftRight"] || cmd === "sprint");
         const isCrouched = Boolean(keys["KeyC"] || cmd === "crouch");
 
@@ -2587,8 +2718,16 @@ export default function Scene({
           };
 
           const clamped = clampPlayerPosition(nextPos, plotRef.current);
-          p.x = clamped.x;
-          p.z = clamped.z;
+          const resolved = resolvePlayerMovement(
+            p.x,
+            p.z,
+            clamped.x,
+            clamped.z,
+            PLAYER_COLLISION_RADIUS,
+            sceneObstaclesRef.current
+          );
+          p.x = resolved.x;
+          p.z = resolved.z;
 
           const bobFreq = isSprinting ? 12.0 : 8.5;
           bobTimer.current += dt * bobFreq;
@@ -2622,7 +2761,7 @@ export default function Scene({
         );
         camera.lookAt(lookTarget);
 
-        const targetFov = isSprinting ? 48 : 45;
+        const targetFov = isSprinting ? 75 : 68;
         camera.fov += (targetFov - camera.fov) * 0.1;
         camera.updateProjectionMatrix();
 
@@ -2951,6 +3090,10 @@ export default function Scene({
     roomGroupsRef.current.clear();
     roomLightsByRoomRef.current.clear();
     customObjectMeshesRef.current.clear();
+    sceneObstaclesRef.current = [];
+    interactiveDoorsRef.current.clear();
+    activeNearDoorRef.current = null;
+    doorPromptRef.current = null;
 
     group.children.forEach((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Sprite || child instanceof THREE.PointLight || child instanceof THREE.Group) {
@@ -3800,9 +3943,45 @@ export default function Scene({
               leverEW.position.set(dLeafW - 0.3, dLeafH * 0.48, dLeafThick / 2 + 0.04);
               doorLeafGroupEW.add(leverEW);
 
+              const doorId = isMainEntrance
+                ? `door_entrance_${i}`
+                : assignedDoor
+                ? `door_${Math.min(assignedDoor.roomAIndex, assignedDoor.roomBIndex)}_${Math.max(assignedDoor.roomAIndex, assignedDoor.roomBIndex)}`
+                : `door_${i}_${edge}_${sIdx}`;
+
+              const doorLabel = isMainEntrance
+                ? "Front Entrance Door"
+                : `${ROOM_LABELS[room.name as RoomName] || room.name} Door`;
+
               doorLeafGroupEW.position.set(doorPos - doorW / 2 + 0.15, 0, seg_wz);
-              doorLeafGroupEW.rotation.y = (swingSign * Math.PI) / 4.5;
+              doorLeafGroupEW.rotation.y = 0; // Starts firmly CLOSED across the doorway!
+              doorLeafGroupEW.userData = { isDoorLeaf: true, doorId };
+              dLeafMeshEW.userData = { isDoorLeaf: true, doorId };
               roomGroup.add(doorLeafGroupEW);
+
+              interactiveDoorsRef.current.set(doorId, {
+                id: doorId,
+                group: doorLeafGroupEW,
+                doorPos: new THREE.Vector3(doorPos, 0, seg_wz),
+                widthFt: doorW,
+                edge,
+                swingSign,
+                isOpen: false,
+                currentAngle: 0,
+                targetAngle: 0,
+                label: doorLabel,
+              });
+
+              // Add doorway obstacle to collision engine (blocks movement while closed!)
+              sceneObstaclesRef.current.push({
+                id: doorId,
+                minX: doorPos - doorW / 2,
+                maxX: doorPos + doorW / 2,
+                minZ: seg_wz - seg_wd / 2,
+                maxZ: seg_wz + seg_wd / 2,
+                isDoor: true,
+                isOpen: false,
+              });
 
               if (isMainEntrance) {
                 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.2), goldHardwareMat);
@@ -3924,9 +4103,45 @@ export default function Scene({
               leverNS.position.set(dLeafThickNS / 2 + 0.04, dLeafHNS * 0.48, dLeafWNS - 0.3);
               doorLeafGroupNS.add(leverNS);
 
+              const doorId = isMainEntrance
+                ? `door_entrance_${i}`
+                : assignedDoor
+                ? `door_${Math.min(assignedDoor.roomAIndex, assignedDoor.roomBIndex)}_${Math.max(assignedDoor.roomAIndex, assignedDoor.roomBIndex)}`
+                : `door_${i}_${edge}_${sIdx}`;
+
+              const doorLabel = isMainEntrance
+                ? "Front Entrance Door"
+                : `${ROOM_LABELS[room.name as RoomName] || room.name} Door`;
+
               doorLeafGroupNS.position.set(seg_wx, 0, doorPos - doorW / 2 + 0.15);
-              doorLeafGroupNS.rotation.y = (swingSign * Math.PI) / 4.5;
+              doorLeafGroupNS.rotation.y = 0; // Starts firmly CLOSED across the doorway!
+              doorLeafGroupNS.userData = { isDoorLeaf: true, doorId };
+              dLeafMeshNS.userData = { isDoorLeaf: true, doorId };
               roomGroup.add(doorLeafGroupNS);
+
+              interactiveDoorsRef.current.set(doorId, {
+                id: doorId,
+                group: doorLeafGroupNS,
+                doorPos: new THREE.Vector3(seg_wx, 0, doorPos),
+                widthFt: doorW,
+                edge,
+                swingSign,
+                isOpen: false,
+                currentAngle: 0,
+                targetAngle: 0,
+                label: doorLabel,
+              });
+
+              // Add doorway obstacle to collision engine (blocks movement while closed!)
+              sceneObstaclesRef.current.push({
+                id: doorId,
+                minX: seg_wx - seg_ww / 2,
+                maxX: seg_wx + seg_ww / 2,
+                minZ: doorPos - doorW / 2,
+                maxZ: doorPos + doorW / 2,
+                isDoor: true,
+                isOpen: false,
+              });
 
               if (isMainEntrance) {
                 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.12), goldHardwareMat);
@@ -4160,6 +4375,20 @@ export default function Scene({
         } else {
           paintWallBands(pieces, edge, isEW);
         }
+
+        // Register solid wall colliders for all physical wall segments
+        for (const pMesh of pieces) {
+          const box = new THREE.Box3().setFromObject(pMesh);
+          if (!box.isEmpty()) {
+            sceneObstaclesRef.current.push({
+              id: `wall_${i}_${edge}_${pMesh.id}`,
+              minX: box.min.x,
+              maxX: box.max.x,
+              minZ: box.min.z,
+              maxZ: box.max.z,
+            });
+          }
+        }
       };
 
       const wt = room.wall_thickness_in != null
@@ -4246,6 +4475,66 @@ export default function Scene({
       group.add(roomGroup);
       roomGroupsRef.current.set(i, roomGroup);
       roomLightsByRoomRef.current.set(i, [roomLight]);
+    }
+
+    // 6.5. Physical Collision Obstacles: Custom Furniture, Built-in Furniture, and Custom Walls
+    // Custom placed furniture objects
+    for (const obj of (customObjectsRef.current || [])) {
+      const def = FURNITURE_CATALOG.find((f) => f.type === obj.type);
+      const s = obj.scale || 1.0;
+      const w = (def?.dimensions.widthFt || 3.2) * s;
+      const d = (def?.dimensions.depthFt || 3.2) * s;
+      const hw = Math.max(0.35, (w * 0.78) / 2);
+      const hd = Math.max(0.35, (d * 0.78) / 2);
+      sceneObstaclesRef.current.push({
+        id: `cobj_${obj.id}`,
+        minX: obj.x - hw,
+        maxX: obj.x + hw,
+        minZ: obj.z - hd,
+        maxZ: obj.z + hd,
+      });
+    }
+
+    // Built-in room furniture (beds, wardrobes, counters, dining)
+    for (const rg of roomGroupsRef.current.values()) {
+      rg.traverse((child) => {
+        if (child.userData && child.userData.isFurniture && !child.userData.isCustomObject) {
+          const box = new THREE.Box3().setFromObject(child);
+          if (!box.isEmpty()) {
+            const cx = (box.min.x + box.max.x) / 2;
+            const cz = (box.min.z + box.max.z) / 2;
+            const bw = box.max.x - box.min.x;
+            const bd = box.max.z - box.min.z;
+            if (bw > 0.5 && bd > 0.5 && box.max.y > 0.3) {
+              const hw = Math.max(0.35, (bw * 0.78) / 2);
+              const hd = Math.max(0.35, (bd * 0.78) / 2);
+              sceneObstaclesRef.current.push({
+                id: `builtin_${child.userData.id || Math.random().toString(36).substring(2, 7)}`,
+                minX: cx - hw,
+                maxX: cx + hw,
+                minZ: cz - hd,
+                maxZ: cz + hd,
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // Custom drawn walls
+    for (const cw of (customWallsRef.current || [])) {
+      const x1 = inchesToFeet(cw.startXIn);
+      const z1 = inchesToFeet(cw.startYIn);
+      const x2 = inchesToFeet(cw.endXIn);
+      const z2 = inchesToFeet(cw.endYIn);
+      const th = inchesToFeet(cw.thicknessIn || 9.0) / 2;
+      sceneObstaclesRef.current.push({
+        id: `cwall_${cw.id}`,
+        minX: Math.min(x1, x2) - th,
+        maxX: Math.max(x1, x2) + th,
+        minZ: Math.min(z1, z2) - th,
+        maxZ: Math.max(z1, z2) + th,
+      });
     }
 
     // 7. Roof — RCC slab & parapet

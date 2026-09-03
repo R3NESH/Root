@@ -3,7 +3,7 @@
 // Phase 1 composition root + 3D First-Person Walkthrough Engine + 2D Architectural Blueprint & Export Engine
 // Plot geometry is instant and local; rooms arrive from POST /solve on a 400ms debounce.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Scene from "@/components/Scene";
 import { CustomDim } from "@/components/RoomCustomizer";
 import Minimap from "@/components/Minimap";
@@ -206,6 +206,8 @@ export default function Home() {
   });
 
   const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
+  const [doorPrompt, setDoorPrompt] = useState<{ doorId: string; label: string; isOpen: boolean } | null>(null);
+  const doorTriggerRef = useRef<(() => void) | null>(null);
 
   const roomListWithSpecs: RoomSpecIn[] = useMemo(() => {
     const list: RoomSpecIn[] = [];
@@ -1507,6 +1509,8 @@ export default function Home() {
                 onRequestDelete={handleDeleteSelected}
                 onRotateSelected={handleRotateSelected}
                 onRotatePlacing={handleRotatePlacing}
+                onNearestDoorChange={setDoorPrompt}
+                onRegisterDoorTrigger={(fn) => { doorTriggerRef.current = fn; }}
               />
 
               {/* Orbit View HUD Overlay */}
@@ -1545,10 +1549,12 @@ export default function Home() {
                   player={player}
                   lightsOn={lightsOn}
                   activeMoveCmd={activeMoveCmd}
+                  doorPrompt={doorPrompt}
                   onMoveCmdChange={setActiveMoveCmd}
                   onExit={() => setMode("orbit")}
                   onToggleLights={handleToggleLights}
                   onTeleport={handleTeleportToRoomIndex}
+                  onInteractDoor={() => doorTriggerRef.current?.()}
                 />
               )}
             </>

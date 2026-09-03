@@ -16,10 +16,12 @@ interface WalkthroughOverlayProps {
   player?: PlayerTransform;
   lightsOn?: boolean;
   activeMoveCmd?: string | null;
+  doorPrompt?: { doorId: string; label: string; isOpen: boolean } | null;
   onMoveCmdChange?: (cmd: string | null) => void;
   onExit: () => void;
   onToggleLights?: () => void;
   onTeleport?: (index: number) => void;
+  onInteractDoor?: () => void;
 }
 
 export default function WalkthroughOverlay({
@@ -29,10 +31,12 @@ export default function WalkthroughOverlay({
   player,
   lightsOn = true,
   activeMoveCmd,
+  doorPrompt,
   onMoveCmdChange,
   onExit,
   onToggleLights,
   onTeleport,
+  onInteractDoor,
 }: WalkthroughOverlayProps) {
   const roomName = currentRoom?.name as RoomName | undefined;
   const roomLabel = roomName ? ROOM_LABELS[roomName] ?? currentRoom?.name : "Circulation / Foyer";
@@ -55,6 +59,30 @@ export default function WalkthroughOverlay({
       <div className={styles.crosshair}>
         <div className={styles.crosshairDot} />
       </div>
+
+      {/* Interactive Door Proximity Banner */}
+      {doorPrompt && (
+        <div className={styles.doorInteractPrompt}>
+          <div className={styles.doorPromptBadge}>
+            <span className={styles.doorPromptIcon}>🚪</span>
+            <div className={styles.doorPromptText}>
+              <span className={styles.doorPromptAction}>
+                Press <strong>[E]</strong> to {doorPrompt.isOpen ? "Close" : "Open"}
+              </span>
+              <span className={styles.doorPromptSub}>{doorPrompt.label}</span>
+            </div>
+            {onInteractDoor && (
+              <button
+                className={styles.doorPromptBtn}
+                onClick={onInteractDoor}
+                title={`Click or press E to ${doorPrompt.isOpen ? "close" : "open"}`}
+              >
+                {doorPrompt.isOpen ? "Close Door" : "Open Door"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Top Bar: Location Badge & Teleport Bar & Exit Button */}
       <div className={styles.topBar}>
@@ -237,6 +265,19 @@ export default function WalkthroughOverlay({
               </button>
             )}
           </div>
+          {doorPrompt && onInteractDoor && (
+            <div className={styles.actionPadRow} style={{ marginTop: 4 }}>
+              <button
+                className={`${styles.actionPadBtn} ${styles.doorActionBtn}`}
+                onClick={onInteractDoor}
+                title={`Press E to ${doorPrompt.isOpen ? "close" : "open"} ${doorPrompt.label}`}
+                style={{ width: "100%", height: 36, flexDirection: "row", gap: 6 }}
+              >
+                🚪
+                <span>[E] {doorPrompt.isOpen ? "Close" : "Open"}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

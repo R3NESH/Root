@@ -35,6 +35,8 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 - **Real-World Kandi, Telangana Plot Validated.** 30×40 North-facing plot solved under TG-bPASS setbacks (5 ft road, 3 ft rear/sides) across 2BHK and 3BHK programs with Vaastu (Agneya kitchen, Nairutya master bed, Ishanya pooja), 100% door reachability, and tight compact footprint (`test_kandi_plot.py`).
 - **Solver core & Realism.** 93 unit tests green. Compact footprint term prevents loose pavilion layouts. NBC 2016 sizing ensures standard Indian plots (20×30, 25×40, 30×40) solve reliably.
 - **The 3D product.** Orbit view, first-person walkthrough with mobile on-screen D-pad and action buttons, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, custom wall paint bands, and real Poly Haven 3D models.
+- **Walkthrough Collision Engine & Interactive Doors.** Axis-separated sliding capsule collision ($R = 0.72\text{ ft}$) prevents phasing through walls, closed doors, and furniture (custom and built-ins). Interactive hinged doors start closed, block passage, and swing open/closed smoothly via `E` key, direct mouse click, or mobile touch button with on-screen HUD prompt.
+- **Architectural Spatial FOV.** Walkthrough camera FOV expanded from 45° to 68° (75° sprint), eliminating cramped tunnel vision and congestion.
 - **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
 - **Full Features & Subsystems Inventory.** Complete log of all features, tools, and graphics engines in [[features-and-tools]].
 
