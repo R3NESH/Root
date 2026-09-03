@@ -121,7 +121,7 @@ export interface ObstacleBox {
   isOpen?: boolean;
 }
 
-export const PLAYER_COLLISION_RADIUS = 0.72; // ~8.6 inches radius (17 in shoulder clearance)
+export const PLAYER_COLLISION_RADIUS = 0.55; // 0.55 ft (~6.6 inches radius, 13.2 in shoulder width)
 
 export function pointCollidesWithBox(
   px: number,
@@ -152,49 +152,65 @@ export function checkPlayerCollision(
 }
 
 /**
- * Axis-separated sliding collision resolver.
- * Allows fluid sliding along wall faces when walking diagonally,
- * preventing sticky or abrupt halts.
+ * Robust sliding penetration resolver.
+ * Projects candidate player movement onto obstacle boundary planes,
+ * enabling fluid sliding along walls and preventing frozen or stuck player states.
  */
 export function resolvePlayerMovement(
   currentX: number,
   currentZ: number,
   targetX: number,
   targetZ: number,
-  radius: number,
-  obstacles: ObstacleBox[]
+  radius: number = PLAYER_COLLISION_RADIUS,
+  obstacles: ObstacleBox[] = []
 ): { x: number; z: number } {
-  if (currentX === targetX && currentZ === targetZ) {
-    return { x: currentX, z: currentZ };
-  }
-
-  // 1. Direct candidate move
-  if (!checkPlayerCollision(targetX, targetZ, radius, obstacles)) {
+  if (!obstacles || obstacles.length === 0) {
     return { x: targetX, z: targetZ };
   }
 
-  // 2. Slide along X axis only
-  const canMoveX = !checkPlayerCollision(targetX, currentZ, radius, obstacles);
+  let px = targetX;
+  let pz = targetZ;
 
-  // 3. Slide along Z axis only
-  const canMoveZ = !checkPlayerCollision(currentX, targetZ, radius, obstacles);
+  // 3-pass relaxation loop handles corners and multi-wall junctions
+  for (let pass = 0; pass < 3; pass++) {
+    let hadCollision = false;
 
-  if (canMoveX && !canMoveZ) {
-    return { x: targetX, z: currentZ };
-  }
-  if (canMoveZ && !canMoveX) {
-    return { x: currentX, z: targetZ };
-  }
-  if (canMoveX && canMoveZ) {
-    const distSqX = (targetX - currentX) * (targetX - currentX);
-    const distSqZ = (targetZ - currentZ) * (targetZ - currentZ);
-    return distSqX >= distSqZ
-      ? { x: targetX, z: currentZ }
-      : { x: currentX, z: targetZ };
+    for (let i = 0; i < obstacles.length; i++) {
+      const obs = obstacles[i];
+      if (obs.isDoor && obs.isOpen) continue;
+
+      const bMinX = obs.minX - radius;
+      const bMaxX = obs.maxX + radius;
+      const bMinZ = obs.minZ - radius;
+      const bMaxZ = obs.maxZ + radius;
+
+      // Check if candidate position is inside the expanded collision box
+      if (px > bMinX && px < bMaxX && pz > bMinZ && pz < bMaxZ) {
+        hadCollision = true;
+
+        const pushLeft = px - bMinX;
+        const pushRight = bMaxX - px;
+        const pushTop = pz - bMinZ;
+        const pushBottom = bMaxZ - pz;
+
+        const minPush = Math.min(pushLeft, pushRight, pushTop, pushBottom);
+
+        if (minPush === pushLeft) {
+          px = bMinX;
+        } else if (minPush === pushRight) {
+          px = bMaxX;
+        } else if (minPush === pushTop) {
+          pz = bMinZ;
+        } else {
+          pz = bMaxZ;
+        }
+      }
+    }
+
+    if (!hadCollision) break;
   }
 
-  // Blocked on both axes
-  return { x: currentX, z: currentZ };
+  return { x: px, z: pz };
 }
 
 export interface DoorwayConnection {

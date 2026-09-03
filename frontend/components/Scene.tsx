@@ -4378,8 +4378,12 @@ export default function Scene({
 
         // Register solid wall colliders for all physical wall segments
         for (const pMesh of pieces) {
+          // Exclude lintels (which sit above doors/windows) and floor thresholds
+          if (pMesh.userData?.isLintel || pMesh.userData?.isThreshold) continue;
+
           const box = new THREE.Box3().setFromObject(pMesh);
-          if (!box.isEmpty()) {
+          // Only register walls that stand at human body height (between 0.5 ft and 5.5 ft)
+          if (!box.isEmpty() && box.min.y < 5.0 && box.max.y > 0.5) {
             sceneObstaclesRef.current.push({
               id: `wall_${i}_${edge}_${pMesh.id}`,
               minX: box.min.x,
@@ -4477,15 +4481,19 @@ export default function Scene({
       roomLightsByRoomRef.current.set(i, [roomLight]);
     }
 
+    // Ensure world transformation matrices are fully calculated for precise bounding boxes
+    group.updateMatrixWorld(true);
+
     // 6.5. Physical Collision Obstacles: Custom Furniture, Built-in Furniture, and Custom Walls
     // Custom placed furniture objects
     for (const obj of (customObjectsRef.current || [])) {
+      if (obj.type === "custom_3d_model") continue;
       const def = FURNITURE_CATALOG.find((f) => f.type === obj.type);
       const s = obj.scale || 1.0;
-      const w = (def?.dimensions.widthFt || 3.2) * s;
-      const d = (def?.dimensions.depthFt || 3.2) * s;
-      const hw = Math.max(0.35, (w * 0.78) / 2);
-      const hd = Math.max(0.35, (d * 0.78) / 2);
+      const w = (def?.dimensions.widthFt || 3.0) * s;
+      const d = (def?.dimensions.depthFt || 3.0) * s;
+      const hw = Math.max(0.3, (w * 0.7) / 2);
+      const hd = Math.max(0.3, (d * 0.7) / 2);
       sceneObstaclesRef.current.push({
         id: `cobj_${obj.id}`,
         minX: obj.x - hw,
@@ -4495,21 +4503,24 @@ export default function Scene({
       });
     }
 
-    // Built-in room furniture (beds, wardrobes, counters, dining)
+    // Built-in room furniture (major pieces: beds, wardrobes, dining tables, sofas)
     for (const rg of roomGroupsRef.current.values()) {
       rg.traverse((child) => {
         if (child.userData && child.userData.isFurniture && !child.userData.isCustomObject) {
+          // Skip windows, curtains, thresholds, fans, lights
+          if (child.userData.isWindow || child.userData.type === "window" || child.userData.isThreshold) return;
           const box = new THREE.Box3().setFromObject(child);
-          if (!box.isEmpty()) {
+          if (!box.isEmpty() && box.min.y < 3.5 && box.max.y > 0.4) {
             const cx = (box.min.x + box.max.x) / 2;
             const cz = (box.min.z + box.max.z) / 2;
             const bw = box.max.x - box.min.x;
             const bd = box.max.z - box.min.z;
-            if (bw > 0.5 && bd > 0.5 && box.max.y > 0.3) {
-              const hw = Math.max(0.35, (bw * 0.78) / 2);
-              const hd = Math.max(0.35, (bd * 0.78) / 2);
+            // Only substantial ground furniture items (beds, sofas, tables, wardrobes, counters)
+            if (bw > 1.2 && bd > 1.2) {
+              const hw = (bw * 0.7) / 2;
+              const hd = (bd * 0.7) / 2;
               sceneObstaclesRef.current.push({
-                id: `builtin_${child.userData.id || Math.random().toString(36).substring(2, 7)}`,
+                id: `builtin_${child.userData.id || child.id}`,
                 minX: cx - hw,
                 maxX: cx + hw,
                 minZ: cz - hd,
