@@ -337,16 +337,52 @@ export function getWindowFrameMaterial(
   });
 }
 
+/**
+ * Real glass, rather than a pane faded out with alpha.
+ *
+ * Alpha blending cannot do the two things that make a window read as glass: it has no Fresnel,
+ * so the pane never goes mirror-bright at a grazing angle the way real glazing does, and it
+ * cannot bend what is behind it. It also forces the pane into the transparent queue, where it
+ * sorts against every other transparent object in the house and loses.
+ *
+ * `transmission` on MeshPhysicalMaterial gives all of that: refraction through the pane at
+ * glass's own index, a specular surface layer over the top, and — because the material stays
+ * out of the transparent queue — depth that behaves. It is worth having only now that the
+ * scene carries an environment map; with nothing to reflect, a transmissive pane looks the
+ * same as an alpha one.
+ */
 export function getWindowGlassMaterial(
   tintId: WindowGlassTintId = "clear",
   isBathroom: boolean = false
-): THREE.MeshStandardMaterial {
+): THREE.MeshPhysicalMaterial {
   const def = WINDOW_GLASS_TINTS.find((t) => t.id === tintId) || WINDOW_GLASS_TINTS[0];
-  return new THREE.MeshStandardMaterial({
-    color: def.colorHex,
-    transparent: true,
-    opacity: isBathroom ? Math.max(0.68, def.opacity) : def.opacity,
-    roughness: isBathroom ? Math.max(0.6, def.roughness) : def.roughness,
-    metalness: def.metalness,
+  // The catalog states each tint as an alpha. Read it as how much light the glazing stops.
+  const blocked = isBathroom ? Math.max(0.68, def.opacity) : def.opacity;
+
+  return new THREE.MeshPhysicalMaterial({
+    // Under transmission the base colour tints everything that passes through the pane, so the
+    // catalog's swatch used raw renders a window as a lit blue panel rather than as glass. The
+    // surface keeps a heavily desaturated version of it; the swatch itself moves to attenuation,
+    // where it colours light by how far it travels through the glass — which is what a tint
+    // physically is, and why it stays subtle face-on and deepens at the edges.
+    color: new THREE.Color(def.colorHex).lerp(new THREE.Color(0xffffff), 0.72),
+    attenuationColor: new THREE.Color(def.colorHex),
+    attenuationDistance: 1.5,
+    transmission: Math.min(0.97, Math.max(0.15, 1 - blocked * 0.85)),
+    // A bathroom pane is acid-etched, and roughening a transmissive surface is what actually
+    // scatters the view behind it. Alpha could only ever make it paler.
+    roughness: isBathroom ? Math.max(0.55, def.roughness) : def.roughness,
+    ior: 1.52,
+    // Feet. Enough for the refraction to register at the reveal, far too little to distort the
+    // room behind into a fisheye.
+    thickness: 0.25,
+    // Glass is a dielectric. The catalog's metalness was standing in for reflectivity, and
+    // leaving it on would render tinted glazing as tinted metal.
+    metalness: 0,
+    specularIntensity: 1,
+    // Transmission does the blending, so the pane can stay in the opaque queue and sort
+    // correctly against everything else.
+    transparent: false,
+    side: THREE.DoubleSide,
   });
 }

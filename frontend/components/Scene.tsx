@@ -72,6 +72,7 @@ import {
 } from "@/lib/furnitureCatalog";
 import { loadGlbModel, loadGlbFromFile } from "@/lib/modelLoader";
 import { mountRealModels } from "@/lib/furnitureModels";
+import { addSiteLandscape } from "@/lib/siteLandscape";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
@@ -86,7 +87,6 @@ import {
   getRoomWallColorHex,
   getWallColorHexStr,
   getRoomWallTextureId,
-  getWallTextureBumpMap,
   resolveDoorColorHex,
   getEffectiveFloorRoughness,
   getEffectiveWallRoughness,
@@ -386,27 +386,54 @@ function applyEnvironment(
   scene.environment = cache[key];
 }
 
-function createDayLawnTexture(): THREE.CanvasTexture {
+// Lawn detail for the plot slab, which was a single flat green before this.
+//
+// Deliberately near-white and near-neutral: it multiplies DAY_PLOT_COLOR rather than replacing
+// it, so the mown-lawn green stays the one place the lawn colour is decided. What it adds is the
+// two things that make grass read as grass from above — the blade noise, and the mower stripes,
+// which are the strongest cue of all because they are the only straight lines in a lawn.
+let lawnDetailTexture: THREE.CanvasTexture | null = null;
+
+function getLawnDetailTexture(): THREE.CanvasTexture | null {
+  if (lawnDetailTexture) return lawnDetailTexture;
+  if (typeof document === "undefined") return null;
+
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#3d7348"; // Landscaped architectural green lawn
-    ctx.fillRect(0, 0, 512, 512);
+  if (!ctx) return null;
 
-    // Subtle grass texture
-    ctx.fillStyle = "rgba(25, 60, 32, 0.22)";
-    for (let i = 0; i < 400; i++) {
-      const gx = Math.random() * 512;
-      const gy = Math.random() * 512;
-      ctx.fillRect(gx, gy, 2, 4);
-    }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Mower stripes. Four bands at a repeat of four puts the pitch at roughly a real mower's
+  // width on a typical plot. The first pass had them eight times finer, which put the stripe
+  // pitch under a pixel over most of the lawn and returned moire banding instead of mowing.
+  for (let band = 0; band < 4; band++) {
+    if (band % 2 !== 0) continue;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.035)";
+    ctx.fillRect(0, band * 128, 512, 128);
   }
+
+  // Blade noise. Seeded off the index rather than Math.random so the plot does not re-texture
+  // itself on every rebuild.
+  for (let i = 0; i < 900; i++) {
+    const gx = (Math.sin(i * 12.9898) * 43758.5453) % 1;
+    const gy = (Math.sin(i * 78.233) * 43758.5453) % 1;
+    const x = Math.abs(gx) * 512;
+    const y = Math.abs(gy) * 512;
+    ctx.fillStyle = i % 3 === 0 ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.09)";
+    ctx.fillRect(x, y, 2, 4);
+  }
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(16, 16);
+  tex.repeat.set(4, 4);
+  tex.anisotropy = 16;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  lawnDetailTexture = tex;
   return tex;
 }
 
@@ -948,10 +975,14 @@ export default function Scene({
     camera.position.set(32, 42, 58);
     cameraRef.current = camera;
 
+    // Read once, at mount, and it gates anti-aliasing, shadow filtering, shadow map size, pixel
+    // ratio and whether the post-processing composer is built at all. A narrow window used to
+    // count as a weak GPU here, which meant docking the app beside an editor silently dropped
+    // every one of those — the result reads as a drop in resolution, and resizing never got it
+    // back. How much canvas is on screen says nothing about what the GPU can fill it with.
     const isMobileOrLowGPU =
       typeof window !== "undefined" &&
       (/Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test(navigator.userAgent) ||
-        window.innerWidth < 800 ||
         (navigator.hardwareConcurrency !== undefined && navigator.hardwareConcurrency <= 4));
 
     const targetDPR = isMobileOrLowGPU
@@ -1089,7 +1120,18 @@ export default function Scene({
     // reached them. Skipped on mobile and weak GPUs, where the extra depth-normal pass and the
     // denoise cost more than the look is worth.
     if (!isMobileOrLowGPU) {
-      const composer = new EffectComposer(renderer);
+      // EffectComposer's own default target is single-sampled, and `antialias: true` on the
+      // renderer only ever applied to the default framebuffer — which stops being the render
+      // destination the moment a composer exists. Without this the AO pass costs every edge in
+      // the scene its anti-aliasing, which reads as a drop in resolution rather than as a
+      // missing effect. Supply a multisampled target instead of taking the default.
+      const bufferSize = renderer.getDrawingBufferSize(new THREE.Vector2());
+      const msaaTarget = new THREE.WebGLRenderTarget(bufferSize.width, bufferSize.height, {
+        type: THREE.HalfFloatType,
+        samples: 4,
+      });
+
+      const composer = new EffectComposer(renderer, msaaTarget);
       composer.setPixelRatio(renderer.getPixelRatio());
       composer.setSize(mount.clientWidth, mount.clientHeight);
       composer.addPass(new RenderPass(scene, camera));
@@ -3124,6 +3166,7 @@ export default function Scene({
         // effect rebuilds on the plan, not on the light switch — the day/night effect keeps it
         // in step after that.
         color: lightsOnRef.current ? DAY_PLOT_COLOR : NIGHT_PLOT_COLOR,
+        map: getLawnDetailTexture(),
         roughness: lightsOnRef.current ? 0.96 : 0.9,
         metalness: lightsOnRef.current ? 0.0 : 0.1,
         side: THREE.DoubleSide,
@@ -3134,6 +3177,19 @@ export default function Scene({
     plotMesh.receiveShadow = true;
     group.add(plotMesh);
     plotMeshRef.current = plotMesh;
+
+    // Planting bed, shrubs and driveway on the strip between the boundary and the building.
+    // Derived from the same setback the solver honoured, so it can never eat into the envelope,
+    // and skipped outright when the setback is too tight to plant.
+    addSiteLandscape(group, {
+      widthFt: wFt,
+      depthFt: dFt,
+      envMinX,
+      envMaxX,
+      envMinZ,
+      envMaxZ,
+      entranceEdge: getPrimaryCardinalEdge(facing),
+    });
 
     const plotOutline = new THREE.LineLoop(
       new THREE.BufferGeometry().setFromPoints([
@@ -3492,14 +3548,24 @@ export default function Scene({
         if (!glazing?.wall) return;
 
         const style = findGlazingStyle(glazing.styleId);
-        const glassMat = new THREE.MeshStandardMaterial({
-          color: style.colorHex,
-          transparent: true,
-          opacity: style.opacity,
+        // Same move as the window panes in lib/windowCatalog.ts: transmission rather than
+        // alpha, so the wall gets Fresnel and refraction and stays out of the transparent
+        // queue. The depthWrite dodge below it went with the alpha it was compensating for.
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          // Desaturated for the same reason as the window panes: a saturated tint used as the
+          // transmission colour turns the glazing into a lit blue panel. The catalog colour
+          // moves to attenuation, where it reads as glass absorbing light through its depth.
+          color: new THREE.Color(style.colorHex).lerp(new THREE.Color(0xffffff), 0.72),
+          attenuationColor: new THREE.Color(style.colorHex),
+          attenuationDistance: 1.5,
+          transmission: Math.min(0.97, Math.max(0.15, 1 - style.opacity * 0.85)),
           roughness: style.roughness,
-          metalness: style.metalness,
-          // Architectural glass writing depth makes everything behind it sort badly.
-          depthWrite: false,
+          ior: 1.52,
+          thickness: 0.25,
+          metalness: 0,
+          specularIntensity: 1,
+          transparent: false,
+          side: THREE.DoubleSide,
         });
         const frameMat = new THREE.MeshStandardMaterial({
           color: style.frameHex,

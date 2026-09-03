@@ -17,8 +17,12 @@ function isSolid(obj: THREE.Object3D): boolean {
   }
   if (obj instanceof THREE.Mesh) {
     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    // Glass falls out here too, which is correct — a window should not occlude the room.
-    return !mats.some((m) => m && m.transparent);
+    // Glass falls out here too, which is correct — a window should not occlude the room. It has
+    // to be tested for transmission as well as alpha: transmissive panes deliberately sit in the
+    // opaque queue, so `transparent` is false on exactly the glass that looks most like glass.
+    return !mats.some(
+      (m) => m && (m.transparent || ((m as THREE.MeshPhysicalMaterial).transmission ?? 0) > 0)
+    );
   }
   return true;
 }
