@@ -213,3 +213,76 @@
   color: #000;
   transform: scale(0.95);
 }
+
+.dpadBtnActive {
+  background: #e8912d !important;
+  color: #000 !important;
+}
+
+.actionPad {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.actionPadRow {
+  display: flex;
+  gap: 8px;
+}
+
+.actionPadBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-radius: 10px;
+  width: 46px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.actionPadBtn span {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+}
+
+.actionPadBtn:active, .actionPadBtnActive {
+  background: rgba(232, 145, 45, 0.4) !important;
+  border-color: #e8912d !important;
+  color: #ffffff !important;
+  transform: scale(0.95);
+}
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crosshairDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}

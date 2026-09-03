@@ -27,13 +27,15 @@ Then fill the table below and date it. Every later step reports its delta agains
 | 2026-08-25 | **40** | 0 | none | after removing four room kinds; `pytest -q`, 21.3s wall |
 | 2026-08-30 | **43** | 0 | none | after fixing pooja NE rule, small custom room ladder bounds, and entrance room door; `pytest -q`, 21.4s wall |
 | 2026-08-31 | **50** | 0 | none | after the audit fixes: room semantics across the API boundary, and `vaastu_relaxed`; `pytest -q`, 25.6s wall |
-| 2026-09-03 | **90** | 0 | none | after walls as objects, quantities BOQ, NBC 2016 room sizes, compact footprint objective, programs registry and prompt-to-plan; `pytest`, 188.8s wall |
+| 2026-09-03 | **93** | 0 | none | after walls as objects, quantities BOQ, NBC 2016 room sizes, compact footprint objective, programs registry, prompt-to-plan, and real Kandi plot validation; `pytest` |
 
-**Delta: +40 tests, 0 failures.** Composition as of 2026-09-03: `test_api.py` **14** ·
-`test_programs.py` **23** · `test_prompt_to_plan.py` **3** · `test_realism.py` **15** ·
-`test_solver.py` **6** · `test_stability.py` **4** · `test_vaastu.py` **13** · `test_walls.py` **12**.
+**Delta: +43 tests, 0 failures.** Composition as of 2026-09-03: `test_api.py` **14** ·
+`test_kandi_plot.py` **3** · `test_programs.py` **23** · `test_prompt_to_plan.py` **3** ·
+`test_realism.py` **15** · `test_solver.py` **6** · `test_stability.py` **4** · `test_vaastu.py` **13** ·
+`test_walls.py` **12**.
 
-The forty added on 2026-09-03 encompass two major development leaps:
+The forty-three added on 2026-09-03 encompass:
+- `test_kandi_plot.py` **+3** — integration tests on the actual 30×40 North-facing plot in Kandi, Telangana under TG-bPASS setback rules (5 ft front, 3 ft sides/rear). Verifies standard 2BHK with pooja and two baths (SW master bed, SE kitchen, NE pooja, 100% reachability, BIM walls and BOQ takeoff), tight compact footprint, and proves 3BHK feasibility under NBC 2016 sizing.
 - `test_walls.py` **+12** — walls as first-class objects derived from room bounds, 0-overlap partition deduplication, thickness assignment (9 in load-bearing exterior vs 4.5 in partition), hosted door attachment, and quantities takeoff (masonry volume, brick count from void/mortar physics, mortar, and plaster).
 - `test_programs.py` **+23** — multi-program zoning registry (residence Vaastu vs café flow topology, hub connectivity, forbidden adjacencies).
 - `test_prompt_to_plan.py` **+3** — natural language prompt to envelope and program resolution.

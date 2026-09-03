@@ -205,6 +205,8 @@ export default function Home() {
     lightsOn: true,
   });
 
+  const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
+
   const roomListWithSpecs: RoomSpecIn[] = useMemo(() => {
     const list: RoomSpecIn[] = [];
     for (const name of ROOM_NAMES) {
@@ -1446,6 +1448,7 @@ export default function Home() {
                 onStartFromScratch={handleStartFromScratch}
                 setback={DEFAULT_SETBACK}
                 mode={mode}
+                activeMoveCmd={activeMoveCmd}
                 teleportTarget={teleportTarget}
                 lightsOn={lightsOn}
                 furnished={furnished}
@@ -1541,6 +1544,8 @@ export default function Home() {
                   rooms={rooms}
                   player={player}
                   lightsOn={lightsOn}
+                  activeMoveCmd={activeMoveCmd}
+                  onMoveCmdChange={setActiveMoveCmd}
                   onExit={() => setMode("orbit")}
                   onToggleLights={handleToggleLights}
                   onTeleport={handleTeleportToRoomIndex}

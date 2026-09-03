@@ -727,7 +727,19 @@ export default function TopRibbonTaskbar({
               <div className={styles.ribbonGroup}>
                 <div className={styles.groupBody}>
                   <div className={styles.solverBadge}>
-                    {meta?.status === OFFLINE_ESTIMATE_STATUS ? (
+                    {meta?.status === "INFEASIBLE" ? (
+                      <div className={styles.solverInfeasibleBlock}>
+                        <span
+                          className={styles.solverStatusError}
+                          title={`This room program is too large to fit inside the ${widthFt}' × ${depthFt}' envelope. Remove a room or enlarge the plot.`}
+                        >
+                          🚫 Does not fit envelope
+                        </span>
+                        <span className={styles.solverInfeasibleAction}>
+                          Remove a room or enlarge plot
+                        </span>
+                      </div>
+                    ) : meta?.status === OFFLINE_ESTIMATE_STATUS ? (
                       <span
                         className={styles.solverStatusWarn}
                         title={`The solver is unreachable, so these spaces are a rough grid. No ${rulesLabel} rule was checked and no doors were derived. Start the backend to get a real plan.`}

@@ -2546,9 +2546,12 @@ export default function Scene({
         if (keys["KeyW"] || keys["ArrowUp"] || cmd === "forward") moveForward += 1;
         if (keys["KeyS"] || keys["ArrowDown"] || cmd === "backward") moveForward -= 1;
         if (keys["KeyA"] || cmd === "left") moveStrafe -= 1;
-        if (keys["KeyD"] || cmd === "right") moveStrafe += 1;
         if (cmd === "turnLeft") turn += 1;
-        if (cmd === "turnRight") turn += 1;
+        if (cmd === "turnRight") turn -= 1;
+        if (cmd === "jump" && !isJumping.current) {
+          jumpVelocityY.current = 10.0;
+          isJumping.current = true;
+        }
 
         if (turn !== 0) {
           p.yaw += turn * ROTATE_SPEED_RAD * dt;

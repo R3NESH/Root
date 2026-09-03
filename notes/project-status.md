@@ -21,8 +21,8 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 |---|---|
 | Phase | [[project-phases\|Phase 1]] — production CAD, BIM takeoff & 3D walkthrough ready |
 | Commits | **36** on `main` |
-| Code | **3,500+** lines backend Python · **28,000+** TS/TSX + **9,000+** CSS frontend |
-| Tests | **90 passing** in ~188 s — up from the 50 recorded in [[test-baseline]] |
+| Code | **3,600+** lines backend Python · **28,000+** TS/TSX + **9,000+** CSS frontend |
+| Tests | **93 passing** in ~198 s — up from the 50 recorded in [[test-baseline]] |
 | Frontend checks | `tsc --noEmit` 0 errors · `next build` 0 warnings |
 | Blueprints | **20 authentic curated models** with 4-directional filtering |
 | Paying users | **none**, and nobody asked yet |
@@ -32,8 +32,9 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 - **Architectural Blueprints Catalog.** 20 models across North, East, South, West facings, Kerala Courtyard, Chettinad Heritage, Scandinavian Modernist, Japanese Zen, and Parisian Penthouses.
 - **Walls as Objects & BIM Engine.** Single-wall shared partitions with hosted opening attachments, eliminating double-counted doors and floating room borders.
 - **Bill of Quantities (BOQ) & Cost Takeoff.** Real-time civil, masonry, finishes, MEP, and labor estimation across Economy, Standard, and Luxury tiers.
-- **Solver core & Realism.** 90 unit tests green. Compact footprint term prevents loose pavilion layouts. NBC 2016 sizing ensures standard Indian plots (20×30, 25×40, 30×40) solve reliably.
-- **The 3D product.** Orbit view, first-person walkthrough, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, custom wall paint bands, and real Poly Haven 3D models.
+- **Real-World Kandi, Telangana Plot Validated.** 30×40 North-facing plot solved under TG-bPASS setbacks (5 ft road, 3 ft rear/sides) across 2BHK and 3BHK programs with Vaastu (Agneya kitchen, Nairutya master bed, Ishanya pooja), 100% door reachability, and tight compact footprint (`test_kandi_plot.py`).
+- **Solver core & Realism.** 93 unit tests green. Compact footprint term prevents loose pavilion layouts. NBC 2016 sizing ensures standard Indian plots (20×30, 25×40, 30×40) solve reliably.
+- **The 3D product.** Orbit view, first-person walkthrough with mobile on-screen D-pad and action buttons, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, custom wall paint bands, and real Poly Haven 3D models.
 - **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
 - **Full Features & Subsystems Inventory.** Complete log of all features, tools, and graphics engines in [[features-and-tools]].
 
@@ -42,14 +43,11 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 | Issue | Severity | Note |
 |---|---|---|
 | A twelve-room program hits the 2 s cold budget and returns FEASIBLE, not OPTIMAL | low | [[realism-gaps]] |
-| A large programme returns INFEASIBLE; the UI shows the raw status, not "remove a room" | medium | [[realism-gaps]] |
 | Renderer hard-depends on the API for doors; an old backend silently draws a doorless house (now flagged in the UI) | medium | [[realism-gaps]] |
-| Walkthrough is keyboard-only; audience is on phones | medium | [[step-6-walkthrough]], [[zero-keyboard-events]] |
 | Setbacks still hardcoded | known gap | [[environment-notes]] |
 | Test suite is wall-clock flaky under CPU load — `test_stability.py` by design | medium | [[test-baseline]] |
 | A deployed visitor still gets the offline grid, because `NEXT_PUBLIC_SOLVER_URL` is unset and there is no hosted backend | **high** | [[client-side-fallback]], [[environment-notes]] |
 | `Scene.tsx` and `Blueprint2DView.tsx` are ~4,000-line single components; zero frontend tests | medium | [[codebase-map]] |
-| Never tested on the real Kandi, Telangana plot | **validation gap** | [[build-order]] |
 | Single storey only | scope | [[project-phases]] |
 
 ### Fixed on 2026-08-25
