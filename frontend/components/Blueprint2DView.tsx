@@ -18,7 +18,7 @@ import {
   WindowShapeId,
   DEFAULT_WINDOW_CONFIG,
 } from "@/lib/windowCatalog";
-import { OpeningItemDef } from "@/lib/openingsCatalog";
+import { OPENINGS_CATALOG, OpeningItemDef } from "@/lib/openingsCatalog";
 import {
   CustomDrawnWall,
   CustomRoomZone,
@@ -482,14 +482,18 @@ export default function Blueprint2DView({
         const widthIn = placingOpeningDef?.widthIn || (isWindow ? 48 : 36);
         const heightIn = placingOpeningDef?.heightIn || (isWindow ? 48 : 84);
         const sillIn = placingOpeningDef?.sillIn !== undefined ? placingOpeningDef.sillIn : (isWindow ? 36 : 0);
-        const kind: RoomOpening["kind"] = placingOpeningDef?.kind || (isWindow ? "window" : "door");
+        // See the note in Scene.tsx: sliding is a leaf style the custom wall carries, and a
+        // plain door everywhere the plan is concerned.
+        const catalogKind = placingOpeningDef?.kind || (isWindow ? "window" : "door");
+        const customKind: CustomWallOpening["kind"] = catalogKind;
+        const kind: RoomOpening["kind"] = catalogKind === "sliding_door" ? "door" : catalogKind;
 
         if (hoveredWallInfo.wallId) {
           const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
           if (wall) {
             const newOpening: CustomWallOpening = {
               id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              kind,
+              kind: customKind,
               offsetIn: Math.max(0, hoveredWallInfo.offsetIn - widthIn / 2),
               widthIn,
               heightIn,
@@ -963,7 +967,10 @@ export default function Blueprint2DView({
     let payload: {
       type?: string;
       shapeId?: WindowShapeId;
-      kind?: "door" | "window" | "entrance" | "opening";
+      // Mirrors the catalog rather than restating it. This union had already drifted once: the
+      // drawer serialises an OpeningItemDef straight into the drag payload, so a kind added to
+      // the catalog is a kind that arrives here whether the annotation admits it or not.
+      kind?: OpeningItemDef["kind"];
       category?: "door" | "window";
       widthIn?: number;
       heightIn?: number;
@@ -1102,14 +1109,16 @@ export default function Blueprint2DView({
       const widthIn = payload.widthIn || (isWindow ? 48 : 36);
       const heightIn = payload.heightIn || (isWindow ? 48 : 84);
       const sillIn = payload.sillIn !== undefined ? payload.sillIn : (isWindow ? 36 : 0);
-      const kind: "door" | "window" | "entrance" | "opening" = payload.kind || (isWindow ? "window" : "door");
+      const dropKind = payload.kind || (isWindow ? "window" : "door");
+      const dropCustomKind: CustomWallOpening["kind"] = dropKind;
+      const kind: RoomOpening["kind"] = dropKind === "sliding_door" ? "door" : dropKind;
 
       if (closestHit.wallId) {
         const wall = customWalls.find((w) => w.id === closestHit!.wallId);
         if (wall) {
           const newOpening: CustomWallOpening = {
             id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            kind,
+            kind: dropCustomKind,
             offsetIn: Math.max(0, closestHit.offsetIn - widthIn / 2),
             widthIn,
             heightIn,
@@ -1403,23 +1412,33 @@ export default function Blueprint2DView({
     updateRoomOpenings(selectedRoomIndex, currentOps);
   };
 
-  const handleAddOpeningOnWall = (kind: "door" | "window") => {
+  // Which catalog opening the inspector's add buttons will insert.
+  const [addOpeningId, setAddOpeningId] = useState<string>("door_standard");
+  const addOpeningDef =
+    OPENINGS_CATALOG.find((o) => o.id === addOpeningId) ?? OPENINGS_CATALOG[0];
+
+  const handleAddOpeningOnWall = (def: OpeningItemDef) => {
     if (selectedRoomIndex === null || !selectedRoom) return;
     const edge = selectedWallEdge || "N";
     const isHoriz = edge === "N" || edge === "S";
     const wallLenIn = isHoriz ? selectedRoom.w_in : selectedRoom.d_in;
 
-    const widthIn = kind === "door" ? 36 : 48;
-    const heightIn = kind === "door" ? 84 : 48;
+    // Dimensions come from the catalog entry rather than a hardcoded pair. This panel used to
+    // know only "door = 36in" and "window = 48in", so every opening the catalog gained was
+    // unreachable from the 2D view — the two surfaces offered different sets of openings and
+    // nothing in the code said so.
+    const widthIn = Math.min(def.widthIn, Math.max(24, wallLenIn - 24));
     const offsetIn = Math.max(12, Math.round((wallLenIn - widthIn) / 2));
 
     const newOp: RoomOpening = {
-      kind,
+      // A sliding door is a door as far as the plan is concerned — see the note beside the
+      // placement handler above. RoomOpening carries the kinds the solver owns.
+      kind: def.kind === "sliding_door" ? "door" : def.kind,
       edge,
       offset_in: offsetIn,
       width_in: widthIn,
-      height_in: heightIn,
-      sill_in: kind === "window" ? 36 : undefined,
+      height_in: def.heightIn,
+      sill_in: def.sillIn,
     };
 
     const nextOps = [...(selectedRoom.openings ?? []), newOp];
@@ -3420,17 +3439,42 @@ export default function Blueprint2DView({
               <div className={styles.wallActionsSection}>
                 <span className={styles.sectionHeading}>Add Opening on this Wall:</span>
                 <div className={styles.wallActionButtons}>
+                  <select
+                    value={addOpeningId}
+                    onChange={(e) => setAddOpeningId(e.target.value)}
+                    title={addOpeningDef.description}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: "11px",
+                      padding: "5px 6px",
+                      borderRadius: 6,
+                      background: "#0f172a",
+                      color: "#e2e8f0",
+                      border: "1px solid #334155",
+                    }}
+                  >
+                    <optgroup label="Doors">
+                      {OPENINGS_CATALOG.filter((o) => o.category === "door").map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.icon} {o.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Windows">
+                      {OPENINGS_CATALOG.filter((o) => o.category === "window").map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.icon} {o.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
                   <button
                     className={styles.addOpeningBtn}
-                    onClick={() => handleAddOpeningOnWall("door")}
+                    onClick={() => handleAddOpeningOnWall(addOpeningDef)}
+                    title={`Insert ${addOpeningDef.name} into the selected wall`}
                   >
-                    + 🚪 Add Door
-                  </button>
-                  <button
-                    className={styles.addOpeningBtn}
-                    onClick={() => handleAddOpeningOnWall("window")}
-                  >
-                    + 🪟 Add Window
+                    + Add
                   </button>
                 </div>
               </div>
@@ -3637,9 +3681,9 @@ export default function Blueprint2DView({
                   <button
                     className={styles.addOpeningBtn}
                     style={{ marginTop: 10 }}
-                    onClick={() => handleAddOpeningOnWall("door")}
+                    onClick={() => handleAddOpeningOnWall(addOpeningDef)}
                   >
-                    + 🚪 Add New Door
+                    + {addOpeningDef.icon} Add {addOpeningDef.name}
                   </button>
                 </div>
               )}

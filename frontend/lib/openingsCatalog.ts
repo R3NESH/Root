@@ -3,7 +3,9 @@ import { WindowShapeId } from "./windowCatalog";
 
 export interface OpeningItemDef {
   id: string;
-  kind: "door" | "window" | "entrance" | "opening";
+  // "sliding_door" is a leaf style, not a plan-level kind. Only custom drawn walls carry it;
+  // on a solver room wall it is recorded as a plain door so connectivity still sees a door.
+  kind: "door" | "window" | "entrance" | "opening" | "sliding_door";
   category: "door" | "window";
   name: string;
   icon: string;
@@ -60,6 +62,18 @@ export const OPENINGS_CATALOG: OpeningItemDef[] = [
     heightIn: 84,
     description: "4ft smooth sliding partition pocket door saving swing space.",
     tag: "Sliding 4ft",
+  },
+  {
+    id: "door_sliding_glass",
+    kind: "sliding_door",
+    category: "door",
+    name: "Sliding Glass Door",
+    icon: "🪟",
+    widthIn: 96,
+    heightIn: 96,
+    description:
+      "8ft × 8ft twin-panel sliding glass door on slim black tracks. The full-height opening in a glazed wall — panels bypass on two tracks rather than swinging, so it costs no floor space.",
+    tag: "Sliding Glass 8ft",
   },
   {
     id: "door_arched_passage",

@@ -26,9 +26,35 @@ export interface GlazingStyle {
   metalness: number;
   /** Frame and mullion colour. */
   frameHex: number;
+  /**
+   * Face width of the head rail, cill rail and mullions, in feet. Omitted means the joinery
+   * profile every style used before structural glazing arrived. Structural curtain walling is
+   * defined by how little frame it shows, so the profile has to be a property of the style
+   * rather than a constant in the renderer — a slim style drawn at shopfront thickness is just
+   * a shopfront.
+   */
+  frameThicknessFt?: number;
 }
 
+/** Profile used by any style that does not name its own. */
+export const DEFAULT_FRAME_THICKNESS_FT = 0.16;
+
 export const GLAZING_STYLES: GlazingStyle[] = [
+  {
+    id: "structural",
+    name: "Structural Glazing",
+    description:
+      "Floor-to-ceiling low-iron glass on slim black mullions. The frameless curtain-wall look, where the glass is the wall rather than something set into one.",
+    colorHex: 0xeaf4f2,
+    // Low-iron glass is the clearest architectural glazing made — it lacks the green cast of
+    // ordinary float glass, which is why a curtain wall reads as an opening rather than a pane.
+    opacity: 0.12,
+    roughness: 0.02,
+    metalness: 0.05,
+    frameHex: 0x0d0f12,
+    // Under half the joinery profile. The whole point of the system is the sightline.
+    frameThicknessFt: 0.07,
+  },
   {
     id: "clear",
     name: "Clear",
@@ -82,7 +108,14 @@ export const GLAZING_STYLES: GlazingStyle[] = [
 ];
 
 export function findGlazingStyle(id: string): GlazingStyle {
-  return GLAZING_STYLES.find((g) => g.id === id) ?? GLAZING_STYLES[0];
+  // Fall back by id, not by position. This list is ordered for the picker, and adding a style
+  // at the top has already silently moved this fallback once; an unknown id should still land on
+  // plain clear glass rather than on whatever happens to be listed first.
+  return (
+    GLAZING_STYLES.find((g) => g.id === id) ??
+    GLAZING_STYLES.find((g) => g.id === "clear") ??
+    GLAZING_STYLES[0]
+  );
 }
 
 export interface WallGlazing {
@@ -103,6 +136,14 @@ export interface GlazingPreset {
 }
 
 export const GLAZING_PRESETS: GlazingPreset[] = [
+  {
+    id: "structural",
+    name: "Structural Glazing",
+    description: "Floor-to-ceiling glass wall and matching glass door on slim black mullions.",
+    // Four mullions give wide bays. Structural glazing is sold on the size of the pane, so
+    // subdividing it the way a Crittall screen does would defeat the style.
+    glazing: { styleId: "structural", wall: true, door: true, mullions: 4 },
+  },
   {
     id: "shopfront",
     name: "Shopfront",

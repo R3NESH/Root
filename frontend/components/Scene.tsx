@@ -42,7 +42,7 @@ import {
 } from "@/lib/sceneDoorways";
 import { computeSmartWallSnap } from "@/lib/smartWallSnap";
 import { resolveBands, resolveWallBandScheme, roomInstanceId, wallBandKey } from "@/lib/wallBands";
-import { findGlazingStyle, resolveWallGlazing } from "@/lib/glazing";
+import { DEFAULT_FRAME_THICKNESS_FT, findGlazingStyle, resolveWallGlazing } from "@/lib/glazing";
 import {
   clampPlayerPosition,
   computePotentiallyVisibleRooms,
@@ -1604,14 +1604,21 @@ export default function Scene({
           const widthIn = placingDef?.widthIn || (isWindow ? 48 : 36);
           const heightIn = placingDef?.heightIn || (isWindow ? 48 : 84);
           const sillIn = placingDef?.sillIn !== undefined ? placingDef.sillIn : (isWindow ? 36 : 0);
-          const kind: RoomOpening["kind"] = placingDef?.kind || (isWindow ? "window" : "door");
+          // A sliding door is a door as far as the plan is concerned: it connects the two rooms
+          // either side and the solver, the BOQ and the connectivity check should all count it as
+          // one. The distinction is purely how the leaf is drawn, so it rides on the custom wall
+          // opening — which already declared the kind — and is flattened back to "door" for
+          // RoomOpening, whose kinds the solver owns.
+          const catalogKind = placingDef?.kind || (isWindow ? "window" : "door");
+          const customKind: CustomWallOpening["kind"] = catalogKind;
+          const kind: RoomOpening["kind"] = catalogKind === "sliding_door" ? "door" : catalogKind;
 
           if (closestCustomHit) {
             ev.stopPropagation();
             ev.stopImmediatePropagation();
             const newOpening: CustomWallOpening = {
               id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              kind,
+              kind: customKind,
               offsetIn: Math.max(0, closestCustomHit.offsetIn - widthIn / 2),
               widthIn,
               heightIn,
@@ -3593,7 +3600,7 @@ export default function Scene({
           const py = mesh.position.y;
           const pz = mesh.position.z;
           const runLen = isEW ? pw : pd;
-          const thin = 0.16;
+          const thin = style.frameThicknessFt ?? DEFAULT_FRAME_THICKNESS_FT;
 
           // Head and cill rails frame every pane, so a glazed pier still reads as joinery.
           for (const railY of [py + ph / 2 - thin / 2, py - ph / 2 + thin / 2]) {
@@ -3645,15 +3652,30 @@ export default function Scene({
         const glassDoor = Boolean(wallGlazing?.door);
         const glassDoorStyle = glassDoor ? findGlazingStyle(wallGlazing!.styleId) : null;
 
-        /** A glazed leaf: a pane in stiles and rails, rather than a painted slab. */
+        /**
+         * A glazed leaf: a pane in stiles and rails, rather than a painted slab.
+         *
+         * Transmissive, matching the glazed wall the door sits in and the window panes. It was
+         * left on alpha when those two moved over, which put a door and the wall around it in
+         * different materials — the wall refracting and picking up Fresnel, the leaf flat and
+         * faded — and that difference is most visible in exactly the case the style exists for,
+         * a glass door in a glass wall.
+         */
         const glassLeafMaterial = () =>
-          new THREE.MeshStandardMaterial({
-            color: glassDoorStyle!.colorHex,
-            transparent: true,
-            opacity: glassDoorStyle!.opacity,
+          new THREE.MeshPhysicalMaterial({
+            color: new THREE.Color(glassDoorStyle!.colorHex).lerp(new THREE.Color(0xffffff), 0.72),
+            attenuationColor: new THREE.Color(glassDoorStyle!.colorHex),
+            attenuationDistance: 1.5,
+            transmission: Math.min(0.97, Math.max(0.15, 1 - glassDoorStyle!.opacity * 0.85)),
             roughness: glassDoorStyle!.roughness,
-            metalness: glassDoorStyle!.metalness,
-            depthWrite: false,
+            ior: 1.52,
+            thickness: 0.25,
+            metalness: 0,
+            specularIntensity: 1,
+            // Transmission blends, so the leaf stays in the opaque queue and sorts against the
+            // wall it swings in. The depthWrite dodge went with the alpha it was compensating for.
+            transparent: false,
+            side: THREE.DoubleSide,
           });
         const glassFrameMaterial = () =>
           new THREE.MeshStandardMaterial({
@@ -4836,12 +4858,22 @@ export default function Scene({
         metalness: 0.05,
       });
 
-      const glassWallMat = new THREE.MeshStandardMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: 0.45,
-        roughness: 0.1,
-        metalness: 0.8,
+      // Glazing on custom drawn walls. Brought in line with the window panes and the glazed
+      // room walls: transmission rather than alpha, and metalness at zero. At 0.8 metalness a
+      // saturated blue this material was rendering every custom window and glass door as tinted
+      // sheet metal, which is what glass looks like when you light a metal with it.
+      const glassWallMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf2f8fb,
+        attenuationColor: new THREE.Color(0xbfe3f5),
+        attenuationDistance: 1.5,
+        transmission: 0.92,
+        roughness: 0.06,
+        ior: 1.52,
+        thickness: 0.25,
+        metalness: 0,
+        specularIntensity: 1,
+        transparent: false,
+        side: THREE.DoubleSide,
       });
 
       const woodSlatMat = new THREE.MeshStandardMaterial({
@@ -5021,6 +5053,74 @@ export default function Scene({
                 );
                 bowGlass.position.set(opCenterFt, (op.sillIn ? op.sillIn / 12 : 0) + opHeightFt / 2, 0.3);
                 wallGroup.add(bowGlass);
+              } else if (op.kind === "sliding_door") {
+                // Twin bypassing panels on two tracks, the way the reference frontage reads: the
+                // leaves overlap at the centre and sit on slightly different planes, rather than
+                // meeting edge to edge like a pair of french doors.
+                const trackMat = new THREE.MeshStandardMaterial({
+                  color: 0x0d0f12,
+                  roughness: 0.35,
+                  metalness: 0.65,
+                });
+                const railT = 0.09;
+                const stileT = 0.07;
+
+                for (const trackY of [opHeightFt - railT / 2, railT / 2]) {
+                  const track = new THREE.Mesh(
+                    new THREE.BoxGeometry(opWidthFt, railT, 0.34),
+                    trackMat
+                  );
+                  track.position.set(opCenterFt, trackY, 0);
+                  track.castShadow = true;
+                  wallGroup.add(track);
+                }
+
+                // Each leaf covers a little over half the opening so the pair closes on an
+                // overlap at the centre, which is what makes a slider a slider.
+                const leafW = (opWidthFt / 2) * 1.08;
+                const leafH = opHeightFt - railT * 2;
+                for (const side of [-1, 1]) {
+                  const leafX = opCenterFt + side * (opWidthFt / 2 - leafW / 2);
+                  const leafZ = side * 0.075;
+
+                  const pane = new THREE.Mesh(
+                    new THREE.BoxGeometry(leafW - stileT * 2, leafH - stileT * 2, 0.05),
+                    glassWallMat
+                  );
+                  pane.position.set(leafX, opHeightFt / 2, leafZ);
+                  wallGroup.add(pane);
+
+                  for (const sx of [-1, 1]) {
+                    const stile = new THREE.Mesh(
+                      new THREE.BoxGeometry(stileT, leafH, 0.11),
+                      trackMat
+                    );
+                    stile.position.set(leafX + sx * (leafW / 2 - stileT / 2), opHeightFt / 2, leafZ);
+                    stile.castShadow = true;
+                    wallGroup.add(stile);
+                  }
+                  for (const sy of [-1, 1]) {
+                    const rail = new THREE.Mesh(
+                      new THREE.BoxGeometry(leafW, stileT, 0.11),
+                      trackMat
+                    );
+                    rail.position.set(leafX, opHeightFt / 2 + sy * (leafH / 2 - stileT / 2), leafZ);
+                    rail.castShadow = true;
+                    wallGroup.add(rail);
+                  }
+
+                  // Flush vertical pull on the leading edge of each leaf.
+                  const pull = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 1.5, 0.05),
+                    trackMat
+                  );
+                  pull.position.set(
+                    leafX - side * (leafW / 2 - stileT * 2.2),
+                    opHeightFt * 0.46,
+                    leafZ + 0.09
+                  );
+                  wallGroup.add(pull);
+                }
               } else if (op.kind === "revolving_door") {
                 // Revolving Door Cylinder
                 const revDrum = new THREE.Mesh(
