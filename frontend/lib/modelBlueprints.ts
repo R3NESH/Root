@@ -102,7 +102,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     totalSqFt: 600,
     rating: "100% Vaastu Compliant",
     description:
-      "A smart, ultra-efficient compact home designed for urban plots. Features an airy front living room, a Vaastu-compliant South-East kitchen, and a private master bedroom suite.",
+      "Compact plan for tight urban plots. Front living room on the road side, Agneya kitchen, master bedroom off the rear.",
     highlights: [
       "Open-concept Living & Dining",
       "Agni Kitchen in South-East",
@@ -184,7 +184,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
   // 3. 20x40 (800 sq ft) — 2BHK Narrow-Lot Smart Home
   {
     id: "20x40_2bhk_north",
-    name: "Narrow-Lot 2BHK Smart Home",
+    name: "Narrow-Lot 2BHK",
     type: "2BHK",
     plotSizeLabel: "20×40 (800 sq ft)",
     plotWidthFt: 20,
@@ -706,11 +706,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     totalSqFt: 1750,
     rating: "Architectural Showcase",
     description:
-      "Nordic minimalism featuring floor-to-ceiling glass daylighting, light birch woodwork, seamless open dining, and private bedroom sanctuaries.",
+      "Nordic plan. Floor-to-ceiling glazing, birch joinery, open dining, bedrooms set off the shared circulation.",
     highlights: [
       "Nordic Light Living & Great Room",
       "Minimalist Birch & Oak Chef Kitchen",
-      "Seamless Open-Concept Dining",
+      "Open-Concept Dining",
       "Master Suite & Utility Store",
     ],
     counts: {

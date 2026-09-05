@@ -46,7 +46,7 @@ export default function BOQCostModal({
         {/* Modal Header */}
         <div className={styles.header}>
           <div className={styles.titleArea}>
-            <span className={styles.logoIcon}>📊</span>
+            <span className={styles.logoIcon}>BOQ</span>
             <div>
               <h2 className={styles.title}>Bill of Quantities (BOQ) &amp; Cost Takeoff</h2>
               <div className={styles.subtitle}>
@@ -89,14 +89,14 @@ export default function BOQCostModal({
               onClick={() => exportBoqToCsv(boq, "FloorPlan")}
               title="Download detailed Excel/CSV spreadsheet"
             >
-              <span>📥</span> Export CSV
+              <span>EXP</span> Export CSV
             </button>
             <button
               className={styles.printBtn}
               onClick={() => printBoqReport(boq, "FloorPlan")}
               title="Print official formatted estimate sheet"
             >
-              <span>🖨️</span> Print / PDF
+              <span>PRN</span> Print / PDF
             </button>
           </div>
         </div>
@@ -142,9 +142,9 @@ export default function BOQCostModal({
             <button
               onClick={() => setSelectedCategory("all")}
               style={{
-                background: selectedCategory === "all" ? "rgba(56, 189, 248, 0.25)" : "rgba(15, 23, 42, 0.8)",
-                border: selectedCategory === "all" ? "1px solid #38bdf8" : "1px solid rgba(51, 65, 85, 0.7)",
-                color: selectedCategory === "all" ? "#38bdf8" : "#cbd5e1",
+                background: selectedCategory === "all" ? "rgba(111, 154, 168, 0.25)" : "rgba(26, 25, 22, 0.8)",
+                border: selectedCategory === "all" ? "1px solid #6f9aa8" : "1px solid rgba(58, 55, 47, 0.7)",
+                color: selectedCategory === "all" ? "#6f9aa8" : "#b5b0a6",
                 padding: "6px 12px",
                 borderRadius: "20px",
                 fontSize: "11.5px",
@@ -159,9 +159,9 @@ export default function BOQCostModal({
                 key={cat.category}
                 onClick={() => setSelectedCategory(cat.category)}
                 style={{
-                  background: selectedCategory === cat.category ? "rgba(56, 189, 248, 0.25)" : "rgba(15, 23, 42, 0.8)",
-                  border: selectedCategory === cat.category ? "1px solid #38bdf8" : "1px solid rgba(51, 65, 85, 0.7)",
-                  color: selectedCategory === cat.category ? "#38bdf8" : "#cbd5e1",
+                  background: selectedCategory === cat.category ? "rgba(111, 154, 168, 0.25)" : "rgba(26, 25, 22, 0.8)",
+                  border: selectedCategory === cat.category ? "1px solid #6f9aa8" : "1px solid rgba(58, 55, 47, 0.7)",
+                  color: selectedCategory === cat.category ? "#6f9aa8" : "#b5b0a6",
                   padding: "6px 12px",
                   borderRadius: "20px",
                   fontSize: "11.5px",
@@ -208,7 +208,7 @@ export default function BOQCostModal({
                   </tr>
                 ))}
                 <tr className={styles.totalRow}>
-                  <td className={styles.td} colSpan={5} style={{ textAlign: "right", color: "#f8fafc" }}>
+                  <td className={styles.td} colSpan={5} style={{ textAlign: "right", color: "#eceae5" }}>
                     TOTAL ESTIMATED BUDGET ({tier.toUpperCase()} SPECIFICATION):
                   </td>
                   <td className={`${styles.td} ${styles.amountCol}`} style={{ fontSize: "14px" }}>

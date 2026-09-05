@@ -1,10 +1,74 @@
+/* ==========================================================================
+   plot-to-plan — design tokens
+   Chrome is near-monochrome warm graphite. Saturated colour is reserved for
+   data: room fills, Vaastu zones, material swatches, blueprint linework.
+   ========================================================================== */
+
 :root {
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --accent: #e8912d;
-  --accent-glow: rgba(232, 145, 45, 0.35);
-  --panel-bg: rgba(15, 23, 42, 0.82);
-  --panel-border: rgba(255, 255, 255, 0.08);
+  /* --- Ground / surfaces (warm graphite ramp) --- */
+  --ground: #0e0d0b;
+  --surface-sunk: #131210;
+  --surface: #1a1916;
+  --surface-raised: #21201b;
+  --surface-hover: #292722;
+
+  /* --- Hairlines --- */
+  --line: #2a2823;
+  --line-strong: #3a372f;
+
+  /* --- Ink --- */
+  --ink: #eceae5;
+  --ink-secondary: #b5b0a6;
+  --ink-muted: #8e8a82;
+  --ink-disabled: #6d685e;
+
+  /* --- Accent: active state only, never decoration --- */
+  --accent: #b85c22;
+  --accent-bright: #d4703a;
+  --accent-deep: #8a4318;
+  --accent-wash: rgba(184, 92, 34, 0.14);
+
+  /* --- Semantic --- */
+  --danger: #a8442f;
+  --success: #5f7d4f;
+  --warn: #9a7d2e;
+  --info: #4a6d7c;
+
+  /* --- Type scale --- */
+  --t-micro: 10px;
+  --t-small: 11px;
+  --t-body: 12px;
+  --t-strong: 13px;
+  --t-section: 15px;
+  --t-title: 19px;
+  --t-display: 26px;
+
+  /* --- Spacing scale (2px grid) --- */
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 6px;
+  --s-4: 8px;
+  --s-5: 12px;
+  --s-6: 16px;
+  --s-7: 20px;
+  --s-8: 24px;
+  --s-9: 32px;
+
+  /* --- Radius: tight. CAD chrome is square. --- */
+  --r-1: 2px;
+  --r-2: 3px;
+  --r-3: 4px;
+
+  /* --- Type stacks --- */
+  --font-sans: var(--font-plex-sans), "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  /* --- Legacy aliases (kept so untouched rules keep resolving) --- */
+  --background: #0e0d0b;
+  --foreground: #eceae5;
+  --panel-bg: #1a1916;
+  --panel-border: #2a2823;
+  --accent-glow: rgba(184, 92, 34, 0.2);
 }
 
 * {
@@ -18,28 +82,59 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #090d16;
-  color: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  font-feature-settings: "cv05" 1, "ss03" 1;
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 
-/* Custom modern scrollbars */
+/* Every dimension, count and coordinate is set in mono — tabular, so digits
+   do not jitter as values tick during a drag. */
+.num,
+[data-num] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Section eyebrows: the one place tracking is used. */
+.eyebrow {
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--ground);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  background: var(--line-strong);
+  border: 3px solid var(--ground);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(232, 145, 45, 0.5);
+  background: var(--ink-disabled);
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent-bright);
+  outline-offset: 1px;
 }

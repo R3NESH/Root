@@ -419,20 +419,20 @@ export function printBoqReport(boq: BoqEstimate, projectName: string = "Architec
         <title>Bill of Quantities (BOQ) - ${projectName}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #1e293b; }
-          .header { border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
-          h1 { margin: 0; font-size: 24px; color: #0f172a; }
-          .badge { background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 13px; }
+          .header { border-bottom: 2px solid #1a1916; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+          h1 { margin: 0; font-size: 24px; color: #1a1916; }
+          .badge { background: #d3dee1; color: #2f4954; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 13px; }
           .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
-          .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; }
-          .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600; }
-          .stat-value { font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+          .stat-card { background: #eceae5; border: 1px solid #d8d4cb; padding: 12px; border-radius: 8px; }
+          .stat-label { font-size: 11px; color: #6d685e; text-transform: uppercase; font-weight: 600; }
+          .stat-value { font-size: 18px; font-weight: 700; color: #1a1916; margin-top: 4px; }
           table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-          th { background: #f1f5f9; text-align: left; padding: 8px 10px; border: 1px solid #cbd5e1; font-weight: 700; }
-          td { padding: 8px 10px; border: 1px solid #e2e8f0; }
-          tr:nth-child(even) { background: #f8fafc; }
+          th { background: #eceae5; text-align: left; padding: 8px 10px; border: 1px solid #b5b0a6; font-weight: 700; }
+          td { padding: 8px 10px; border: 1px solid #d8d4cb; }
+          tr:nth-child(even) { background: #eceae5; }
           .amount-col { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-          .total-row { font-weight: 800; background: #e2e8f0 !important; font-size: 13px; }
-          .footer { margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 14px; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; }
+          .total-row { font-weight: 800; background: #d8d4cb !important; font-size: 13px; }
+          .footer { margin-top: 40px; border-top: 1px solid #b5b0a6; padding-top: 14px; display: flex; justify-content: space-between; font-size: 11px; color: #8e8a82; }
           @media print {
             body { padding: 0; }
             button { display: none; }
@@ -442,8 +442,8 @@ export function printBoqReport(boq: BoqEstimate, projectName: string = "Architec
       <body>
         <div class="header">
           <div>
-            <h1>📐 Bill of Quantities (BOQ) &amp; Material Takeoff</h1>
-            <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Project: ${projectName} • Date: ${new Date().toLocaleDateString()}</div>
+            <h1> Bill of Quantities (BOQ) &amp; Material Takeoff</h1>
+            <div style="font-size: 13px; color: #6d685e; margin-top: 4px;">Project: ${projectName} • Date: ${new Date().toLocaleDateString()}</div>
           </div>
           <span class="badge">${boq.tier.toUpperCase()} TIER</span>
         </div>
@@ -484,7 +484,7 @@ export function printBoqReport(boq: BoqEstimate, projectName: string = "Architec
                 (it) => `
               <tr>
                 <td><strong>${it.code}</strong></td>
-                <td>${it.description} ${it.specNotes ? `<br><small style="color:#64748b;">${it.specNotes}</small>` : ""}</td>
+                <td>${it.description} ${it.specNotes ? `<br><small style="color:#6d685e;">${it.specNotes}</small>` : ""}</td>
                 <td style="text-align: right;">${it.quantity.toLocaleString()}</td>
                 <td>${it.unit}</td>
                 <td style="text-align: right;">${it.rate.toLocaleString()}</td>

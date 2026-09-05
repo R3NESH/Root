@@ -86,10 +86,10 @@ export interface FloorLevelDef {
 }
 
 export const FLOOR_LEVEL_CONFIGS: FloorLevelDef[] = [
-  { floor: 0, label: "Ground Floor", short: "G", icon: "🏡", heightOffsetFt: 0 },
-  { floor: 1, label: "First Floor", short: "1F", icon: "🏢", heightOffsetFt: 10 },
-  { floor: 2, label: "Second Floor", short: "2F", icon: "🏙️", heightOffsetFt: 20 },
-  { floor: 3, label: "Terrace / Roof", short: "Roof", icon: "☀️", heightOffsetFt: 30 },
+  { floor: 0, label: "Ground Floor", short: "G", icon: "L0", heightOffsetFt: 0 },
+  { floor: 1, label: "First Floor", short: "1F", icon: "L1", heightOffsetFt: 10 },
+  { floor: 2, label: "Second Floor", short: "2F", icon: "L2", heightOffsetFt: 20 },
+  { floor: 3, label: "Terrace / Roof", short: "Roof", icon: "SUN", heightOffsetFt: 30 },
 ];
 
 export const WALL_TYPE_CONFIGS: Record<
@@ -98,56 +98,56 @@ export const WALL_TYPE_CONFIGS: Record<
 > = {
   exterior: {
     name: "Exterior Wall (9\")",
-    icon: "🧱",
+    icon: "WAL",
     thicknessIn: 9.0,
     colorHex: 0x334155,
     defaultHeightFt: 9.0,
   },
   interior: {
     name: "Interior Wall (4.5\")",
-    icon: "🧱",
+    icon: "WAL",
     thicknessIn: 4.5,
     colorHex: 0x475569,
     defaultHeightFt: 9.0,
   },
   glass: {
     name: "Glass Grid Partition",
-    icon: "🪟",
+    icon: "WIN",
     thicknessIn: 3.0,
     colorHex: 0x0284c7,
     defaultHeightFt: 9.0,
   },
   slat: {
     name: "Acoustic Wood Slat",
-    icon: "🪵",
+    icon: "WD",
     thicknessIn: 3.5,
     colorHex: 0xd97706,
     defaultHeightFt: 9.0,
   },
   arch: {
     name: "Arched Opening Divider",
-    icon: "🏛️",
+    icon: "CLS",
     thicknessIn: 6.0,
     colorHex: 0x64748b,
     defaultHeightFt: 9.0,
   },
   curved: {
     name: "Curved Feature Wall (9\")",
-    icon: "💫",
+    icon: "CRV",
     thicknessIn: 9.0,
     colorHex: 0x38bdf8,
     defaultHeightFt: 9.0,
   },
   curved_glass: {
     name: "Curved Panoramic Glass Wall",
-    icon: "🪟",
+    icon: "WIN",
     thicknessIn: 3.0,
     colorHex: 0x0284c7,
     defaultHeightFt: 9.0,
   },
   curved_slat: {
     name: "Curved Fluted Wood Slat Wall",
-    icon: "🪵",
+    icon: "WD",
     thicknessIn: 3.5,
     colorHex: 0xd97706,
     defaultHeightFt: 9.0,
@@ -158,12 +158,12 @@ export const FLOOR_MATERIAL_CONFIGS: Record<
   CustomFloorMaterial,
   { name: string; icon: string; colorHex: number; roughness: number }
 > = {
-  marble: { name: "Italian Marble", icon: "🏛️", colorHex: 0xf8fafc, roughness: 0.15 },
-  wood: { name: "Hardwood Timber", icon: "🪵", colorHex: 0xb45309, roughness: 0.45 },
-  tile: { name: "Vitrified Tiles", icon: "🔲", colorHex: 0xe2e8f0, roughness: 0.3 },
-  granite: { name: "Polished Granite", icon: "⬛", colorHex: 0x334155, roughness: 0.2 },
-  paver: { name: "Outdoor Stone Paver", icon: "🧱", colorHex: 0x94a3b8, roughness: 0.8 },
-  concrete: { name: "Polished Concrete", icon: "🏗️", colorHex: 0x64748b, roughness: 0.5 },
+  marble: { name: "Italian Marble", icon: "CLS", colorHex: 0xf8fafc, roughness: 0.15 },
+  wood: { name: "Hardwood Timber", icon: "WD", colorHex: 0xb45309, roughness: 0.45 },
+  tile: { name: "Vitrified Tiles", icon: "PNL", colorHex: 0xe2e8f0, roughness: 0.3 },
+  granite: { name: "Polished Granite", icon: "BLK", colorHex: 0x334155, roughness: 0.2 },
+  paver: { name: "Outdoor Stone Paver", icon: "WAL", colorHex: 0x94a3b8, roughness: 0.8 },
+  concrete: { name: "Polished Concrete", icon: "BLD", colorHex: 0x64748b, roughness: 0.5 },
 };
 
 /**

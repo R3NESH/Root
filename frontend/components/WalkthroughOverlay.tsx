@@ -64,7 +64,7 @@ export default function WalkthroughOverlay({
       {doorPrompt && (
         <div className={styles.doorInteractPrompt}>
           <div className={styles.doorPromptBadge}>
-            <span className={styles.doorPromptIcon}>🚪</span>
+            <span className={styles.doorPromptIcon}>DR</span>
             <div className={styles.doorPromptText}>
               <span className={styles.doorPromptAction}>
                 Press <strong>[E]</strong> to {doorPrompt.isOpen ? "Close" : "Open"}
@@ -136,7 +136,7 @@ export default function WalkthroughOverlay({
               onClick={onToggleLights}
               title="Toggle Interior Room Lights (F)"
             >
-              💡 {lightsOn ? "Lights ON" : "Lights OFF"}
+                {lightsOn ? "Lights ON" : "Lights OFF"}
             </button>
           )}
           <button className={styles.exitBtn} onClick={onExit} title="Exit Walkthrough (ESC)">
@@ -147,9 +147,9 @@ export default function WalkthroughOverlay({
 
       {/* Center Subtle Hint for Desktop Users */}
       <div className={styles.centerHint}>
-        <span>⌨️ WASD to Walk</span>
+        <span> WASD to Walk</span>
         <span>•</span>
-        <span>🖱️ Drag / Swipe to Look</span>
+        <span> Drag / Swipe to Look</span>
         <span>•</span>
         <span>Shift Sprint</span>
         <span>•</span>
@@ -168,7 +168,7 @@ export default function WalkthroughOverlay({
             onPointerLeave={handlePointerUpCmd}
             title="Turn Left"
           >
-            ↺
+
           </button>
           <button
             className={`${styles.dpadBtn} ${activeMoveCmd === "forward" ? styles.dpadBtnActive : ""}`}
@@ -186,7 +186,7 @@ export default function WalkthroughOverlay({
             onPointerLeave={handlePointerUpCmd}
             title="Turn Right"
           >
-            ↻
+
           </button>
 
           {/* Row 2: Strafe Left, Backward, Strafe Right */}
@@ -229,7 +229,7 @@ export default function WalkthroughOverlay({
               onPointerLeave={handlePointerUpCmd}
               title="Hold to Sprint"
             >
-              ⚡
+
               <span>Run</span>
             </button>
             <button
@@ -239,7 +239,7 @@ export default function WalkthroughOverlay({
               onPointerLeave={handlePointerUpCmd}
               title="Jump"
             >
-              ⬆️
+              ⬆
               <span>Jump</span>
             </button>
           </div>
@@ -251,7 +251,7 @@ export default function WalkthroughOverlay({
               onPointerLeave={handlePointerUpCmd}
               title="Crouch / Eye Level Down"
             >
-              ⬇️
+              ⬇
               <span>Duck</span>
             </button>
             {onToggleLights && (
@@ -260,7 +260,7 @@ export default function WalkthroughOverlay({
                 onClick={onToggleLights}
                 title="Toggle Lights"
               >
-                💡
+
                 <span>Light</span>
               </button>
             )}
@@ -273,7 +273,7 @@ export default function WalkthroughOverlay({
                 title={`Press E to ${doorPrompt.isOpen ? "close" : "open"} ${doorPrompt.label}`}
                 style={{ width: "100%", height: 36, flexDirection: "row", gap: 6 }}
               >
-                🚪
+
                 <span>[E] {doorPrompt.isOpen ? "Close" : "Open"}</span>
               </button>
             </div>

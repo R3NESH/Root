@@ -2,14 +2,13 @@
 .modalBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(4, 13, 26, 0.82);
-  backdrop-filter: blur(14px);
+  background: rgba(10, 9, 8, 0.82);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeIn 0.25s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
@@ -22,17 +21,17 @@
 }
 
 .modalContent {
-  background: #08192e;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 18px;
+  background: #131210;
+  border: 1px solid rgba(111, 154, 168, 0.35);
+  border-radius: 4px;
   width: 100%;
   max-width: 1100px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 32px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
   overflow: hidden;
-  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: scaleUp 0.25s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes scaleUp {
@@ -52,8 +51,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 28px;
-  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
-  background: rgba(14, 38, 68, 0.4);
+  border-bottom: 1px solid rgba(111, 154, 168, 0.15);
+  background: rgba(19, 18, 16, 0.4);
 }
 
 .titleArea {
@@ -63,7 +62,7 @@
 }
 
 .modalTitle {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.01em;
@@ -74,7 +73,7 @@
 
 .modalSubtitle {
   font-size: 13px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .headerActions {
@@ -84,46 +83,46 @@
 }
 
 .importBtn {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(2, 132, 199, 0.25));
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #7dd3fc;
-  font-size: 12.5px;
+  background: rgba(111, 154, 168, 0.15);
+  border: 1px solid rgba(111, 154, 168, 0.4);
+  color: #8ab3bf;
+  font-size: 12px;
   font-weight: 700;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .importBtn:hover {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(2, 132, 199, 0.45));
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.3);
+  border-color: #6f9aa8;
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 4px 12px rgba(111, 154, 168, 0.25);
 }
 
 .closeBtn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 19px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .closeBtn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: #ef4444;
+  background: rgba(168, 68, 47, 0.25);
+  border-color: #a8442f;
   color: #ffffff;
   transform: scale(1.05);
 }
@@ -136,8 +135,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: rgba(6, 20, 38, 0.6);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+  background: rgba(19, 18, 16, 0.6);
+  border-bottom: 1px solid rgba(111, 154, 168, 0.1);
 }
 
 .filterGroup {
@@ -150,7 +149,7 @@
 .filterLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #7dd3fc;
+  color: #8ab3bf;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-right: 4px;
@@ -159,27 +158,27 @@
 .filterChip {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .filterChip:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.15);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .filterChipActive {
-  background: rgba(56, 189, 248, 0.3) !important;
-  border-color: #38bdf8 !important;
-  color: #38bdf8 !important;
+  background: rgba(111, 154, 168, 0.3) !important;
+  border-color: #6f9aa8 !important;
+  color: #6f9aa8 !important;
   font-weight: 700;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  box-shadow: none;
 }
 
 .searchGroup {
@@ -188,25 +187,28 @@
 }
 
 .searchInput {
-  background: rgba(14, 38, 68, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  background: rgba(19, 18, 16, 0.7);
+  border: 1px solid rgba(111, 154, 168, 0.3);
   color: #ffffff;
-  font-size: 12.5px;
+  font-size: 12px;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   outline: none;
   width: 220px;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .searchInput:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
-  background: rgba(14, 38, 68, 0.95);
+  border-color: #6f9aa8;
+  box-shadow: none;
+  background: rgba(19, 18, 16, 0.95);
 }
 
 .searchInput::placeholder {
-  color: #64748b;
+  color: #6d685e;
 }
 
 /* Blueprints Scrollable Grid */
@@ -222,42 +224,42 @@
 /* Blueprint Card */
 .blueprintCard {
   background: rgba(11, 30, 54, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 14px;
-  padding: 18px;
+  border: 1px solid rgba(111, 154, 168, 0.2);
+  border-radius: 4px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   position: relative;
   overflow: hidden;
 }
 
 .blueprintCard:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.2);
+  border-color: #6f9aa8;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
   transform: translateY(-2px);
-  background: rgba(14, 38, 68, 0.85);
+  background: rgba(19, 18, 16, 0.85);
 }
 
 /* Card SVG Preview */
 .previewContainer {
   width: 100%;
   height: 130px;
-  background: #06182c;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 10px;
+  background: #131210;
+  border: 1px solid rgba(111, 154, 168, 0.2);
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 8px;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .previewContainer:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+  border-color: #6f9aa8;
+  box-shadow: none;
 }
 
 .cardTopRow {
@@ -268,7 +270,7 @@
 }
 
 .cardTitle {
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.3;
@@ -281,38 +283,38 @@
 }
 
 .plotBadge {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  color: #7dd3fc;
+  background: rgba(111, 154, 168, 0.15);
+  border: 1px solid rgba(111, 154, 168, 0.35);
+  color: #8ab3bf;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 .vaastuBadge {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
-  font-size: 10.5px;
+  background: rgba(184, 92, 34, 0.15);
+  border: 1px solid rgba(184, 92, 34, 0.35);
+  color: #d4703a;
+  font-size: 10px;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 .facingBadge {
-  background: rgba(52, 211, 153, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  color: #6ee7b7;
+  background: rgba(122, 150, 104, 0.15);
+  border: 1px solid rgba(122, 150, 104, 0.35);
+  color: #93ab84;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 .cardDescription {
   font-size: 12px;
-  color: #cbd5e1;
+  color: #b5b0a6;
   line-height: 1.45;
 }
 
@@ -324,13 +326,13 @@
 }
 
 .roomTag {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   padding: 2px 7px;
-  border-radius: 6px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  color: #8e8a82;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -344,7 +346,7 @@
   margin: 0;
   padding-left: 16px;
   font-size: 11px;
-  color: #93c5fd;
+  color: #8ab3bf;
 }
 
 .highlightsList li {
@@ -358,18 +360,21 @@
   flex-direction: column;
   gap: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(56, 189, 248, 0.15);
+  border-top: 1px solid rgba(111, 154, 168, 0.15);
 }
 
 .areaSummary {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
   font-family: monospace;
 }
 
 .areaValue {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   font-weight: 700;
   color: #ffffff;
 }
@@ -381,25 +386,25 @@
 }
 
 .import2dBtn {
-  background: linear-gradient(135deg, #0284c7, #0369a1);
-  border: 1px solid #38bdf8;
+  background: #3d5c69;
+  border: 1px solid #6f9aa8;
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
-  transition: all 0.15s ease;
+  box-shadow: 0 4px 14px rgba(61, 92, 105, 0.35);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .import2dBtn:hover {
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+  background: #4a6d7c;
+  box-shadow: 0 6px 20px rgba(74, 109, 124, 0.5);
   transform: translateY(-1px);
 }
 
@@ -417,35 +422,35 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
-  font-size: 11.5px;
+  color: #d8d4cb;
+  font-size: 11px;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .view3dBtn:hover {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: #fbbf24;
-  color: #fbbf24;
+  background: rgba(184, 92, 34, 0.2);
+  border-color: #d4703a;
+  color: #d4703a;
 }
 
 .walk3dBtn:hover {
-  background: rgba(52, 211, 153, 0.2);
-  border-color: #34d399;
-  color: #34d399;
+  background: rgba(122, 150, 104, 0.2);
+  border-color: #7a9668;
+  color: #7a9668;
 }
 
 .emptyFilterState {
   grid-column: 1 / -1;
   text-align: center;
-  padding: 48px 0;
-  color: #94a3b8;
-  font-size: 14px;
+  padding: 32px 0;
+  color: #8e8a82;
+  font-size: 13px;
 }

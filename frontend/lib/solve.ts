@@ -50,6 +50,9 @@ export interface SolveMeta {
   envelope_w_in: number;
   envelope_d_in: number;
   unknown_room_names: string[];
+  // Only sent when nothing was placed: the spaces to remove for the mix to pack, verified by the
+  // solver re-solving without them. Absent from the offline engine, which has no such probe.
+  drop_to_fit?: string[];
   entrance_edge: "N" | "S" | "E" | "W" | null;
   rooms_reachable: number;
   // The solver's relaxation ladder handed back a layout with no Vaastu rule posted, even though
@@ -490,7 +493,6 @@ export async function requestSolve(
   }
   return await res.json();
 }
-
 
 export interface ParsedPromptClient {
   plotWIn: number;

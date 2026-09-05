@@ -5,7 +5,7 @@
 
 .taskbarRoot {
   width: 100%;
-  background: #0f1521;
+  background: #1a1916;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -21,7 +21,7 @@
 .appBar {
   height: 36px;
   min-height: 36px;
-  background: #0b111c;
+  background: #131210;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   align-items: center;
@@ -36,27 +36,21 @@
   flex-shrink: 0;
 }
 
-.brandLogo {
-  font-size: 14px;
-  line-height: 1;
+.brandMark {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.25;
+  stroke-linejoin: miter;
 }
 
 .brandTitle {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #d8d4cb;
   letter-spacing: -0.01em;
-}
-
-.brandBadge {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7dd3fc;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 1px 5px;
-  border-radius: 3px;
 }
 
 .appBarDivider {
@@ -87,11 +81,11 @@
 .appBarBtnActive {
   background: transparent;
   border: 1px solid transparent;
-  color: #94a3b8;
+  color: #8e8a82;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
@@ -100,18 +94,18 @@
 .appBarBtn:hover,
 .appBarBtnActive:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
+  color: #eceae5;
 }
 
 .appBarBtnActive {
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.4);
-  color: #e0f2fe;
+  background: rgba(111, 154, 168, 0.14);
+  border-color: rgba(111, 154, 168, 0.4);
+  color: #d3dee1;
 }
 
 .saveBadge {
-  font-size: 10.5px;
-  color: #6ee7b7;
+  font-size: 10px;
+  color: #93ab84;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -124,7 +118,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
+  background: #5f7d4f;
   animation: pulseDot 2s infinite;
 }
 
@@ -140,19 +134,19 @@
   align-items: center;
   gap: 1px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  padding: 1px;
+  border-radius: 2px;
+  padding: 2px;
   flex-shrink: 0;
 }
 
 .modeTab {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #8e8a82;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
@@ -160,11 +154,11 @@
 
 .modeTab:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: #f1f5f9;
+  color: #eceae5;
 }
 
 .modeTabActive {
-  background: #0284c7;
+  background: #3d5c69;
   color: #ffffff;
   font-weight: 700;
 }
@@ -175,7 +169,7 @@
 .tabStrip {
   height: 30px;
   min-height: 30px;
-  background: #0f1521;
+  background: #1a1916;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -194,8 +188,8 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #94a3b8;
-  font-size: 11.5px;
+  color: #8e8a82;
+  font-size: 11px;
   font-weight: 600;
   padding: 6px 16px;
   cursor: pointer;
@@ -204,26 +198,26 @@
 }
 
 .tabBtn:hover {
-  color: #f1f5f9;
+  color: #eceae5;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .tabBtnActive {
   color: #ffffff;
   font-weight: 700;
-  background: #16202f;
-  border-bottom-color: #38bdf8;
+  background: #21201b;
+  border-bottom-color: #6f9aa8;
 }
 
 .collapseBtn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #6d685e;
   width: 24px;
   height: 22px;
-  font-size: 9px;
+  font-size: 10px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
@@ -237,7 +231,7 @@
    -------------------------------------------------------------------------- */
 .ribbonShelf {
   min-height: 96px;
-  background: #16202f;
+  background: #21201b;
   padding: 6px 8px 4px 8px;
   display: flex;
   align-items: stretch;
@@ -276,8 +270,8 @@
 
 .groupLabel {
   text-align: center;
-  font-size: 9px;
-  color: #64748b;
+  font-size: 10px;
+  color: #6d685e;
   font-weight: 600;
   letter-spacing: 0.03em;
   padding-top: 4px;
@@ -293,25 +287,25 @@
 .presetBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 10px;
   font-weight: 600;
-  padding: 3px 6px;
-  border-radius: 5px;
+  padding: 4px 6px;
+  border-radius: 2px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   text-align: center;
 }
 
 .presetBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .presetBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
@@ -328,18 +322,21 @@
   gap: 4px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
+  border-radius: 2px;
   padding: 2px 4px;
 }
 
 .dimLabel {
   font-size: 10px;
   font-weight: 800;
-  color: #38bdf8;
+  color: #6f9aa8;
   width: 12px;
 }
 
 .dimValText {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   font-size: 11px;
   font-weight: 700;
   color: #ffffff;
@@ -350,22 +347,22 @@
 .stepperBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f1f5f9;
+  color: #eceae5;
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: 2px;
   font-size: 11px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .stepperBtn:hover {
-  background: #38bdf8;
-  color: #0b1329;
+  background: #6f9aa8;
+  color: #1a1916;
 }
 
 /* Group 2: Road Facing */
@@ -378,32 +375,32 @@
 .facingBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbd5e1;
+  color: #b5b0a6;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .facingBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .facingBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
 
 .facingIcon {
-  font-size: 14px;
+  display: none;
 }
 
 .facingLetter {
@@ -412,13 +409,13 @@
 }
 
 .facingInfoBadge {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #8e8a82;
   text-align: center;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
-  padding: 3px 6px;
+  border-radius: 2px;
+  padding: 4px 6px;
 }
 
 /* Storey / Floor Level Switcher */
@@ -430,26 +427,26 @@
 .floorBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   min-width: 52px;
   text-align: center;
 }
 
 .floorBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .floorBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
@@ -467,7 +464,7 @@
   gap: 4px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 5px;
+  border-radius: 2px;
   padding: 2px 5px;
 }
 
@@ -481,7 +478,7 @@
 .roomItemLabel {
   font-size: 10px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #b5b0a6;
   min-width: 32px;
 }
 
@@ -498,23 +495,26 @@
   color: #ffffff;
   width: 16px;
   height: 16px;
-  border-radius: 3px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .miniCountBtn:hover {
-  background: #38bdf8;
-  color: #0b1329;
+  background: #6f9aa8;
+  color: #1a1916;
 }
 
 .countNumber {
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  font-size: 10px;
   font-weight: 700;
   color: #ffffff;
   min-width: 10px;
@@ -525,29 +525,29 @@
 .actionPillBtn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f1f5f9;
+  color: #eceae5;
   padding: 6px 12px;
-  border-radius: 7px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .actionPillBtn:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.2);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .actionPillActive {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: #22c55e;
-  color: #4ade80;
+  background: rgba(95, 125, 79, 0.18);
+  border-color: #5f7d4f;
+  color: #7a9668;
 }
 
 /* CAD Drafting Tools Buttons */
@@ -560,51 +560,51 @@
 .cadToolBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .cadToolBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .cadToolBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
 
 .scratchBtn {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
+  background: rgba(184, 92, 34, 0.12);
+  border: 1px solid rgba(184, 92, 34, 0.35);
+  color: #d4703a;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .scratchBtn:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: #f59e0b;
+  background: rgba(184, 92, 34, 0.25);
+  border-color: #b85c22;
   color: #ffffff;
 }
 
@@ -615,21 +615,21 @@
   gap: 2px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
+  border-radius: 3px;
   padding: 6px 10px;
 }
 
 .solverStatusText {
   font-size: 11px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #6f9aa8;
 }
 
 /* Offline grid layout, not a solve. Must not read like the success state above. */
 .solverStatusWarn {
   font-size: 11px;
   font-weight: 700;
-  color: #fbbf24;
+  color: #d4703a;
 }
 
 /* Infeasible solve: program exceeds physical envelope */
@@ -642,18 +642,18 @@
 .solverStatusError {
   font-size: 11px;
   font-weight: 700;
-  color: #ef4444;
+  color: #a8442f;
 }
 
 .solverInfeasibleAction {
-  font-size: 9.5px;
-  color: #fca5a5;
+  font-size: 10px;
+  color: #c98374;
   font-weight: 600;
 }
 
 .solverSubText {
   font-size: 10px;
-  color: #94a3b8;
+  color: #8e8a82;
   font-weight: 500;
 }
 
@@ -669,37 +669,50 @@
 .windowShapeBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbd5e1;
-  font-size: 9.5px;
+  color: #b5b0a6;
+  font-size: 10px;
   font-weight: 600;
   padding: 4px 6px;
-  border-radius: 5px;
+  border-radius: 2px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .windowShapeBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .windowShapeBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
 
 .windowShapeIcon {
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 3px 3px;
+  color: var(--ink-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface-sunk);
 }
 
 .windowShapeName {
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .wallActionsColumn {
@@ -709,8 +722,8 @@
 }
 
 .instructionHint {
-  font-size: 9.5px;
-  color: #94a3b8;
+  font-size: 10px;
+  color: #8e8a82;
   font-weight: 500;
 }
 
@@ -718,61 +731,61 @@
    Tab 5: CAD & Blueprints
    -------------------------------------------------------------------------- */
 .modelBlueprintsBtn {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.25));
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  color: #fbbf24;
+  background: rgba(184, 92, 34, 0.2);
+  border: 1px solid rgba(184, 92, 34, 0.5);
+  color: #d4703a;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .modelBlueprintsBtn:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(217, 119, 6, 0.45));
+  background: rgba(184, 92, 34, 0.35);
   color: #ffffff;
 }
 
 .cadViewBtn {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.15);
+  border: 1px solid rgba(111, 154, 168, 0.35);
+  color: #6f9aa8;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .cadViewBtn:hover {
-  background: rgba(56, 189, 248, 0.25);
+  background: rgba(111, 154, 168, 0.25);
   color: #ffffff;
 }
 
 .cadViewBtnActive {
-  background: #0284c7;
+  background: #3d5c69;
   color: #ffffff;
 }
 
 .exportSuiteBtn {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3));
-  border: 1px solid rgba(16, 185, 129, 0.5);
-  color: #34d399;
+  background: rgba(95, 125, 79, 0.2);
+  border: 1px solid rgba(95, 125, 79, 0.5);
+  color: #7a9668;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .exportSuiteBtn:hover {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.45));
+  background: rgba(95, 125, 79, 0.35);
   color: #ffffff;
 }
 
@@ -780,15 +793,15 @@
    3. Pinned Contextual Selection Inspector Deck
    -------------------------------------------------------------------------- */
 .selectedInspectorDeck {
-  background: #0f1521;
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  border-radius: 6px;
+  background: #1a1916;
+  border: 1px solid rgba(111, 154, 168, 0.45);
+  border-radius: 3px;
   padding: 6px 12px;
   display: flex;
   align-items: center;
   margin-left: auto;
   flex-shrink: 0;
-  animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideIn 0.2s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes slideIn {
@@ -818,22 +831,22 @@
 .inspectorTitle {
   font-size: 11px;
   font-weight: 800;
-  color: #fbbf24;
+  color: #d4703a;
 }
 
 .builtinBadge {
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
   background: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  padding: 1px 4px;
-  border-radius: 3px;
+  color: #8e8a82;
+  padding: 2px 4px;
+  border-radius: 2px;
 }
 
 .deselectBtn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #8e8a82;
   font-size: 12px;
   cursor: pointer;
   padding: 0 4px;
@@ -841,7 +854,7 @@
 }
 
 .deselectBtn:hover {
-  color: #ef4444;
+  color: #a8442f;
 }
 
 .inspectorActions {
@@ -857,7 +870,7 @@
   gap: 3px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
+  border-radius: 2px;
   padding: 2px 4px;
 }
 
@@ -866,20 +879,20 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: 2px;
   font-size: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .moveBtn:hover {
-  background: #38bdf8;
-  color: #0b1329;
+  background: #6f9aa8;
+  color: #1a1916;
 }
 
 .positionBadge {
-  font-size: 8.5px;
-  color: #94a3b8;
+  font-size: 10px;
+  color: #8e8a82;
   font-weight: 600;
   margin-left: 2px;
 }
@@ -888,17 +901,17 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 4px 7px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .transformBtn:hover {
-  background: rgba(232, 145, 45, 0.3);
-  border-color: #e8912d;
+  background: rgba(184, 92, 34, 0.3);
+  border-color: #b85c22;
 }
 
 .colorPaletteRow {
@@ -920,88 +933,88 @@
 }
 
 .replaceBtn {
-  background: rgba(56, 189, 248, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
-  padding: 3px 7px;
-  border-radius: 5px;
+  background: rgba(111, 154, 168, 0.2);
+  border: 1px solid rgba(111, 154, 168, 0.4);
+  color: #6f9aa8;
+  padding: 4px 7px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .replaceBtn:hover {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(111, 154, 168, 0.35);
   color: #ffffff;
 }
 
 .deleteBtn {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #ef4444;
-  padding: 3px 7px;
-  border-radius: 5px;
+  background: rgba(168, 68, 47, 0.2);
+  border: 1px solid rgba(168, 68, 47, 0.4);
+  color: #a8442f;
+  padding: 4px 7px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .deleteBtn:hover {
-  background: rgba(239, 68, 68, 0.35);
+  background: rgba(168, 68, 47, 0.35);
   color: #ffffff;
 }
 
 /* Wall Demolish Actions */
 .demolishWallBtn {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  background: rgba(168, 68, 47, 0.2);
+  border: 1px solid rgba(168, 68, 47, 0.4);
+  color: #bf5a42;
   padding: 4px 9px;
-  border-radius: 5px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .demolishWallBtn:hover {
-  background: rgba(239, 68, 68, 0.35);
+  background: rgba(168, 68, 47, 0.35);
   color: #ffffff;
 }
 
 .rebuildWallBtn {
-  background: rgba(34, 197, 94, 0.2);
-  border: 1px solid rgba(34, 197, 94, 0.4);
-  color: #4ade80;
+  background: rgba(95, 125, 79, 0.2);
+  border: 1px solid rgba(95, 125, 79, 0.4);
+  color: #7a9668;
   padding: 4px 9px;
-  border-radius: 5px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .rebuildWallBtn:hover {
-  background: rgba(34, 197, 94, 0.35);
+  background: rgba(95, 125, 79, 0.35);
   color: #ffffff;
 }
 
 .addWinBtn {
-  background: rgba(56, 189, 248, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.2);
+  border: 1px solid rgba(111, 154, 168, 0.4);
+  color: #6f9aa8;
   padding: 4px 9px;
-  border-radius: 5px;
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .addWinBtn:hover {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(111, 154, 168, 0.35);
   color: #ffffff;
 }
 
@@ -1010,8 +1023,8 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 9.5px;
-  color: #cbd5e1;
+  font-size: 10px;
+  color: #b5b0a6;
 }
 
 .stepperMiniBtn {
@@ -1020,18 +1033,18 @@
   color: #ffffff;
   width: 16px;
   height: 16px;
-  border-radius: 3px;
+  border-radius: 2px;
   font-size: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .stepperMiniBtn:hover {
-  background: #38bdf8;
-  color: #0b1329;
+  background: #6f9aa8;
+  color: #1a1916;
 }
 
 .stepperMiniVal {
@@ -1042,18 +1055,18 @@
 }
 
 .curtainBtn, .curtainBtnActive {
-  padding: 3px 8px;
-  border-radius: 5px;
-  font-size: 9.5px;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .curtainBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .curtainBtn:hover {
@@ -1062,9 +1075,9 @@
 }
 
 .curtainBtnActive {
-  background: rgba(245, 158, 11, 0.25);
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
+  background: rgba(184, 92, 34, 0.25);
+  border: 1px solid #b85c22;
+  color: #d4703a;
 }
 
 /* Quick Wall Colors & Color Wheel */
@@ -1080,34 +1093,40 @@
 }
 
 .aiPromptInputGroup {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1.5px solid rgba(99, 102, 241, 0.4);
-  border-radius: 10px;
+  background: rgba(26, 25, 22, 0.85);
+  border: 1.5px solid rgba(74, 109, 124, 0.4);
+  border-radius: 3px;
   padding: 4px 6px 4px 12px;
   gap: 10px;
   flex: 1;
   max-width: 680px;
-  box-shadow: 0 0 16px rgba(99, 102, 241, 0.15);
-  transition: all 0.2s ease;
+  box-shadow: none;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .aiPromptInputGroup:focus-within {
-  border-color: #818cf8;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
-  background: rgba(15, 23, 42, 0.95);
+  border-color: #6f9aa8;
+  box-shadow: none;
+  background: rgba(26, 25, 22, 0.95);
 }
 
 .aiSparkleIcon {
-  font-size: 18px;
-  color: #a5b4fc;
+  font-size: 19px;
+  color: #8ab3bf;
 }
 
 .aiPromptInput {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   background: transparent;
   border: none;
-  color: #f8fafc;
+  color: #eceae5;
   font-size: 13px;
   font-weight: 500;
   width: 100%;
@@ -1116,30 +1135,30 @@
 }
 
 .aiPromptInput::placeholder {
-  color: #64748b;
-  font-size: 12.5px;
+  color: #6d685e;
+  font-size: 12px;
 }
 
 .aiSimulateBtn {
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  background: #4a6d7c;
   color: #ffffff;
   border: none;
-  border-radius: 7px;
-  padding: 7px 16px;
+  border-radius: 3px;
+  padding: 6px 16px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 10px rgba(74, 109, 124, 0.4);
 }
 
 .aiSimulateBtn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.5);
+  box-shadow: 0 4px 14px rgba(138, 111, 146, 0.5);
   filter: brightness(1.1);
 }
 
@@ -1158,28 +1177,28 @@
 .aiPillLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #8e8a82;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .aiPill {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(33, 32, 27, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
+  border-radius: 3px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .aiPill:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #f8fafc;
+  background: rgba(74, 109, 124, 0.2);
+  border-color: rgba(74, 109, 124, 0.4);
+  color: #eceae5;
   transform: translateY(-1px);
 }
 
@@ -1196,11 +1215,11 @@
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  padding: 3px 8px;
-  border-radius: 5px;
+  color: #6f9aa8;
+  background: rgba(111, 154, 168, 0.08);
+  border: 1px solid rgba(111, 154, 168, 0.2);
+  padding: 4px 8px;
+  border-radius: 2px;
   white-space: nowrap;
 }
 
@@ -1214,34 +1233,46 @@
 .programBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbd5e1;
-  padding: 5px 10px;
-  border-radius: 6px;
+  color: #b5b0a6;
+  padding: 4px 10px;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   cursor: pointer;
   min-width: 58px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .programBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .programBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
   font-weight: 700;
 }
 
 .programIcon {
-  font-size: 16px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 3px 3px;
+  color: var(--ink-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface-sunk);
 }
 
 .programLabel {
@@ -1261,11 +1292,11 @@
 }
 
 .bandLabel {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: #6d685e;
 }
 
 .bandDivider {
@@ -1277,18 +1308,18 @@
 .bandPresetBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 10px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 8px;
+  border-radius: 2px;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .bandPresetBtn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.18);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
@@ -1297,14 +1328,14 @@
   align-items: center;
   gap: 3px;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
-  padding: 1px 3px;
+  border-radius: 2px;
+  padding: 2px 3px;
 }
 
 .bandSwatch {
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: 2px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
   position: relative;
@@ -1315,13 +1346,19 @@
 }
 
 .bandSwatchNum {
-  font-size: 9px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  font-size: 10px;
   font-weight: 800;
   color: rgba(0, 0, 0, 0.55);
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
 }
 
 .hiddenBandInput {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -1331,39 +1368,39 @@
 .bandColorSelect {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 10px;
-  border-radius: 5px;
-  padding: 3px 6px;
+  border-radius: 2px;
+  padding: 4px 6px;
   cursor: pointer;
   max-width: 110px;
 }
 
 .bandClearBtn {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  background: rgba(168, 68, 47, 0.12);
+  border: 1px solid rgba(168, 68, 47, 0.35);
+  color: #c98374;
   font-size: 10px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 8px;
+  border-radius: 2px;
   cursor: pointer;
 }
 
 .bandClearBtn:hover {
-  background: rgba(239, 68, 68, 0.24);
+  background: rgba(168, 68, 47, 0.24);
   color: #ffffff;
 }
 
 /* Glazing toggles: an on-state for the Wall / Door buttons */
 .bandPresetActive {
-  background: #0284c7;
-  border: 1px solid #38bdf8;
+  background: #3d5c69;
+  border: 1px solid #6f9aa8;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 8px;
+  border-radius: 2px;
   cursor: pointer;
   white-space: nowrap;
 }

@@ -31,7 +31,7 @@ export default function RoomDimensionsModal({
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.titleGroup}>
-            <span className={styles.icon}>📐</span>
+            <span className={styles.icon}>PLN</span>
             <div>
               <h2 className={styles.title}>Room Dimensions &amp; Sizing Studio</h2>
               <p className={styles.subtitle}>
@@ -57,7 +57,7 @@ export default function RoomDimensionsModal({
         {/* Footer */}
         <div className={styles.footer}>
           <span className={styles.footerTip}>
-            💡 Tip: Dimensions snap in 1-foot increments. The 3D view and 2D CAD blueprint update in real time!
+            Tip: Dimensions snap in 1-foot increments. The 3D view and 2D CAD blueprint update in real time!
           </span>
           <button className={styles.doneBtn} onClick={onClose}>
             ✓ Done Sizing

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from envelope import DEFAULT_SETBACK, FACINGS, Setback, buildable_envelope
-from programs import PROGRAMS, RESIDENTIAL, get_program
+from programs import PROGRAMS, RESIDENTIAL, Program, get_program
 from solver.model import solve_layout
 from solver.rooms import ROOM_CATALOG, Room
 
@@ -173,6 +173,9 @@ class SolveMeta(BaseModel):
     # has rules and the caller asked for them. The UI must say so rather than present it as a
     # normal plan — notes/decisions/vaastu-as-constraints.md.
     vaastu_relaxed: bool = False
+    # Only populated when nothing was placed. The names to remove for the mix to pack, verified
+    # by re-solving rather than estimated. Empty when even the probe found nothing that fits.
+    drop_to_fit: list[str] = []
 
 
 class SolveResponse(BaseModel):
@@ -181,6 +184,61 @@ class SolveResponse(BaseModel):
     walls: list[WallOut] = []
     quantities: QuantitiesOut | None = None
     meta: SolveMeta
+
+
+# How many spaces the fit probe will try removing before it gives up. Each rung is a full solve,
+# so this is a latency budget, not a search depth: a mix that needs five spaces removed is not a
+# plot problem the caller can nudge, it is the wrong plot.
+MAX_DROP_PROBES = 4
+
+
+def _drop_to_fit(
+    env_w_in: int,
+    env_d_in: int,
+    rooms: list[Room],
+    program: Program,
+    facing: str,
+    apply_vaastu: bool,
+) -> list[str]:
+    """Names to remove for `rooms` to pack into the envelope, largest space first.
+
+    INFEASIBLE is an honest answer and a dead end: the ladder in solver/model.py has already
+    given up Vaastu, daylight and the area preference, so there is nothing left to relax and the
+    only thing the caller can do is carry fewer spaces. Saying which ones turns the dead end
+    into a next step.
+
+    Every rung re-solves rather than comparing areas, because area is necessary and not
+    sufficient — a 20x30 plot clears the arithmetic for four rooms and still packs none of them.
+    Returns [] when even the smallest probe fails.
+    """
+    # Only the hub the mix will actually root its door tree at is protected. `hub_fallbacks` are
+    # the kinds tried when the named hub is absent, not a second set of rooms to keep — treating
+    # them as protected shielded both bedrooms of a 2BHK and left the probe dropping the hall.
+    present = {r.name for r in rooms}
+    hub = program.hub if program.hub in present else next(
+        (k for k in program.hub_fallbacks if k in present), None
+    )
+    hub_kinds = {hub} if hub else set()
+    remaining = list(rooms)
+    dropped: list[str] = []
+
+    for _ in range(min(MAX_DROP_PROBES, len(rooms) - 1)):
+        # Biggest first: it frees the most envelope per space given up. The hub is the room every
+        # other one opens off, so it goes last of all — dropping it before the leaves it serves
+        # would hand back a set of rooms that cannot form a house.
+        candidates = [r for r in remaining if r.name not in hub_kinds] or remaining
+        victim = max(candidates, key=lambda r: (r.min_w_in * r.min_d_in, r.name))
+        remaining = [r for r in remaining if r is not victim]
+        dropped.append(victim.name)
+
+        probe = solve_layout(
+            env_w_in, env_d_in, remaining,
+            apply_vaastu=apply_vaastu, program=program, facing=facing,
+        )
+        if probe.rooms:
+            return dropped
+
+    return []
 
 
 @app.post("/solve", response_model=SolveResponse)
@@ -288,6 +346,14 @@ def solve(req: SolveRequest) -> SolveResponse:
     )
     is_residence = program.key == RESIDENTIAL.key
 
+    # Nothing placed and nothing left to relax: work out what would fit, so the caller gets a
+    # next step instead of a blank plan.
+    drop_to_fit = (
+        _drop_to_fit(env.width_in, env.depth_in, rooms, program, facing, req.apply_vaastu)
+        if not result.rooms
+        else []
+    )
+
     walls_out = [
         WallOut(
             id=w.id,
@@ -369,6 +435,7 @@ def solve(req: SolveRequest) -> SolveResponse:
             rules_label=result.rules_label,
             rules_applied=result.vaastu_constraints_applied,
             rules_relaxed=result.vaastu_relaxed,
+            drop_to_fit=drop_to_fit,
         ),
     )
 

@@ -107,7 +107,7 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
     name: "Italian Carrara White Marble",
     category: "marble",
     description: "Classic pristine white Italian marble with subtle smokey grey quartz veining and high specular sheen.",
-    swatchColor: "#f8fafc",
+    swatchColor: "#eceae5",
     roughness: 0.16,
     metalness: 0.08,
   },
@@ -116,7 +116,7 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
     name: "Nero Marquina Black Marble",
     category: "marble",
     description: "Deep Spanish obsidian black marble with striking white crystalline lightning veining.",
-    swatchColor: "#0f172a",
+    swatchColor: "#1a1916",
     roughness: 0.18,
     metalness: 0.12,
   },
@@ -273,7 +273,7 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
     name: "Glossy Ceramic Subway Tile",
     category: "tile",
     description: "Classic staggered brick-bond glossy ceramic tiles ideal for kitchens and baths.",
-    swatchColor: "#e2e8f0",
+    swatchColor: "#d8d4cb",
     roughness: 0.22,
     metalness: 0.06,
   },
@@ -282,18 +282,18 @@ export const FLOOR_MATERIALS: FloorMaterialDef[] = [
     name: "Calacatta Quartzite Kitchen Slab",
     category: "tile",
     description: "Heavy-duty luxury kitchen stone with bold grey and gold dramatic river veins.",
-    swatchColor: "#f1f5f9",
+    swatchColor: "#eceae5",
     roughness: 0.17,
     metalness: 0.09,
   },
 ];
 
 export const WALL_COLORS: WallColorDef[] = [
-  { id: "arctic_white", name: "Crisp Arctic White", hex: "#f8fafc", description: "Modern, clean, luminous neutral white." },
+  { id: "arctic_white", name: "Crisp Arctic White", hex: "#eceae5", description: "Modern, clean, luminous neutral white." },
   { id: "warm_alabaster", name: "Warm Alabaster / Cream", hex: "#f5f0e8", description: "Cozy warm white with gentle golden undertones." },
   { id: "sage_mist", name: "Nordic Sage Green", hex: "#b4c3b5", description: "Relaxing, earthy biophilic muted sage tone." },
   { id: "royal_navy", name: "Deep Royal Navy", hex: "#1e293b", description: "Sophisticated, dramatic dark accent wall color." },
-  { id: "charcoal_slate", name: "Modern Charcoal Slate", hex: "#334155", description: "Contemporary urban industrial grey." },
+  { id: "charcoal_slate", name: "Modern Charcoal Slate", hex: "#3a372f", description: "Contemporary urban industrial grey." },
   { id: "terracotta", name: "Warm Indian Terracotta", hex: "#b85d38", description: "Rich sun-baked clay tone full of warmth." },
   { id: "champagne_gold", name: "Soft Champagne Gold", hex: "#e4d6c4", description: "Luminous, elegant soft cream with gold tint." },
   { id: "dusty_rose", name: "Pastel Dusty Rose", hex: "#d8b4b8", description: "Subtle, romantic muted rose blush tone." },
@@ -320,20 +320,20 @@ export const DOOR_COLORS: DoorColorDef[] = [
   { id: "dark_walnut", name: "Rich Dark Walnut", hex: "#2b1e16", description: "Deep classic dark walnut hardwood" },
   { id: "natural_teak", name: "Burmese Golden Teak", hex: "#8c531b", description: "Warm golden-amber natural teak grain" },
   { id: "nordic_oak", name: "Nordic White Oak", hex: "#c29b68", description: "Light modern Scandinavian bleached oak" },
-  { id: "pure_white", name: "Architectural Pure White", hex: "#f8fafc", description: "Clean minimalist modern satin white" },
+  { id: "pure_white", name: "Architectural Pure White", hex: "#eceae5", description: "Clean minimalist modern satin white" },
   { id: "matte_black", name: "Industrial Matte Black", hex: "#1e293b", description: "Sleek contemporary obsidian black" },
   { id: "mahogany_red", name: "Royal Mahogany", hex: "#4a1515", description: "Lustrous deep reddish-brown mahogany" },
   { id: "sage_green", name: "Modern Sage Green", hex: "#475569", description: "Sophisticated muted earthy green" },
   { id: "navy_blue", name: "Colonial Navy Blue", hex: "#1e3a5f", description: "Regal classic deep navy blue" },
   { id: "rosewood", name: "Brazilian Rosewood", hex: "#3b1c11", description: "Exotic dark purplish-brown rosewood" },
-  { id: "charcoal_grey", name: "Urban Charcoal Grey", hex: "#334155", description: "Modern architectural slate grey" },
+  { id: "charcoal_grey", name: "Urban Charcoal Grey", hex: "#3a372f", description: "Modern architectural slate grey" },
 ];
 
 export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "architectural_studio_cutaway",
     name: "Architectural Studio Cutaway",
-    icon: "📸",
+    icon: "RAY",
     description: "Nordic Blonde Oak planks, Crisp White Cutaway Plaster walls, Balcony Pavers, and Deep Blue Mosaic bathroom.",
     globalFloor: "scandinavian_oak",
     globalWallColor: "arctic_white",
@@ -358,7 +358,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "parisian_dollhouse",
     name: "Parisian Haute Dollhouse",
-    icon: "🏛️",
+    icon: "CLS",
     description: "French Chevron Blonde Oak, Crisp Boiserie picture frame moldings, Nero Marquina accents, and bright studio sun.",
     globalFloor: "french_chevron_oak",
     globalWallColor: "arctic_white",
@@ -381,7 +381,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "modern_luxury",
     name: "Ultra-Modern Luxury",
-    icon: "💎",
+    icon: "ULT",
     description: "Carrara White & Nero Marquina marble, Absolute Black Granite kitchen, Walnut bedroom, and Venetian Stucco walls.",
     globalFloor: "carrara_white",
     globalWallColor: "arctic_white",
@@ -404,7 +404,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "scandinavian_warmth",
     name: "Scandinavian Warmth",
-    icon: "🌿",
+    icon: "GRN",
     description: "European Natural Oak & Scandi Grey Ash, Subway Tile kitchen, and Nordic Sage Green & Linen walls.",
     globalFloor: "natural_oak",
     globalWallColor: "sage_mist",
@@ -427,7 +427,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "royal_indian_classic",
     name: "Royal Indian Classic",
-    icon: "🏛️",
+    icon: "CLS",
     description: "Royal Botticino Gold marble, Burma Teak Chevron wood, Warm Terracotta & Champagne Gold walls.",
     globalFloor: "botticino_gold",
     globalWallColor: "warm_alabaster",
@@ -450,7 +450,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "industrial_urban_loft",
     name: "Industrial Urban Loft",
-    icon: "🏙️",
+    icon: "L2",
     description: "Nero Marquina Black marble, Hexagonal Slate kitchen, Exposed Brick & Charcoal Slate walls.",
     globalFloor: "hex_slate",
     globalWallColor: "charcoal_slate",
@@ -473,7 +473,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: "mediterranean_coastal",
     name: "Mediterranean Coastal",
-    icon: "🌊",
+    icon: "WTR",
     description: "Moroccan Talavera tiles in Kitchen, Travertine Beige hall, Oak bedroom, and Crisp Arctic White walls.",
     globalFloor: "travertine_beige",
     globalWallColor: "arctic_white",
@@ -583,7 +583,7 @@ export function getFloorTexture(
   switch (materialId) {
     case "carrara_white":
       return cache("carrara_white", (ctx, size) => {
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#eceae5";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(100, 116, 139, 0.18)";
         ctx.lineWidth = 3;
@@ -610,7 +610,7 @@ export function getFloorTexture(
 
     case "marquina_black":
       return cache("marquina_black", (ctx, size) => {
-        ctx.fillStyle = "#090d16";
+        ctx.fillStyle = "#0e0d0b";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
         ctx.lineWidth = 2;
@@ -626,7 +626,7 @@ export function getFloorTexture(
           }
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(51, 65, 85, 0.6)";
+        ctx.strokeStyle = "rgba(58, 55, 47, 0.6)";
         ctx.lineWidth = 2;
         ctx.strokeRect(0, 0, size / 2, size / 2);
         ctx.strokeRect(size / 2, 0, size / 2, size / 2);
@@ -664,7 +664,7 @@ export function getFloorTexture(
       return cache("oasis_green", (ctx, size) => {
         ctx.fillStyle = "#064e3b";
         ctx.fillRect(0, 0, size, size);
-        ctx.strokeStyle = "rgba(52, 211, 153, 0.35)";
+        ctx.strokeStyle = "rgba(122, 150, 104, 0.35)";
         ctx.lineWidth = 3;
         for (let i = 0; i < 7; i++) {
           ctx.beginPath();
@@ -959,18 +959,18 @@ export function getFloorTexture(
 
     case "moroccan_talavera":
       return cache("moroccan_talavera", (ctx, size) => {
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#eceae5";
         ctx.fillRect(0, 0, size, size);
         const tileSize = 128;
         for (let y = 0; y < size; y += tileSize) {
           for (let x = 0; x < size; x += tileSize) {
             ctx.fillStyle = "#1e40af";
             ctx.fillRect(x + 12, y + 12, tileSize - 24, tileSize - 24);
-            ctx.fillStyle = "#fbbf24";
+            ctx.fillStyle = "#d4703a";
             ctx.beginPath();
             ctx.arc(x + tileSize / 2, y + tileSize / 2, 20, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#0f172a";
+            ctx.strokeStyle = "#1a1916";
             ctx.lineWidth = 2;
             ctx.strokeRect(x, y, tileSize, tileSize);
           }
@@ -979,7 +979,7 @@ export function getFloorTexture(
 
     case "black_granite":
       return cache("black_granite", (ctx, size) => {
-        ctx.fillStyle = "#0f172a";
+        ctx.fillStyle = "#1a1916";
         ctx.fillRect(0, 0, size, size);
         ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
         for (let i = 0; i < 400; i++) {
@@ -987,7 +987,7 @@ export function getFloorTexture(
           const py = Math.random() * size;
           ctx.fillRect(px, py, 2, 2);
         }
-        ctx.strokeStyle = "rgba(51, 65, 85, 0.4)";
+        ctx.strokeStyle = "rgba(58, 55, 47, 0.4)";
         ctx.lineWidth = 1.5;
         ctx.strokeRect(0, 0, size / 2, size / 2);
         ctx.strokeRect(size / 2, 0, size / 2, size / 2);
@@ -999,7 +999,7 @@ export function getFloorTexture(
       return cache("terrazzo_venice", (ctx, size) => {
         ctx.fillStyle = "#f1ede4";
         ctx.fillRect(0, 0, size, size);
-        const colors = ["#c2593f", "#4b7a5a", "#1e293b", "#d97706", "#78716c"];
+        const colors = ["#c2593f", "#4b7a5a", "#1e293b", "#8a4318", "#78716c"];
         for (let i = 0; i < 350; i++) {
           ctx.fillStyle = colors[i % colors.length];
           const px = Math.random() * size;
@@ -1016,7 +1016,7 @@ export function getFloorTexture(
 
     case "subway_ceramic":
       return cache("subway_ceramic", (ctx, size) => {
-        ctx.fillStyle = "#f1f5f9";
+        ctx.fillStyle = "#eceae5";
         ctx.fillRect(0, 0, size, size);
         const tileW = 128;
         const tileH = 64;
@@ -1032,7 +1032,7 @@ export function getFloorTexture(
 
     case "quartzite_calacatta":
       return cache("quartzite_calacatta", (ctx, size) => {
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#eceae5";
         ctx.fillRect(0, 0, size, size);
         ctx.strokeStyle = "rgba(71, 85, 105, 0.3)";
         ctx.lineWidth = 5;
@@ -1048,7 +1048,7 @@ export function getFloorTexture(
           }
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(217, 119, 6, 0.25)";
+        ctx.strokeStyle = "rgba(138, 67, 24, 0.25)";
         ctx.lineWidth = 3;
         for (let i = 0; i < 4; i++) {
           ctx.beginPath();
@@ -1180,7 +1180,6 @@ export function getWallTextureBumpMap(
     }
   }, [4, 4], resolution, anisotropy, THREE.NoColorSpace);
 }
-
 
 // --------------------------------------------------------------------------------------
 // Derived Normal & Roughness Maps
@@ -1398,10 +1397,10 @@ export function getRoomFloorMaterial(roomName: RoomName, config: HouseMaterialCo
 }
 
 /**
- * Resolves a wall color ID or custom hex string to a valid 6-digit hex string like "#f8fafc".
+ * Resolves a wall color ID or custom hex string to a valid 6-digit hex string like "#eceae5".
  */
 export function getWallColorHexStr(colorId: string): string {
-  if (!colorId) return "#f8fafc";
+  if (!colorId) return "#eceae5";
   if (colorId.startsWith("#")) {
     return colorId;
   }
@@ -1409,7 +1408,7 @@ export function getWallColorHexStr(colorId: string): string {
     return `#${colorId}`;
   }
   const def = WALL_COLORS.find((c) => c.id === colorId);
-  return def ? def.hex : "#f8fafc";
+  return def ? def.hex : "#eceae5";
 }
 
 /**

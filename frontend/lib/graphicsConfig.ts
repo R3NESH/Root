@@ -54,7 +54,7 @@ export interface PresetDef {
 export const GRAPHICS_PRESETS: PresetDef[] = [
   {
     id: "ultra_extreme",
-    name: "💎 Ultra Extreme (4K / 8K High Fidelity)",
+    name: " Ultra Extreme (4K / 8K High Fidelity)",
     badge: "Maximum Fidelity",
     description: "150% DSR super-sampling, 4096px procedural PBR textures, 4096px PCF soft shadows, 16x anisotropy.",
     settings: {
@@ -68,7 +68,7 @@ export const GRAPHICS_PRESETS: PresetDef[] = [
   },
   {
     id: "high_quality",
-    name: "🔥 High Quality (1440p / 4K Standard)",
+    name: " High Quality (1440p / 4K Standard)",
     badge: "Balanced High-End",
     description: "100% native render scale, 2048px textures, 2048px soft shadows, 8x anisotropy.",
     settings: {
@@ -82,7 +82,7 @@ export const GRAPHICS_PRESETS: PresetDef[] = [
   },
   {
     id: "medium_balanced",
-    name: "✨ Balanced / Standard Laptop",
+    name: " Balanced / Standard Laptop",
     badge: "Optimal FPS",
     description: "75% render scale, 1024px textures, 1024px shadows, 4x anisotropy.",
     settings: {
@@ -96,7 +96,7 @@ export const GRAPHICS_PRESETS: PresetDef[] = [
   },
   {
     id: "low_eco",
-    name: "⚡ Low / Battery Saver (Integrated GPU)",
+    name: " Low / Battery Saver (Integrated GPU)",
     badge: "Max Performance",
     description: "50% render scale, 512px textures, shadows off, for maximum frame rate on integrated GPUs.",
     settings: {

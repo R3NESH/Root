@@ -1,13 +1,12 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(4, 7, 15, 0.82);
-  backdrop-filter: blur(8px);
+  background: rgba(10, 9, 8, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeIn 0.2s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
@@ -19,18 +18,18 @@
   width: 90%;
   max-width: 680px;
   max-height: 85vh;
-  background: #0f172a;
+  background: #1a1916;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.1);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
 .header {
   padding: 16px 20px;
-  background: rgba(30, 41, 59, 0.85);
+  background: rgba(33, 32, 27, 0.85);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -44,12 +43,12 @@
 }
 
 .icon {
-  font-size: 24px;
+  font-size: 26px;
 }
 
 .title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.01em;
@@ -57,15 +56,15 @@
 
 .subtitle {
   margin: 2px 0 0;
-  font-size: 11.5px;
-  color: #94a3b8;
+  font-size: 11px;
+  color: #8e8a82;
   line-height: 1.35;
 }
 
 .closeBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
+  color: #8e8a82;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -74,12 +73,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .closeBtn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: #ef4444;
+  background: rgba(168, 68, 47, 0.25);
+  border-color: #a8442f;
   color: #ffffff;
 }
 
@@ -91,7 +90,7 @@
 
 .footer {
   padding: 12px 20px;
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(26, 25, 22, 0.95);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -101,20 +100,20 @@
 
 .footerTip {
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .doneBtn {
-  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  background: #3d5c69;
   color: #ffffff;
   border: none;
   padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 12.5px;
+  border-radius: 3px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
-  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(61, 92, 105, 0.35);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 

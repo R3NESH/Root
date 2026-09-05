@@ -38,7 +38,7 @@ export interface BuildingProgram {
 export const RESIDENCE_PROGRAM: BuildingProgram = {
   key: "residence",
   label: "Residence",
-  icon: "🏠",
+  icon: "HSE",
   blurb: "Indian home. Vaastu quadrants posted as constraints, rooms opening onto a central hall.",
   spaces: ["hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance"],
   defaultMix: ["hall", "kitchen", "bedroom", "bedroom", "bathroom"],
@@ -61,7 +61,7 @@ export const RESIDENCE_PROGRAM: BuildingProgram = {
 export const CAFE_PROGRAM: BuildingProgram = {
   key: "cafe",
   label: "Café",
-  icon: "☕",
+  icon: "CAF",
   blurb:
     "Coffee shop or small restaurant. Front of house at the street, back of house behind it, and the customer never crosses the production line.",
   spaces: [

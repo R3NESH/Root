@@ -14,14 +14,14 @@ export function makeRoomBadgeSprite(text: string): THREE.Sprite {
   canvas.height = 64;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.fillStyle = "rgba(10, 25, 48, 0.88)";
+    ctx.fillStyle = "rgba(19, 18, 16, 0.88)";
     if (ctx.roundRect) {
       ctx.roundRect(4, 4, 248, 56, 10);
     } else {
       ctx.rect(4, 4, 248, 56);
     }
     ctx.fill();
-    ctx.strokeStyle = "#38bdf8";
+    ctx.strokeStyle = "#6f9aa8";
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -50,10 +50,10 @@ export function createRoomBadge(
   canvas.height = 128;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+    ctx.fillStyle = "rgba(26, 25, 22, 0.92)";
     ctx.roundRect(8, 12, 240, 104, 16);
     ctx.fill();
-    ctx.strokeStyle = isLocked ? "rgba(56, 189, 248, 0.85)" : "rgba(232, 145, 45, 0.85)";
+    ctx.strokeStyle = isLocked ? "rgba(111, 154, 168, 0.85)" : "rgba(184, 92, 34, 0.85)";
     ctx.lineWidth = 4;
     ctx.stroke();
 
@@ -66,9 +66,9 @@ export function createRoomBadge(
     ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     ctx.fillText(`${wFt}' × ${dFt}' ft`, 128, 84);
 
-    ctx.fillStyle = isLocked ? "#38bdf8" : "#e8912d";
+    ctx.fillStyle = isLocked ? "#6f9aa8" : "#b85c22";
     ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(isLocked ? "🔒 View-Only Mode" : "✋ Drag to Reposition", 128, 106);
+    ctx.fillText(isLocked ? " View-Only Mode" : " Drag to Reposition", 128, 106);
   }
 
   const texture = new THREE.CanvasTexture(canvas);

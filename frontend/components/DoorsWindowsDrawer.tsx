@@ -22,9 +22,9 @@ export default function DoorsWindowsDrawer({
   const [activeCategory, setActiveCategory] = useState<"all" | "door" | "window">("all");
 
   const categories = [
-    { id: "all" as const, label: "All Openings", icon: "✨" },
-    { id: "door" as const, label: "Doors", icon: "🚪" },
-    { id: "window" as const, label: "Windows", icon: "🪟" },
+    { id: "all" as const, label: "All Openings", icon: "FX" },
+    { id: "door" as const, label: "Doors", icon: "DR" },
+    { id: "window" as const, label: "Windows", icon: "WIN" },
   ];
 
   const filteredItems = OPENINGS_CATALOG.filter(
@@ -39,14 +39,14 @@ export default function DoorsWindowsDrawer({
         onClick={onToggleOpen}
         title="Open Doors & Windows Catalog (Drag & Drop onto any wall)"
       >
-        <span className={styles.triggerIcon}>🚪</span>
+        <span className={styles.triggerIcon}>DR</span>
         <span className={styles.triggerLabel}>Doors &amp; Windows</span>
       </button>
 
       {/* Floating Placement Banner when an opening is armed for drop */}
       {placingOpeningDef && (
         <div className={styles.placementBanner}>
-          <span className={styles.bannerPulse}>🎯</span>
+          <span className={styles.bannerPulse}>SNP</span>
           <span>Click or drag onto any wall to place:</span>
           <span className={styles.placementItemTag}>
             {placingOpeningDef.icon} {placingOpeningDef.name} ({Math.round(placingOpeningDef.widthIn / 12)}ft)
@@ -77,7 +77,7 @@ export default function DoorsWindowsDrawer({
                   onClick={onOpenWindowShapeModal}
                   title="Open Window Shapes & Frame Materials Studio"
                 >
-                  🎨 Window Shapes Studio
+                  Window Shapes Studio
                 </button>
               )}
               <button className={styles.closeDrawerBtn} onClick={onToggleOpen} title="Close drawer">
@@ -152,7 +152,7 @@ export default function DoorsWindowsDrawer({
                       onSelectPlaceOpening(isSelected ? null : item);
                     }}
                   >
-                    {isSelected ? "🎯 Ready to Drop..." : "➕ Drag / Place on Wall"}
+                    {isSelected ? "Ready to Drop..." : "Drag / Place on Wall"}
                   </button>
                 </div>
               );

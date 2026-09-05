@@ -122,8 +122,8 @@ export default function Minimap({
       playerCanvas.cy,
       coneRadius
     );
-    grad.addColorStop(0, "rgba(232, 145, 45, 0.7)");
-    grad.addColorStop(1, "rgba(232, 145, 45, 0.0)");
+    grad.addColorStop(0, "rgba(184, 92, 34, 0.7)");
+    grad.addColorStop(1, "rgba(184, 92, 34, 0.0)");
     ctx.fillStyle = grad;
     ctx.fill();
     ctx.restore();
@@ -134,7 +134,7 @@ export default function Minimap({
     ctx.fillStyle = "#ffffff";
     ctx.fill();
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "#e8912d";
+    ctx.strokeStyle = "#b85c22";
     ctx.stroke();
   }, [plot, rooms, player, currentRoomIndex, plotWFt, plotDFt]);
 

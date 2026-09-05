@@ -94,20 +94,20 @@ export function generateBlueprintSvg({
   // Theme palettes
   const palettes = {
     blueprint: {
-      bg: "#06182c",
+      bg: "#131210",
       grid: "#0e2d4f",
       sheetBorder: "#1e5388",
-      accent: "#38bdf8",
-      accent2: "#0284c7",
-      textPrimary: "#f0f9ff",
-      textSecondary: "#93c5fd",
+      accent: "#6f9aa8",
+      accent2: "#3d5c69",
+      textPrimary: "#eceae5",
+      textSecondary: "#8ab3bf",
       textMuted: "#60a5fa",
       wallFill: "#0c3b6d",
-      wallStroke: "#7dd3fc",
-      innerWallStroke: "#38bdf8",
-      dimensionLine: "#38bdf8",
-      doorArc: "#fbbf24",
-      windowLine: "#34d399",
+      wallStroke: "#8ab3bf",
+      innerWallStroke: "#6f9aa8",
+      dimensionLine: "#6f9aa8",
+      doorArc: "#d4703a",
+      windowLine: "#7a9668",
       setbackDashed: "#f43f5e",
       tableBg: "#0a2544",
       tableHeaderBg: "#103c6b",
@@ -116,42 +116,42 @@ export function generateBlueprintSvg({
     dark: {
       bg: "#0b0f19",
       grid: "#161f33",
-      sheetBorder: "#334155",
-      accent: "#e8912d",
-      accent2: "#f59e0b",
-      textPrimary: "#f8fafc",
-      textSecondary: "#cbd5e1",
-      textMuted: "#94a3b8",
+      sheetBorder: "#3a372f",
+      accent: "#b85c22",
+      accent2: "#b85c22",
+      textPrimary: "#eceae5",
+      textSecondary: "#b5b0a6",
+      textMuted: "#8e8a82",
       wallFill: "#1e293b",
-      wallStroke: "#f8fafc",
-      innerWallStroke: "#94a3b8",
-      dimensionLine: "#e8912d",
-      doorArc: "#38bdf8",
-      windowLine: "#34d399",
-      setbackDashed: "#ef4444",
+      wallStroke: "#eceae5",
+      innerWallStroke: "#8e8a82",
+      dimensionLine: "#b85c22",
+      doorArc: "#6f9aa8",
+      windowLine: "#7a9668",
+      setbackDashed: "#a8442f",
       tableBg: "#111827",
       tableHeaderBg: "#1f2937",
       tableBorder: "#374151",
     },
     drafting: {
       bg: "#ffffff",
-      grid: "#f1f5f9",
-      sheetBorder: "#0f172a",
-      accent: "#0284c7",
-      accent2: "#0369a1",
-      textPrimary: "#0f172a",
-      textSecondary: "#334155",
-      textMuted: "#64748b",
-      wallFill: "#cbd5e1",
-      wallStroke: "#0f172a",
-      innerWallStroke: "#334155",
-      dimensionLine: "#0284c7",
-      doorArc: "#d97706",
-      windowLine: "#059669",
+      grid: "#eceae5",
+      sheetBorder: "#1a1916",
+      accent: "#3d5c69",
+      accent2: "#2f4954",
+      textPrimary: "#1a1916",
+      textSecondary: "#3a372f",
+      textMuted: "#6d685e",
+      wallFill: "#b5b0a6",
+      wallStroke: "#1a1916",
+      innerWallStroke: "#3a372f",
+      dimensionLine: "#3d5c69",
+      doorArc: "#8a4318",
+      windowLine: "#4c6640",
       setbackDashed: "#dc2626",
-      tableBg: "#f8fafc",
-      tableHeaderBg: "#e2e8f0",
-      tableBorder: "#cbd5e1",
+      tableBg: "#eceae5",
+      tableHeaderBg: "#d8d4cb",
+      tableBorder: "#b5b0a6",
     },
   };
 
@@ -212,7 +212,7 @@ export function generateBlueprintSvg({
 
   <!-- Plan Box Frame -->
   <rect x="${PLAN_BOX_X}" y="${PLAN_BOX_Y}" width="${PLAN_BOX_W}" height="${PLAN_BOX_H}" fill="none" stroke="${colors.sheetBorder}" stroke-width="1.5" />
-  
+
   <!-- Plan View Title Header -->
   <rect x="${PLAN_BOX_X}" y="${PLAN_BOX_Y}" width="${PLAN_BOX_W}" height="32" fill="${colors.tableHeaderBg}" stroke="${colors.sheetBorder}" stroke-width="1" />
   <text x="${PLAN_BOX_X + 16}" y="${PLAN_BOX_Y + 21}" fill="${colors.textPrimary}" class="cad-heading" font-size="13" letter-spacing="1">GROUND FLOOR PLAN &amp; MEASUREMENTS</text>
@@ -310,7 +310,7 @@ export function generateBlueprintSvg({
     <g id="room-${idx}">
       <!-- Room Fill -->
       <rect x="${rx}" y="${ry}" width="${rw}" height="${rd}" fill="${colors.wallFill}" stroke="${colors.wallStroke}" stroke-width="2.5" />
-      
+
       <!-- Inner Wall Cavity Offset -->
       <rect x="${rx + wallThicknessPx}" y="${ry + wallThicknessPx}" width="${Math.max(0, rw - wallThicknessPx * 2)}" height="${Math.max(0, rd - wallThicknessPx * 2)}" fill="${colors.bg}88" stroke="${colors.innerWallStroke}" stroke-width="0.8" stroke-dasharray="2,2" />
 
@@ -318,10 +318,10 @@ export function generateBlueprintSvg({
       <g transform="translate(${rx + rw / 2}, ${ry + rd / 2})">
         <!-- Room Label -->
         <text x="0" y="-12" fill="${colors.textPrimary}" class="cad-heading" font-size="12" text-anchor="middle">${label}</text>
-        
+
         <!-- Room Dimensions -->
         <text x="0" y="4" fill="${colors.accent}" class="cad-dim" font-size="11" text-anchor="middle">${formatFeetInches(room.w_in)} × ${formatFeetInches(room.d_in)}</text>
-        
+
         <!-- Carpet Area & Vaastu Badge -->
         <text x="0" y="18" fill="${colors.textSecondary}" class="cad-mono" font-size="9.5" text-anchor="middle">${formatAreaSqFt(room.w_in, room.d_in)} | ${zoneInfo?.tag ?? zone}</text>
       </g>
@@ -414,7 +414,7 @@ export function generateBlueprintSvg({
   <g transform="translate(${TITLE_BLOCK_X}, ${TITLE_BLOCK_Y})">
     <!-- Frame -->
     <rect x="0" y="0" width="${TITLE_BLOCK_W}" height="${TITLE_BLOCK_H}" fill="${colors.tableBg}" stroke="${colors.tableBorder}" stroke-width="1.5" />
-    
+
     <!-- Header Block -->
     <rect x="0" y="0" width="${TITLE_BLOCK_W}" height="68" fill="${colors.tableHeaderBg}" stroke="${colors.tableBorder}" stroke-width="1" />
     <text x="16" y="26" fill="${colors.accent}" class="cad-heading" font-size="14" letter-spacing="1">PLOT-TO-PLAN ARCHITECTURE</text>

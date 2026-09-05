@@ -324,14 +324,14 @@ export default function WindowShapeModal({
   };
 
   const roomScopes: { id: "global" | RoomName | "individual"; label: string }[] = [
-    { id: "global", label: "🏠 Whole House" },
-    { id: "individual", label: `🎯 Individual Windows (${discoveredWindows.length})` },
-    { id: "hall", label: "🛋️ Living Hall" },
-    { id: "bedroom", label: "🛏️ Bedroom" },
-    { id: "kitchen", label: "🍳 Kitchen" },
-    { id: "dining", label: "🍽️ Dining" },
-    { id: "pooja", label: "🪔 Pooja Mandir" },
-    { id: "bathroom", label: "🚿 Bathroom" },
+    { id: "global", label: "Whole House" },
+    { id: "individual", label: `Individual Windows (${discoveredWindows.length})` },
+    { id: "hall", label: "Living Hall" },
+    { id: "bedroom", label: "Bedroom" },
+    { id: "kitchen", label: "Kitchen" },
+    { id: "dining", label: "Dining" },
+    { id: "pooja", label: "Pooja Mandir" },
+    { id: "bathroom", label: "Bathroom" },
   ];
 
   return (
@@ -340,7 +340,7 @@ export default function WindowShapeModal({
         {/* Header */}
         <div className={styles.modalHeader}>
           <div className={styles.headerTitleGroup}>
-            <span className={styles.headerIcon}>🪟</span>
+            <span className={styles.headerIcon}>WIN</span>
             <div>
               <h2 className={styles.modalTitle}>Architectural Window & Fenestration Studio</h2>
               <p className={styles.modalSubtitle}>
@@ -357,7 +357,7 @@ export default function WindowShapeModal({
         <div className={styles.modalBody}>
           {/* Scope Selector */}
           <div className={styles.scopeSection}>
-            <span className={styles.sectionLabel}>🎯 Customization Scope</span>
+            <span className={styles.sectionLabel}> Customization Scope</span>
             <div className={styles.scopeTabs}>
               {roomScopes.map((scope) => (
                 <button
@@ -381,9 +381,9 @@ export default function WindowShapeModal({
           {/* Quick Install Window Bar */}
           {onAddWindow && rooms.length > 0 && (
             <div className={styles.scopeSection}>
-              <span className={styles.sectionLabel}>➕ Install New Window on Any Room Wall</span>
+              <span className={styles.sectionLabel}> Install New Window on Any Room Wall</span>
               <div className={styles.addWindowBar}>
-                <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Select Room:</span>
+                <span style={{ fontSize: "12px", color: "#8e8a82", fontWeight: 600 }}>Select Room:</span>
                 <select
                   className={styles.modalSelect}
                   value={addRoomIdx}
@@ -396,7 +396,7 @@ export default function WindowShapeModal({
                   ))}
                 </select>
 
-                <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Wall Edge:</span>
+                <span style={{ fontSize: "12px", color: "#8e8a82", fontWeight: 600 }}>Wall Edge:</span>
                 <select
                   className={styles.modalSelect}
                   value={addEdge}
@@ -409,7 +409,7 @@ export default function WindowShapeModal({
                 </select>
 
                 <button className={styles.installWinBtn} onClick={handleInstallWindow}>
-                  ➕ Install Window
+                  Install Window
                 </button>
               </div>
             </div>
@@ -418,7 +418,7 @@ export default function WindowShapeModal({
           {/* Individual Windows Picker (When in Individual Scope) */}
           {selectedScope === "individual" && (
             <div className={styles.scopeSection}>
-              <span className={styles.sectionLabel}>🔍 Select Window to Customize</span>
+              <span className={styles.sectionLabel}> Select Window to Customize</span>
               <div className={styles.individualWindowsGrid}>
                 {discoveredWindows.map((win) => {
                   const isSelected = (activeWindowId || discoveredWindows[0]?.id) === win.id;
@@ -455,17 +455,17 @@ export default function WindowShapeModal({
                     onClick={() => handleResetIndividualWindow(currentActiveWindow.id)}
                     title="Reset this window back to room default"
                   >
-                    ↩️ Reset this Window to Default
+                    Reset this Window to Default
                   </button>
                   <button
                     className={styles.resetBtn}
                     style={{
-                      borderColor: currentWinProps?.isDeleted ? "#38bdf8" : "rgba(239, 68, 68, 0.4)",
-                      color: currentWinProps?.isDeleted ? "#38bdf8" : "#ef4444",
+                      borderColor: currentWinProps?.isDeleted ? "#6f9aa8" : "rgba(168, 68, 47, 0.4)",
+                      color: currentWinProps?.isDeleted ? "#6f9aa8" : "#a8442f",
                     }}
                     onClick={() => handleToggleDeleteWindow(currentActiveWindow.id)}
                   >
-                    {currentWinProps?.isDeleted ? "➕ Restore Window" : "🗑️ Remove Window"}
+                    {currentWinProps?.isDeleted ? "Restore Window" : "Remove Window"}
                   </button>
                 </div>
               )}
@@ -474,7 +474,7 @@ export default function WindowShapeModal({
 
           {/* Window Dimensions (Width & Height) */}
           <div>
-            <span className={styles.sectionLabel}>📐 Window Dimensions (Size)</span>
+            <span className={styles.sectionLabel}> Window Dimensions (Size)</span>
             <div className={styles.dimensionsRow} style={{ marginTop: "8px" }}>
               <div className={styles.dimensionControl}>
                 <span className={styles.dimLabel}>Window Width (Opening Span)</span>
@@ -505,8 +505,8 @@ export default function WindowShapeModal({
 
             {/* Quick Crop Size Presets */}
             <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: "4px" }}>
-                ✂️ Quick Crop:
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#8e8a82", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: "4px" }}>
+                Quick Crop:
               </span>
               {[
                 { label: "2.5ft (Slender)", w: 2.5, h: 4.0 },
@@ -519,9 +519,9 @@ export default function WindowShapeModal({
                 <button
                   key={preset.label}
                   style={{
-                    background: activeWidthFt === preset.w && activeHeightFt === preset.h ? "#0284c7" : "rgba(15, 23, 42, 0.6)",
+                    background: activeWidthFt === preset.w && activeHeightFt === preset.h ? "#3d5c69" : "rgba(26, 25, 22, 0.6)",
                     color: "#ffffff",
-                    border: activeWidthFt === preset.w && activeHeightFt === preset.h ? "1px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.12)",
+                    border: activeWidthFt === preset.w && activeHeightFt === preset.h ? "1px solid #6f9aa8" : "1px solid rgba(255, 255, 255, 0.12)",
                     borderRadius: "6px",
                     padding: "4px 10px",
                     fontSize: "11px",
@@ -551,7 +551,7 @@ export default function WindowShapeModal({
                     }
                   }}
                 >
-                  ✂️ {preset.label}
+                    {preset.label}
                 </button>
               ))}
             </div>
@@ -560,7 +560,7 @@ export default function WindowShapeModal({
           {/* Window Shapes Grid */}
           <div>
             <span className={styles.sectionLabel}>
-              ✨ Choose Window Shape (
+              Choose Window Shape (
               {selectedScope === "individual" && currentActiveWindow
                 ? currentActiveWindow.label
                 : selectedScope === "global"
@@ -602,7 +602,7 @@ export default function WindowShapeModal({
                     <div className={styles.shapeName}>{shape.name}</div>
                     <div className={styles.shapeDesc}>{shape.description}</div>
                     <div className={styles.shapeMeta}>
-                      <span>📐 {shape.aspectRatio}</span>
+                      <span> {shape.aspectRatio}</span>
                       <span>Best for {shape.recommendedFor.split(",")[0]}</span>
                     </div>
                   </div>
@@ -615,7 +615,7 @@ export default function WindowShapeModal({
           <div className={styles.optionsRow}>
             {/* Frame Finishes */}
             <div className={styles.optionSection}>
-              <span className={styles.sectionLabel}>🎨 Frame Profile & Material</span>
+              <span className={styles.sectionLabel}> Frame Profile & Material</span>
               <div className={styles.swatchesGrid}>
                 {WINDOW_FRAME_FINISHES.map((finish) => {
                   const isSelected = activeFrameFinishId === finish.id;
@@ -640,7 +640,7 @@ export default function WindowShapeModal({
 
             {/* Glass Glazing Tints */}
             <div className={styles.optionSection}>
-              <span className={styles.sectionLabel}>💎 Glass Glazing & Tint</span>
+              <span className={styles.sectionLabel}> Glass Glazing & Tint</span>
               <div className={styles.swatchesGrid}>
                 {WINDOW_GLASS_TINTS.map((tint) => {
                   const isSelected = activeGlassTintId === tint.id;
@@ -681,7 +681,7 @@ export default function WindowShapeModal({
         {/* Footer */}
         <div className={styles.modalFooter}>
           <button className={styles.resetBtn} onClick={handleResetAll}>
-            ↩️ Reset All to Defaults
+            Reset All to Defaults
           </button>
           <button className={styles.applyBtn} onClick={handleApply}>
             ✓ Apply Window Shapes

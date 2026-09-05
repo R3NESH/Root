@@ -103,7 +103,7 @@ export default function RoomCustomizer({
   return (
     <div className={styles.customizerContainer}>
       <div className={styles.customizerHeader}>
-        <span>📐 Custom Room Dimensions</span>
+        <span> Custom Room Dimensions</span>
         <button className={styles.resetAllBtn} onClick={handleResetAll} title="Reset all to automatic">
           Reset Auto
         </button>
@@ -118,7 +118,7 @@ export default function RoomCustomizer({
           const currentW = custom ? custom.wFt : (solved ? Math.round(inchesToFeet(solved.w_in)) : 14);
           const currentD = custom ? custom.dFt : (solved ? Math.round(inchesToFeet(solved.d_in)) : 14);
           const sqFt = currentW * currentD;
-          const orientation = currentW > currentD ? "↔ Horiz" : currentW < currentD ? "↕ Vert" : "◻ Square";
+          const orientation = currentW > currentD ? "Horiz" : currentW < currentD ? "Vert" : "Square";
 
           return (
             <div key={item.id} className={styles.roomCard}>
@@ -187,7 +187,7 @@ export default function RoomCustomizer({
                   onClick={() => handleRotateRoom(item.id, item.index, item.name)}
                   title="Rotate Room Anticlockwise (-90°)"
                 >
-                  <span className={styles.rotateIcon}>↺</span>
+                  <span className={styles.rotateIcon}></span>
                   <span>Rotate CCW (-90°)</span>
                 </button>
                 <button
@@ -195,7 +195,7 @@ export default function RoomCustomizer({
                   onClick={() => handleRotateRoom(item.id, item.index, item.name)}
                   title="Rotate Room Clockwise (+90°)"
                 >
-                  <span className={styles.rotateIcon}>↻</span>
+                  <span className={styles.rotateIcon}></span>
                   <span>Rotate CW (+90°)</span>
                 </button>
               </div>

@@ -115,6 +115,31 @@ def test_unknown_room_names_are_reported_not_fatal():
     assert [r["name"] for r in body["rooms"]] == ["hall"]
 
 
+def test_infeasible_mix_reports_what_to_drop():
+    """INFEASIBLE is a dead end unless the response says what would fit — api/main.py."""
+    body = client.post(
+        "/solve",
+        json={
+            **BASE,
+            "plot_w_in": 20 * 12,
+            "plot_d_in": 30 * 12,
+            "rooms": ["hall", "kitchen", "bedroom", "bedroom", "bathroom"],
+        },
+    ).json()
+
+    assert body["rooms"] == []
+    drop = body["meta"]["drop_to_fit"]
+    assert drop, "a mix that does not fit should name the spaces to remove"
+    # The hub every other room opens off is the last thing given up.
+    assert "hall" not in drop
+
+
+def test_solvable_mix_has_nothing_to_drop():
+    body = client.post("/solve", json=BASE).json()
+    assert body["rooms"]
+    assert body["meta"]["drop_to_fit"] == []
+
+
 def test_empty_room_list_is_not_an_error():
     body = client.post("/solve", json={**BASE, "rooms": []}).json()
     assert body["meta"]["status"] == "NO_INPUT"

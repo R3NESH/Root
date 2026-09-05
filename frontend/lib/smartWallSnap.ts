@@ -69,8 +69,8 @@ export function computeSmartWallSnap(
         isSnapped: true,
         snapType: isDemolished ? "open_passage" : "wall_edge",
         snapDescription: isDemolished
-          ? `🧲 Attached to ${roomLabel} (North Open Passage)`
-          : `🧲 Attached to ${roomLabel} (North Wall)`,
+          ? ` Attached to ${roomLabel} (North Open Passage)`
+          : ` Attached to ${roomLabel} (North Wall)`,
         guideLine: { x1: rx, z1: rz, x2: rx + rw, z2: rz },
       };
     }
@@ -90,8 +90,8 @@ export function computeSmartWallSnap(
         isSnapped: true,
         snapType: isDemolished ? "open_passage" : "wall_edge",
         snapDescription: isDemolished
-          ? `🧲 Attached to ${roomLabel} (South Open Passage)`
-          : `🧲 Attached to ${roomLabel} (South Wall)`,
+          ? ` Attached to ${roomLabel} (South Open Passage)`
+          : ` Attached to ${roomLabel} (South Wall)`,
         guideLine: { x1: rx, z1: rz + rd, x2: rx + rw, z2: rz + rd },
       };
     }
@@ -111,8 +111,8 @@ export function computeSmartWallSnap(
         isSnapped: true,
         snapType: isDemolished ? "open_passage" : "wall_edge",
         snapDescription: isDemolished
-          ? `🧲 Attached to ${roomLabel} (West Open Passage)`
-          : `🧲 Attached to ${roomLabel} (West Wall)`,
+          ? ` Attached to ${roomLabel} (West Open Passage)`
+          : ` Attached to ${roomLabel} (West Wall)`,
         guideLine: { x1: rx, z1: rz, x2: rx, z2: rz + rd },
       };
     }
@@ -132,8 +132,8 @@ export function computeSmartWallSnap(
         isSnapped: true,
         snapType: isDemolished ? "open_passage" : "wall_edge",
         snapDescription: isDemolished
-          ? `🧲 Attached to ${roomLabel} (East Open Passage)`
-          : `🧲 Attached to ${roomLabel} (East Wall)`,
+          ? ` Attached to ${roomLabel} (East Open Passage)`
+          : ` Attached to ${roomLabel} (East Wall)`,
         guideLine: { x1: rx + rw, z1: rz, x2: rx + rw, z2: rz + rd },
       };
     }
@@ -151,7 +151,7 @@ export function computeSmartWallSnap(
           rotationY: Math.PI / 2,
           isSnapped: true,
           snapType: "room_divider",
-          snapDescription: `🧲 Center Divider in ${roomLabel} (N-S)`,
+          snapDescription: ` Center Divider in ${roomLabel} (N-S)`,
           guideLine: { x1: midX, z1: rz, x2: midX, z2: rz + rd },
         };
       }
@@ -167,7 +167,7 @@ export function computeSmartWallSnap(
           rotationY: 0,
           isSnapped: true,
           snapType: "room_divider",
-          snapDescription: `🧲 Center Divider in ${roomLabel} (E-W)`,
+          snapDescription: ` Center Divider in ${roomLabel} (E-W)`,
           guideLine: { x1: rx, z1: midZ, x2: rx + rw, z2: midZ },
         };
       }
@@ -191,7 +191,7 @@ export function computeSmartWallSnap(
           rotationY: 0,
           isSnapped: true,
           snapType: "custom_wall",
-          snapDescription: `🧲 Collinear Attachment with ${obj.name}`,
+          snapDescription: ` Collinear Attachment with ${obj.name}`,
           guideLine: {
             x1: obj.x - otherLen / 2,
             z1: obj.z,
@@ -210,7 +210,7 @@ export function computeSmartWallSnap(
           rotationY: Math.PI / 2,
           isSnapped: true,
           snapType: "custom_wall",
-          snapDescription: `🧲 Collinear Attachment with ${obj.name}`,
+          snapDescription: ` Collinear Attachment with ${obj.name}`,
           guideLine: {
             x1: obj.x,
             z1: obj.z - otherLen / 2,

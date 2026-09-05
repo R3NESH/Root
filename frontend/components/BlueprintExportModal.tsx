@@ -155,7 +155,7 @@ export default function BlueprintExportModal({
                 }`}
                 onClick={() => setTheme("blueprint")}
               >
-                🟦 Cyan Blueprint
+                Cyan Blueprint
               </button>
               <button
                 className={`${styles.themePill} ${
@@ -163,7 +163,7 @@ export default function BlueprintExportModal({
                 }`}
                 onClick={() => setTheme("dark")}
               >
-                ⬛ Midnight Dark
+                Midnight Dark
               </button>
               <button
                 className={`${styles.themePill} ${
@@ -171,7 +171,7 @@ export default function BlueprintExportModal({
                 }`}
                 onClick={() => setTheme("drafting")}
               >
-                📄 White Drafting Paper
+                White Drafting Paper
               </button>
             </div>
           </div>
@@ -243,14 +243,14 @@ export default function BlueprintExportModal({
               onClick={handleExportJson}
               title="Download Blueprint JSON model file to import anytime"
             >
-              📋 Blueprint JSON
+              Blueprint JSON
             </button>
             <button
               className={`${styles.exportActionBtn} ${styles.btnSvg}`}
               onClick={handleExportSvg}
               title="Download editable Scalable Vector Graphics (.svg)"
             >
-              📐 Download SVG
+              Download SVG
             </button>
             <button
               className={`${styles.exportActionBtn} ${styles.btnPng}`}
@@ -258,14 +258,14 @@ export default function BlueprintExportModal({
               disabled={isExportingPng}
               title="Download high-resolution 4K PNG image for mobile/WhatsApp"
             >
-              {isExportingPng ? "⏳ Rendering 4K..." : "🖼️ Download 4K PNG"}
+              {isExportingPng ? "Rendering 4K..." : "Download 4K PNG"}
             </button>
             <button
               className={`${styles.exportActionBtn} ${styles.btnPrint}`}
               onClick={handlePrint}
               title="Open print sheet dialog to print or save as PDF"
             >
-              🖨️ Print / Save PDF
+              Print / Save PDF
             </button>
           </div>
         </div>

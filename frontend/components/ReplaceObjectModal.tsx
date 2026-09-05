@@ -30,13 +30,13 @@ export default function ReplaceObjectModal({
   if (!isOpen) return null;
 
   const categories: { id: FurnitureCategory | "all"; label: string; icon: string }[] = [
-    { id: "living", label: "Living & Sofas", icon: "🛋️" },
-    { id: "bedroom", label: "Bedrooms & Beds", icon: "🛏️" },
-    { id: "dining", label: "Dining & Kitchen", icon: "🍽️" },
-    { id: "office", label: "Office & Study", icon: "💻" },
-    { id: "decor", label: "Decor & Lighting", icon: "🪴" },
-    { id: "sacred", label: "Sacred Mandir", icon: "🛕" },
-    { id: "all", label: "All Items", icon: "📦" },
+    { id: "living", label: "Living & Sofas", icon: "SOF" },
+    { id: "bedroom", label: "Bedrooms & Beds", icon: "BED" },
+    { id: "dining", label: "Dining & Kitchen", icon: "DIN" },
+    { id: "office", label: "Office & Study", icon: "DSK" },
+    { id: "decor", label: "Decor & Lighting", icon: "PLT" },
+    { id: "sacred", label: "Sacred Mandir", icon: "MND" },
+    { id: "all", label: "All Items", icon: "BOX" },
   ];
 
   const filteredItems = FURNITURE_CATALOG.filter(
@@ -49,7 +49,7 @@ export default function ReplaceObjectModal({
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h3 className={styles.title}>🔄 Replace Object</h3>
+            <h3 className={styles.title}> Replace Object</h3>
             <p className={styles.subtitle}>
               Swap <b>&ldquo;{targetObjectName}&rdquo;</b> with a new style or shape at the exact same spot.
             </p>
@@ -104,7 +104,7 @@ export default function ReplaceObjectModal({
         {/* Footer */}
         <div className={styles.footer}>
           <span className={styles.footerHint}>
-            💡 Pro-tip: The new item will automatically inherit the same 3D coordinates and rotation angle!
+            Pro-tip: The new item will automatically inherit the same 3D coordinates and rotation angle!
           </span>
           <button className={styles.cancelBtn} onClick={onClose}>
             Cancel

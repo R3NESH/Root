@@ -912,7 +912,7 @@ export default function Blueprint2DView({
           );
           const label = ROOM_LABELS[room.name as RoomName] ?? room.name;
           setCropToast(
-            `✂️ ${label} cropped to ${formatFeetInches(roomCropDragPreview.w_in)} × ${formatFeetInches(roomCropDragPreview.d_in)} by dragging across map!`
+            `${label} cropped to ${formatFeetInches(roomCropDragPreview.w_in)} × ${formatFeetInches(roomCropDragPreview.d_in)} by dragging across map!`
           );
           setTimeout(() => setCropToast(null), 3500);
         } else if (onRoomMove) {
@@ -1497,39 +1497,39 @@ export default function Blueprint2DView({
             onClick={() => setAutoCropOnDrag((p) => !p)}
             title="Auto-Crop room dimensions when dragging across map boundaries (Press 'C' to toggle)"
           >
-            ✂️ Auto-Crop: {autoCropOnDrag ? "ON" : "OFF"}
+            Auto-Crop: {autoCropOnDrag ? "ON" : "OFF"}
           </button>
           <button
             className={`${styles.toolButton} ${showDimensions ? styles.toolButtonActive : ""}`}
             onClick={() => setShowDimensions((p) => !p)}
             title="Toggle Dimension Lines & Strings"
           >
-            📏 Dimensions
+            Dimensions
           </button>
           <button
             className={`${styles.toolButton} ${showSetbacks ? styles.toolButtonActive : ""}`}
             onClick={() => setShowSetbacks((p) => !p)}
             title="Toggle Setback Boundary & Offsets"
           >
-            🚧 Setbacks
+            Setbacks
           </button>
           <button
             className={`${styles.toolButton} ${showVaastuGrid ? styles.toolButtonActive : ""}`}
             onClick={() => setShowVaastuGrid((p) => !p)}
             title="Toggle 9-Zone Vaastu Mandala Grid"
           >
-            🧭 Vaastu Grid
+            Vaastu Grid
           </button>
           <button
             className={`${styles.toolButton} ${showBadges ? styles.toolButtonActive : ""}`}
             onClick={() => setShowBadges((p) => !p)}
             title="Toggle Room Names & Areas"
           >
-            🏷️ Badges
+            Badges
           </button>
         </div>
 
-        {/* Quick "+ Add Room" Toolbar */}
+        {/* Quick "+ Add Room"Toolbar */}
         <div className={styles.addRoomGroup}>
           <span className={styles.addRoomLabel}>+ Add:</span>
           {(spaces ?? ROOM_NAMES).map((name) => (
@@ -1578,7 +1578,7 @@ export default function Blueprint2DView({
           onClick={() => quickImportFileRef.current?.click()}
           title="Import a blueprint JSON file directly into 2D Layout"
         >
-          📂 Import JSON
+          Import JSON
         </button>
 
         {/* Model Blueprints Catalog Button */}
@@ -1588,13 +1588,13 @@ export default function Blueprint2DView({
             onClick={onOpenModelBlueprintsModal}
             title="Browse pre-designed architectural model blueprints or import custom plans"
           >
-            🏛️ Model Blueprints
+            Model Blueprints
           </button>
         )}
 
         {/* Export Blueprint Button */}
         <button className={styles.exportBtn} onClick={onOpenExportModal}>
-          📥 Export Blueprint
+          Export Blueprint
         </button>
       </div>
 
@@ -1608,15 +1608,15 @@ export default function Blueprint2DView({
       {/* Legend Overlay */}
       <div className={styles.legendOverlay}>
         <div className={styles.legendItem}>
-          <span className={styles.legendColorBox} style={{ background: "#7dd3fc" }} />
+          <span className={styles.legendColorBox} style={{ background: "#8ab3bf" }} />
           <span>Walls (Drag Handles)</span>
         </div>
         <div className={styles.legendItem}>
-          <span className={styles.legendColorBox} style={{ background: "#fbbf24" }} />
+          <span className={styles.legendColorBox} style={{ background: "#d4703a" }} />
           <span>Doors (Click to Resize/Slide)</span>
         </div>
         <div className={styles.legendItem}>
-          <span className={styles.legendColorBox} style={{ background: "#34d399" }} />
+          <span className={styles.legendColorBox} style={{ background: "#7a9668" }} />
           <span>Windows</span>
         </div>
         <div className={styles.legendItem}>
@@ -1633,8 +1633,8 @@ export default function Blueprint2DView({
             <button
               key={fl.floor}
               style={{
-                background: activeFloor === fl.floor ? "#0284c7" : "transparent",
-                color: activeFloor === fl.floor ? "#ffffff" : "#94a3b8",
+                background: activeFloor === fl.floor ? "#3d5c69" : "transparent",
+                color: activeFloor === fl.floor ? "#ffffff" : "#8e8a82",
                 border: "none",
                 borderRadius: "5px",
                 padding: "3px 7px",
@@ -1659,7 +1659,7 @@ export default function Blueprint2DView({
           }}
           title="Select & Inspect Objects (V)"
         >
-          ↖ Select
+          Select
         </button>
 
         <button
@@ -1669,7 +1669,7 @@ export default function Blueprint2DView({
           }}
           title="Point-to-Point Wall Drawer (W)"
         >
-          ✏️ Draw Wall
+          Draw Wall
         </button>
 
         {activeCadTool === "draw_wall" && (
@@ -1677,9 +1677,9 @@ export default function Blueprint2DView({
             value={activeWallType}
             onChange={(e) => onChangeWallType?.(e.target.value as CustomWallType)}
             style={{
-              background: "rgba(15, 23, 42, 0.9)",
-              color: "#38bdf8",
-              border: "1px solid #38bdf8",
+              background: "rgba(26, 25, 22, 0.9)",
+              color: "#6f9aa8",
+              border: "1px solid #6f9aa8",
               borderRadius: "6px",
               padding: "4px 8px",
               fontSize: "11px",
@@ -1687,14 +1687,14 @@ export default function Blueprint2DView({
               cursor: "pointer",
             }}
           >
-            <option value="exterior">🧱 9" Exterior Wall</option>
-            <option value="interior">🧱 4.5" Interior Wall</option>
-            <option value="glass">🪟 3" Glass Partition</option>
-            <option value="slat">🪵 3.5" Slat Screen</option>
-            <option value="arch">🏛️ 6" Arched Divider</option>
-            <option value="curved">💫 9" Curved Feature Wall</option>
-            <option value="curved_glass">🪟 3" Curved Glass Wall</option>
-            <option value="curved_slat">🪵 3.5" Curved Slat Wall</option>
+            <option value="exterior"> 9"Exterior Wall</option>
+            <option value="interior"> 4.5"Interior Wall</option>
+            <option value="glass"> 3"Glass Partition</option>
+            <option value="slat"> 3.5"Slat Screen</option>
+            <option value="arch"> 6"Arched Divider</option>
+            <option value="curved"> 9"Curved Feature Wall</option>
+            <option value="curved_glass"> 3"Curved Glass Wall</option>
+            <option value="curved_slat"> 3.5"Curved Slat Wall</option>
           </select>
         )}
 
@@ -1706,7 +1706,7 @@ export default function Blueprint2DView({
           }}
           title="Place Doors onto Walls (D)"
         >
-          🚪 Place Door
+          Place Door
         </button>
 
         <button
@@ -1717,7 +1717,7 @@ export default function Blueprint2DView({
           }}
           title="Place Windows onto Walls"
         >
-          🪟 Place Window
+          Place Window
         </button>
 
         <button
@@ -1728,7 +1728,7 @@ export default function Blueprint2DView({
           }}
           title="Tag and Label Room Zone with Area sq ft"
         >
-          🏷️ Tag Room
+          Tag Room
         </button>
 
         {onStartFromScratch && (
@@ -1737,16 +1737,16 @@ export default function Blueprint2DView({
             onClick={onStartFromScratch}
             title="Start with a blank plot (clears automated solver rooms)"
           >
-            🏗️ Start Blank
+            Start Blank
           </button>
         )}
 
         {onOpenModelBlueprintsModal && (
           <button
             style={{
-              background: "linear-gradient(135deg, rgba(2, 132, 199, 0.3), rgba(14, 165, 233, 0.2))",
-              border: "1px solid #38bdf8",
-              color: "#38bdf8",
+              background: "linear-gradient(135deg, rgba(61, 92, 105, 0.3), rgba(74, 109, 124, 0.2))",
+              border: "1px solid #6f9aa8",
+              color: "#6f9aa8",
               fontSize: "11px",
               fontWeight: 700,
               padding: "4px 9px",
@@ -1756,16 +1756,16 @@ export default function Blueprint2DView({
             onClick={onOpenModelBlueprintsModal}
             title="Exit scratch mode and load a prebuilt Vastu floor plan model"
           >
-            ✨ Prebuilt Plans
+            Prebuilt Plans
           </button>
         )}
 
         {customWalls.length > 0 && (
           <button
             style={{
-              background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid rgba(239, 68, 68, 0.4)",
-              color: "#f87171",
+              background: "rgba(168, 68, 47, 0.15)",
+              border: "1px solid rgba(168, 68, 47, 0.4)",
+              color: "#bf5a42",
               fontSize: "11px",
               padding: "4px 8px",
               borderRadius: "6px",
@@ -1779,7 +1779,7 @@ export default function Blueprint2DView({
             }}
             title="Clear all custom drawn walls"
           >
-            🗑️ Clear Walls ({customWalls.length})
+            Clear Walls ({customWalls.length})
           </button>
         )}
       </div>
@@ -1795,9 +1795,9 @@ export default function Blueprint2DView({
               position: "absolute",
               top: 125,
               left: 24,
-              background: "rgba(10, 25, 48, 0.96)",
+              background: "rgba(19, 18, 16, 0.96)",
               backdropFilter: "blur(16px)",
-              border: "1.5px solid #f59e0b",
+              border: "1.5px solid #b85c22",
               padding: "7px 12px",
               borderRadius: "12px",
               display: "flex",
@@ -1809,8 +1809,8 @@ export default function Blueprint2DView({
               fontSize: "12px",
             }}
           >
-            <span style={{ fontWeight: 800, color: "#fbbf24", display: "flex", alignItems: "center", gap: "4px" }}>
-              🧱 Wall ({formatFeetInches(getWallLengthIn(selectedWall))})
+            <span style={{ fontWeight: 800, color: "#d4703a", display: "flex", alignItems: "center", gap: "4px" }}>
+              Wall ({formatFeetInches(getWallLengthIn(selectedWall))})
             </span>
 
             <select
@@ -1826,9 +1826,9 @@ export default function Blueprint2DView({
                 onChangeCustomWalls?.(updated);
               }}
               style={{
-                background: "rgba(15, 23, 42, 0.9)",
-                color: "#38bdf8",
-                border: "1px solid #38bdf8",
+                background: "rgba(26, 25, 22, 0.9)",
+                color: "#6f9aa8",
+                border: "1px solid #6f9aa8",
                 borderRadius: "6px",
                 padding: "3px 6px",
                 fontSize: "11px",
@@ -1836,22 +1836,22 @@ export default function Blueprint2DView({
                 cursor: "pointer",
               }}
             >
-              <option value="exterior">🧱 9" Exterior Wall</option>
-              <option value="interior">🧱 4.5" Interior Wall</option>
-              <option value="glass">🪟 3" Glass Partition</option>
-              <option value="slat">🪵 3.5" Slat Screen</option>
-              <option value="arch">🏛️ 6" Arched Divider</option>
-              <option value="curved">💫 9" Curved Wall</option>
-              <option value="curved_glass">🪟 3" Curved Glass</option>
-              <option value="curved_slat">🪵 3.5" Curved Slat</option>
+              <option value="exterior"> 9"Exterior Wall</option>
+              <option value="interior"> 4.5"Interior Wall</option>
+              <option value="glass"> 3"Glass Partition</option>
+              <option value="slat"> 3.5"Slat Screen</option>
+              <option value="arch"> 6"Arched Divider</option>
+              <option value="curved"> 9"Curved Wall</option>
+              <option value="curved_glass"> 3"Curved Glass</option>
+              <option value="curved_slat"> 3.5"Curved Slat</option>
             </select>
 
             {/* Curve Toggle Button */}
             <button
               style={{
-                background: selectedWall.isCurved ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
-                color: selectedWall.isCurved ? "#ffffff" : "#cbd5e1",
-                border: "1px solid " + (selectedWall.isCurved ? "#38bdf8" : "rgba(255,255,255,0.2)"),
+                background: selectedWall.isCurved ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
+                color: selectedWall.isCurved ? "#ffffff" : "#b5b0a6",
+                border: "1px solid " + (selectedWall.isCurved ? "#6f9aa8" : "rgba(255,255,255,0.2)"),
                 borderRadius: "6px",
                 padding: "3px 8px",
                 fontSize: "11px",
@@ -1869,13 +1869,13 @@ export default function Blueprint2DView({
               }}
               title="Toggle Curved Wall Arc"
             >
-              💫 {selectedWall.isCurved ? "Curved: ON" : "Make Curved"}
+                {selectedWall.isCurved ? "Curved: ON" : "Make Curved"}
             </button>
 
             {/* Bulge Adjuster Stepper if curved */}
             {selectedWall.isCurved && (
               <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "rgba(0,0,0,0.35)", padding: "2px 6px", borderRadius: "6px" }}>
-                <span style={{ fontSize: "10.5px", color: "#94a3b8" }}>Arc:</span>
+                <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>Arc:</span>
                 <button
                   style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
                   onClick={() => {
@@ -1889,7 +1889,7 @@ export default function Blueprint2DView({
                 >
                   -
                 </button>
-                <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "26px", textAlign: "center", color: "#38bdf8" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "26px", textAlign: "center", color: "#6f9aa8" }}>
                   {selectedWall.curveBulgeIn || 24}&quot;
                 </span>
                 <button
@@ -1911,9 +1911,9 @@ export default function Blueprint2DView({
             {/* Delete Selected Wall */}
             <button
               style={{
-                background: "rgba(239, 68, 68, 0.2)",
-                border: "1px solid rgba(239, 68, 68, 0.5)",
-                color: "#f87171",
+                background: "rgba(168, 68, 47, 0.2)",
+                border: "1px solid rgba(168, 68, 47, 0.5)",
+                color: "#bf5a42",
                 borderRadius: "6px",
                 padding: "3px 8px",
                 fontSize: "11px",
@@ -1926,11 +1926,11 @@ export default function Blueprint2DView({
               }}
               title="Delete this wall"
             >
-              🗑️ Delete
+              Delete
             </button>
 
             <button
-              style={{ background: "transparent", border: "none", color: "#94a3b8", fontSize: "12px", cursor: "pointer", padding: "0 4px" }}
+              style={{ background: "transparent", border: "none", color: "#8e8a82", fontSize: "12px", cursor: "pointer", padding: "0 4px" }}
               onClick={() => setSelectedCustomWallId(null)}
               title="Deselect"
             >
@@ -1943,23 +1943,23 @@ export default function Blueprint2DView({
       {/* CAD Drafting Real-Time Hint Banner */}
       {activeCadTool === "draw_wall" && (
         <div className={styles.draftingStatusOverlay}>
-          <span>✏️ Click anywhere on plot to place wall points • Ortho snaps to 0°/90°/45° • Press ESC to finish</span>
+          <span> Click anywhere on plot to place wall points • Ortho snaps to 0°/90°/45° • Press ESC to finish</span>
         </div>
       )}
       {activeCadTool === "place_door" && (
         <div className={styles.draftingStatusOverlay}>
-          <span>🚪 Hover over any custom wall and click to insert Door</span>
+          <span> Hover over any custom wall and click to insert Door</span>
         </div>
       )}
       {activeCadTool === "place_window" && (
         <div className={styles.draftingStatusOverlay}>
-          <span>🪟 Hover over any custom wall and click to insert Window</span>
+          <span> Hover over any custom wall and click to insert Window</span>
         </div>
       )}
 
       {/* Interactive Edit Tip Pill */}
       <div className={styles.editTipOverlay}>
-        <span>🖐️ Drag rooms across map to crop/move • Click/drag walls &amp; doors to resize • Press &apos;C&apos; to toggle Auto-Crop</span>
+        <span> Drag rooms across map to crop/move • Click/drag walls &amp; doors to resize • Press &apos;C&apos; to toggle Auto-Crop</span>
       </div>
 
       {/* SVG Blueprint Canvas Viewport */}
@@ -1982,7 +1982,7 @@ export default function Blueprint2DView({
             <path d="M 6 0 L 0 0 0 6" fill="none" stroke="#0a233f" strokeWidth="0.4" />
           </pattern>
           <pattern id="cropHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6" />
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#b85c22" strokeWidth="1.5" opacity="0.6" />
           </pattern>
           <marker
             id="dimTick"
@@ -1993,12 +1993,12 @@ export default function Blueprint2DView({
             markerHeight="6"
             orient="auto"
           >
-            <line x1="2" y1="8" x2="8" y2="2" stroke="#38bdf8" strokeWidth="1.8" />
+            <line x1="2" y1="8" x2="8" y2="2" stroke="#6f9aa8" strokeWidth="1.8" />
           </marker>
         </defs>
 
         {/* CAD Grid Background */}
-        <rect width={VIEW_W} height={VIEW_H} fill="#06182c" />
+        <rect width={VIEW_W} height={VIEW_H} fill="#131210" />
         <rect width={VIEW_W} height={VIEW_H} fill="url(#fineGrid)" />
         <rect width={VIEW_W} height={VIEW_H} fill="url(#gridPattern)" />
 
@@ -2037,14 +2037,14 @@ export default function Blueprint2DView({
                         width={gw}
                         height={gh}
                         fill={zoneKey === "C" ? "#fbbf240a" : "none"}
-                        stroke="#38bdf8"
+                        stroke="#6f9aa8"
                         strokeWidth="0.8"
                         strokeDasharray="4,4"
                       />
                       <text
                         x={gx + gw / 2}
                         y={gy + gh / 2}
-                        fill="#38bdf8"
+                        fill="#6f9aa8"
                         fontSize="10"
                         fontFamily="monospace"
                         textAnchor="middle"
@@ -2066,7 +2066,7 @@ export default function Blueprint2DView({
             width={plotPxW}
             height={plotPxH}
             fill="none"
-            stroke="#f0f9ff"
+            stroke="#eceae5"
             strokeWidth="2.5"
             strokeDasharray="14,5"
           />
@@ -2080,14 +2080,14 @@ export default function Blueprint2DView({
                 width={plotPxW}
                 height="22"
                 fill="#0c2340"
-                stroke="#38bdf8"
+                stroke="#6f9aa8"
                 strokeWidth="1.2"
                 rx="4"
               />
               <text
                 x={plotPxX + plotPxW / 2}
                 y={plotPxY - 12}
-                fill="#38bdf8"
+                fill="#6f9aa8"
                 fontSize="11"
                 fontWeight="bold"
                 fontFamily="sans-serif"
@@ -2167,8 +2167,8 @@ export default function Blueprint2DView({
                       y={toPxY(dragCropP.rawTop)}
                       width={dragCropP.originalW * baseScale}
                       height={dragCropP.originalD * baseScale}
-                      fill="rgba(245, 158, 11, 0.08)"
-                      stroke="#f59e0b"
+                      fill="rgba(184, 92, 34, 0.08)"
+                      stroke="#b85c22"
                       strokeWidth="1.5"
                       strokeDasharray="4,4"
                     />
@@ -2184,20 +2184,20 @@ export default function Blueprint2DView({
                       width={270}
                       height={28}
                       rx="6"
-                      fill="rgba(15, 23, 42, 0.95)"
-                      stroke="#f59e0b"
+                      fill="rgba(26, 25, 22, 0.95)"
+                      stroke="#b85c22"
                       strokeWidth="1.5"
                     />
                     <text
                       x={rx + rw / 2}
                       y={ry - 18}
-                      fill="#f59e0b"
+                      fill="#b85c22"
                       fontSize="11"
                       fontFamily="monospace"
                       fontWeight="bold"
                       textAnchor="middle"
                     >
-                      ✂️ CROPPING TO MAP: {formatFeetInches(currentWIn)} × {formatFeetInches(currentDIn)}
+                      CROPPING TO MAP: {formatFeetInches(currentWIn)} × {formatFeetInches(currentDIn)}
                     </text>
                   </g>
                 )}
@@ -2208,8 +2208,8 @@ export default function Blueprint2DView({
                   y={ry}
                   width={rw}
                   height={rd}
-                  fill={isCropActive ? "#78350f" : isSelected ? "#0284c7" : isDraggingThis ? "#0369a1" : "#0c3b6d"}
-                  stroke={isCropActive ? "#f59e0b" : isSelected ? "#ffffff" : isDraggingThis ? "#38bdf8" : "#7dd3fc"}
+                  fill={isCropActive ? "#78350f" : isSelected ? "#3d5c69" : isDraggingThis ? "#2f4954" : "#0c3b6d"}
+                  stroke={isCropActive ? "#b85c22" : isSelected ? "#ffffff" : isDraggingThis ? "#6f9aa8" : "#8ab3bf"}
                   strokeWidth={isCropActive || isSelected || isDraggingThis ? 3.5 : 2}
                   filter={isDraggingThis ? "drop-shadow(0 8px 16px rgba(0,0,0,0.6))" : undefined}
                   rx="1"
@@ -2224,7 +2224,7 @@ export default function Blueprint2DView({
                   width={Math.max(0, rw - wallThicknessPx * 2)}
                   height={Math.max(0, rd - wallThicknessPx * 2)}
                   fill="#06182c88"
-                  stroke="#38bdf8"
+                  stroke="#6f9aa8"
                   strokeWidth="0.8"
                   strokeDasharray="2,2"
                   pointerEvents="none"
@@ -2238,7 +2238,7 @@ export default function Blueprint2DView({
                     width={rw + 6}
                     height={rd + 6}
                     fill="none"
-                    stroke="#38bdf8"
+                    stroke="#6f9aa8"
                     strokeWidth="1.5"
                     strokeDasharray="4,2"
                     pointerEvents="none"
@@ -2263,8 +2263,8 @@ export default function Blueprint2DView({
                         width="22"
                         height="18"
                         rx="4"
-                        fill="#0284c7"
-                        stroke="#7dd3fc"
+                        fill="#3d5c69"
+                        stroke="#8ab3bf"
                         strokeWidth="1"
                       />
                       <text
@@ -2275,7 +2275,7 @@ export default function Blueprint2DView({
                         fontWeight="bold"
                         textAnchor="middle"
                       >
-                        ↺
+
                       </text>
                     </g>
                     {/* Clockwise +90 deg button */}
@@ -2293,8 +2293,8 @@ export default function Blueprint2DView({
                         width="22"
                         height="18"
                         rx="4"
-                        fill="#0284c7"
-                        stroke="#7dd3fc"
+                        fill="#3d5c69"
+                        stroke="#8ab3bf"
                         strokeWidth="1"
                       />
                       <text
@@ -2305,7 +2305,7 @@ export default function Blueprint2DView({
                         fontWeight="bold"
                         textAnchor="middle"
                       >
-                        ↻
+
                       </text>
                     </g>
                   </g>
@@ -2320,7 +2320,7 @@ export default function Blueprint2DView({
                       y1={ry}
                       x2={rx + rw}
                       y2={ry}
-                      stroke={selectedWallEdge === "N" ? "#fbbf24" : "#38bdf8"}
+                      stroke={selectedWallEdge === "N" ? "#d4703a" : "#6f9aa8"}
                       strokeWidth="5"
                       strokeLinecap="round"
                       style={{ cursor: "ns-resize" }}
@@ -2331,7 +2331,7 @@ export default function Blueprint2DView({
                       style={{ cursor: "ns-resize" }}
                       onMouseDown={(e) => handleWallHandleMouseDown(e, idx, "N")}
                     >
-                      <rect x="0" y="0" width="24" height="10" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                      <rect x="0" y="0" width="24" height="10" rx="3" fill="#3d5c69" stroke="#6f9aa8" strokeWidth="1" />
                       <text x="12" y="8" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">▲ N</text>
                     </g>
 
@@ -2341,7 +2341,7 @@ export default function Blueprint2DView({
                       y1={ry + rd}
                       x2={rx + rw}
                       y2={ry + rd}
-                      stroke={selectedWallEdge === "S" ? "#fbbf24" : "#38bdf8"}
+                      stroke={selectedWallEdge === "S" ? "#d4703a" : "#6f9aa8"}
                       strokeWidth="5"
                       strokeLinecap="round"
                       style={{ cursor: "ns-resize" }}
@@ -2352,7 +2352,7 @@ export default function Blueprint2DView({
                       style={{ cursor: "ns-resize" }}
                       onMouseDown={(e) => handleWallHandleMouseDown(e, idx, "S")}
                     >
-                      <rect x="0" y="0" width="24" height="10" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                      <rect x="0" y="0" width="24" height="10" rx="3" fill="#3d5c69" stroke="#6f9aa8" strokeWidth="1" />
                       <text x="12" y="8" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">▼ S</text>
                     </g>
 
@@ -2362,7 +2362,7 @@ export default function Blueprint2DView({
                       y1={ry}
                       x2={rx}
                       y2={ry + rd}
-                      stroke={selectedWallEdge === "W" ? "#fbbf24" : "#38bdf8"}
+                      stroke={selectedWallEdge === "W" ? "#d4703a" : "#6f9aa8"}
                       strokeWidth="5"
                       strokeLinecap="round"
                       style={{ cursor: "ew-resize" }}
@@ -2373,7 +2373,7 @@ export default function Blueprint2DView({
                       style={{ cursor: "ew-resize" }}
                       onMouseDown={(e) => handleWallHandleMouseDown(e, idx, "W")}
                     >
-                      <rect x="0" y="0" width="10" height="24" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                      <rect x="0" y="0" width="10" height="24" rx="3" fill="#3d5c69" stroke="#6f9aa8" strokeWidth="1" />
                       <text x="5" y="15" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">◀</text>
                     </g>
 
@@ -2383,7 +2383,7 @@ export default function Blueprint2DView({
                       y1={ry}
                       x2={rx + rw}
                       y2={ry + rd}
-                      stroke={selectedWallEdge === "E" ? "#fbbf24" : "#38bdf8"}
+                      stroke={selectedWallEdge === "E" ? "#d4703a" : "#6f9aa8"}
                       strokeWidth="5"
                       strokeLinecap="round"
                       style={{ cursor: "ew-resize" }}
@@ -2394,7 +2394,7 @@ export default function Blueprint2DView({
                       style={{ cursor: "ew-resize" }}
                       onMouseDown={(e) => handleWallHandleMouseDown(e, idx, "E")}
                     >
-                      <rect x="0" y="0" width="10" height="24" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                      <rect x="0" y="0" width="10" height="24" rx="3" fill="#3d5c69" stroke="#6f9aa8" strokeWidth="1" />
                       <text x="5" y="15" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">▶</text>
                     </g>
                   </g>
@@ -2407,7 +2407,7 @@ export default function Blueprint2DView({
                     <rect
                       x={rx} y={ry} width={rw} height={rd}
                       fill="none"
-                      stroke="#f59e0b"
+                      stroke="#b85c22"
                       strokeWidth="1.5"
                       strokeDasharray="5,3"
                       pointerEvents="none"
@@ -2417,43 +2417,43 @@ export default function Blueprint2DView({
                     {/* NW corner */}
                     <g style={{ cursor: "nwse-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "NW")}>
                       <rect x={rx - 6} y={ry - 6} width={14} height={14} fill="transparent" />
-                      <path d={`M${rx + 8} ${ry} H${rx} V${ry + 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M${rx + 8} ${ry} H${rx} V${ry + 8}`} fill="none" stroke="#b85c22" strokeWidth="3" strokeLinecap="round" />
                     </g>
                     {/* NE corner */}
                     <g style={{ cursor: "nesw-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "NE")}>
                       <rect x={rx + rw - 8} y={ry - 6} width={14} height={14} fill="transparent" />
-                      <path d={`M${rx + rw - 8} ${ry} H${rx + rw} V${ry + 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M${rx + rw - 8} ${ry} H${rx + rw} V${ry + 8}`} fill="none" stroke="#b85c22" strokeWidth="3" strokeLinecap="round" />
                     </g>
                     {/* SW corner */}
                     <g style={{ cursor: "nesw-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "SW")}>
                       <rect x={rx - 6} y={ry + rd - 8} width={14} height={14} fill="transparent" />
-                      <path d={`M${rx + 8} ${ry + rd} H${rx} V${ry + rd - 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M${rx + 8} ${ry + rd} H${rx} V${ry + rd - 8}`} fill="none" stroke="#b85c22" strokeWidth="3" strokeLinecap="round" />
                     </g>
                     {/* SE corner */}
                     <g style={{ cursor: "nwse-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "SE")}>
                       <rect x={rx + rw - 8} y={ry + rd - 8} width={14} height={14} fill="transparent" />
-                      <path d={`M${rx + rw - 8} ${ry + rd} H${rx + rw} V${ry + rd - 8}`} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M${rx + rw - 8} ${ry + rd} H${rx + rw} V${ry + rd - 8}`} fill="none" stroke="#b85c22" strokeWidth="3" strokeLinecap="round" />
                     </g>
 
                     {/* ── 4 EDGE midpoint handles (bars) ── */}
                     {/* N edge */}
                     <g style={{ cursor: "n-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "N")}>
-                      <rect x={rx + rw / 2 - 14} y={ry - 5} width={28} height={10} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <rect x={rx + rw / 2 - 14} y={ry - 5} width={28} height={10} rx="3" fill="#b85c22" stroke="#d4703a" strokeWidth="1" />
                       <line x1={rx + rw / 2 - 6} y1={ry} x2={rx + rw / 2 + 6} y2={ry} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                     </g>
                     {/* S edge */}
                     <g style={{ cursor: "s-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "S")}>
-                      <rect x={rx + rw / 2 - 14} y={ry + rd - 5} width={28} height={10} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <rect x={rx + rw / 2 - 14} y={ry + rd - 5} width={28} height={10} rx="3" fill="#b85c22" stroke="#d4703a" strokeWidth="1" />
                       <line x1={rx + rw / 2 - 6} y1={ry + rd} x2={rx + rw / 2 + 6} y2={ry + rd} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                     </g>
                     {/* W edge */}
                     <g style={{ cursor: "w-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "W")}>
-                      <rect x={rx - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <rect x={rx - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#b85c22" stroke="#d4703a" strokeWidth="1" />
                       <line x1={rx} y1={ry + rd / 2 - 6} x2={rx} y2={ry + rd / 2 + 6} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                     </g>
                     {/* E edge */}
                     <g style={{ cursor: "e-resize" }} onMouseDown={(e) => handleCropHandleMouseDown(e, idx, "E")}>
-                      <rect x={rx + rw - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#f59e0b" stroke="#fbbf24" strokeWidth="1" />
+                      <rect x={rx + rw - 5} y={ry + rd / 2 - 14} width={10} height={28} rx="3" fill="#b85c22" stroke="#d4703a" strokeWidth="1" />
                       <line x1={rx + rw} y1={ry + rd / 2 - 6} x2={rx + rw} y2={ry + rd / 2 + 6} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                     </g>
 
@@ -2466,14 +2466,14 @@ export default function Blueprint2DView({
                           width={112}
                           height={26}
                           rx="5"
-                          fill="rgba(15,23,42,0.88)"
-                          stroke="#f59e0b"
+                          fill="rgba(26, 25, 22,0.88)"
+                          stroke="#b85c22"
                           strokeWidth="1"
                         />
                         <text
                           x={rx + rw / 2}
                           y={ry + rd / 2 + 4}
-                          fill="#f59e0b"
+                          fill="#b85c22"
                           fontSize="11"
                           fontFamily="monospace"
                           fontWeight="bold"
@@ -2502,7 +2502,7 @@ export default function Blueprint2DView({
                     <text
                       x="0"
                       y="6"
-                      fill="#38bdf8"
+                      fill="#6f9aa8"
                       fontSize="11"
                       fontFamily="monospace"
                       fontWeight="bold"
@@ -2513,7 +2513,7 @@ export default function Blueprint2DView({
                     <text
                       x="0"
                       y="20"
-                      fill="#93c5fd"
+                      fill="#8ab3bf"
                       fontSize="9.5"
                       fontFamily="monospace"
                       textAnchor="middle"
@@ -2550,10 +2550,10 @@ export default function Blueprint2DView({
                   if (opening.kind === "door" || opening.kind === "entrance") {
                     const isEntrance = opening.kind === "entrance";
                     const doorColor = isOpeningSelected
-                      ? "#38bdf8"
+                      ? "#6f9aa8"
                       : isEntrance
-                      ? "#38bdf8"
-                      : "#fbbf24";
+                      ? "#6f9aa8"
+                      : "#d4703a";
 
                     return (
                       <g
@@ -2578,7 +2578,7 @@ export default function Blueprint2DView({
                           y2={
                             opening.edge === "E" || opening.edge === "W" ? oy + openWidthPx : oy
                           }
-                          stroke="#06182c"
+                          stroke="#131210"
                           strokeWidth="6"
                         />
                         {/* 90 Deg Swing Arc */}
@@ -2614,7 +2614,7 @@ export default function Blueprint2DView({
                                   : oy
                               }
                               r="6"
-                              fill="#fbbf24"
+                              fill="#d4703a"
                               stroke="#ffffff"
                               strokeWidth="1.5"
                               style={{ cursor: "grab" }}
@@ -2634,7 +2634,7 @@ export default function Blueprint2DView({
                                   : oy
                               }
                               r="5"
-                              fill="#38bdf8"
+                              fill="#6f9aa8"
                               stroke="#ffffff"
                               strokeWidth="1.5"
                               style={{ cursor: "ew-resize" }}
@@ -2655,7 +2655,7 @@ export default function Blueprint2DView({
                                   ? oy + 16
                                   : oy + openWidthPx / 2
                               }
-                              fill="#fbbf24"
+                              fill="#d4703a"
                               fontSize="10"
                               fontWeight="bold"
                               fontFamily="monospace"
@@ -2682,7 +2682,7 @@ export default function Blueprint2DView({
                                   : 0)
                               }
                               r="4"
-                              fill="#38bdf8"
+                              fill="#6f9aa8"
                             />
                             <text
                               x={
@@ -2695,7 +2695,7 @@ export default function Blueprint2DView({
                                 oy +
                                 (opening.edge === "N" ? -8 : opening.edge === "S" ? 14 : 0)
                               }
-                              fill="#38bdf8"
+                              fill="#6f9aa8"
                               fontSize="8"
                               fontWeight="bold"
                               fontFamily="monospace"
@@ -2730,7 +2730,7 @@ export default function Blueprint2DView({
                           y1={oy}
                           x2={wx2}
                           y2={wy2}
-                          stroke={isOpeningSelected ? "#6ee7b7" : "#34d399"}
+                          stroke={isOpeningSelected ? "#93ab84" : "#7a9668"}
                           strokeWidth={isOpeningSelected ? 5 : 3.5}
                         />
                         <line
@@ -2738,7 +2738,7 @@ export default function Blueprint2DView({
                           y1={isHoriz ? oy - 2 : oy}
                           x2={isHoriz ? wx2 : wx2 - 2}
                           y2={isHoriz ? wy2 - 2 : wy2}
-                          stroke="#34d399"
+                          stroke="#7a9668"
                           strokeWidth="1.2"
                         />
                         <line
@@ -2746,7 +2746,7 @@ export default function Blueprint2DView({
                           y1={isHoriz ? oy + 2 : oy}
                           x2={isHoriz ? wx2 : wx2 + 2}
                           y2={isHoriz ? wy2 + 2 : wy2}
-                          stroke="#34d399"
+                          stroke="#7a9668"
                           strokeWidth="1.2"
                         />
 
@@ -2756,7 +2756,7 @@ export default function Blueprint2DView({
                               cx={isHoriz ? ox + openWidthPx / 2 : ox}
                               cy={isHoriz ? oy : oy + openWidthPx / 2}
                               r="5"
-                              fill="#34d399"
+                              fill="#7a9668"
                               stroke="#ffffff"
                               strokeWidth="1.5"
                               style={{ cursor: "grab" }}
@@ -2766,7 +2766,7 @@ export default function Blueprint2DView({
                               cx={wx2}
                               cy={wy2}
                               r="5"
-                              fill="#38bdf8"
+                              fill="#6f9aa8"
                               stroke="#ffffff"
                               strokeWidth="1.5"
                               style={{ cursor: "ew-resize" }}
@@ -2775,7 +2775,7 @@ export default function Blueprint2DView({
                             <text
                               x={isHoriz ? ox + openWidthPx / 2 : ox + 14}
                               y={isHoriz ? oy - 8 : oy + openWidthPx / 2}
-                              fill="#34d399"
+                              fill="#7a9668"
                               fontSize="10"
                               fontWeight="bold"
                               fontFamily="monospace"
@@ -2810,14 +2810,14 @@ export default function Blueprint2DView({
                           y1={oy}
                           x2={wx2}
                           y2={wy2}
-                          stroke="#94a3b8"
+                          stroke="#8e8a82"
                           strokeWidth="2.5"
                           strokeDasharray="5,4"
                         />
                         <text
                           x={isHoriz ? ox + openWidthPx / 2 : ox - 6}
                           y={isHoriz ? oy - 6 : oy + openWidthPx / 2}
-                          fill="#cbd5e1"
+                          fill="#b5b0a6"
                           fontSize="8.5"
                           fontWeight="bold"
                           fontFamily="monospace"
@@ -2863,8 +2863,8 @@ export default function Blueprint2DView({
                   y={zy}
                   width={zw}
                   height={zd}
-                  fill={isCurrentFloor ? "rgba(2, 132, 199, 0.12)" : "rgba(100, 116, 139, 0.05)"}
-                  stroke={isSelected ? "#38bdf8" : isCurrentFloor ? "rgba(56, 189, 248, 0.5)" : "rgba(148, 163, 184, 0.3)"}
+                  fill={isCurrentFloor ? "rgba(61, 92, 105, 0.12)" : "rgba(100, 116, 139, 0.05)"}
+                  stroke={isSelected ? "#6f9aa8" : isCurrentFloor ? "rgba(111, 154, 168, 0.5)" : "rgba(148, 163, 184, 0.3)"}
                   strokeWidth={isSelected ? 2 : 1}
                   strokeDasharray="4,4"
                   rx="4"
@@ -2872,7 +2872,7 @@ export default function Blueprint2DView({
                 <text
                   x={zx + zw / 2}
                   y={zy + zd / 2 - 4}
-                  fill={isCurrentFloor ? "#ffffff" : "#94a3b8"}
+                  fill={isCurrentFloor ? "#ffffff" : "#8e8a82"}
                   fontSize="12"
                   fontWeight="bold"
                   textAnchor="middle"
@@ -2883,7 +2883,7 @@ export default function Blueprint2DView({
                 <text
                   x={zx + zw / 2}
                   y={zy + zd / 2 + 12}
-                  fill={isCurrentFloor ? "#38bdf8" : "#64748b"}
+                  fill={isCurrentFloor ? "#6f9aa8" : "#6d685e"}
                   fontSize="10"
                   fontFamily="monospace"
                   textAnchor="middle"
@@ -2908,14 +2908,14 @@ export default function Blueprint2DView({
             const strokeColor = !isCurrentFloor
               ? "#475569"
               : wall.wallType === "glass" || wall.wallType === "curved_glass"
-              ? "#0284c7"
+              ? "#3d5c69"
               : wall.wallType === "slat" || wall.wallType === "curved_slat"
-              ? "#d97706"
+              ? "#8a4318"
               : wall.wallType === "arch"
-              ? "#64748b"
+              ? "#6d685e"
               : wall.wallType === "curved" || wall.isCurved
-              ? "#38bdf8"
-              : "#7dd3fc";
+              ? "#6f9aa8"
+              : "#8ab3bf";
 
             const wallLenIn = getWallLengthIn(wall);
             const midX = (wx1 + wx2) / 2;
@@ -2952,7 +2952,7 @@ export default function Blueprint2DView({
                 {isCurved ? (
                   <path
                     d={`M ${wx1} ${wy1} Q ${ctrlX} ${ctrlY} ${wx2} ${wy2}`}
-                    stroke={isSelected ? "#f59e0b" : strokeColor}
+                    stroke={isSelected ? "#b85c22" : strokeColor}
                     strokeWidth={strokeW}
                     fill="none"
                     strokeLinecap="round"
@@ -2964,7 +2964,7 @@ export default function Blueprint2DView({
                     y1={wy1}
                     x2={wx2}
                     y2={wy2}
-                    stroke={isSelected ? "#f59e0b" : strokeColor}
+                    stroke={isSelected ? "#b85c22" : strokeColor}
                     strokeWidth={strokeW}
                     strokeLinecap="round"
                     strokeDasharray={isCurrentFloor ? undefined : "6,6"}
@@ -2980,14 +2980,14 @@ export default function Blueprint2DView({
                       width={56}
                       height={16}
                       rx="3"
-                      fill="rgba(10, 25, 48, 0.88)"
-                      stroke="rgba(56, 189, 248, 0.35)"
+                      fill="rgba(19, 18, 16, 0.88)"
+                      stroke="rgba(111, 154, 168, 0.35)"
                       strokeWidth="0.8"
                     />
                     <text
                       x="0"
                       y="2"
-                      fill="#cbd5e1"
+                      fill="#b5b0a6"
                       fontSize="9"
                       fontFamily="monospace"
                       fontWeight="bold"
@@ -3018,11 +3018,11 @@ export default function Blueprint2DView({
                         {/* Door Wall Cutout */}
                         <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#ffffff" strokeWidth={strokeW + 1} />
                         {/* Door Leaf & Arc */}
-                        <line x1={ox1} y1={oy1} x2={ox1 - dyNorm * opW} y2={oy1 + dxNorm * opW} stroke="#fbbf24" strokeWidth="2" />
+                        <line x1={ox1} y1={oy1} x2={ox1 - dyNorm * opW} y2={oy1 + dxNorm * opW} stroke="#d4703a" strokeWidth="2" />
                         <path
                           d={`M ${ox2} ${oy2} A ${opW} ${opW} 0 0 0 ${ox1 - dyNorm * opW} ${oy1 + dxNorm * opW}`}
                           fill="none"
-                          stroke="#fbbf24"
+                          stroke="#d4703a"
                           strokeWidth="1.2"
                           strokeDasharray="3,3"
                         />
@@ -3033,14 +3033,14 @@ export default function Blueprint2DView({
                     return (
                       <g key={op.id}>
                         {/* Window Wall Cutout & Glazing */}
-                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#0f172a" strokeWidth={strokeW} />
-                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#38bdf8" strokeWidth="2.5" />
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#1a1916" strokeWidth={strokeW} />
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#6f9aa8" strokeWidth="2.5" />
                         <line
                           x1={ox1 + dyNorm * 3}
                           y1={oy1 - dxNorm * 3}
                           x2={ox2 + dyNorm * 3}
                           y2={oy2 - dxNorm * 3}
-                          stroke="#94a3b8"
+                          stroke="#8e8a82"
                           strokeWidth="1"
                         />
                       </g>
@@ -3059,12 +3059,12 @@ export default function Blueprint2DView({
                 y1={toPxY(draftWallStart.yIn)}
                 x2={toPxX(draftWallCurrent.xIn)}
                 y2={toPxY(draftWallCurrent.yIn)}
-                stroke="#38bdf8"
+                stroke="#6f9aa8"
                 strokeWidth={Math.max(3, (WALL_TYPE_CONFIGS[activeWallType]?.thicknessIn ?? 9) * baseScale)}
                 strokeDasharray="6,4"
               />
-              <circle cx={toPxX(draftWallStart.xIn)} cy={toPxY(draftWallStart.yIn)} r="5" fill="#38bdf8" />
-              <circle cx={toPxX(draftWallCurrent.xIn)} cy={toPxY(draftWallCurrent.yIn)} r="5" fill="#f59e0b" />
+              <circle cx={toPxX(draftWallStart.xIn)} cy={toPxY(draftWallStart.yIn)} r="5" fill="#6f9aa8" />
+              <circle cx={toPxX(draftWallCurrent.xIn)} cy={toPxY(draftWallCurrent.yIn)} r="5" fill="#b85c22" />
               {/* Length & Angle HUD */}
               <g
                 transform={`translate(${(toPxX(draftWallStart.xIn) + toPxX(draftWallCurrent.xIn)) / 2}, ${
@@ -3077,14 +3077,14 @@ export default function Blueprint2DView({
                   width="76"
                   height="22"
                   rx="4"
-                  fill="rgba(15, 23, 42, 0.95)"
-                  stroke="#38bdf8"
+                  fill="rgba(26, 25, 22, 0.95)"
+                  stroke="#6f9aa8"
                   strokeWidth="1"
                 />
                 <text
                   x="0"
                   y="3"
-                  fill="#38bdf8"
+                  fill="#6f9aa8"
                   fontSize="10"
                   fontFamily="monospace"
                   fontWeight="bold"
@@ -3099,12 +3099,12 @@ export default function Blueprint2DView({
           {/* ── Hovered Opening Snap Preview ── */}
           {(activeCadTool === "place_door" || activeCadTool === "place_window") && hoveredWallInfo && (
             <g pointerEvents="none" transform={`translate(${hoveredWallInfo.px}, ${hoveredWallInfo.py})`}>
-              <circle cx="0" cy="0" r="10" fill="#f59e0b" opacity="0.3" />
-              <circle cx="0" cy="0" r="5" fill="#f59e0b" />
+              <circle cx="0" cy="0" r="10" fill="#b85c22" opacity="0.3" />
+              <circle cx="0" cy="0" r="5" fill="#b85c22" />
               <g transform="translate(14, -12)">
-                <rect x="-6" y="-12" width="165" height="24" rx="5" fill="rgba(15, 23, 42, 0.95)" stroke="#f59e0b" strokeWidth="1" />
-                <text x="4" y="4" fill="#fbbf24" fontSize="10.5" fontWeight="bold" fontFamily="monospace">
-                  {activeCadTool === "place_door" ? "🚪 Click to Install Door" : "🪟 Click to Install Window"}
+                <rect x="-6" y="-12" width="165" height="24" rx="5" fill="rgba(26, 25, 22, 0.95)" stroke="#b85c22" strokeWidth="1" />
+                <text x="4" y="4" fill="#d4703a" fontSize="10.5" fontWeight="bold" fontFamily="monospace">
+                  {activeCadTool === "place_door" ? "Click to Install Door" : "Click to Install Window"}
                 </text>
               </g>
             </g>
@@ -3112,13 +3112,13 @@ export default function Blueprint2DView({
 
           {/* North Orientation Compass */}
           <g transform={`translate(${plotPxX + plotPxW + 65}, ${plotPxY + 40})`}>
-            <circle cx="0" cy="0" r="22" fill="#0a2544" stroke="#38bdf8" strokeWidth="1.5" />
-            <path d="M 0 -16 L 6 0 L 0 -4 L -6 0 z" fill="#38bdf8" />
+            <circle cx="0" cy="0" r="22" fill="#0a2544" stroke="#6f9aa8" strokeWidth="1.5" />
+            <path d="M 0 -16 L 6 0 L 0 -4 L -6 0 z" fill="#6f9aa8" />
             <path d="M 0 16 L 6 0 L 0 4 L -6 0 z" fill="#60a5fa" opacity="0.5" />
             <text
               x="0"
               y="-20"
-              fill="#38bdf8"
+              fill="#6f9aa8"
               fontSize="11"
               fontWeight="bold"
               fontFamily="sans-serif"
@@ -3147,7 +3147,7 @@ export default function Blueprint2DView({
           −
         </button>
         <button className={styles.navBtn} onClick={handleResetView} title="Reset View Fit">
-          ⟲
+
         </button>
       </div>
 
@@ -3177,19 +3177,19 @@ export default function Blueprint2DView({
               className={`${styles.tabBtn} ${inspectorTab === "room" ? styles.tabBtnActive : ""}`}
               onClick={() => setInspectorTab("room")}
             >
-              🏢 Room
+              Room
             </button>
             <button
               className={`${styles.tabBtn} ${inspectorTab === "wall" ? styles.tabBtnActive : ""}`}
               onClick={() => setInspectorTab("wall")}
             >
-              🧱 Wall ({selectedWallEdge || "N"})
+              Wall ({selectedWallEdge || "N"})
             </button>
             <button
               className={`${styles.tabBtn} ${inspectorTab === "door" ? styles.tabBtnActive : ""}`}
               onClick={() => setInspectorTab("door")}
             >
-              🚪 Door ({selectedOpening ? selectedOpening.kind.toUpperCase() : "Select"})
+              Door ({selectedOpening ? selectedOpening.kind.toUpperCase() : "Select"})
             </button>
           </div>
 
@@ -3220,7 +3220,7 @@ export default function Blueprint2DView({
 
               {/* Adjust Room Dimensions */}
               <div className={styles.dimEditorSection}>
-                <span className={styles.dimEditorTitle}>📐 Adjust Room Dimensions</span>
+                <span className={styles.dimEditorTitle}> Adjust Room Dimensions</span>
 
                 {/* Width Stepper */}
                 <div className={styles.stepperRow}>
@@ -3272,7 +3272,7 @@ export default function Blueprint2DView({
 
                 {/* Quick Dimension Presets */}
                 <div className={styles.presetsRow}>
-                  <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
+                  <span style={{ fontSize: "10px", color: "#8e8a82" }}>Presets:</span>
                   <button className={styles.presetChip} onClick={() => handleSetPresetDimensions(10, 12)}>10×12</button>
                   <button className={styles.presetChip} onClick={() => handleSetPresetDimensions(12, 14)}>12×14</button>
                   <button className={styles.presetChip} onClick={() => handleSetPresetDimensions(14, 16)}>14×16</button>
@@ -3282,14 +3282,14 @@ export default function Blueprint2DView({
 
               {/* Rotate Room Orientation Controls */}
               <div className={styles.inspectorRotateSection}>
-                <span className={styles.dimEditorTitle}>🔄 Rotate Room Orientation</span>
+                <span className={styles.dimEditorTitle}> Rotate Room Orientation</span>
                 <div className={styles.inspectorRotateRow}>
                   <button
                     className={styles.inspectorRotateBtn}
                     onClick={() => handleRotateSelectedRoom()}
                     title="Rotate Room Anticlockwise (-90°)"
                   >
-                    <span className={styles.rotateIcon}>↺</span>
+                    <span className={styles.rotateIcon}></span>
                     <span>Rotate CCW (-90°)</span>
                   </button>
                   <button
@@ -3297,18 +3297,18 @@ export default function Blueprint2DView({
                     onClick={() => handleRotateSelectedRoom()}
                     title="Rotate Room Clockwise (+90°)"
                   >
-                    <span className={styles.rotateIcon}>↻</span>
+                    <span className={styles.rotateIcon}></span>
                     <span>Rotate CW (+90°)</span>
                   </button>
                 </div>
                 <span className={styles.shortcutTip}>
-                  💡 Keyboard: Press <kbd className={styles.kbd}>R</kbd> to rotate selected room
+                  Keyboard: Press <kbd className={styles.kbd}>R</kbd> to rotate selected room
                 </span>
               </div>
 
               {/* Delete Room Action */}
               <button className={styles.deleteRoomBtn} onClick={handleDeleteSelectedRoom}>
-                🗑️ Delete This Room
+                Delete This Room
               </button>
             </div>
           )}
@@ -3382,7 +3382,7 @@ export default function Blueprint2DView({
 
               {/* Wall Length Stepper & Presets */}
               <div className={styles.dimEditorSection}>
-                <span className={styles.dimEditorTitle}>📐 Adjust Wall Length</span>
+                <span className={styles.dimEditorTitle}> Adjust Wall Length</span>
                 <div className={styles.stepperRow}>
                   <span>Length:</span>
                   <div className={styles.stepperGroup}>
@@ -3422,7 +3422,7 @@ export default function Blueprint2DView({
                 </div>
 
                 <div className={styles.presetsRow}>
-                  <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
+                  <span style={{ fontSize: "10px", color: "#8e8a82" }}>Presets:</span>
                   {WALL_LENGTH_PRESETS_FT.map((len) => (
                     <button
                       key={len}
@@ -3449,9 +3449,9 @@ export default function Blueprint2DView({
                       fontSize: "11px",
                       padding: "5px 6px",
                       borderRadius: 6,
-                      background: "#0f172a",
-                      color: "#e2e8f0",
-                      border: "1px solid #334155",
+                      background: "#1a1916",
+                      color: "#d8d4cb",
+                      border: "1px solid #3a372f",
                     }}
                   >
                     <optgroup label="Doors">
@@ -3506,12 +3506,12 @@ export default function Blueprint2DView({
                           onClick={() => handleUpdateSelectedOpening({ kind })}
                         >
                           {kind === "door"
-                            ? "🚪 Door"
+                            ? "Door"
                             : kind === "entrance"
-                            ? "⛩️ Entry"
+                            ? "Entry"
                             : kind === "window"
-                            ? "🪟 Window"
-                            : "🔲 Arch"}
+                            ? "Window"
+                            : "Arch"}
                         </button>
                       ))}
                     </div>
@@ -3519,7 +3519,7 @@ export default function Blueprint2DView({
 
                   {/* Door Width Stepper & Architectural Presets */}
                   <div className={styles.dimEditorSection}>
-                    <span className={styles.dimEditorTitle}>📐 Clear Opening Width</span>
+                    <span className={styles.dimEditorTitle}> Clear Opening Width</span>
                     <div className={styles.stepperRow}>
                       <span>Width:</span>
                       <div className={styles.stepperGroup}>
@@ -3552,7 +3552,7 @@ export default function Blueprint2DView({
                     </div>
 
                     <div className={styles.presetsRow}>
-                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
+                      <span style={{ fontSize: "10px", color: "#8e8a82" }}>Presets:</span>
                       {OPENING_WIDTH_PRESETS.map((p) => (
                         <button
                           key={p.w}
@@ -3569,7 +3569,7 @@ export default function Blueprint2DView({
 
                   {/* Door Height Stepper & Presets */}
                   <div className={styles.dimEditorSection}>
-                    <span className={styles.dimEditorTitle}>📐 Opening Height</span>
+                    <span className={styles.dimEditorTitle}> Opening Height</span>
                     <div className={styles.stepperRow}>
                       <span>Height:</span>
                       <div className={styles.stepperGroup}>
@@ -3600,7 +3600,7 @@ export default function Blueprint2DView({
                     </div>
 
                     <div className={styles.presetsRow}>
-                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>Presets:</span>
+                      <span style={{ fontSize: "10px", color: "#8e8a82" }}>Presets:</span>
                       {OPENING_HEIGHT_PRESETS.map((p) => (
                         <button
                           key={p.h}
@@ -3617,7 +3617,7 @@ export default function Blueprint2DView({
 
                   {/* Position Offset Stepper along Wall */}
                   <div className={styles.dimEditorSection}>
-                    <span className={styles.dimEditorTitle}>📍 Wall Offset Position</span>
+                    <span className={styles.dimEditorTitle}> Wall Offset Position</span>
                     <div className={styles.stepperRow}>
                       <span>Offset:</span>
                       <div className={styles.stepperGroup}>
@@ -3653,12 +3653,12 @@ export default function Blueprint2DView({
                     className={styles.deleteRoomBtn}
                     onClick={handleDeleteSelectedOpening}
                   >
-                    🗑️ Delete This Opening
+                    Delete This Opening
                   </button>
                 </>
               ) : (
                 <div className={styles.emptyOpeningsState}>
-                  <span>💡 Click any door/window in the blueprint or choose one below:</span>
+                  <span> Click any door/window in the blueprint or choose one below:</span>
                   <div className={styles.openingsList}>
                     {(selectedRoom.openings ?? []).map((op, oi) => (
                       <div
@@ -3671,7 +3671,7 @@ export default function Blueprint2DView({
                         }}
                       >
                         <span>
-                          {op.kind === "door" ? "🚪" : op.kind === "entrance" ? "⛩️" : "🪟"}{" "}
+                          {op.kind === "door" ? "" : op.kind === "entrance" ? "" : ""}{" "}
                           {op.kind.toUpperCase()} on {op.edge} Wall
                         </span>
                         <span>{formatFeetInches(op.width_in)}</span>

@@ -26,7 +26,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "emerald_sectional",
     name: "Emerald Velvet Sectional",
     category: "living",
-    icon: "🛋️",
+    icon: "SOF",
     style: "Luxury Contemporary",
     description: "Deep tufted emerald velvet corner sectional sofa with tapered brass legs.",
     prompt: "emerald green velvet luxury tufted l-shape sectional sofa with brass legs",
@@ -36,7 +36,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "tan_leather_armchair",
     name: "Cognac Leather Lounge Chair",
     category: "living",
-    icon: "🪑",
+    icon: "CHR",
     style: "Mid-Century Modern",
     description: "Top-grain warm cognac leather accent armchair with ergonomic contour.",
     prompt: "warm tan cognac leather accent armchair lounge chair with dark walnut wood base",
@@ -46,7 +46,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "marble_gold_dining",
     name: "Carrara Marble Dining Table",
     category: "dining",
-    icon: "🍽️",
+    icon: "DIN",
     style: "Neoclassical Luxe",
     description: "Beveled Carrara quartz tabletop with architectural brushed gold pedestal legs.",
     prompt: "oval carrara white marble dining table with gold brass architectural base",
@@ -56,7 +56,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "zen_platform_bed",
     name: "Fluted Velvet Platform Bed",
     category: "bedroom",
-    icon: "🛏️",
+    icon: "BED",
     style: "Japandi Modern",
     description: "Low-profile king platform bed with fluted velvet acoustic headboard ledges.",
     prompt: "dark walnut king size platform bed with emerald green velvet headboard",
@@ -66,7 +66,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "crescent_boucle_sofa",
     name: "Curved Crescent Bouclé Sofa",
     category: "living",
-    icon: "🛋️",
+    icon: "SOF",
     style: "Organic Minimalist",
     description: "Soft curved cloud sofa in ivory white textured bouclé upholstery.",
     prompt: "curved crescent organic white cream boucle cloud sofa",
@@ -76,7 +76,7 @@ const PRESET_SHOWCASE: PresetShowcaseItem[] = [
     id: "teak_coffee_table",
     name: "Live-Edge Teak Coffee Table",
     category: "living",
-    icon: "☕",
+    icon: "CAF",
     style: "Organic Modern",
     description: "Solid natural teak slab coffee table with industrial matte black hairpin legs.",
     prompt: "natural teak wood coffee table with matte black metal hairpin legs",
@@ -461,7 +461,7 @@ export default function AIFurnitureStudioModal({
         {/* Header */}
         <div className={styles.modalHeader}>
           <div className={styles.headerTitleGroup}>
-            <div className={styles.headerIconBadge}>📸</div>
+            <div className={styles.headerIconBadge}>CAM</div>
             <div>
               <h2 className={styles.headerTitle}>
                 AI Photo-to-3D Furniture Studio <span className={styles.aiPillBadge}>Multimodal Vision AI</span>
@@ -483,7 +483,7 @@ export default function AIFurnitureStudioModal({
             {/* Upload Dropzone */}
             <div>
               <div className={styles.sectionTitle}>
-                <span>📸</span> 1. Upload or Snap Furniture Photo
+                <span>CAM</span> 1. Upload or Snap Furniture Photo
               </div>
 
               {uploadedImageSrc ? (
@@ -491,7 +491,7 @@ export default function AIFurnitureStudioModal({
                   <img src={uploadedImageSrc} alt="Uploaded furniture" className={styles.uploadedImage} />
                   {isScanning && <div className={styles.scanningOverlay} />}
                   <div className={styles.scanningBadge}>
-                    <span>{isScanning ? "⚡ AI Decomposing 3D Geometry..." : "✅ 3D Geometry & Palette Extracted"}</span>
+                    <span>{isScanning ? "AI Decomposing 3D Geometry..." : "3D Geometry & Palette Extracted"}</span>
                   </div>
                   <button
                     className={styles.removeImageBtn}
@@ -516,7 +516,7 @@ export default function AIFurnitureStudioModal({
                       }
                     }}
                   />
-                  <span className={styles.dropzoneIcon}>🖼️</span>
+                  <span className={styles.dropzoneIcon}>IMG</span>
                   <div className={styles.dropzoneTitle}>Drag &amp; Drop Furniture Photo</div>
                   <div className={styles.dropzoneSub}>Supports JPG, PNG, WEBP from IKEA, Pinterest, or your Camera</div>
                   <span className={styles.browseBtn}>Browse Files or Paste (Ctrl+V)</span>
@@ -526,7 +526,7 @@ export default function AIFurnitureStudioModal({
               {/* Detected Color Palette Chips */}
               {detectedColors.length > 0 && (
                 <div className={styles.detectedColorsBar} style={{ marginTop: "8px" }}>
-                  <span className={styles.detectedColorsLabel}>🎨 Extracted Palette:</span>
+                  <span className={styles.detectedColorsLabel}> Extracted Palette:</span>
                   {detectedColors.map((hex) => (
                     <span
                       key={hex}
@@ -546,7 +546,7 @@ export default function AIFurnitureStudioModal({
             {/* Instant Showcase Presets */}
             <div>
               <div className={styles.sectionTitle}>
-                <span>✨</span> Or Pick an AI Showcase Furniture Piece
+                <span>FX</span> Or Pick an AI Showcase Furniture Piece
               </div>
               <div className={styles.presetGrid}>
                 {PRESET_SHOWCASE.map((preset) => {
@@ -572,16 +572,16 @@ export default function AIFurnitureStudioModal({
             {/* Turntable */}
             <div>
               <div className={styles.sectionTitle}>
-                <span>🌐</span> 2. Interactive 3D Turntable Preview
+                <span>3D</span> 2. Interactive 3D Turntable Preview
               </div>
               <div className={styles.turntableContainer}>
                 <canvas ref={turntableCanvasRef} className={styles.turntableCanvas} />
                 <div className={styles.turntableOverlayBadges}>
                   <span className={styles.turntableTag}>
-                    🖱️ Drag to Orbit • {activeDef?.name || "3D Furniture"}
+                    Drag to Orbit • {activeDef?.name || "3D Furniture"}
                   </span>
                   <span className={styles.confidenceBadge}>
-                    🎯 {((activeDef?.confidence || 0.96) * 100).toFixed(0)}% AI Match
+                      {((activeDef?.confidence || 0.96) * 100).toFixed(0)}% AI Match
                   </span>
                 </div>
               </div>
@@ -591,7 +591,7 @@ export default function AIFurnitureStudioModal({
             <div className={styles.qualitySection}>
               <div className={styles.qualityHeaderRow}>
                 <span className={styles.qualityLabel}>
-                  <span>⚙️</span> Hardware Performance Tier
+                  <span>CFG</span> Hardware Performance Tier
                 </span>
                 <span className={styles.polyStatsBadge}>{polyCountText}</span>
               </div>
@@ -604,7 +604,7 @@ export default function AIFurnitureStudioModal({
                     setMeshCountTarget(10);
                   }}
                 >
-                  <span>⚡ Low-Poly (Eco)</span>
+                  <span> Low-Poly (Eco)</span>
                   <span className={styles.tierSub}>Integrated GPU / Mobile</span>
                 </button>
                 <button
@@ -614,7 +614,7 @@ export default function AIFurnitureStudioModal({
                     setMeshCountTarget(20);
                   }}
                 >
-                  <span>✨ Balanced</span>
+                  <span> Balanced</span>
                   <span className={styles.tierSub}>Standard Laptops</span>
                 </button>
                 <button
@@ -624,7 +624,7 @@ export default function AIFurnitureStudioModal({
                     setMeshCountTarget(35);
                   }}
                 >
-                  <span>💎 Ultra (Multi-Mesh)</span>
+                  <span> Ultra (Multi-Mesh)</span>
                   <span className={styles.tierSub}>Dedicated GPU / 2K PBR</span>
                 </button>
               </div>
@@ -647,7 +647,7 @@ export default function AIFurnitureStudioModal({
               {/* Texture Material Chips */}
               <div>
                 <div className={styles.dimLabel} style={{ marginBottom: "5px" }}>
-                  🎨 PBR Texture Surface
+                  PBR Texture Surface
                 </div>
                 <div className={styles.textureChipsRow}>
                   {[
@@ -671,7 +671,7 @@ export default function AIFurnitureStudioModal({
 
               {/* Dimensions */}
               <div>
-                <div className={styles.dimLabel}>📐 Physical Dimensions</div>
+                <div className={styles.dimLabel}> Physical Dimensions</div>
                 <div className={styles.dimControlsRow}>
                   <div className={styles.dimCard}>
                     <div className={styles.dimLabel}>Width</div>
@@ -750,7 +750,7 @@ export default function AIFurnitureStudioModal({
                     className={styles.colorDot}
                     style={{ backgroundColor: `#${activeColorHex.toString(16).padStart(6, "0")}` }}
                   />
-                  🌈 Color Wheel
+                  Color Wheel
                 </label>
               </div>
             </div>
@@ -760,10 +760,10 @@ export default function AIFurnitureStudioModal({
         {/* Footer Actions */}
         <div className={styles.modalFooter}>
           <div className={styles.footerHint}>
-            💡 <span>Tip: Scaled {meshCountTarget} meshes with {selectedTextureType.toUpperCase()} PBR texture will spawn into your 3D room.</span>
+              <span>Tip: Scaled {meshCountTarget} meshes with {selectedTextureType.toUpperCase()} PBR texture will spawn into your 3D room.</span>
           </div>
           <button className={styles.spawnBtn} onClick={handleSpawn}>
-            🛋️ Spawn into 3D Simulation
+            Spawn into 3D Simulation
           </button>
         </div>
       </div>

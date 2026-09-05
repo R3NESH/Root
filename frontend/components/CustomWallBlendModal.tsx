@@ -96,7 +96,7 @@ export default function CustomWallBlendModal({
   const handlePresetSplit = (ratios: number[]) => {
     const nextBands: WallBand[] = ratios.map((r, i) => ({
       sizeFrac: r,
-      colorId: scheme.bands[i]?.colorId ?? "#f8fafc",
+      colorId: scheme.bands[i]?.colorId ?? "#eceae5",
     }));
     setScheme({ ...scheme, bands: nextBands });
   };
@@ -112,7 +112,7 @@ export default function CustomWallBlendModal({
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.titleArea}>
-            <span className={styles.logoIcon}>🎨</span>
+            <span className={styles.logoIcon}>PNT</span>
             <div>
               <h2 className={styles.title}>Custom Wall Partitions &amp; Permutations</h2>
               <div className={styles.subtitle}>
@@ -131,8 +131,8 @@ export default function CustomWallBlendModal({
           <div className={styles.canvasCard}>
             <div className={styles.canvasHeader}>
               <div className={styles.canvasLabel}>
-                <span>🧱 Live Wall Elevation Preview</span>
-                <span style={{ color: "#38bdf8", fontSize: "11px" }}>
+                <span> Live Wall Elevation Preview</span>
+                <span style={{ color: "#6f9aa8", fontSize: "11px" }}>
                   ({scheme.axis === "horizontal" ? "Horizontal Stack" : "Vertical Columns"})
                 </span>
               </div>
@@ -170,19 +170,19 @@ export default function CustomWallBlendModal({
           {/* Permutation Generator Bar */}
           <div className={styles.permutationBar}>
             <div className={styles.permutationInfo}>
-              <span style={{ fontSize: "16px" }}>✨</span>
+              <span style={{ fontSize: "16px" }}>FX</span>
               <div>
-                <strong style={{ fontSize: "12.5px", color: "#f8fafc" }}>
+                <strong style={{ fontSize: "12.5px", color: "#eceae5" }}>
                   Designer Permutations Engine
                 </strong>
-                <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                <div style={{ fontSize: "11px", color: "#8e8a82" }}>
                   Randomize proportions &amp; color harmonies with 1 click
                 </div>
               </div>
             </div>
 
             <button className={styles.shuffleBtn} onClick={handleShuffle} title="Generate new harmonious combination">
-              <span>🎲</span> Shuffle Combinations
+              <span>RND</span> Shuffle Combinations
             </button>
           </div>
 
@@ -193,7 +193,7 @@ export default function CustomWallBlendModal({
               <span className={styles.cardTitle}>1. Partition Direction &amp; Slices</span>
 
               <div>
-                <label style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "6px" }}>
+                <label style={{ fontSize: "11px", color: "#8e8a82", display: "block", marginBottom: "6px" }}>
                   Partition Orientation:
                 </label>
                 <div className={styles.btnGroup}>
@@ -201,19 +201,19 @@ export default function CustomWallBlendModal({
                     className={scheme.axis === "horizontal" ? styles.toggleBtnActive : styles.toggleBtn}
                     onClick={() => handleSetAxis("horizontal")}
                   >
-                    ↕ Horizontal (Dado / Frieze)
+                    Horizontal (Dado / Frieze)
                   </button>
                   <button
                     className={scheme.axis === "vertical" ? styles.toggleBtnActive : styles.toggleBtn}
                     onClick={() => handleSetAxis("vertical")}
                   >
-                    ↔ Vertical (Columns / Accents)
+                    Vertical (Columns / Accents)
                   </button>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "6px" }}>
+                <label style={{ fontSize: "11px", color: "#8e8a82", display: "block", marginBottom: "6px" }}>
                   Number of Partitions:
                 </label>
                 <div className={styles.btnGroup}>
@@ -230,7 +230,7 @@ export default function CustomWallBlendModal({
               </div>
 
               <div>
-                <label style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "6px" }}>
+                <label style={{ fontSize: "11px", color: "#8e8a82", display: "block", marginBottom: "6px" }}>
                   Quick Ratio Presets:
                 </label>
                 <div className={styles.btnGroup}>
@@ -267,15 +267,15 @@ export default function CustomWallBlendModal({
                       justifyContent: "space-between",
                       padding: "6px 10px",
                       borderRadius: "6px",
-                      background: selectedPaletteIndex === idx ? "rgba(56, 189, 248, 0.18)" : "rgba(15, 23, 42, 0.5)",
-                      border: selectedPaletteIndex === idx ? "1px solid #38bdf8" : "1px solid rgba(51, 65, 85, 0.5)",
+                      background: selectedPaletteIndex === idx ? "rgba(111, 154, 168, 0.18)" : "rgba(26, 25, 22, 0.5)",
+                      border: selectedPaletteIndex === idx ? "1px solid #6f9aa8" : "1px solid rgba(58, 55, 47, 0.5)",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }}
                   >
                     <div>
-                      <strong style={{ fontSize: "11.5px", color: "#f8fafc" }}>{pal.name}</strong>
-                      <div style={{ fontSize: "9.5px", color: "#94a3b8" }}>{pal.theme}</div>
+                      <strong style={{ fontSize: "11.5px", color: "#eceae5" }}>{pal.name}</strong>
+                      <div style={{ fontSize: "9.5px", color: "#8e8a82" }}>{pal.theme}</div>
                     </div>
                     <div style={{ display: "flex", gap: "4px" }}>
                       {pal.colors.map((c, ci) => (
@@ -318,7 +318,7 @@ export default function CustomWallBlendModal({
                           onChange={(e) => handleUpdateBandColor(idx, e.target.value)}
                         />
                       </div>
-                      <span style={{ fontSize: "10.5px", fontFamily: "monospace", color: "#cbd5e1" }}>
+                      <span style={{ fontSize: "10.5px", fontFamily: "monospace", color: "#b5b0a6" }}>
                         {hex.toUpperCase()}
                       </span>
                     </div>
@@ -349,20 +349,20 @@ export default function CustomWallBlendModal({
                 className={scope === "wall" ? styles.scopeBtnActive : styles.scopeBtn}
                 onClick={() => setScope("wall")}
               >
-                📌 {selectedWallName} Only
+                  {selectedWallName} Only
               </button>
             )}
             <button
               className={scope === "room" ? styles.scopeBtnActive : styles.scopeBtn}
               onClick={() => setScope("room")}
             >
-              🚪 Active Room Walls
+              Active Room Walls
             </button>
             <button
               className={scope === "global" ? styles.scopeBtnActive : styles.scopeBtn}
               onClick={() => setScope("global")}
             >
-              🏠 Whole Building (Global)
+              Whole Building (Global)
             </button>
           </div>
 
@@ -371,7 +371,7 @@ export default function CustomWallBlendModal({
               Cancel
             </button>
             <button className={styles.applyBtn} onClick={handleApply}>
-              ✨ Apply Custom Wall Design
+              Apply Custom Wall Design
             </button>
           </div>
         </div>

@@ -113,7 +113,7 @@ export const WALL_BAND_PRESETS: WallBandPreset[] = [
   {
     id: "swatch_four",
     name: "Four-Swatch Test",
-    description: "Four equal vertical patches — a paint test board at full wall scale.",
+    description: "Four equal vertical patches, a paint test board at full wall scale.",
     scheme: {
       axis: "vertical",
       bands: [
@@ -260,7 +260,7 @@ export const DESIGNER_PERMUTATION_PALETTES: DesignerPalette[] = [
     id: "monochrome",
     name: "Architectural Contrast",
     theme: "Sharp monochrome lines and warm concrete grays",
-    colors: ["#0f172a", "#f8fafc", "#64748b", "#334155"],
+    colors: ["#1a1916", "#eceae5", "#6d685e", "#3a372f"],
   },
   {
     id: "sunset_terracotta",
@@ -272,7 +272,7 @@ export const DESIGNER_PERMUTATION_PALETTES: DesignerPalette[] = [
     id: "coastal_breeze",
     name: "Aegean Coast",
     theme: "Mediterranean navy, sky mist, and sea-foam chalk",
-    colors: ["#1e3a8a", "#93c5fd", "#f0f9ff", "#0284c7"],
+    colors: ["#1e3a8a", "#8ab3bf", "#eceae5", "#3d5c69"],
   },
   {
     id: "forest_sanctuary",

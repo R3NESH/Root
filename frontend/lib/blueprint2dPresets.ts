@@ -18,10 +18,10 @@ export const drawH = VIEW_H - PADDING * 2;
 export const FACING_NAMES = ["NORTH", "EAST", "SOUTH", "WEST"];
 
 export const FLOOR_LEVEL_PILLS = [
-  { floor: 0, short: "G 🏡", title: "Ground Floor" },
-  { floor: 1, short: "1F 🏢", title: "1st Floor" },
-  { floor: 2, short: "2F 🏙️", title: "2nd Floor" },
-  { floor: 3, short: "Roof ☀️", title: "Terrace / Roof" },
+  { floor: 0, short: "G ", title: "Ground Floor" },
+  { floor: 1, short: "1F ", title: "1st Floor" },
+  { floor: 2, short: "2F ", title: "2nd Floor" },
+  { floor: 3, short: "Roof ", title: "Terrace / Roof" },
 ];
 
 export const WALL_EDGES = ["N", "E", "S", "W"] as const;

@@ -214,7 +214,6 @@ interface SceneProps {
   onToggleRaytrace?: () => void;
 }
 
-
 function createDaySkyTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
@@ -226,8 +225,8 @@ function createDaySkyTexture(): THREE.CanvasTexture {
     skyGrad.addColorStop(0, "#1d4ed8");    // Deep azure blue zenith
     skyGrad.addColorStop(0.32, "#3b82f6"); // Vibrant sky blue
     skyGrad.addColorStop(0.68, "#60a5fa"); // Light blue
-    skyGrad.addColorStop(0.90, "#bae6fd"); // Horizon haze
-    skyGrad.addColorStop(1.0, "#e0f2fe");  // Light horizon glow
+    skyGrad.addColorStop(0.90, "#b2c9cf"); // Horizon haze
+    skyGrad.addColorStop(1.0, "#d3dee1");  // Light horizon glow
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, 1024, 1024);
 
@@ -857,14 +856,13 @@ export default function Scene({
     }
   }, [isRaytracing]);
 
-
   // Dynamic Day (Light Mode) vs Night (Dark Mode) Environment & Sky Dome
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
 
     if (lightsOn) {
-      // ☀️ DAY / LIGHT MODE: Clear Blue Sky, Radiant Sun & Clean White Grids
+      //  DAY / LIGHT MODE: Clear Blue Sky, Radiant Sun & Clean White Grids
       const daySky = createDaySkyTexture();
       scene.background = daySky;
       applyEnvironment(scene, rendererRef.current, envMapsRef.current, false);
@@ -910,7 +908,7 @@ export default function Scene({
         l.intensity = 0.4;
       });
     } else {
-      // 🌙 NIGHT / DARK MODE: Exact Previous Default Dark Mode
+      //  NIGHT / DARK MODE: Exact Previous Default Dark Mode
       scene.background = new THREE.Color(0x0a0e17);
       applyEnvironment(scene, rendererRef.current, envMapsRef.current, true);
 
@@ -1018,7 +1016,6 @@ export default function Scene({
         setRaytraceSamples(0);
       }
     });
-
 
     // Architectural Lighting setup
     const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0xdcfce7, 0.3);
@@ -1483,7 +1480,7 @@ export default function Scene({
           if (!draftWallStartFtRef.current) {
             draftWallStartFtRef.current = { x: snapX, z: snapZ };
             setDraftWallStartFt({ x: snapX, z: snapZ });
-            setDrafting3DDescription(`✏️ Started 3D Wall at (${snapX.toFixed(1)}', ${snapZ.toFixed(1)}') • Move cursor & click to erect wall`);
+            setDrafting3DDescription(`Started 3D Wall at (${snapX.toFixed(1)}', ${snapZ.toFixed(1)}') • Move cursor & click to erect wall`);
           } else {
             const startPt = draftWallStartFtRef.current;
             const dx = snapX - startPt.x;
@@ -1508,7 +1505,7 @@ export default function Scene({
               onChangeCustomWallsRef.current?.(updated);
               draftWallStartFtRef.current = { x: snapX, z: snapZ };
               setDraftWallStartFt({ x: snapX, z: snapZ });
-              setDrafting3DDescription(`✅ Built 3D Wall on Floor ${activeFloorRef.current || "G"} (${lenFt.toFixed(1)} ft) • Click next corner or press ESC`);
+              setDrafting3DDescription(`Built 3D Wall on Floor ${activeFloorRef.current || "G"} (${lenFt.toFixed(1)} ft) • Click next corner or press ESC`);
             }
           }
           return;
@@ -1629,7 +1626,7 @@ export default function Scene({
             );
             customWallsRef.current = updated;
             onChangeCustomWallsRef.current?.(updated);
-            setDrafting3DDescription(`✨ Inserted 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} onto Wall!`);
+            setDrafting3DDescription(`Inserted 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} onto Wall!`);
             setTimeout(() => setDrafting3DDescription(null), 3000);
             return;
           }
@@ -1700,7 +1697,7 @@ export default function Scene({
                 onChangeWindowConfigRef.current?.(nextWindowConfig);
               }
 
-              setDrafting3DDescription(`✨ Installed 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+              setDrafting3DDescription(`Installed 3D ${placingDef?.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
               setTimeout(() => setDrafting3DDescription(null), 3000);
               return;
             }
@@ -1761,7 +1758,7 @@ export default function Scene({
           const updated = [...(customRoomZonesRef.current || []), newZone];
           customRoomZonesRef.current = updated;
           onChangeCustomRoomZonesRef.current?.(updated);
-          setDrafting3DDescription(`✨ Added ${areaSqFt} sq ft Floor Slab to Room!`);
+          setDrafting3DDescription(`Added ${areaSqFt} sq ft Floor Slab to Room!`);
           return;
         }
       }
@@ -2038,7 +2035,7 @@ export default function Scene({
               finalX = snap.x;
               finalZ = snap.z;
               finalRotY = snap.rotationY;
-              setSmartSnapDescription(snap.snapDescription || "🧲 Attached to Wall");
+              setSmartSnapDescription(snap.snapDescription || "Attached to Wall");
 
               if (snapGuideMeshRef.current && snap.guideLine) {
                 const points = [
@@ -2109,7 +2106,7 @@ export default function Scene({
               draftGhost3DWallRef.current.rotation.y = -Math.atan2(dz, dx);
               draftGhost3DWallRef.current.visible = true;
             }
-            setDrafting3DDescription(`✏️ Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} Wall: ${lenFt.toFixed(1)} ft (${Math.round(angleDeg)}°) • Click to erect`);
+            setDrafting3DDescription(`Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} Wall: ${lenFt.toFixed(1)} ft (${Math.round(angleDeg)}°) • Click to erect`);
           } else {
             if (draftGhost3DWallRef.current) {
               draftGhost3DWallRef.current.position.set(snapX, floorElevFt + WALL_HEIGHT_FT / 2, snapZ);
@@ -2117,7 +2114,7 @@ export default function Scene({
               draftGhost3DWallRef.current.rotation.y = 0;
               draftGhost3DWallRef.current.visible = true;
             }
-            setDrafting3DDescription(`✏️ Click on Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} to start 3D Wall`);
+            setDrafting3DDescription(`Click on Floor ${(activeFloorRef.current || 0) === 0 ? "G" : activeFloorRef.current} to start 3D Wall`);
           }
           renderer.domElement.style.cursor = "crosshair";
         }
@@ -2260,7 +2257,7 @@ export default function Scene({
             posX = snap.x;
             posZ = snap.z;
             rotY = snap.rotationY;
-            setSmartSnapDescription(snap.snapDescription || "🧲 Attached to Wall");
+            setSmartSnapDescription(snap.snapDescription || "Attached to Wall");
 
             if (snapGuideMeshRef.current && snap.guideLine) {
               const points = [
@@ -2450,7 +2447,7 @@ export default function Scene({
           const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
           const wFt = Math.round(inchesToFeet(info.currentWIn) * 10) / 10;
           const dFt = Math.round(inchesToFeet(info.currentDIn) * 10) / 10;
-          setDoorAlert(`✂️ ${label} resized to ${wFt}' × ${dFt}' — Auto-connected!`);
+          setDoorAlert(`${label} resized to ${wFt}' × ${dFt}'. Door reconnected.`);
           setTimeout(() => setDoorAlert(null), 3500);
         }
         if (ghostMesh) ghostMesh.visible = false;
@@ -2480,7 +2477,7 @@ export default function Scene({
             onRoomResizeRef.current(rIdx, targetXIn, targetYIn, targetWIn, targetDIn);
 
             const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
-            setDoorAlert(`✂️ ${label} cropped to ${ghostScaleX.toFixed(1)}' × ${ghostScaleZ.toFixed(1)}' — Auto-connected!`);
+            setDoorAlert(`${label} cropped to ${ghostScaleX.toFixed(1)}' × ${ghostScaleZ.toFixed(1)}'. Door reconnected.`);
             setTimeout(() => setDoorAlert(null), 3500);
           } else if (onRoomMoveRef.current) {
             const targetXIn = Math.max(0, Math.round(cornerXFt * 12));
@@ -2488,7 +2485,7 @@ export default function Scene({
             onRoomMoveRef.current(rIdx, targetXIn, targetYIn);
 
             const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
-            setDoorAlert(`🚪 ${label} repositioned — Door automatically connected!`);
+            setDoorAlert(`${label} repositioned. Door reconnected.`);
             setTimeout(() => setDoorAlert(null), 3000);
           }
         }
@@ -2532,7 +2529,7 @@ export default function Scene({
         onNearestDoorChangeRef.current(prompt);
       }
 
-      setDoorAlert(`🚪 ${targetDoor.label} ${targetDoor.isOpen ? "Opened" : "Closed"}`);
+      setDoorAlert(`${targetDoor.label} ${targetDoor.isOpen ? "Opened" : "Closed"}`);
       setTimeout(() => setDoorAlert(null), 2500);
     };
     toggleDoorRef.current = toggleDoor;
@@ -2660,7 +2657,6 @@ export default function Scene({
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-
 
     // Animation & Physics Loop
     let frameId = 0;
@@ -3861,8 +3857,8 @@ export default function Scene({
 
           const wallTitle = hasFullOpening
             ? isLoadBearing
-              ? `${roomLabel} (${edge}) — Lintel Beam over Opening`
-              : `${roomLabel} / ${adjLabel} — Open-Concept Opening`
+              ? `${roomLabel} (${edge}) / lintel beam over opening`
+              : `${roomLabel} / ${adjLabel} / open-concept opening`
             : isShared
             ? `${roomLabel} / ${adjLabel} Partition Wall`
             : `${roomLabel} (${edge} Wall)`;
@@ -4725,7 +4721,6 @@ export default function Scene({
       }
     }
 
-
     // 9. Swap procedural boxes for real scanned models wherever the catalog has one. Runs over
     // the finished group so it catches both the auto-furnished rooms and hand-placed pieces,
     // and it runs before the selection ring below so the ring is never one of the children a
@@ -5359,7 +5354,7 @@ export default function Scene({
               };
               windowConfigRef.current = nextConfig;
               onChangeWindowConfigRef.current?.(nextConfig);
-              setDrafting3DDescription(`✨ Applied ${payload.name || payload.shapeId} shape to ${curr.userData.name || "Window"}!`);
+              setDrafting3DDescription(`Applied ${payload.name || payload.shapeId} shape to ${curr.userData.name || "Window"}!`);
               setTimeout(() => setDrafting3DDescription(null), 3000);
               return;
             }
@@ -5456,7 +5451,7 @@ export default function Scene({
         );
         customWallsRef.current = updated;
         onChangeCustomWallsRef.current?.(updated);
-        setDrafting3DDescription(`✨ Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} onto Wall!`);
+        setDrafting3DDescription(`Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} onto Wall!`);
         setTimeout(() => setDrafting3DDescription(null), 3000);
         return;
       }
@@ -5525,7 +5520,7 @@ export default function Scene({
             onChangeWindowConfigRef.current?.(nextWindowConfig);
           }
 
-          setDrafting3DDescription(`✨ Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
+          setDrafting3DDescription(`Dropped 3D ${payload.name || (isWindow ? "Window" : "Door")} on ${ROOM_LABELS[room.name as RoomName] || room.name}!`);
           setTimeout(() => setDrafting3DDescription(null), 3000);
           return;
         }
@@ -5548,7 +5543,7 @@ export default function Scene({
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(15, 23, 42, 0.94)",
+            background: "rgba(26, 25, 22, 0.94)",
             border: "1px solid rgba(255, 255, 255, 0.16)",
             boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
             padding: "8px 18px",
@@ -5561,8 +5556,8 @@ export default function Scene({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "16px" }}>🛋️</span>
-            <span style={{ fontSize: "12.5px", fontWeight: "bold", color: "#fbbf24" }}>
+            <span style={{ fontSize: "16px" }}></span>
+            <span style={{ fontSize: "12.5px", fontWeight: "bold", color: "#d4703a" }}>
               {selectedObjectInfo.name}
             </span>
             {selectedObjectInfo.isBuiltin && (
@@ -5570,7 +5565,7 @@ export default function Scene({
                 style={{
                   fontSize: "9px",
                   background: "rgba(148, 163, 184, 0.2)",
-                  color: "#cbd5e1",
+                  color: "#b5b0a6",
                   padding: "1px 6px",
                   borderRadius: "4px",
                 }}
@@ -5584,9 +5579,9 @@ export default function Scene({
 
           <button
             style={{
-              background: "linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.35))",
-              border: "1px solid rgba(56, 189, 248, 0.5)",
-              color: "#38bdf8",
+              background: "linear-gradient(135deg, rgba(111, 154, 168, 0.25), rgba(74, 109, 124, 0.35))",
+              border: "1px solid rgba(111, 154, 168, 0.5)",
+              color: "#6f9aa8",
               padding: "4px 12px",
               borderRadius: "14px",
               fontSize: "11.5px",
@@ -5596,14 +5591,14 @@ export default function Scene({
             onClick={onRequestReplace}
             title="Replace this object with a different piece of furniture"
           >
-            🔄 Replace...
+            Replace...
           </button>
 
           <button
             style={{
               background: "rgba(255, 255, 255, 0.08)",
               border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "#f1f5f9",
+              color: "#eceae5",
               padding: "4px 10px",
               borderRadius: "14px",
               fontSize: "11.5px",
@@ -5613,14 +5608,14 @@ export default function Scene({
             onClick={() => onRotateSelected && onRotateSelected(Math.PI / 4)}
             title="Rotate 45° (or press R)"
           >
-            🔄 45°
+              45°
           </button>
 
           <button
             style={{
-              background: "rgba(239, 68, 68, 0.2)",
-              border: "1px solid rgba(239, 68, 68, 0.45)",
-              color: "#ef4444",
+              background: "rgba(168, 68, 47, 0.2)",
+              border: "1px solid rgba(168, 68, 47, 0.45)",
+              color: "#a8442f",
               padding: "4px 12px",
               borderRadius: "14px",
               fontSize: "11.5px",
@@ -5630,14 +5625,14 @@ export default function Scene({
             onClick={onRequestDelete}
             title="Delete this object from the house"
           >
-            🗑️ Delete
+            Delete
           </button>
 
           <button
             style={{
               background: "transparent",
               border: "none",
-              color: "#94a3b8",
+              color: "#8e8a82",
               cursor: "pointer",
               fontSize: "14px",
               padding: "0 4px",
@@ -5658,12 +5653,12 @@ export default function Scene({
             top: mode === "orbit" ? 64 : 14,
             left: 14,
             background: "rgba(8, 14, 28, 0.90)",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
+            border: "1px solid rgba(111, 154, 168, 0.4)",
             borderRadius: "10px",
             padding: "6px 10px",
             zIndex: 45,
             backdropFilter: "blur(8px)",
-            color: "#f8fafc",
+            color: "#eceae5",
             fontFamily: "monospace",
             fontSize: "11px",
             display: "flex",
@@ -5674,13 +5669,13 @@ export default function Scene({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-            <span style={{ color: "#34d399", fontWeight: "bold" }}>⚡ {currentFps} FPS</span>
-            <span style={{ color: "#94a3b8" }}>{currentFrameTime} ms</span>
-            <span style={{ color: "#38bdf8", fontWeight: "bold" }}>{renderRes}</span>
+            <span style={{ color: "#7a9668", fontWeight: "bold" }}> {currentFps} FPS</span>
+            <span style={{ color: "#8e8a82" }}>{currentFrameTime} ms</span>
+            <span style={{ color: "#6f9aa8", fontWeight: "bold" }}>{renderRes}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "10px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "2px" }}>
-            <span style={{ color: "#cbd5e1" }}>GPU: Dedicated (High VRAM)</span>
-            <span style={{ color: "#f59e0b" }}>~{estimateVRAMUsageGB(graphicsSettings)} GB VRAM</span>
+            <span style={{ color: "#b5b0a6" }}>GPU: Dedicated (High VRAM)</span>
+            <span style={{ color: "#b85c22" }}>~{estimateVRAMUsageGB(graphicsSettings)} GB VRAM</span>
           </div>
         </div>
       )}
@@ -5695,8 +5690,8 @@ export default function Scene({
             display: "flex",
             flexWrap: "wrap",
             gap: "6px",
-            background: "rgba(10, 25, 48, 0.92)",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
+            background: "rgba(19, 18, 16, 0.92)",
+            border: "1px solid rgba(111, 154, 168, 0.4)",
             borderRadius: "12px",
             padding: "6px 8px",
             zIndex: 40,
@@ -5708,16 +5703,16 @@ export default function Scene({
           {/* 3D Floor Level Switcher */}
           <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "rgba(0,0,0,0.35)", borderRadius: "8px", padding: "2px 4px", marginRight: "4px" }}>
             {[
-              { floor: 0, short: "G 🏡", title: "Ground Floor" },
-              { floor: 1, short: "1F 🏢", title: "1st Floor" },
-              { floor: 2, short: "2F 🏙️", title: "2nd Floor" },
-              { floor: 3, short: "Roof ☀️", title: "Terrace / Roof" },
+              { floor: 0, short: "G ", title: "Ground Floor" },
+              { floor: 1, short: "1F ", title: "1st Floor" },
+              { floor: 2, short: "2F ", title: "2nd Floor" },
+              { floor: 3, short: "Roof ", title: "Terrace / Roof" },
             ].map((fl) => (
               <button
                 key={fl.floor}
                 style={{
-                  background: activeFloor === fl.floor ? "#0284c7" : "transparent",
-                  color: activeFloor === fl.floor ? "#ffffff" : "#94a3b8",
+                  background: activeFloor === fl.floor ? "#3d5c69" : "transparent",
+                  color: activeFloor === fl.floor ? "#ffffff" : "#8e8a82",
                   border: "none",
                   borderRadius: "5px",
                   padding: "3px 7px",
@@ -5739,20 +5734,20 @@ export default function Scene({
 
           <button
             style={{
-              background: isDollhouseCutaway ? "linear-gradient(135deg, #0284c7 0%, #6366f1 100%)" : "rgba(255, 255, 255, 0.08)",
+              background: isDollhouseCutaway ? "linear-gradient(135deg, #3d5c69 0%, #4a6d7c 100%)" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: isDollhouseCutaway ? "1px solid #38bdf8" : "1px solid rgba(56, 189, 248, 0.3)",
+              border: isDollhouseCutaway ? "1px solid #6f9aa8" : "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
               fontWeight: 700,
               cursor: "pointer",
-              boxShadow: isDollhouseCutaway ? "0 0 12px rgba(56, 189, 248, 0.4)" : "none",
+              boxShadow: isDollhouseCutaway ? "0 0 12px rgba(111, 154, 168, 0.4)" : "none",
             }}
             onClick={() => setIsDollhouseCutaway((prev) => !prev)}
             title="Toggle 3D Architectural Cutaway / Dollhouse View (Matches Reference Studio Photo)"
           >
-            🏠 {isDollhouseCutaway ? "Cutaway View" : "Full Walls"}
+              {isDollhouseCutaway ? "Cutaway View" : "Full Walls"}
           </button>
 
           {onToggleUpgrade && (
@@ -5762,19 +5757,19 @@ export default function Scene({
                   ? "linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)"
                   : "rgba(255, 255, 255, 0.08)",
                 color: "#ffffff",
-                border: isUpgraded ? "1px solid #f472b6" : "1px solid rgba(244, 114, 182, 0.4)",
+                border: isUpgraded ? "1px solid #a8657f" : "1px solid rgba(244, 114, 182, 0.4)",
                 padding: "5px 11px",
                 borderRadius: "6px",
                 fontSize: "11px",
                 fontWeight: 800,
                 cursor: "pointer",
-                boxShadow: isUpgraded ? "0 0 14px rgba(236, 72, 153, 0.5)" : "none",
+                boxShadow: isUpgraded ? "0 0 14px rgba(168, 101, 127, 0.5)" : "none",
                 letterSpacing: "0.4px",
               }}
               onClick={onToggleUpgrade}
               title="Toggle Photorealistic Studio Upgrade (Curved Bouclé Cloud Sofas, Custom Library Shelving, Herringbone Oak Parquet & Wainscoting)"
             >
-              {isUpgraded ? "✨ UPGRADE ON" : "✨ UPGRADE"}
+              {isUpgraded ? "UPGRADE ON" : "UPGRADE"}
             </button>
           )}
 
@@ -5782,27 +5777,27 @@ export default function Scene({
             style={{
               background: lightsOn
                 ? "linear-gradient(135deg, rgba(234, 179, 8, 0.35) 0%, rgba(249, 115, 22, 0.35) 100%)"
-                : "linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.85) 100%)",
-              color: lightsOn ? "#fef08a" : "#94a3b8",
-              border: lightsOn ? "1px solid #f59e0b" : "1px solid rgba(148, 163, 184, 0.4)",
+                : "linear-gradient(135deg, rgba(33, 32, 27, 0.85) 0%, rgba(26, 25, 22, 0.85) 100%)",
+              color: lightsOn ? "#d8c9a0" : "#8e8a82",
+              border: lightsOn ? "1px solid #b85c22" : "1px solid rgba(148, 163, 184, 0.4)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
               fontWeight: 700,
               cursor: "pointer",
-              boxShadow: lightsOn ? "0 0 12px rgba(245, 158, 11, 0.35)" : "none",
+              boxShadow: lightsOn ? "0 0 12px rgba(184, 92, 34, 0.35)" : "none",
             }}
             onClick={onToggleLights}
             title={lightsOn ? "Switch to Dark / Night Mode (Atmospheric Moon & Spotlights)" : "Switch to Light / Day Mode (Clear Blue Sky & Radiant Sun)"}
           >
-            {lightsOn ? "☀️ Day (Light)" : "🌙 Night (Dark)"}
+            {lightsOn ? "Day (Light)" : "Night (Dark)"}
           </button>
 
           <button
             style={{
-              background: activeCadTool === "select" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              background: activeCadTool === "select" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              border: "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
@@ -5818,14 +5813,14 @@ export default function Scene({
             }}
             title="3D Select Tool (V)"
           >
-            ↖ 3D Select
+              3D Select
           </button>
 
           <button
             style={{
-              background: activeCadTool === "draw_wall" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              background: activeCadTool === "draw_wall" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              border: "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
@@ -5839,7 +5834,7 @@ export default function Scene({
             }}
             title="Point-and-click to erect 3D walls on ground plane (W)"
           >
-            ✏️ 3D Wall
+              3D Wall
           </button>
 
           {activeCadTool === "draw_wall" && (
@@ -5847,9 +5842,9 @@ export default function Scene({
               value={activeWallType}
               onChange={(e) => onChangeWallType?.(e.target.value as CustomWallType)}
               style={{
-                background: "rgba(15, 23, 42, 0.95)",
-                color: "#38bdf8",
-                border: "1px solid #38bdf8",
+                background: "rgba(26, 25, 22, 0.95)",
+                color: "#6f9aa8",
+                border: "1px solid #6f9aa8",
                 borderRadius: "6px",
                 padding: "3px 6px",
                 fontSize: "11px",
@@ -5857,19 +5852,19 @@ export default function Scene({
                 cursor: "pointer",
               }}
             >
-              <option value="exterior">🧱 9" Ext Wall</option>
-              <option value="interior">🧱 4.5" Int Wall</option>
-              <option value="glass">🪟 3" Glass Wall</option>
-              <option value="slat">🪵 3.5" Wood Slat</option>
-              <option value="arch">🏛️ 6" Arch Divider</option>
+              <option value="exterior"> 9"Ext Wall</option>
+              <option value="interior"> 4.5"Int Wall</option>
+              <option value="glass"> 3"Glass Wall</option>
+              <option value="slat"> 3.5"Wood Slat</option>
+              <option value="arch"> 6"Arch Divider</option>
             </select>
           )}
 
           <button
             style={{
-              background: activeCadTool === "place_door" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              background: activeCadTool === "place_door" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              border: "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
@@ -5884,14 +5879,14 @@ export default function Scene({
             }}
             title="Click any 3D wall to cut and insert a 3D Door (D)"
           >
-            🚪 3D Door
+              3D Door
           </button>
 
           <button
             style={{
-              background: activeCadTool === "place_window" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              background: activeCadTool === "place_window" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              border: "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
@@ -5906,14 +5901,14 @@ export default function Scene({
             }}
             title="Click any 3D wall to cut and insert a 3D Window (Win)"
           >
-            🪟 3D Window
+              3D Window
           </button>
 
           <button
             style={{
-              background: activeCadTool === "tag_room" ? "#0284c7" : "rgba(255, 255, 255, 0.08)",
+              background: activeCadTool === "tag_room" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
               color: "#ffffff",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              border: "1px solid rgba(111, 154, 168, 0.3)",
               padding: "5px 10px",
               borderRadius: "6px",
               fontSize: "11px",
@@ -5927,15 +5922,15 @@ export default function Scene({
             }}
             title="Click inside 3D walls to tag room zone"
           >
-            🏷️ 3D Room Tag
+              3D Room Tag
           </button>
 
           {onStartFromScratch && (
             <button
               style={{
-                background: "linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.35))",
-                border: "1px solid rgba(245, 158, 11, 0.5)",
-                color: "#fbbf24",
+                background: "linear-gradient(135deg, rgba(184, 92, 34, 0.25), rgba(138, 67, 24, 0.35))",
+                border: "1px solid rgba(184, 92, 34, 0.5)",
+                color: "#d4703a",
                 padding: "5px 10px",
                 borderRadius: "6px",
                 fontSize: "11px",
@@ -5945,16 +5940,16 @@ export default function Scene({
               onClick={onStartFromScratch}
               title="Start with blank plot in 3D"
             >
-              🏗️ Blank 3D
+              Blank 3D
             </button>
           )}
 
           {customWalls && customWalls.length > 0 && (
             <button
               style={{
-                background: "rgba(239, 68, 68, 0.15)",
-                border: "1px solid rgba(239, 68, 68, 0.4)",
-                color: "#f87171",
+                background: "rgba(168, 68, 47, 0.15)",
+                border: "1px solid rgba(168, 68, 47, 0.4)",
+                color: "#bf5a42",
                 fontSize: "11px",
                 padding: "5px 8px",
                 borderRadius: "6px",
@@ -5968,7 +5963,7 @@ export default function Scene({
               }}
               title="Clear custom walls"
             >
-              🗑️ ({customWalls.length})
+                ({customWalls.length})
             </button>
           )}
 
@@ -5976,8 +5971,8 @@ export default function Scene({
             <button
               onClick={onToggleLayoutLock}
               style={{
-                background: isLayoutLocked ? "rgba(2, 132, 199, 0.92)" : "rgba(255, 255, 255, 0.08)",
-                border: isLayoutLocked ? "1px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.15)",
+                background: isLayoutLocked ? "rgba(61, 92, 105, 0.92)" : "rgba(255, 255, 255, 0.08)",
+                border: isLayoutLocked ? "1px solid #6f9aa8" : "1px solid rgba(255, 255, 255, 0.15)",
                 color: "#ffffff",
                 padding: "5px 10px",
                 borderRadius: "6px",
@@ -5987,7 +5982,7 @@ export default function Scene({
               }}
               title={isLayoutLocked ? "3D View is Locked (Press 'L')" : "3D View is Edit Mode (Press 'L')"}
             >
-              {isLayoutLocked ? "🔒 Locked" : "🔓 Edit"}
+              {isLayoutLocked ? "Locked" : "Edit"}
             </button>
           )}
         </div>
@@ -6001,10 +5996,10 @@ export default function Scene({
             top: 65,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(10, 25, 48, 0.95)",
-            border: "1px solid #38bdf8",
+            background: "rgba(19, 18, 16, 0.95)",
+            border: "1px solid #6f9aa8",
             boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-            color: "#38bdf8",
+            color: "#6f9aa8",
             fontWeight: "bold",
             padding: "8px 20px",
             borderRadius: "20px",
@@ -6025,16 +6020,16 @@ export default function Scene({
             left: "50%",
             transform: "translateX(-50%)",
             background: draggedRoomInfo.isCropped
-              ? "linear-gradient(135deg, rgba(245, 158, 11, 0.96), rgba(217, 119, 6, 0.96))"
-              : "rgba(0, 229, 255, 0.95)",
-            color: "#051119",
+              ? "linear-gradient(135deg, rgba(184, 92, 34, 0.96), rgba(138, 67, 24, 0.96))"
+              : "rgba(111, 154, 168, 0.95)",
+            color: "#0a0908",
             fontWeight: "bold",
             padding: "9px 24px",
             borderRadius: "20px",
             boxShadow: draggedRoomInfo.isCropped
-              ? "0 4px 24px rgba(245, 158, 11, 0.5), 0 2px 8px rgba(0,0,0,0.4)"
+              ? "0 4px 24px rgba(184, 92, 34, 0.5), 0 2px 8px rgba(0,0,0,0.4)"
               : "0 4px 24px rgba(0,0,0,0.5)",
-            border: draggedRoomInfo.isCropped ? "1px solid rgba(254, 240, 138, 0.8)" : "none",
+            border: draggedRoomInfo.isCropped ? "1px solid rgba(216, 201, 160, 0.8)" : "none",
             zIndex: 100,
             pointerEvents: "none",
             fontSize: "13px",
@@ -6046,11 +6041,11 @@ export default function Scene({
         >
           {draggedRoomInfo.isCropped ? (
             <>
-              ✂️ <span>Cropping <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> to Map: <strong>{draggedRoomInfo.cropWFt}&apos; × {draggedRoomInfo.cropDFt}&apos;</strong></span>
+                <span>Cropping <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> to Map: <strong>{draggedRoomInfo.cropWFt}&apos; × {draggedRoomInfo.cropDFt}&apos;</strong></span>
             </>
           ) : (
             <>
-              📍 <span>Dragging <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> — Release to place &amp; auto-connect door!</span>
+                <span>Dragging <strong>{ROOM_LABELS[draggedRoomInfo.name as RoomName] ?? draggedRoomInfo.name}</strong> — Release to place &amp; auto-connect door!</span>
             </>
           )}
         </div>
@@ -6083,9 +6078,9 @@ export default function Scene({
             top: 70,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "linear-gradient(135deg, rgba(2, 132, 199, 0.95), rgba(15, 23, 42, 0.98))",
-            border: "1.5px solid #38bdf8",
-            boxShadow: "0 0 24px rgba(56, 189, 248, 0.6), 0 8px 32px rgba(0, 0, 0, 0.6)",
+            background: "linear-gradient(135deg, rgba(61, 92, 105, 0.95), rgba(26, 25, 22, 0.98))",
+            border: "1.5px solid #6f9aa8",
+            boxShadow: "0 0 24px rgba(111, 154, 168, 0.6), 0 8px 32px rgba(0, 0, 0, 0.6)",
             color: "#ffffff",
             fontWeight: 800,
             padding: "9px 24px",
@@ -6100,16 +6095,16 @@ export default function Scene({
             backdropFilter: "blur(8px)",
           }}
         >
-          <span style={{ fontSize: "16px" }}>🧲</span>
+          <span style={{ fontSize: "16px" }}>MAG</span>
           <span>{smartSnapDescription}</span>
           <span
             style={{
               fontSize: "10.5px",
-              background: "rgba(56, 189, 248, 0.25)",
+              background: "rgba(111, 154, 168, 0.25)",
               padding: "2px 7px",
               borderRadius: "10px",
-              border: "1px solid rgba(56, 189, 248, 0.4)",
-              color: "#e0f2fe",
+              border: "1px solid rgba(111, 154, 168, 0.4)",
+              color: "#d3dee1",
             }}
           >
             Auto-Positioned
@@ -6124,7 +6119,7 @@ export default function Scene({
             top: 70,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(34, 197, 94, 0.95)",
+            background: "rgba(95, 125, 79, 0.95)",
             color: "#ffffff",
             fontWeight: "bold",
             padding: "9px 22px",
@@ -6146,7 +6141,7 @@ export default function Scene({
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(10, 15, 29, 0.7)",
+            background: "rgba(19, 18, 16, 0.7)",
             backdropFilter: "blur(6px)",
             zIndex: 150,
             display: "flex",
@@ -6161,8 +6156,8 @@ export default function Scene({
             style={{
               width: "42px",
               height: "42px",
-              border: "3px solid rgba(56, 189, 248, 0.2)",
-              borderTopColor: "#38bdf8",
+              border: "3px solid rgba(111, 154, 168, 0.2)",
+              borderTopColor: "#6f9aa8",
               borderRadius: "50%",
               animation: "spin 0.8s linear infinite",
             }}
@@ -6170,7 +6165,7 @@ export default function Scene({
           <span style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.03em" }}>
             Building BVH Acceleration Geometry Tree...
           </span>
-          <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+          <span style={{ fontSize: "11px", color: "#8e8a82" }}>
             Preparing hardware raytracing buffers &amp; light sources
           </span>
         </div>
@@ -6184,9 +6179,9 @@ export default function Scene({
             top: 64,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.92))",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
-            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.25)",
+            background: "linear-gradient(135deg, rgba(26, 25, 22, 0.95), rgba(33, 32, 27, 0.92))",
+            border: "1px solid rgba(111, 154, 168, 0.4)",
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(111, 154, 168, 0.25)",
             color: "#ffffff",
             padding: "10px 20px",
             borderRadius: "16px",
@@ -6200,15 +6195,15 @@ export default function Scene({
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "15px" }}>📸</span>
+              <span style={{ fontSize: "15px" }}>CAM</span>
               <span style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.03em" }}>
                 GPU Path Tracer
               </span>
               <span
                 style={{
                   fontSize: "11px",
-                  background: "rgba(56, 189, 248, 0.2)",
-                  color: "#38bdf8",
+                  background: "rgba(111, 154, 168, 0.2)",
+                  color: "#6f9aa8",
                   padding: "2px 8px",
                   borderRadius: "10px",
                   fontWeight: 600,
@@ -6232,8 +6227,8 @@ export default function Scene({
                   document.body.removeChild(a);
                 }}
                 style={{
-                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
-                  border: "1px solid #38bdf8",
+                  background: "linear-gradient(135deg, #3d5c69, #2f4954)",
+                  border: "1px solid #6f9aa8",
                   color: "#ffffff",
                   fontSize: "11px",
                   fontWeight: 700,
@@ -6242,7 +6237,7 @@ export default function Scene({
                   cursor: "pointer",
                 }}
               >
-                💾 Save 4K PNG
+                Save 4K PNG
               </button>
 
               <button
@@ -6264,15 +6259,15 @@ export default function Scene({
                 }}
                 title="Restart light accumulation"
               >
-                🔄 Reset
+                Reset
               </button>
 
               <button
                 onClick={() => onToggleRaytraceRef.current?.()}
                 style={{
-                  background: "rgba(239, 68, 68, 0.2)",
-                  border: "1px solid rgba(239, 68, 68, 0.5)",
-                  color: "#fca5a5",
+                  background: "rgba(168, 68, 47, 0.2)",
+                  border: "1px solid rgba(168, 68, 47, 0.5)",
+                  color: "#c98374",
                   fontSize: "11px",
                   fontWeight: 700,
                   padding: "4px 8px",
@@ -6300,14 +6295,14 @@ export default function Scene({
               style={{
                 height: "100%",
                 width: `${Math.min(100, (raytraceSamples / raytraceTargetSamples) * 100)}%`,
-                background: "linear-gradient(90deg, #38bdf8, #818cf8)",
+                background: "linear-gradient(90deg, #6f9aa8, #6f9aa8)",
                 transition: "width 0.15s ease",
               }}
             />
           </div>
 
           {/* Preset buttons */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px", color: "#94a3b8" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px", color: "#8e8a82" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span>Quality:</span>
               {[25, 60, 120].map((s) => (
@@ -6318,9 +6313,9 @@ export default function Scene({
                     targetSamplesRef.current = s;
                   }}
                   style={{
-                    background: raytraceTargetSamples === s ? "rgba(56, 189, 248, 0.3)" : "transparent",
-                    color: raytraceTargetSamples === s ? "#38bdf8" : "#94a3b8",
-                    border: raytraceTargetSamples === s ? "1px solid #38bdf8" : "1px solid transparent",
+                    background: raytraceTargetSamples === s ? "rgba(111, 154, 168, 0.3)" : "transparent",
+                    color: raytraceTargetSamples === s ? "#6f9aa8" : "#8e8a82",
+                    border: raytraceTargetSamples === s ? "1px solid #6f9aa8" : "1px solid transparent",
                     padding: "1px 6px",
                     borderRadius: "4px",
                     cursor: "pointer",
@@ -6347,9 +6342,9 @@ export default function Scene({
                     }
                   }}
                   style={{
-                    background: raytraceBounces === b ? "rgba(56, 189, 248, 0.3)" : "transparent",
-                    color: raytraceBounces === b ? "#38bdf8" : "#94a3b8",
-                    border: raytraceBounces === b ? "1px solid #38bdf8" : "1px solid transparent",
+                    background: raytraceBounces === b ? "rgba(111, 154, 168, 0.3)" : "transparent",
+                    color: raytraceBounces === b ? "#6f9aa8" : "#8e8a82",
+                    border: raytraceBounces === b ? "1px solid #6f9aa8" : "1px solid transparent",
                     padding: "1px 6px",
                     borderRadius: "4px",
                     cursor: "pointer",

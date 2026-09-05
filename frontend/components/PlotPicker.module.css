@@ -13,11 +13,11 @@
 .card,
 .cardActive {
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: 3px;
   font-size: 13px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
   cursor: pointer;
 }
 
@@ -26,9 +26,9 @@
 }
 
 .cardActive {
-  background: #e8912d;
-  border-color: #e8912d;
-  color: #1a1200;
+  background: #b85c22;
+  border-color: #b85c22;
+  color: #1e1408;
   font-weight: 600;
 }
 
@@ -48,13 +48,13 @@
 .stepperLabel {
   width: 44px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ink-secondary);
 }
 
 .stepBtn {
   width: 24px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: 2px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
@@ -71,5 +71,5 @@
   min-width: 48px;
   text-align: center;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
 }

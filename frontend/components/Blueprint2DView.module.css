@@ -5,7 +5,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #061224;
+  background: #131210;
   overflow: hidden;
   user-select: none;
 }
@@ -29,11 +29,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(10, 25, 48, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(19, 18, 16, 0.85);
+  border: 1px solid rgba(111, 154, 168, 0.2);
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 }
@@ -44,27 +43,27 @@
   gap: 6px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e0f2fe;
+  color: #d3dee1;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .toolButton:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.15);
+  border-color: rgba(111, 154, 168, 0.4);
+  color: #6f9aa8;
   transform: translateY(-1px);
 }
 
 .toolButtonActive {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: #38bdf8;
-  color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+  background: rgba(111, 154, 168, 0.25);
+  border-color: #6f9aa8;
+  color: #6f9aa8;
+  box-shadow: none;
 }
 
 /* Add Room Quick Selector in Top Bar */
@@ -72,11 +71,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(10, 25, 48, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  padding: 5px 10px;
-  border-radius: 12px;
+  background: rgba(19, 18, 16, 0.85);
+  border: 1px solid rgba(111, 154, 168, 0.25);
+  padding: 4px 10px;
+  border-radius: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 }
@@ -84,7 +82,7 @@
 .addRoomLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #7dd3fc;
+  color: #8ab3bf;
   margin-right: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -95,20 +93,20 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f0f9ff;
+  color: #eceae5;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .addRoomChip:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.2);
+  border-color: #6f9aa8;
+  color: #6f9aa8;
   transform: translateY(-1px);
 }
 
@@ -116,11 +114,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(14, 38, 68, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(19, 18, 16, 0.85);
+  border: 1px solid rgba(111, 154, 168, 0.35);
   padding: 6px 14px;
-  border-radius: 20px;
-  backdrop-filter: blur(16px);
+  border-radius: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   pointer-events: auto;
 }
@@ -129,15 +126,15 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
+  background: #6f9aa8;
+  box-shadow: none;
   display: inline-block;
 }
 
 .activeBlueprintText {
   font-size: 12px;
   font-weight: 700;
-  color: #7dd3fc;
+  color: #8ab3bf;
   max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
@@ -148,48 +145,48 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  color: #7dd3fc;
-  padding: 7px 14px;
-  border-radius: 10px;
-  font-size: 12.5px;
+  background: rgba(111, 154, 168, 0.12);
+  border: 1px solid rgba(111, 154, 168, 0.35);
+  color: #8ab3bf;
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.15);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(111, 154, 168, 0.15);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   pointer-events: auto;
 }
 
 .quickImportBtn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.25);
+  border-color: #6f9aa8;
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 6px 18px rgba(111, 154, 168, 0.3);
 }
 
 .modelBtn {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.35));
-  border: 1px solid #fbbf24;
-  color: #fbbf24;
-  padding: 7px 16px;
-  border-radius: 10px;
-  font-size: 12.5px;
+  background: rgba(184, 92, 34, 0.25);
+  border: 1px solid #d4703a;
+  color: #d4703a;
+  padding: 6px 16px;
+  border-radius: 3px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(184, 92, 34, 0.25);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   pointer-events: auto;
 }
 
 .modelBtn:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.45), rgba(217, 119, 6, 0.55));
+  background: rgba(184, 92, 34, 0.45);
   color: #ffffff;
-  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.45);
+  box-shadow: 0 6px 24px rgba(184, 92, 34, 0.45);
   transform: translateY(-1px);
 }
 
@@ -197,22 +194,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #0284c7, #38bdf8);
-  border: 1px solid #7dd3fc;
+  background: #3d5c69;
+  border: 1px solid #8ab3bf;
   color: #ffffff;
-  padding: 7px 18px;
-  border-radius: 10px;
+  padding: 6px 18px;
+  border-radius: 3px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(61, 92, 105, 0.4);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   pointer-events: auto;
 }
 
 .exportBtn:hover {
-  background: linear-gradient(135deg, #0369a1, #0ea5e9);
-  box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
+  background: #2f4954;
+  box-shadow: 0 6px 24px rgba(61, 92, 105, 0.6);
   transform: translateY(-1px);
 }
 
@@ -237,11 +234,10 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(10, 25, 48, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(19, 18, 16, 0.85);
+  border: 1px solid rgba(111, 154, 168, 0.2);
   padding: 6px;
-  border-radius: 10px;
+  border-radius: 3px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 20;
 }
@@ -254,18 +250,18 @@
   justify-content: center;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e0f2fe;
-  border-radius: 6px;
-  font-size: 16px;
+  color: #d3dee1;
+  border-radius: 3px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .navBtn:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.2);
+  border-color: #6f9aa8;
+  color: #6f9aa8;
 }
 
 /* Floating Inspector Card for Selected Room */
@@ -276,17 +272,16 @@
   width: 340px;
   max-height: 80vh;
   overflow-y: auto;
-  background: rgba(10, 25, 48, 0.94);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  border-radius: 14px;
+  background: rgba(19, 18, 16, 0.94);
+  border: 1px solid rgba(111, 154, 168, 0.4);
+  border-radius: 4px;
   padding: 16px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.25s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes slideUp {
@@ -304,12 +299,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  border-bottom: 1px solid rgba(111, 154, 168, 0.15);
   padding-bottom: 8px;
 }
 
 .inspectorTitle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: 0.02em;
@@ -318,8 +313,8 @@
 .inspectorClose {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 18px;
+  color: var(--ink-muted);
+  font-size: 19px;
   cursor: pointer;
   padding: 0 4px;
 }
@@ -333,22 +328,22 @@
   display: flex;
   gap: 4px;
   background: rgba(0, 0, 0, 0.35);
-  padding: 3px;
-  border-radius: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  padding: 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(111, 154, 168, 0.15);
 }
 
 .tabBtn {
   flex: 1;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--ink-secondary);
   font-size: 11px;
   font-weight: 600;
   padding: 6px 4px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -360,8 +355,8 @@
 }
 
 .tabBtnActive {
-  background: rgba(56, 189, 248, 0.25) !important;
-  color: #38bdf8 !important;
+  background: rgba(111, 154, 168, 0.25) !important;
+  color: #6f9aa8 !important;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -375,7 +370,7 @@
 .sectionHeading {
   font-size: 11px;
   font-weight: 700;
-  color: #93c5fd;
+  color: #8ab3bf;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -396,25 +391,25 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 10px;
   font-weight: 600;
-  padding: 5px 2px;
-  border-radius: 6px;
+  padding: 4px 2px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .edgeBtn:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.15);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 .edgeBtnActive {
-  background: rgba(56, 189, 248, 0.3) !important;
-  border-color: #38bdf8 !important;
-  color: #38bdf8 !important;
+  background: rgba(111, 154, 168, 0.3) !important;
+  border-color: #6f9aa8 !important;
+  color: #6f9aa8 !important;
   font-weight: 700;
 }
 
@@ -434,24 +429,24 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 11px;
   font-weight: 600;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .thicknessBtn:hover {
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(111, 154, 168, 0.15);
   color: #ffffff;
 }
 
 .thicknessBtnActive {
-  background: rgba(56, 189, 248, 0.25) !important;
-  border-color: #38bdf8 !important;
-  color: #38bdf8 !important;
+  background: rgba(111, 154, 168, 0.25) !important;
+  border-color: #6f9aa8 !important;
+  color: #6f9aa8 !important;
   font-weight: 700;
 }
 
@@ -469,20 +464,20 @@
 
 .addOpeningBtn {
   flex: 1;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #7dd3fc;
+  background: rgba(111, 154, 168, 0.12);
+  border: 1px solid rgba(111, 154, 168, 0.3);
+  color: #8ab3bf;
   font-size: 11px;
   font-weight: 600;
-  padding: 7px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .addOpeningBtn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.25);
+  border-color: #6f9aa8;
   color: #ffffff;
   transform: translateY(-1px);
 }
@@ -503,30 +498,30 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 10px;
   font-weight: 600;
   padding: 6px 2px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .kindBtn:hover {
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(111, 154, 168, 0.15);
   color: #ffffff;
 }
 
 .kindBtnActive {
-  background: rgba(251, 191, 36, 0.25) !important;
-  border-color: #fbbf24 !important;
-  color: #fbbf24 !important;
+  background: rgba(212, 112, 58, 0.25) !important;
+  border-color: #d4703a !important;
+  color: #d4703a !important;
   font-weight: 700;
 }
 
 .presetChipActive {
-  background: rgba(56, 189, 248, 0.35) !important;
-  border-color: #38bdf8 !important;
+  background: rgba(111, 154, 168, 0.35) !important;
+  border-color: #6f9aa8 !important;
   color: #ffffff !important;
   font-weight: 700;
 }
@@ -536,7 +531,7 @@
   flex-direction: column;
   gap: 8px;
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .inspectorRow {
@@ -547,31 +542,34 @@
 }
 
 .inspectorLabel {
-  color: #93c5fd;
+  color: #8ab3bf;
   font-weight: 500;
 }
 
 .inspectorValue {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   color: #ffffff;
   font-weight: 700;
 }
 
 .inspectorVaastuBadge {
-  background: rgba(232, 145, 45, 0.2);
-  border: 1px solid rgba(232, 145, 45, 0.4);
-  color: #fb923c;
+  background: rgba(184, 92, 34, 0.2);
+  border: 1px solid rgba(184, 92, 34, 0.4);
+  color: #d4703a;
   padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 10.5px;
+  border-radius: 3px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 /* Dimension Editor Section inside Inspector */
 .dimEditorSection {
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 10px;
-  padding: 10px;
+  border: 1px solid rgba(111, 154, 168, 0.2);
+  border-radius: 3px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -580,7 +578,7 @@
 .dimEditorTitle {
   font-size: 11px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #6f9aa8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -590,7 +588,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: #cbd5e1;
+  color: #b5b0a6;
 }
 
 .stepperGroup {
@@ -605,18 +603,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
-  border-radius: 6px;
+  background: rgba(111, 154, 168, 0.15);
+  border: 1px solid rgba(111, 154, 168, 0.3);
+  color: #6f9aa8;
+  border-radius: 3px;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .stepperBtn:hover {
-  background: rgba(56, 189, 248, 0.3);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.3);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
@@ -641,18 +639,18 @@
   font-size: 10px;
   font-family: monospace;
   font-weight: 600;
-  padding: 3px 6px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #93c5fd;
+  color: #8ab3bf;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .presetChip:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.2);
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
@@ -662,9 +660,9 @@
   flex-direction: column;
   gap: 8px;
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  border-radius: 8px;
-  padding: 10px;
+  border: 1px solid rgba(111, 154, 168, 0.15);
+  border-radius: 3px;
+  padding: 8px;
 }
 
 .inspectorRotateRow {
@@ -679,20 +677,20 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  color: #bae6fd;
+  background: rgba(111, 154, 168, 0.12);
+  border: 1px solid rgba(111, 154, 168, 0.28);
+  color: #b2c9cf;
   font-size: 11px;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .inspectorRotateBtn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.25);
+  border-color: #6f9aa8;
   color: #ffffff;
   transform: translateY(-1px);
 }
@@ -700,12 +698,12 @@
 .rotateIcon {
   font-size: 13px;
   font-weight: bold;
-  color: #38bdf8;
+  color: #6f9aa8;
 }
 
 .shortcutTip {
   font-size: 10px;
-  color: #94a3b8;
+  color: #8e8a82;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -714,11 +712,11 @@
 .kbd {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #f1f5f9;
+  color: #eceae5;
   font-family: monospace;
-  font-size: 9px;
-  padding: 1px 4px;
-  border-radius: 3px;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
 }
 
 /* Delete Room Button */
@@ -727,21 +725,21 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #ef4444;
-  padding: 7px 12px;
-  border-radius: 8px;
+  background: rgba(168, 68, 47, 0.15);
+  border: 1px solid rgba(168, 68, 47, 0.35);
+  color: #a8442f;
+  padding: 6px 12px;
+  border-radius: 3px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   margin-top: 4px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .deleteRoomBtn:hover {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: #ef4444;
+  background: rgba(168, 68, 47, 0.3);
+  border-color: #a8442f;
   color: #ffffff;
 }
 
@@ -754,10 +752,10 @@
 
 .openingItem {
   font-size: 11px;
-  color: #cbd5e1;
+  color: #b5b0a6;
   background: rgba(255, 255, 255, 0.04);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 2px;
   display: flex;
   justify-content: space-between;
 }
@@ -767,16 +765,15 @@
   position: absolute;
   top: 76px;
   left: 20px;
-  background: rgba(10, 25, 48, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: rgba(19, 18, 16, 0.85);
+  border: 1px solid rgba(111, 154, 168, 0.15);
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   gap: 16px;
   font-size: 11px;
-  color: #93c5fd;
+  color: #8ab3bf;
   z-index: 10;
   pointer-events: none;
 }
@@ -798,14 +795,13 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(10, 25, 48, 0.88);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(19, 18, 16, 0.88);
+  border: 1px solid rgba(111, 154, 168, 0.25);
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #7dd3fc;
+  color: #8ab3bf;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 10;
   pointer-events: none;
@@ -820,21 +816,20 @@
   top: 76px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.95));
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(254, 240, 138, 0.7);
+  background: rgba(184, 92, 34, 0.95);
+  border: 1px solid rgba(216, 201, 160, 0.7);
   padding: 8px 22px;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
-  color: #0f172a;
-  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.4), 0 2px 8px rgba(0, 0, 0, 0.5);
+  color: #1a1916;
+  box-shadow: 0 8px 28px rgba(184, 92, 34, 0.4), 0 2px 8px rgba(0, 0, 0, 0.5);
   z-index: 30;
   pointer-events: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  animation: cropFadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cropFadeInDown 0.25s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes cropFadeInDown {
@@ -853,11 +848,10 @@
   position: absolute;
   top: 76px;
   left: 24px;
-  background: rgba(10, 25, 48, 0.92);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(19, 18, 16, 0.92);
+  border: 1px solid rgba(111, 154, 168, 0.3);
   padding: 6px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -869,46 +863,46 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(26, 25, 22, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .cadToolBtn:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(111, 154, 168, 0.15);
+  border-color: rgba(111, 154, 168, 0.4);
   color: #ffffff;
 }
 
 .cadToolBtnActive {
-  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
-  border-color: #38bdf8 !important;
+  background: #3d5c69 !important;
+  border-color: #6f9aa8 !important;
   color: #ffffff !important;
-  box-shadow: 0 0 12px rgba(2, 132, 199, 0.5);
+  box-shadow: none;
 }
 
 .cadStartScratchBtn {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
+  background: rgba(184, 92, 34, 0.15);
+  border: 1px solid #b85c22;
+  color: #d4703a;
   font-size: 12px;
   font-weight: 700;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .cadStartScratchBtn:hover {
-  background: #f59e0b;
-  color: #0f172a;
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
+  background: #b85c22;
+  color: #1a1916;
+  box-shadow: none;
 }
 
 .draftingStatusOverlay {
@@ -916,15 +910,14 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(10, 25, 48, 0.94);
-  backdrop-filter: blur(16px);
-  border: 1.5px solid #38bdf8;
+  background: rgba(19, 18, 16, 0.94);
+  border: 1.5px solid #6f9aa8;
   padding: 8px 24px;
-  border-radius: 24px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 700;
   color: #ffffff;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   z-index: 30;
   pointer-events: none;
   display: flex;

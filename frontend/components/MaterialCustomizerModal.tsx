@@ -208,7 +208,7 @@ export default function MaterialCustomizerModal({
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h2 className={styles.title}>🎨 Materials & Finishes Studio</h2>
+            <h2 className={styles.title}> Materials & Finishes Studio</h2>
             <p className={styles.subtitle}>
               Customize luxury marbles, hardwoods, kitchen tiles, and wall designs with real-time 3D preview.
             </p>
@@ -219,7 +219,7 @@ export default function MaterialCustomizerModal({
               onClick={handleRandomizeCombination}
               title="Try a random harmonious combination of materials"
             >
-              🎲 Shuffle Design
+              Shuffle Design
             </button>
             <button className={styles.closeBtn} onClick={onClose}>
               ✕
@@ -229,7 +229,7 @@ export default function MaterialCustomizerModal({
 
         {/* 1-Click Design Presets Bar */}
         <div className={styles.presetsSection}>
-          <div className={styles.presetLabel}>✨ Quick Design Presets:</div>
+          <div className={styles.presetLabel}> Quick Design Presets:</div>
           <div className={styles.presetsList}>
             {DESIGN_PRESETS.map((preset) => (
               <button
@@ -252,7 +252,7 @@ export default function MaterialCustomizerModal({
               className={`${styles.targetTab} ${selectedTarget === "global" ? styles.targetTabActive : ""}`}
               onClick={() => setSelectedTarget("global")}
             >
-              🌐 Whole House
+              Whole House
             </button>
             {activeRooms.map((r) => {
               const hasOverride = Boolean(
@@ -266,12 +266,7 @@ export default function MaterialCustomizerModal({
                   className={`${styles.targetTab} ${selectedTarget === r ? styles.targetTabActive : ""}`}
                   onClick={() => setSelectedTarget(r)}
                 >
-                  {r === "hall" && "🛋️ "}
-                  {r === "kitchen" && "🍳 "}
-                  {r === "bedroom" && "🛏️ "}
-                  {r === "pooja" && "🪔 "}
-                  {r === "bathroom" && "🚿 "}
-                  {ROOM_LABELS[r] ?? r}
+                                                                                                            {ROOM_LABELS[r] ?? r}
                   {hasOverride && " *"}
                 </button>
               );
@@ -286,8 +281,8 @@ export default function MaterialCustomizerModal({
               <button
                 style={{
                   background: "transparent",
-                  border: "1px solid rgba(56, 189, 248, 0.4)",
-                  color: "#38bdf8",
+                  border: "1px solid rgba(111, 154, 168, 0.4)",
+                  color: "#6f9aa8",
                   borderRadius: "6px",
                   padding: "4px 8px",
                   fontSize: "11px",
@@ -298,7 +293,7 @@ export default function MaterialCustomizerModal({
                 }}
                 onClick={() => handleResetRoomToGlobal(selectedTarget)}
               >
-                ↩️ Reset {ROOM_LABELS[selectedTarget] ?? selectedTarget} to Whole House Defaults
+                Reset {ROOM_LABELS[selectedTarget] ?? selectedTarget} to Whole House Defaults
               </button>
             )}
         </div>
@@ -309,25 +304,25 @@ export default function MaterialCustomizerModal({
             className={`${styles.mainTab} ${activeTab === "floor" ? styles.mainTabActive : ""}`}
             onClick={() => setActiveTab("floor")}
           >
-            🏛️ Flooring Materials ({filteredFloors.length})
+            Flooring Materials ({filteredFloors.length})
           </button>
           <button
             className={`${styles.mainTab} ${activeTab === "wall" ? styles.mainTabActive : ""}`}
             onClick={() => setActiveTab("wall")}
           >
-            🧱 Walls & Finishes
+            Walls & Finishes
           </button>
           <button
             className={`${styles.mainTab} ${activeTab === "doors" ? styles.mainTabActive : ""}`}
             onClick={() => setActiveTab("doors")}
           >
-            🚪 Doors & Color Wheel
+            Doors & Color Wheel
           </button>
           <button
             className={`${styles.mainTab} ${activeTab === "smoothness" ? styles.mainTabActive : ""}`}
             onClick={() => setActiveTab("smoothness")}
           >
-            💎 Graphics &amp; Smoothness (4K Ultra)
+            Graphics &amp; Smoothness (4K Ultra)
           </button>
         </div>
 
@@ -353,7 +348,7 @@ export default function MaterialCustomizerModal({
                   }
                 >
                   <div className={styles.tierTitle}>
-                    <span>💎</span> Ultra Extreme (4K)
+                    <span>ULT</span> Ultra Extreme (4K)
                   </div>
                   <div className={styles.tierDesc}>
                     4K Ultra Textures (4096px), 4K PCF Soft Shadows, 16x Anisotropy &amp; Mirror Polish.
@@ -375,7 +370,7 @@ export default function MaterialCustomizerModal({
                   }
                 >
                   <div className={styles.tierTitle}>
-                    <span>✨</span> High Definition (2K)
+                    <span>FX</span> High Definition (2K)
                   </div>
                   <div className={styles.tierDesc}>
                     2K Textures (2048px), 2K Shadows, 8x Anisotropy &amp; Semi-Gloss Reflections.
@@ -397,7 +392,7 @@ export default function MaterialCustomizerModal({
                   }
                 >
                   <div className={styles.tierTitle}>
-                    <span>⚡</span> Standard (1K)
+                    <span>PWR</span> Standard (1K)
                   </div>
                   <div className={styles.tierDesc}>
                     1K Textures (1024px), Basic Shadows &amp; Balanced Performance.
@@ -409,7 +404,7 @@ export default function MaterialCustomizerModal({
               <div className={styles.smoothnessCard}>
                 <div className={styles.sliderHeader}>
                   <span className={styles.sliderTitle}>
-                    <span>✨</span> Whole-House Texture Smoothness Master
+                    <span>FX</span> Whole-House Texture Smoothness Master
                   </span>
                   <span className={styles.sliderBadge}>
                     {Math.round((config.textureSmoothness ?? 0.88) * 100)}% Smooth
@@ -439,7 +434,7 @@ export default function MaterialCustomizerModal({
               <div className={styles.smoothnessCard}>
                 <div className={styles.sliderHeader}>
                   <span className={styles.sliderTitle}>
-                    <span>🏛️</span> Floor Surface Mirror Gloss &amp; Polish
+                    <span>CLS</span> Floor Surface Mirror Gloss &amp; Polish
                   </span>
                   <span className={styles.sliderBadge}>
                     {Math.round((config.floorGlossLevel ?? 0.92) * 100)}% Gloss
@@ -469,7 +464,7 @@ export default function MaterialCustomizerModal({
               <div className={styles.smoothnessCard}>
                 <div className={styles.sliderHeader}>
                   <span className={styles.sliderTitle}>
-                    <span>🧱</span> Wall Silkiness &amp; Embossed Relief
+                    <span>WAL</span> Wall Silkiness &amp; Embossed Relief
                   </span>
                   <span className={styles.sliderBadge}>
                     {Math.round((config.wallSmoothness ?? 0.88) * 100)}% Silk
@@ -499,12 +494,12 @@ export default function MaterialCustomizerModal({
               <div className={styles.smoothnessCard}>
                 <div className={styles.sliderHeader}>
                   <span className={styles.sliderTitle}>
-                    <span>⚙️</span> Texture Resolution &amp; Anisotropic Filtering
+                    <span>CFG</span> Texture Resolution &amp; Anisotropic Filtering
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                   <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>Texture Resolution:</div>
+                    <div style={{ fontSize: "11px", color: "#8e8a82", marginBottom: "4px" }}>Texture Resolution:</div>
                     <div className={styles.resButtonGroup}>
                       {[
                         { val: 4096, label: "4K Ultra (4096px)" },
@@ -523,7 +518,7 @@ export default function MaterialCustomizerModal({
                   </div>
 
                   <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>Anisotropic Filtering:</div>
+                    <div style={{ fontSize: "11px", color: "#8e8a82", marginBottom: "4px" }}>Anisotropic Filtering:</div>
                     <div className={styles.resButtonGroup}>
                       {[
                         { val: 16, label: "16x Maximum Clarity" },
@@ -558,19 +553,19 @@ export default function MaterialCustomizerModal({
                   className={`${styles.filterPill} ${floorCategoryFilter === "marble" ? styles.filterPillActive : ""}`}
                   onClick={() => setFloorCategoryFilter("marble")}
                 >
-                  🏛️ Luxury Marbles
+                  Luxury Marbles
                 </button>
                 <button
                   className={`${styles.filterPill} ${floorCategoryFilter === "wood" ? styles.filterPillActive : ""}`}
                   onClick={() => setFloorCategoryFilter("wood")}
                 >
-                  🪵 Premium Hardwoods
+                  Premium Hardwoods
                 </button>
                 <button
                   className={`${styles.filterPill} ${floorCategoryFilter === "tile" ? styles.filterPillActive : ""}`}
                   onClick={() => setFloorCategoryFilter("tile")}
                 >
-                  🍳 Kitchen & Bath Tiles
+                  Kitchen & Bath Tiles
                 </button>
               </div>
 
@@ -588,13 +583,10 @@ export default function MaterialCustomizerModal({
                         className={styles.swatchPreview}
                         style={{
                           backgroundColor: mat.swatchColor,
-                          border: `1px solid ${isSelected ? "#e8912d" : "rgba(255,255,255,0.15)"}`,
+                          border: `1px solid ${isSelected ? "#b85c22" : "rgba(255,255,255,0.15)"}`,
                         }}
                       >
-                        {mat.category === "marble" && "🏛️"}
-                        {mat.category === "wood" && "🪵"}
-                        {mat.category === "tile" && "🍳"}
-                        {isSelected && <span className={styles.checkBadge}>✓</span>}
+                                                                                                {isSelected && <span className={styles.checkBadge}>✓</span>}
                       </div>
                       <div className={styles.materialMeta}>
                         <div className={styles.materialName}>{mat.name}</div>
@@ -615,7 +607,7 @@ export default function MaterialCustomizerModal({
           {activeTab === "wall" && (
             <div className={styles.wallSection}>
               {/* Wall Colors & Color Wheel */}
-              <div className={styles.sectionHeading}>🎨 Wall Colors & Color Wheel</div>
+              <div className={styles.sectionHeading}> Wall Colors & Color Wheel</div>
 
               {/* Color Wheel & Custom Color Picker Card */}
               <div className={styles.customColorWheelCard}>
@@ -633,7 +625,7 @@ export default function MaterialCustomizerModal({
                         backgroundColor: getWallColorHexStr(currentWallColorId),
                       }}
                     >
-                      <span className={styles.colorWheelIcon}>🌈</span>
+                      <span className={styles.colorWheelIcon}>SPC</span>
                     </div>
                   </label>
                   <div className={styles.wheelInfo}>
@@ -668,7 +660,7 @@ export default function MaterialCustomizerModal({
                       value={getWallColorHexStr(currentWallColorId)}
                       onChange={(e) => handleSelectWallColor(e.target.value)}
                     />
-                    🎨 Pick Color
+                    Pick Color
                   </label>
                 </div>
               </div>
@@ -689,7 +681,7 @@ export default function MaterialCustomizerModal({
                         className={styles.colorCircle}
                         style={{
                           backgroundColor: col.hex,
-                          boxShadow: isSelected ? "0 0 0 3px #e8912d" : "none",
+                          boxShadow: isSelected ? "0 0 0 3px #b85c22" : "none",
                         }}
                       >
                         {isSelected && <span className={styles.colorCheck}>✓</span>}
@@ -702,7 +694,7 @@ export default function MaterialCustomizerModal({
 
               {/* Wall Architectural Textures */}
               <div className={styles.sectionHeading} style={{ marginTop: "24px" }}>
-                🧱 Wall Architectural Finishes & Textures
+                Wall Architectural Finishes & Textures
               </div>
               <div className={styles.texturesGrid}>
                 {WALL_TEXTURES.map((tex) => {
@@ -728,7 +720,7 @@ export default function MaterialCustomizerModal({
           {activeTab === "doors" && (
             <div className={styles.wallSection}>
               {/* Door Colors & Color Wheel */}
-              <div className={styles.sectionHeading}>🚪 Door Colors & Hardwood Finishes</div>
+              <div className={styles.sectionHeading}> Door Colors & Hardwood Finishes</div>
 
               {/* Door Color Wheel & Custom Color Picker Card */}
               <div className={styles.customColorWheelCard}>
@@ -746,7 +738,7 @@ export default function MaterialCustomizerModal({
                         backgroundColor: getDoorColorHexStr(currentDoorColorId),
                       }}
                     >
-                      <span className={styles.colorWheelIcon}>🚪</span>
+                      <span className={styles.colorWheelIcon}>DR</span>
                     </div>
                   </label>
                   <div className={styles.wheelInfo}>
@@ -781,7 +773,7 @@ export default function MaterialCustomizerModal({
                       value={getDoorColorHexStr(currentDoorColorId)}
                       onChange={(e) => handleSelectDoorColor(e.target.value)}
                     />
-                    🎨 Pick Door Color
+                    Pick Door Color
                   </label>
                 </div>
               </div>
@@ -802,7 +794,7 @@ export default function MaterialCustomizerModal({
                         className={styles.colorCircle}
                         style={{
                           backgroundColor: col.hex,
-                          boxShadow: isSelected ? "0 0 0 3px #e8912d" : "none",
+                          boxShadow: isSelected ? "0 0 0 3px #b85c22" : "none",
                         }}
                       >
                         {isSelected && <span className={styles.colorCheck}>✓</span>}
@@ -819,7 +811,7 @@ export default function MaterialCustomizerModal({
         {/* Footer */}
         <div className={styles.footer}>
           <div className={styles.footerNote}>
-            💡 Pro-tip: Walk through the house in <b>3D Walkthrough Mode</b> to inspect specular reflections and wood grain up close!
+            Pro-tip: Walk through the house in <b>3D Walkthrough Mode</b> to inspect specular reflections and wood grain up close!
           </div>
           <button className={styles.doneBtn} onClick={onClose}>
             ✓ Done Customizing

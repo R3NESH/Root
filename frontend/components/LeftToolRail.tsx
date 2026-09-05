@@ -45,25 +45,25 @@ interface RailSection {
 // One entry per furniture category. Which of these the rail shows comes from the active
 // programme's `furnitureCategories` — see lib/programs.ts.
 const CATEGORY_META: Record<FurnitureCategory, Omit<RailSection, "id">> = {
-  living: { icon: "🛋️", label: "Living", title: "Sofas, tables & living room objects" },
-  bedroom: { icon: "🛏️", label: "Bed", title: "Beds, wardrobes & bedroom objects" },
-  dining: { icon: "🍽️", label: "Dining", title: "Dining tables, chairs & servers" },
-  kitchen: { icon: "🍳", label: "Kitchen", title: "Counters, appliances & kitchen units" },
-  office: { icon: "💻", label: "Office", title: "Desks, chairs & study units" },
-  decor: { icon: "🪴", label: "Decor", title: "Plants, lighting, rugs & wall art" },
-  sacred: { icon: "🛕", label: "Mandir", title: "Pooja mandir & sacred objects" },
-  walls: { icon: "🧱", label: "Divide", title: "Partitions, screens & room dividers" },
-  cafe_seating: { icon: "☕", label: "Covers", title: "Tables, chairs, banquettes & bar stools" },
-  cafe_service: { icon: "🧾", label: "Service", title: "Counter kit: espresso, till, display, condiments, retail" },
-  cafe_decor: { icon: "💡", label: "Decor", title: "Lighting, planting, neon & wall art" },
-  cafe_signage: { icon: "🪧", label: "Signage", title: "Menu boards & pavement signs" },
-  cafe_boh: { icon: "🧊", label: "Back", title: "Back of house: fridge, prep bench, racking, ice" },
-  cafe_outdoor: { icon: "⛱️", label: "Terrace", title: "Outdoor covers, rope line & bike rack" },
+  living: { icon: "SOF", label: "Living", title: "Sofas, tables & living room objects" },
+  bedroom: { icon: "BED", label: "Bed", title: "Beds, wardrobes & bedroom objects" },
+  dining: { icon: "DIN", label: "Dining", title: "Dining tables, chairs & servers" },
+  kitchen: { icon: "KIT", label: "Kitchen", title: "Counters, appliances & kitchen units" },
+  office: { icon: "DSK", label: "Office", title: "Desks, chairs & study units" },
+  decor: { icon: "PLT", label: "Decor", title: "Plants, lighting, rugs & wall art" },
+  sacred: { icon: "MND", label: "Mandir", title: "Pooja mandir & sacred objects" },
+  walls: { icon: "WAL", label: "Divide", title: "Partitions, screens & room dividers" },
+  cafe_seating: { icon: "CAF", label: "Covers", title: "Tables, chairs, banquettes & bar stools" },
+  cafe_service: { icon: "SVC", label: "Service", title: "Counter kit: espresso, till, display, condiments, retail" },
+  cafe_decor: { icon: "LGT", label: "Decor", title: "Lighting, planting, neon & wall art" },
+  cafe_signage: { icon: "SGN", label: "Signage", title: "Menu boards & pavement signs" },
+  cafe_boh: { icon: "REF", label: "Back", title: "Back of house: fridge, prep bench, racking, ice" },
+  cafe_outdoor: { icon: "UMB", label: "Terrace", title: "Outdoor covers, rope line & bike rack" },
 };
 
 const FIXED_SECTIONS: RailSection[] = [
-  { id: "finishes", icon: "🎨", label: "Finish", title: "Floors, wall paint, door colours & themes" },
-  { id: "manage", icon: "🧩", label: "Manage", title: "Placed objects, AI modelling & cleanup" },
+  { id: "finishes", icon: "PNT", label: "Finish", title: "Floors, wall paint, door colours & themes" },
+  { id: "manage", icon: "MOD", label: "Manage", title: "Placed objects, AI modelling & cleanup" },
 ];
 
 export default function LeftToolRail({
@@ -209,7 +209,7 @@ export default function LeftToolRail({
                         value={getWallColorHexStr(materialConfig.globalWallColor)}
                         onChange={(e) => applyWallColor(e.target.value)}
                       />
-                      🎨
+
                     </label>
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export default function LeftToolRail({
                         value={getDoorColorHexStr(materialConfig.globalDoorColor)}
                         onChange={(e) => applyDoorColor(e.target.value)}
                       />
-                      🎨
+
                     </label>
                   </div>
                 </div>
@@ -306,16 +306,16 @@ export default function LeftToolRail({
                         className={styles.themeBtn}
                         onClick={onOpenCustomWallBlendModal}
                         style={{
-                          background: "linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(79, 70, 229, 0.25))",
-                          border: "1px solid #38bdf8",
-                          color: "#38bdf8",
+                          background: "linear-gradient(135deg, rgba(61, 92, 105, 0.25), rgba(79, 70, 229, 0.25))",
+                          border: "1px solid #6f9aa8",
+                          color: "#6f9aa8",
                           fontWeight: 700,
                           padding: "3px 8px",
                           fontSize: "11px",
                         }}
                         title="Custom wall partition permutations & combinations"
                       >
-                        🎨 Custom
+                        Custom
                       </button>
                     )}
                   </div>
@@ -328,8 +328,8 @@ export default function LeftToolRail({
                       className={styles.wideBtn}
                       onClick={onOpenCustomWallBlendModal}
                       style={{
-                        background: "linear-gradient(135deg, #0284c7, #4f46e5)",
-                        border: "1px solid #38bdf8",
+                        background: "linear-gradient(135deg, #3d5c69, #3d5c69)",
+                        border: "1px solid #6f9aa8",
                         color: "#ffffff",
                         fontWeight: 700,
                         marginBottom: "10px",
@@ -337,7 +337,7 @@ export default function LeftToolRail({
                         fontSize: "12px",
                       }}
                     >
-                      ✨ Custom Partition &amp; Permutations Studio
+                      Custom Partition &amp; Permutations Studio
                     </button>
                   )}
 
@@ -437,7 +437,7 @@ export default function LeftToolRail({
 
                 {onOpenAIFurnitureModal && (
                   <button className={styles.wideBtnAccent} onClick={onOpenAIFurnitureModal}>
-                    📸 AI Photo-to-3D Furniture Studio...
+                    AI Photo-to-3D Furniture Studio...
                   </button>
                 )}
 
@@ -447,7 +447,7 @@ export default function LeftToolRail({
                   disabled={deletedBuiltinCount === 0}
                   title="Bring back every deleted built-in furniture piece"
                 >
-                  ♻️ Restore default furniture
+                  Restore default furniture
                 </button>
 
                 <button
@@ -456,7 +456,7 @@ export default function LeftToolRail({
                   disabled={totalPlacedCount === 0}
                   title="Remove every object you placed"
                 >
-                  🗑️ Clear all placed objects
+                  Clear all placed objects
                 </button>
               </>
             ) : (

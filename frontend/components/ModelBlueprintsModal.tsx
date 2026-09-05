@@ -1,5 +1,5 @@
 "use client";
- 
+
 import React, { useState, useEffect, useRef } from "react";
 import { CAFE_BLUEPRINTS } from "@/lib/cafeBlueprints";
 import { MODEL_BLUEPRINTS, ModelBlueprint } from "@/lib/modelBlueprints";
@@ -129,10 +129,10 @@ export default function ModelBlueprintsModal({
   const presentFacings = new Set(catalogue.map((bp) => bp.facing));
   const facingOptions: { label: string; value: string }[] = [
     { label: "All", value: "All" },
-    { label: "🧭 North", value: "N" },
-    { label: "🌅 East", value: "E" },
-    { label: "☀️ South", value: "S" },
-    { label: "🌇 West", value: "W" },
+    { label: "North", value: "N" },
+    { label: "East", value: "E" },
+    { label: "South", value: "S" },
+    { label: "West", value: "W" },
   ].filter((opt) => opt.value === "All" || presentFacings.has(opt.value as "N" | "E" | "S" | "W"));
 
   const allBlueprints = catalogue;
@@ -182,7 +182,7 @@ export default function ModelBlueprintsModal({
               onClick={() => fileInputRef.current?.click()}
               title="Import a blueprint from a JSON file"
             >
-              📂 Import Blueprint JSON
+              Import Blueprint JSON
             </button>
             <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
               ×
@@ -245,7 +245,7 @@ export default function ModelBlueprintsModal({
             <input
               type="text"
               className={styles.searchInput}
-              placeholder="🔍 Search blueprints..."
+              placeholder="Search blueprints..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -341,7 +341,7 @@ export default function ModelBlueprintsModal({
                       }}
                       title="Import this blueprint directly into the interactive 2D floor plan editor"
                     >
-                      📐 Import to 2D Layout
+                      Import to 2D Layout
                     </button>
                     <div className={styles.secondaryActionGroup}>
                       <button
@@ -352,7 +352,7 @@ export default function ModelBlueprintsModal({
                         }}
                         title="Load this blueprint and view in 3D Orbit"
                       >
-                        🌐 3D Orbit
+                          3D Orbit
                       </button>
                       <button
                         className={styles.walk3dBtn}
@@ -362,7 +362,7 @@ export default function ModelBlueprintsModal({
                         }}
                         title="Load this blueprint and walk inside in first-person"
                       >
-                        🚶 3D Walk
+                          3D Walk
                       </button>
                     </div>
                   </div>
@@ -405,7 +405,7 @@ function BlueprintMiniPreview({ blueprint }: { blueprint: ModelBlueprint }) {
         </pattern>
       </defs>
 
-      <rect x="0" y="0" width={svgW} height={svgH} fill="#06182c" />
+      <rect x="0" y="0" width={svgW} height={svgH} fill="#131210" />
       <rect x="0" y="0" width={svgW} height={svgH} fill={`url(#miniGrid-${blueprint.id})`} />
 
       {/* Plot Boundary */}
@@ -415,7 +415,7 @@ function BlueprintMiniPreview({ blueprint }: { blueprint: ModelBlueprint }) {
         width={plotW}
         height={plotH}
         fill="#0a2544"
-        stroke="#38bdf8"
+        stroke="#6f9aa8"
         strokeWidth="1.5"
         strokeDasharray="4,2"
         rx="2"
@@ -423,10 +423,10 @@ function BlueprintMiniPreview({ blueprint }: { blueprint: ModelBlueprint }) {
 
       {/* Road / Front Edge Indicator */}
       {blueprint.facing === "N" && (
-        <line x1={px} y1={py - 3} x2={px + plotW} y2={py - 3} stroke="#38bdf8" strokeWidth="2.5" />
+        <line x1={px} y1={py - 3} x2={px + plotW} y2={py - 3} stroke="#6f9aa8" strokeWidth="2.5" />
       )}
       {blueprint.facing === "E" && (
-        <line x1={px + plotW + 3} y1={py} x2={px + plotW + 3} y2={py + plotH} stroke="#38bdf8" strokeWidth="2.5" />
+        <line x1={px + plotW + 3} y1={py} x2={px + plotW + 3} y2={py + plotH} stroke="#6f9aa8" strokeWidth="2.5" />
       )}
 
       {/* Schematic Room Blocks */}

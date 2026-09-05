@@ -1,9 +1,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(5, 10, 20, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(10, 9, 8, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,18 +20,18 @@
 }
 
 .modal {
-  background: rgba(15, 23, 42, 0.96);
+  background: rgba(26, 25, 22, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(232, 145, 45, 0.18);
-  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(184, 92, 34, 0.18);
+  border-radius: 4px;
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  color: #f8fafc;
+  color: #eceae5;
   overflow: hidden;
-  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.25s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes slideUp {
@@ -53,12 +51,12 @@
   align-items: flex-start;
   padding: 20px 24px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(30, 41, 59, 0.5);
+  background: rgba(33, 32, 27, 0.5);
 }
 
 .title {
   margin: 0;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -69,7 +67,7 @@
 .subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .headerActions {
@@ -79,47 +77,47 @@
 }
 
 .randomBtn {
-  background: linear-gradient(135deg, rgba(232, 145, 45, 0.25), rgba(245, 158, 11, 0.15));
-  border: 1px solid rgba(232, 145, 45, 0.5);
-  color: #fbbf24;
-  padding: 7px 14px;
-  border-radius: 10px;
+  background: rgba(184, 92, 34, 0.25);
+  border: 1px solid rgba(184, 92, 34, 0.5);
+  color: #d4703a;
+  padding: 6px 14px;
+  border-radius: 3px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .randomBtn:hover {
-  background: rgba(232, 145, 45, 0.35);
+  background: rgba(184, 92, 34, 0.35);
   transform: translateY(-1px);
 }
 
 .closeBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
+  color: #8e8a82;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .closeBtn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(168, 68, 47, 0.25);
+  color: #a8442f;
+  border-color: rgba(168, 68, 47, 0.4);
 }
 
 /* Presets Bar */
 .presetsSection {
   padding: 12px 24px;
-  background: rgba(10, 15, 28, 0.6);
+  background: rgba(19, 18, 16, 0.6);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -130,7 +128,7 @@
 .presetLabel {
   font-size: 12px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #b5b0a6;
   white-space: nowrap;
 }
 
@@ -142,11 +140,11 @@
 }
 
 .presetCard {
-  background: rgba(30, 41, 59, 0.8);
+  background: rgba(33, 32, 27, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
+  color: #eceae5;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 12px;
   font-weight: 500;
   display: flex;
@@ -154,22 +152,35 @@
   gap: 6px;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .presetCard:hover {
-  background: rgba(232, 145, 45, 0.2);
-  border-color: #e8912d;
+  background: rgba(184, 92, 34, 0.2);
+  border-color: #b85c22;
   transform: translateY(-1px);
 }
 
 .presetIcon {
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 3px 3px;
+  color: var(--ink-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface-sunk);
 }
 
 /* Target Room Selector */
 .targetSection {
-  padding: 14px 24px 10px;
+  padding: 12px 24px 10px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -180,7 +191,7 @@
 .targetHeading {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #8e8a82;
   white-space: nowrap;
 }
 
@@ -193,13 +204,13 @@
 .targetTab {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: #b5b0a6;
   padding: 6px 12px;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
@@ -209,11 +220,11 @@
 }
 
 .targetTabActive {
-  background: #e8912d !important;
-  color: #051119 !important;
-  border-color: #e8912d !important;
+  background: #b85c22 !important;
+  color: #0a0908 !important;
+  border-color: #b85c22 !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 10px rgba(232, 145, 45, 0.35);
+  box-shadow: 0 2px 10px rgba(184, 92, 34, 0.35);
 }
 
 /* Tabs */
@@ -228,26 +239,26 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #94a3b8;
+  color: #8e8a82;
   padding: 8px 16px 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .mainTab:hover {
-  color: #f1f5f9;
+  color: #eceae5;
 }
 
 .mainTabActive {
-  color: #e8912d;
-  border-bottom-color: #e8912d;
+  color: #b85c22;
+  border-bottom-color: #b85c22;
 }
 
 /* Modal Body */
 .body {
-  padding: 18px 24px;
+  padding: 16px 24px;
   overflow-y: auto;
   flex: 1;
 }
@@ -263,12 +274,12 @@
 .filterPill {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
-  padding: 5px 12px;
-  border-radius: 14px;
+  color: #8e8a82;
+  padding: 4px 12px;
+  border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
@@ -278,9 +289,9 @@
 }
 
 .filterPillActive {
-  background: rgba(232, 145, 45, 0.2) !important;
-  color: #fbbf24 !important;
-  border-color: rgba(232, 145, 45, 0.5) !important;
+  background: rgba(184, 92, 34, 0.2) !important;
+  color: #d4703a !important;
+  border-color: rgba(184, 92, 34, 0.5) !important;
   font-weight: 600;
 }
 
@@ -292,40 +303,40 @@
 }
 
 .materialCard {
-  background: rgba(30, 41, 59, 0.5);
+  background: rgba(33, 32, 27, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 12px;
   display: flex;
   gap: 12px;
   align-items: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   position: relative;
 }
 
 .materialCard:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(232, 145, 45, 0.4);
+  background: rgba(33, 32, 27, 0.9);
+  border-color: rgba(184, 92, 34, 0.4);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .materialCardActive {
-  background: rgba(232, 145, 45, 0.12) !important;
-  border-color: #e8912d !important;
-  box-shadow: 0 0 0 1px #e8912d, 0 8px 20px rgba(232, 145, 45, 0.15) !important;
+  background: rgba(184, 92, 34, 0.12) !important;
+  border-color: #b85c22 !important;
+  box-shadow: 0 0 0 1px #b85c22, 0 8px 20px rgba(184, 92, 34, 0.15) !important;
 }
 
 .swatchPreview {
   width: 52px;
   height: 52px;
-  border-radius: 10px;
+  border-radius: 3px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 19px;
   position: relative;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -334,8 +345,8 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  background: #e8912d;
-  color: #051119;
+  background: #b85c22;
+  color: #0a0908;
   font-size: 10px;
   font-weight: 800;
   width: 16px;
@@ -364,7 +375,7 @@
 
 .materialDesc {
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -375,14 +386,14 @@
 .tagBadge {
   display: inline-block;
   margin-top: 4px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #e8912d;
-  background: rgba(232, 145, 45, 0.12);
+  color: #b85c22;
+  background: rgba(184, 92, 34, 0.12);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 /* Wall Colors & Finishes */
@@ -392,26 +403,26 @@
 }
 
 .sectionHeading {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #eceae5;
   margin-bottom: 12px;
 }
 
 .paletteHeading {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #8e8a82;
   margin: 16px 0 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .customColorWheelCard {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(232, 145, 45, 0.35);
-  border-radius: 12px;
-  padding: 14px 18px;
+  background: rgba(33, 32, 27, 0.7);
+  border: 1px solid rgba(184, 92, 34, 0.35);
+  border-radius: 4px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -436,6 +447,9 @@
 }
 
 .colorWheelInput {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   position: absolute;
   top: 0;
   left: 0;
@@ -450,7 +464,7 @@
   height: 44px;
   border-radius: 50%;
   border: 2px solid #ffffff;
-  box-shadow: 0 0 0 3px rgba(232, 145, 45, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 3px rgba(184, 92, 34, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -462,7 +476,7 @@
 }
 
 .colorWheelIcon {
-  font-size: 20px;
+  font-size: 19px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
@@ -473,14 +487,14 @@
 }
 
 .wheelTitle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #ffffff;
 }
 
 .wheelSubtitle {
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .wheelRight {
@@ -490,28 +504,37 @@
 }
 
 .hexInputWrapper {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(26, 25, 22, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 4px 10px;
   transition: border-color 0.15s ease;
 }
 
 .hexInputWrapper:focus-within {
-  border-color: #e8912d;
-  box-shadow: 0 0 0 2px rgba(232, 145, 45, 0.25);
+  border-color: #b85c22;
+  box-shadow: 0 0 0 2px rgba(184, 92, 34, 0.25);
 }
 
 .hexPrefix {
   font-size: 13px;
   font-weight: 700;
-  color: #e8912d;
+  color: #b85c22;
   margin-right: 2px;
 }
 
 .hexInput {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   background: transparent;
   border: none;
   color: #ffffff;
@@ -525,24 +548,24 @@
 
 .pickColorBtn {
   position: relative;
-  background: linear-gradient(135deg, #e8912d 0%, #d97706 100%);
-  color: #051119;
+  background: #b85c22;
+  color: #0a0908;
   font-size: 12px;
   font-weight: 700;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 8px rgba(232, 145, 45, 0.4);
-  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(184, 92, 34, 0.4);
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .pickColorBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(232, 145, 45, 0.6);
+  box-shadow: 0 4px 12px rgba(184, 92, 34, 0.6);
 }
 
 .colorsGrid {
@@ -552,25 +575,25 @@
 }
 
 .colorCard {
-  background: rgba(30, 41, 59, 0.4);
+  background: rgba(33, 32, 27, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 3px;
+  padding: 8px;
   display: flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .colorCard:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(232, 145, 45, 0.4);
+  background: rgba(33, 32, 27, 0.8);
+  border-color: rgba(184, 92, 34, 0.4);
 }
 
 .colorCardActive {
-  background: rgba(232, 145, 45, 0.12) !important;
-  border-color: #e8912d !important;
+  background: rgba(184, 92, 34, 0.12) !important;
+  border-color: #b85c22 !important;
 }
 
 .colorCircle {
@@ -585,7 +608,7 @@
 }
 
 .colorCheck {
-  color: #051119;
+  color: #0a0908;
   font-size: 12px;
   font-weight: 800;
 }
@@ -593,7 +616,7 @@
 .colorName {
   font-size: 12px;
   font-weight: 500;
-  color: #f1f5f9;
+  color: #eceae5;
 }
 
 /* Wall Textures Grid */
@@ -604,24 +627,24 @@
 }
 
 .textureCard {
-  background: rgba(30, 41, 59, 0.5);
+  background: rgba(33, 32, 27, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 3px;
   padding: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .textureCard:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(232, 145, 45, 0.4);
+  background: rgba(33, 32, 27, 0.9);
+  border-color: rgba(184, 92, 34, 0.4);
   transform: translateY(-2px);
 }
 
 .textureCardActive {
-  background: rgba(232, 145, 45, 0.12) !important;
-  border-color: #e8912d !important;
-  box-shadow: 0 0 0 1px #e8912d !important;
+  background: rgba(184, 92, 34, 0.12) !important;
+  border-color: #b85c22 !important;
+  box-shadow: 0 0 0 1px #b85c22 !important;
 }
 
 .textureHeader {
@@ -640,16 +663,16 @@
 .activePill {
   font-size: 10px;
   font-weight: 700;
-  background: #e8912d;
-  color: #051119;
+  background: #b85c22;
+  color: #0a0908;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .textureDesc {
   margin: 0;
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
   line-height: 1.35;
 }
 
@@ -668,26 +691,26 @@
 }
 
 .graphicsTierBtn {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(33, 32, 27, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 12px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
-  color: #f1f5f9;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
+  color: #eceae5;
 }
 
 .graphicsTierBtn:hover {
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(111, 154, 168, 0.1);
+  border-color: rgba(111, 154, 168, 0.4);
   transform: translateY(-2px);
 }
 
 .graphicsTierBtnActive {
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%);
-  border-color: #38bdf8;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+  background: rgba(61, 92, 105, 0.3);
+  border-color: #6f9aa8;
+  box-shadow: none;
 }
 
 .tierTitle {
@@ -702,14 +725,14 @@
 
 .tierDesc {
   font-size: 11px;
-  color: #94a3b8;
+  color: #8e8a82;
   line-height: 1.3;
 }
 
 .smoothnessCard {
-  background: rgba(30, 41, 59, 0.5);
+  background: rgba(33, 32, 27, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 4px;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -725,7 +748,7 @@
 .sliderTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #eceae5;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -734,11 +757,11 @@
 .sliderBadge {
   font-size: 11px;
   font-weight: 700;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
+  background: rgba(111, 154, 168, 0.15);
+  border: 1px solid rgba(111, 154, 168, 0.3);
+  color: #6f9aa8;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 .smoothnessSliderRow {
@@ -749,7 +772,7 @@
 
 .smoothSlider {
   flex: 1;
-  accent-color: #38bdf8;
+  accent-color: #6f9aa8;
   height: 6px;
   cursor: pointer;
 }
@@ -758,7 +781,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #94a3b8;
+  color: #8e8a82;
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -770,33 +793,33 @@
 }
 
 .resBtn {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(26, 25, 22, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  color: #b5b0a6;
   font-size: 11px;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
 }
 
 .resBtn:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: #38bdf8;
+  background: rgba(111, 154, 168, 0.12);
+  border-color: #6f9aa8;
 }
 
 .resBtnActive {
-  background: #0284c7;
-  border-color: #38bdf8;
+  background: #3d5c69;
+  border-color: #6f9aa8;
   color: #ffffff;
 }
 
 /* Footer */
 .footer {
-  padding: 14px 24px;
+  padding: 12px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(26, 25, 22, 0.9);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -805,26 +828,26 @@
 
 .footerNote {
   font-size: 12px;
-  color: #94a3b8;
+  color: #8e8a82;
 }
 
 .doneBtn {
-  background: #e8912d;
+  background: #b85c22;
   border: none;
-  color: #051119;
-  padding: 9px 20px;
-  border-radius: 10px;
+  color: #0a0908;
+  padding: 8px 20px;
+  border-radius: 3px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
   white-space: nowrap;
 }
 
 .doneBtn:hover {
-  background: #f59e0b;
+  background: #b85c22;
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(232, 145, 45, 0.4);
+  box-shadow: 0 4px 16px rgba(184, 92, 34, 0.4);
 }
 
 @media (max-width: 640px) {

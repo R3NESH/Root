@@ -77,7 +77,6 @@ export function clearProject(): void {
   } catch {}
 }
 
-
 /**
  * The programme a saved project belongs to.
  *

@@ -45,7 +45,6 @@ import GraphicsControlModal from "@/components/GraphicsControlModal";
 import BOQCostModal from "@/components/BOQCostModal";
 import CustomWallBlendModal from "@/components/CustomWallBlendModal";
 
-
 import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
 import { OpeningItemDef } from "@/lib/openingsCatalog";
 import { SelectedObjectInfo } from "@/components/Scene";
@@ -129,9 +128,6 @@ export default function Home() {
   const [isRaytracing, setIsRaytracing] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isCustomWallBlendModalOpen, setIsCustomWallBlendModalOpen] = useState(false);
-
-
-
 
   const handleSpawnAIFurniture = useCallback((placedObj: PlacedCustomObject) => {
     setCustomObjects((prev) => [...prev, placedObj]);
@@ -263,14 +259,23 @@ export default function Home() {
     const unknown = meta?.unknown_room_names ?? [];
     if (unknown.length > 0) {
       return {
-        title: `The solver does not know ${unknown.length} of these spaces`,
-        detail: `It rejected ${unknown.join(", ")}. This is almost always a backend started before those spaces existed - restart it with "cd backend && .venv/Scripts/python.exe -m uvicorn api.main:app --reload".`,
+        title: `The ${program.label} programme does not have ${unknown.length} of these spaces`,
+        detail: `It rejected ${unknown.join(", ")}. The mix belongs to a different building type - switch the building type to the one these spaces come from, or restart the backend if it predates them.`,
       };
     }
     if (requestedSpaceCount > 0 && solvedRooms.length === 0) {
+      // "Remove a space" on its own leaves the user guessing which one. The backend re-solves
+      // without the largest spaces until the mix packs and sends the names back, so say them.
+      const drop = meta?.drop_to_fit ?? [];
+      const fits = requestedSpaceCount - drop.length;
       return {
         title: "The solver returned no layout",
-        detail: `Status ${meta?.status ?? "unknown"}. The programme may not fit this plot - remove a space or enlarge the plot.`,
+        detail:
+          drop.length > 0
+            ? `This plot fits ${fits} of your ${requestedSpaceCount} spaces. Remove ${drop
+                .map((name) => ROOM_LABELS[name as RoomName] ?? name)
+                .join(" and ")}, or enlarge the plot.`
+            : `Status ${meta?.status ?? "unknown"}. The programme may not fit this plot - remove a space or enlarge the plot.`,
       };
     }
     if (staleBackend) {
@@ -343,7 +348,6 @@ export default function Home() {
     },
     [selectedObjectInfo, solvedRooms, handleChangeSelectedWallBands]
   );
-
 
   // Glazing on the selected wall. Same key and same resolution as the paint bands — a wall is
   // either glazed or painted, never both.
@@ -427,6 +431,19 @@ export default function Home() {
       if (!promptText.trim()) return;
       setIsSimulatingPrompt(true);
 
+      // The prompt parser only speaks the residence vocabulary — "2bhk", "pooja", "dining".
+      // Running it while the cafe programme is active sent hall, kitchen and bedroom to a
+      // solver whose active programme rejects them all, which returns NO_INPUT and a blank
+      // viewport. Switch the programme first, exactly as handleApplyModelBlueprint() does,
+      // rather than through handleChangeProgram(), which would reset the mix we are about
+      // to write.
+      if (programKey !== "residence") {
+        setProgramKey("residence");
+        setCustomObjects([]);
+        setPlacingItemType(null);
+        setPlacingRotationY(0);
+      }
+
       try {
         const apiRes = await solvePromptApi(promptText);
 
@@ -495,14 +512,12 @@ export default function Home() {
         setIsSimulatingPrompt(false);
       }
     },
-    [setRoomPositions, resetPositions]
+    [setRoomPositions, resetPositions, programKey]
   );
-
 
   const handleApplyModelBlueprint = (
     bp: ModelBlueprint,
-    targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint"
-  ) => {
+    targetMode: "blueprint" | "orbit" | "walkthrough" = "blueprint") => {
     // A cafe plan carries cafe spaces. Applying it while the residence programme is active
     // would send `seating` and `counter` to a solver that rejects them as unknown, so switch
     // the programme first — and do it here rather than through handleChangeProgram(), which
@@ -1322,8 +1337,6 @@ export default function Home() {
         onOpenBOQModal={() => setIsBOQModalOpen(true)}
         onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
 
-
-
         placingItemType={placingItemType}
         onSelectPlaceItem={(type) => {
           setPlacingItemType(type);
@@ -1354,11 +1367,12 @@ export default function Home() {
         activeWallType={activeWallType}
         onChangeWallType={setActiveWallType}
         onToggleDoorsWindowsDrawer={() => setIsDoorsWindowsDrawerOpen((prev) => !prev)}
+        placingOpeningDef={placingOpeningDef}
+        onSelectPlaceOpening={handleSelectPlaceOpening}
         isDoorsWindowsDrawerOpen={isDoorsWindowsDrawerOpen}
         onPromptToSimulate={handlePromptToSimulate}
         isSimulatingPrompt={isSimulatingPrompt}
       />
-
 
       <main className={styles.mainLayout}>
         {/* Interior design tool rail (furniture, finishes, object management) */}
@@ -1511,9 +1525,7 @@ export default function Home() {
                 onRotatePlacing={handleRotatePlacing}
                 onNearestDoorChange={setDoorPrompt}
                 onRegisterDoorTrigger={(fn) => { doorTriggerRef.current = fn; }}
-              />
-
-              {/* Orbit View HUD Overlay */}
+              /> {/* Orbit View HUD Overlay */}
               {mode === "orbit" && (
                 <>
                   <div className={styles.plotMetaOverlay}>
@@ -1526,9 +1538,7 @@ export default function Home() {
                     <span className={styles.metaValue}>
                       {inchesToFeet(buildableW)}′ × {inchesToFeet(buildableD)}′ ft
                     </span>
-                  </div>
-
-                  {/* 3D Minimap Radar */}
+                  </div> {/* 3D Minimap Radar */}
                   <Minimap
                     plot={plot}
                     facing={facing}
@@ -1560,9 +1570,7 @@ export default function Home() {
             </>
           )}
         </section>
-      </main>
-
-      {/* Room Dimensions & Sizing Studio Modal */}
+      </main> {/* Room Dimensions & Sizing Studio Modal */}
       <RoomDimensionsModal
         isOpen={isRoomDimensionsOpen}
         onClose={() => setIsRoomDimensionsOpen(false)}
@@ -1570,18 +1578,14 @@ export default function Home() {
         rooms={rooms}
         customDims={customDims}
         onChangeCustomDims={setCustomDims}
-      />
-
-      {/* Materials & Finishes Studio Dialog Modal */}
+      /> {/* Materials & Finishes Studio Dialog Modal */}
       <MaterialCustomizerModal
         isOpen={isMaterialModalOpen}
         onClose={() => setIsMaterialModalOpen(false)}
         config={materialConfig}
         onChangeConfig={setMaterialConfig}
         activeRooms={Object.keys(counts).filter((k) => (counts[k as RoomName] || 0) > 0) as RoomName[]}
-      />
-
-      {/* Architectural Window Shapes & Fenestration Studio Modal */}
+      /> {/* Architectural Window Shapes & Fenestration Studio Modal */}
       <WindowShapeModal
         isOpen={isWindowModalOpen}
         onClose={() => setIsWindowModalOpen(false)}
@@ -1590,9 +1594,7 @@ export default function Home() {
         rooms={rooms}
         selectedWindowId={selectedObject?.isWindow ? selectedObject.id : null}
         onAddWindow={handleAddWindowToWall}
-      />
-
-      {/* Architectural Blueprint Export Dialog Modal */}
+      /> {/* Architectural Blueprint Export Dialog Modal */}
       <BlueprintExportModal
         quantities={quantities}
         isOpen={isExportModalOpen}
@@ -1602,59 +1604,45 @@ export default function Home() {
         setback={DEFAULT_SETBACK}
         rooms={rooms}
         meta={meta}
-      />
-
-      {/* Curated Model Blueprints Catalog Modal */}
+      /> {/* Curated Model Blueprints Catalog Modal */}
       <ModelBlueprintsModal
         program={program}
         isOpen={isModelBlueprintsOpen}
         onClose={() => setIsModelBlueprintsOpen(false)}
         onSelectBlueprint={handleApplyModelBlueprint}
-      />
-
-      {/* Interactive 3D Object Replacement Modal */}
+      /> {/* Interactive 3D Object Replacement Modal */}
       <ReplaceObjectModal
         isOpen={isReplaceModalOpen}
         onClose={() => setIsReplaceModalOpen(false)}
         targetObjectName={selectedObjectInfo?.name || "Selected Object"}
         targetItemType={selectedObjectInfo?.type}
         onConfirmReplace={handleReplaceSelected}
-      />
-
-      {/* Doors & Windows Drag & Drop Catalog Shelf */}
+      /> {/* Doors & Windows Drag & Drop Catalog Shelf */}
       <DoorsWindowsDrawer
         isOpen={isDoorsWindowsDrawerOpen}
         onToggleOpen={() => setIsDoorsWindowsDrawerOpen((prev) => !prev)}
         placingOpeningDef={placingOpeningDef}
         onSelectPlaceOpening={handleSelectPlaceOpening}
         onOpenWindowShapeModal={() => setIsWindowModalOpen(true)}
-      />
-
-      {/* AI Photo-to-3D Furniture Studio Modal */}
+      /> {/* AI Photo-to-3D Furniture Studio Modal */}
       <AIFurnitureStudioModal
         isOpen={isAIFurnitureModalOpen}
         onClose={() => setIsAIFurnitureModalOpen(false)}
         onSpawnFurniture={handleSpawnAIFurniture}
-      />
-
-      {/* AAA Game-Style Graphics Control Studio Modal */}
+      /> {/* AAA Game-Style Graphics Control Studio Modal */}
       <GraphicsControlModal
         isOpen={isGraphicsModalOpen}
         onClose={() => setIsGraphicsModalOpen(false)}
         settings={graphicsSettings}
         onChangeSettings={setGraphicsSettings}
-      />
-
-      {/* Engineering Bill of Quantities (BOQ) & Cost Takeoff Modal */}
+      /> {/* Engineering Bill of Quantities (BOQ) & Cost Takeoff Modal */}
       <BOQCostModal
         isOpen={isBOQModalOpen}
         onClose={() => setIsBOQModalOpen(false)}
         plot={plot}
         facing={facing}
         rooms={rooms}
-      />
-
-      {/* Custom Wall Partitions & Permutations Studio Modal */}
+      /> {/* Custom Wall Partitions & Permutations Studio Modal */}
       <CustomWallBlendModal
         isOpen={isCustomWallBlendModalOpen}
         onClose={() => setIsCustomWallBlendModalOpen(false)}
@@ -1664,6 +1652,5 @@ export default function Home() {
       />
     </div>
   );
-
 
 }

@@ -25,7 +25,6 @@ export interface RoomDoorInfo {
   isEntrance?: boolean;
 }
 
-
 // --------------------------------------------------------------------------------------
 // 1. Procedural PBR Floor Texture Generators (Cached Singletons)
 // --------------------------------------------------------------------------------------
@@ -46,7 +45,7 @@ export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTex
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.fillStyle = isPooja ? "#fcfaf2" : "#f1f5f9";
+  ctx.fillStyle = isPooja ? "#fcfaf2" : "#eceae5";
   ctx.fillRect(0, 0, 512, 512);
 
   ctx.strokeStyle = isPooja ? "rgba(180, 150, 90, 0.15)" : "rgba(100, 116, 139, 0.16)";
@@ -146,7 +145,7 @@ export function getTileFloorTexture(isKitchen: boolean = false): THREE.CanvasTex
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.fillStyle = isKitchen ? "#334155" : "#1e293b";
+  ctx.fillStyle = isKitchen ? "#3a372f" : "#1e293b";
   ctx.fillRect(0, 0, 256, 256);
 
   ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
@@ -725,7 +724,6 @@ export function addRoomInteriorDetails(
       stand.castShadow = true;
       bedGroup.add(stand);
 
-
       const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.1, 16), brassMat);
       lampBase.position.set(side * (bedW / 2 + 1.1), 1.45, -bedL / 2 + 0.9);
       bedGroup.add(lampBase);
@@ -979,7 +977,6 @@ export function addRoomInteriorDetails(
     fridge.position.set(fridgeX, 3.4, fridgeZ);
     fridge.castShadow = true;
 
-
     const fridgeId = `builtin_${roomIndex}_fridge`;
     if (!deletedIds?.has(fridgeId)) {
       fridge.userData = {
@@ -1018,7 +1015,7 @@ export function addRoomInteriorDetails(
     // LIVING HALL: Photorealistic Studio Suite (when Upgraded) vs Baseline CAD
     // ---------------------------------------------------------
     if (isUpgraded) {
-      // 🌟 UPGRADED PHOTOREALISTIC STUDIO LIVING ROOM (Reference Design)
+      //  UPGRADED PHOTOREALISTIC STUDIO LIVING ROOM (Reference Design)
       const boucleMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf7, roughness: 0.88 });
       const pillowLightMat = new THREE.MeshStandardMaterial({ color: 0xe2d7c8, roughness: 0.85 });
       const woodWarmMat = new THREE.MeshStandardMaterial({ color: 0xb07548, roughness: 0.35 });
@@ -1188,7 +1185,7 @@ export function addRoomInteriorDetails(
       group.add(planterGroup);
 
     } else {
-      // 📐 STANDARD BASELINE CAD LIVING ROOM
+      //  STANDARD BASELINE CAD LIVING ROOM
       const rugMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
       const sofaMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.8 });
       const cushionMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
@@ -1390,7 +1387,7 @@ export function addRoomInteriorDetails(
       const diningGroup = new THREE.Group();
 
       if (isUpgraded) {
-        // 🌟 UPGRADED OVAL NERO MARQUINA MARBLE DINING TABLE WITH CURVED CHAIRS
+        //  UPGRADED OVAL NERO MARQUINA MARBLE DINING TABLE WITH CURVED CHAIRS
         const tableMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.16, metalness: 0.08 });
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf6, roughness: 0.7 });
         const brassLegMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
@@ -1434,7 +1431,7 @@ export function addRoomInteriorDetails(
           }
         }
       } else {
-        // 📐 STANDARD 6-SEATER DINING TABLE
+        //  STANDARD 6-SEATER DINING TABLE
         const tableMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 });
         const legMat = new THREE.MeshStandardMaterial({ color: 0xcfd4dc, metalness: 0.9, roughness: 0.2 });
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });

@@ -56,7 +56,7 @@ export default function GraphicsControlModal({
         {/* Header */}
         <div className={styles.modalHeader}>
           <div className={styles.headerTitleGroup}>
-            <div className={styles.headerIconBadge}>🎮</div>
+            <div className={styles.headerIconBadge}>GFX</div>
             <div>
               <h2 className={styles.headerTitle}>
                 Graphics &amp; Display Control <span className={styles.gpuBadge}>High-Performance GPU Detected</span>
@@ -94,7 +94,7 @@ export default function GraphicsControlModal({
           {/* Left Column: Display, Resolution & Textures */}
           <div className={styles.column}>
             <div className={styles.sectionHeading}>
-              <span>🖥️</span> Display &amp; Render Resolution
+              <span>DSP</span> Display &amp; Render Resolution
             </div>
 
             {/* Resolution Scale / DSR */}
@@ -144,10 +144,10 @@ export default function GraphicsControlModal({
               </div>
               <div className={styles.chipGroup}>
                 {[
-                  { val: "ultra_4k", label: "💎 4K Ultra (4096px - 24GB VRAM)" },
-                  { val: "high", label: "🔥 2K High (2048px)" },
-                  { val: "medium", label: "✨ 1K Medium (1024px)" },
-                  { val: "low", label: "⚡ Low (512px)" },
+                  { val: "ultra_4k", label: "4K Ultra (4096px - 24GB VRAM)" },
+                  { val: "high", label: "2K High (2048px)" },
+                  { val: "medium", label: "1K Medium (1024px)" },
+                  { val: "low", label: "Low (512px)" },
                 ].map((t) => (
                   <button
                     key={t.val}
@@ -164,7 +164,7 @@ export default function GraphicsControlModal({
           {/* Right Column: Shadows, Lighting & Post-FX */}
           <div className={styles.column}>
             <div className={styles.sectionHeading}>
-              <span>🌑</span> Shadows, Lighting &amp; Post-Processing
+              <span>AO</span> Shadows, Lighting &amp; Post-Processing
             </div>
 
             {/* Shadow Quality */}
@@ -188,10 +188,10 @@ export default function GraphicsControlModal({
               </div>
               <div className={styles.chipGroup}>
                 {[
-                  { val: "ultra_4k", label: "💎 4K Ultra (4096px PCF Soft)" },
-                  { val: "high", label: "🔥 2K High (2048px)" },
-                  { val: "medium", label: "✨ 1K Medium (1024px)" },
-                  { val: "low", label: "⚡ 512px Low" },
+                  { val: "ultra_4k", label: "4K Ultra (4096px PCF Soft)" },
+                  { val: "high", label: "2K High (2048px)" },
+                  { val: "medium", label: "1K Medium (1024px)" },
+                  { val: "low", label: "512px Low" },
                   { val: "off", label: "Off" },
                 ].map((s) => (
                   <button
@@ -254,7 +254,7 @@ export default function GraphicsControlModal({
                 ))}
               </div>
               <div className={styles.sliderRow}>
-                <span style={{ fontSize: "10px", color: "#94a3b8" }}>Exposure:</span>
+                <span style={{ fontSize: "10px", color: "#8e8a82" }}>Exposure:</span>
                 <input
                   type="range"
                   min="60"

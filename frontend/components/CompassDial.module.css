@@ -10,13 +10,13 @@
 }
 
 .ring {
-  fill: rgba(232, 145, 45, 0.06);
-  stroke: rgba(232, 145, 45, 0.4);
+  fill: rgba(184, 92, 34, 0.06);
+  stroke: rgba(184, 92, 34, 0.4);
   stroke-width: 1;
 }
 
 .hub {
-  fill: rgba(232, 145, 45, 0.6);
+  fill: rgba(184, 92, 34, 0.6);
 }
 
 .spoke {
@@ -25,12 +25,12 @@
 }
 
 .spokeActive {
-  stroke: #e8912d;
+  stroke: #b85c22;
   stroke-width: 2;
 }
 
 .node {
-  fill: #2a2a2a;
+  fill: #21201b;
   stroke: rgba(255, 255, 255, 0.25);
   stroke-width: 1;
   cursor: pointer;
@@ -38,17 +38,17 @@
 }
 
 .node:hover {
-  fill: #3a3a3a;
+  fill: #3a372f;
 }
 
 .nodeActive {
-  fill: #e8912d;
-  stroke: #e8912d;
+  fill: #b85c22;
+  stroke: #b85c22;
   cursor: pointer;
 }
 
 .label {
-  font-size: 9px;
+  font-size: 10px;
   fill: rgba(255, 255, 255, 0.55);
   pointer-events: none;
   user-select: none;
@@ -56,5 +56,5 @@
 
 .caption {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--ink-secondary);
 }
