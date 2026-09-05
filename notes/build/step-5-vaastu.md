@@ -15,8 +15,8 @@ This is the step where solve time is most likely to break, because the drift obj
 the expected failure mode and the ordering-based fallback.
 
 Populate `meta.vaastu_constraints_applied` ([[output-schema]]) so a returned plan can state which
-rules it satisfied. Users who care about [[vaastu-is-mandatory-demand]] will want to see that,
-and it costs nothing to emit.
+rules it satisfied. Users who care about Vaastu will want to see that, and it costs nothing to
+emit.
 
 Rationale for constraining rather than scoring: [[vaastu-as-constraints]].
 

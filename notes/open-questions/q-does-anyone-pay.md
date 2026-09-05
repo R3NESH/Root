@@ -19,8 +19,8 @@ Ten of these.
 | 0 payers | **no UI fixes it** |
 
 This runs in parallel with [[step-1-threejs-shell]] — it needs no repository and no solver.
-It is also the only thing in the vault that tests [[price-ceiling]] against a real wallet rather
-than a published rate card.
+It is also the only thing in the vault that tests the price against a real wallet rather than a
+published rate card.
 
 A side effect worth having: hand-making ten plans surfaces the buildability requirements that
 [[output-schema]] currently reserves as nulls.

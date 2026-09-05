@@ -67,7 +67,7 @@ such at the top of the module so it can be argued with.
 
 ## Why not go further
 
-[[price-ceiling]] settles it: the whole ticket is ₹3,000–5,000, which does not amortise a BIM.
+The whole ticket is ₹3,000–5,000, which does not amortise a BIM.
 A general BIM is a 10–100 person-year product. What a mason quoting a job needs is brick, mortar,
 plaster and a door schedule — and all four fall out of walls having identity. IFC export via
 IfcOpenShell is a few weeks on top of this and worth doing **only when someone asks**, which per

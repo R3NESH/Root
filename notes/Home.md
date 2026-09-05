@@ -15,8 +15,8 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 > parent tree with a master ensuite, and a roof. The output now reads as a house rather than a legal rectangle
 > packing, and **Auto-Furnish Interiors** can be switched off for the bare shell.
 >
-> Still true: **no paying user**, and [[q-competitor-defects]] and [[q-does-anyone-pay]] have
-> been unanswered for ten days while the code kept growing. Those now outrank everything.
+> Still true: **no paying user**, and [[q-does-anyone-pay]] has been unanswered for ten days
+> while the code kept growing. That now outranks everything.
 
 ## Start here
 - [[project-status]] — **current state, re-measured 2026-08-30**
@@ -46,14 +46,6 @@ regressions, fixed 2026-08-25)
 - [[project-phases]]
 - [[rejected-approaches]] — and why, so they are not retried
 
-## Market
-- [[tg-bpass-kills-permits]]
-- [[autodcr-owns-municipal-scrutiny]]
-- [[price-ceiling]]
-- [[architects-act-legal-lane]]
-- [[vaastu-is-mandatory-demand]]
-- [[competitor-landscape]]
-
 ## Engineering
 - [[architecture]] · [[output-schema]] · [[environment-notes]]
 - [[cp-sat-api]] · [[cp-sat-gotchas]]
@@ -69,7 +61,6 @@ regressions, fixed 2026-08-25)
 - [[ui-principles]]
 
 ## Open questions
-- [[q-competitor-defects]]
 - [[q-does-anyone-pay]]
 - [[q-telangana-parcel-geometry]]
 - [[q-market-above-bpass-threshold]]

@@ -29,13 +29,12 @@ constraints, so compliance is by construction rather than checked after. Full sp
 ## The bar to clear
 
 The success metric is **"would a mason build from this?"** — not "does the box look nice."
-Nine tools already produce nice-looking boxes ([[competitor-landscape]]). That is why the
+That is why the
 [[output-schema]] reserves space for wall thicknesses, dimension lines and openings from v1.
 
 ## What it is not
 
-Not a permit tool ([[tg-bpass-kills-permits]]). Not a municipal product
-([[autodcr-owns-municipal-scrutiny]]). Not a chatbot ([[rejected-approaches]]).
-And the word "architect" never appears in it ([[architects-act-legal-lane]]).
+Not a permit tool. Not a municipal product. Not a chatbot ([[rejected-approaches]]).
+And the word "architect" never appears in it.
 
 Source: [[HANDOFF]] §1

@@ -14,8 +14,7 @@ Hard constraint on the whole surface: [[zero-keyboard-events]].
 ## Ranked, highest value first
 
 1. **Preset plot cards** — 20×30, 30×40, 30×50, 40×60, 50×80, plus a custom escape. One tap, no
-   keyboard, works on a low-end phone. Half a day. These are the market's own sizes
-   ([[competitor-landscape]]).
+   keyboard, works on a low-end phone. Half a day. These are the market's own sizes.
 2. **Drag handles on the plot edges**, replacing number fields. **Must snap to whole feet** —
    Indian plots are exact and raw dragging yields 29.7. See [[integer-inches]].
 3. **Solve three, let them pick.** Users cannot answer "kitchen east or south?" — that is why

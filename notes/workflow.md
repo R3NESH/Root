@@ -82,12 +82,12 @@ find again.* [[rooms-do-not-form-a-house]] is that rule working.
 
 ## 8. Zero-code questions can outrank code
 
-[[build-order]] lists [[q-competitor-defects]] and [[q-does-anyone-pay]] as running in parallel
-and explicitly *outranking* steps 3–5 in decision value. The workflow ranks work by decision
-value, not by how buildable it is.
+[[build-order]] lists [[q-does-anyone-pay]] as running in parallel and explicitly *outranking*
+steps 3–5 in decision value. The workflow ranks work by decision value, not by how buildable it
+is.
 
-This is the part of the workflow that is **not being followed**. Both questions have outranked
-the build since 2026-08-23 and both are still unanswered — see [[project-status]].
+This is the part of the workflow that is **not being followed**. That question has outranked the
+build since 2026-08-23 and is still unanswered — see [[project-status]].
 
 ## Where the workflow broke down
 

@@ -56,7 +56,7 @@ new constraint code and new fields (stair objects, egress-path metadata) that we
 
 ## What does not change
 
-- [[india-only]], [[price-ceiling]], [[architects-act-legal-lane]] — market facts, phase-agnostic.
+- [[india-only]] — market fact, phase-agnostic.
 - [[vaastu-as-constraints]] ships in Phase 1 (step 5 of [[build-order]]); it is not deferred to
   Phase 2 — Vaastu and building-code regulations are two different constraint families that
   happen to use the same technique.

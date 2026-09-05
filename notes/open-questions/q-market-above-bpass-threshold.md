@@ -6,11 +6,11 @@ date: 2026-08-23
 ---
 # Q4 — What fraction of the market is above the TG-bPASS threshold?
 
-The threshold is 500 sq m or 10 m height — see [[tg-bpass-kills-permits]].
+The threshold is 500 sq m or 10 m height.
 
 **If the fraction is tiny, the permit-adjacent framing has no market at all.** Every pitch then
 has to stand on the quality of the plan itself, which puts all the weight on
-[[q-competitor-defects]] and [[claim-most-likely-wrong]].
+[[claim-most-likely-wrong]].
 
 Unverified.
 

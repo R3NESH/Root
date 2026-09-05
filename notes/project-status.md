@@ -68,14 +68,12 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 
 ## What has not moved at all
 
-Both zero-code questions have been outranking the build since 2026-08-23 and remain
+The zero-code question has been outranking the build since 2026-08-23 and remains
 **completely unanswered**:
 
-- [[q-competitor-defects]] — an hour of work; two of its five possible answers invalidate a
-  fortnight of the code above.
 - [[q-does-anyone-pay]] — ten WhatsApp conversations.
 
-Nine days of building have happened on top of them. That is the most important fact on this
+Nine days of building have happened on top of it. That is the most important fact on this
 page, and the one no test can turn red.
 
 ## Added 2026-08-30 (second session)
@@ -87,15 +85,35 @@ page, and the one no test can turn red.
 - **Root `CLAUDE.md`** — agent rules for the repo.
 - **[[client-side-fallback]] found.** Highest-severity item on this page. Not fixed.
 
+## Added 2026-09-04 (render realism session)
+
+- **The renderer had no environment map.** Every material was lit by three lights and nothing
+  else, so nothing in the scene had a specular response and the path tracer ran with
+  `environmentIntensity` pinned to 0. Fixed, along with AO, derived normal/roughness maps, a
+  colour-space bug in every procedural texture, and transmissive glass — [[render-realism]].
+- **Real furniture.** 15 CC0 Poly Haven models, 7.3 MB, swapped in over the procedural boxes for
+  both hand-placed and auto-furnished pieces — [[furniture-models]].
+- **Site landscaping.** Planting bed, shrubs and driveway on the setback strip.
+- **Structural glazing and sliding glass doors** — [[three-pickers]].
+- **Three placement pickers had three different sources.** Only one read the catalog. A door that
+  provably existed in the bundle was unfindable in the UI for a day — [[three-pickers]]. This is
+  the same class of defect as [[client-side-fallback]]: a surface that looks complete in
+  isolation and disagrees with the thing it claims to reflect.
+
+> [!warning] Nothing in this session was verified against a screenshot by the agent that wrote it
+> It is verified by `tsc --noEmit`, `npm run build`, and by reading values out of the generated
+> buffers. The frontend still has no tests. Two regressions in this session (anti-aliasing
+> silently lost to the composer, moiré banding read as lawn stripes) were only caught because the
+> user said the picture looked wrong.
+
 ## Recommended order
 
 0. ~~**Fix or label [[client-side-fallback]].**~~ **Done 2026-08-31.** The offline engine reports
    `OFFLINE_ESTIMATE` with an empty rule list, no longer falls through on a non-`ok` response,
    and the ribbon shows a warning instead of a sparkle. Pointing the deploy at a hosted backend
    is the remaining half, and it needs a backend that does not exist yet — [[environment-notes]].
-1. **Answer [[q-competitor-defects]] and [[q-does-anyone-pay]].** Zero code, ten days overdue,
-   and one plausible answer to the first - "competitors' plans are not realistic enough" - would
-   make everything built today the roadmap. The other answers would make it wasted effort.
+1. **Answer [[q-does-anyone-pay]].** Zero code, ten days overdue. Nobody has been asked for
+   money, so nothing built so far is known to be wanted.
 2. Test on the real 30x40 north-facing Kandi plot. Still never done.
 3. Check the catalog maximums against real house plans. The fill metric is only as honest as
    the ceiling it is measured against.

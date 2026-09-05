@@ -26,8 +26,7 @@ The drift objective removes it **completely** (100% reduction) for ~17 ms.
 ## What this does not settle
 
 It does not make stability a *moat*. It confirms the problem is real and that this project has
-solved it; whether any competitor has is still unknown until [[q-competitor-defects]] is
-answered. "We fixed a real problem" and "nobody else fixed it" are different claims.
+solved it. "We fixed a real problem" and "nobody else fixed it" are different claims.
 
 ## The predicted failure mode also happened — and was fixed
 
@@ -61,8 +60,6 @@ differentiator has to come from somewhere else.
 
 ## Still-standing advantages, independent of this result
 
-- [[architects-act-legal-lane]] — structural, depends on no measurement
-- buildability: wall thicknesses, dimensions, openings — [[output-schema]] reserves the fields,
-  and [[q-competitor-defects]] may yet confirm this as the bigger gap
+- buildability: wall thicknesses, dimensions, openings — [[output-schema]] reserves the fields
 
 Source: [[HANDOFF]] §12 · benchmark: `backend/solver/bench_stability.py`

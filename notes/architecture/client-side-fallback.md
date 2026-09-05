@@ -71,14 +71,9 @@ with no openings, and the fallback always emits openings.
 
 ## Why this is the worst available failure mode
 
-[[vaastu-is-mandatory-demand]] is the market note the whole product rests on, and
 [[vaastu-as-constraints]] is the decision that a violating plan is *rejected*, not merely worse.
 A plan that quietly violates Vaastu while displaying "Vastu Solved (Optimal)" is not a degraded
 product — it is the one output this project exists to make impossible.
-
-It also silently answers [[q-competitor-defects]] in the wrong direction: if the defect in
-Forjit and GrehYug turns out to be "the plans are not actually compliant", this ships the same
-defect with a more confident label.
 
 ## Smallest honest fix
 

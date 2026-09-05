@@ -5,8 +5,7 @@ date: 2026-08-24
 ---
 # Layout stability — the claimed technical edge
 
-None of the nine tools in [[competitor-landscape]] solve this. If this project has one defensible
-piece of engineering, it is this one.
+If this project has one defensible piece of engineering, it is this one.
 
 **Problem.** User edits an input, the solver re-runs from scratch ([[cp-sat-gotchas]] — there is
 no incremental solve), and the bathroom teleports to the far side of the house. Jarring, and it

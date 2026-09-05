@@ -60,10 +60,7 @@ cd frontend && npm run dev
 
 ## Before writing more solver code
 
-Two zero-code questions have outranked every build step since 2026-08-23, and both are still
+One zero-code question has outranked every build step since 2026-08-23, and it is still
 unanswered while the code kept growing:
 
-1. [What was actually wrong with Forjit and GrehYug?](notes/open-questions/q-competitor-defects.md)
-2. [Does anyone pay?](notes/open-questions/q-does-anyone-pay.md)
-
-Two of the five possible answers to (1) invalidate a fortnight of planned work.
+1. [Does anyone pay?](notes/open-questions/q-does-anyone-pay.md)

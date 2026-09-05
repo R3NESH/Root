@@ -59,8 +59,8 @@ This is exactly the shape [[test-baseline]] warns about: "still fast" reading as
 
 ## Consequence
 
-- **This outranks every open engineering candidate.** [[vaastu-is-mandatory-demand]] puts Vaastu
-  at 73–82% of buyers; the product currently honours it for one solve and then quietly stops.
+- **This outranks every open engineering candidate.** Vaastu is a hard requirement for most
+  buyers; the product currently honours it for one solve and then quietly stops.
 - The fallback chain is broken in the same edit: step 2 (`retry without Vaastu`) is guarded by
   `if ... and effective_vaastu`, which is already `False` whenever `prev` is set — so an
   interactive solve that fails has no Vaastu retry to fall back to.

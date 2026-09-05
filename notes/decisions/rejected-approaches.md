@@ -7,13 +7,12 @@ date: 2026-08-23
 
 | Rejected | Why | Note |
 |---|---|---|
-| US / ADU market | Higharc occupies it; AB 1332 gives plans away free | [[india-only]] |
-| Selling to municipalities | AutoDCR in 500+ ULBs | [[autodcr-owns-municipal-scrutiny]] |
-| Permit submission / plan-check features | TG-bPASS grants instant approval in the target size band | [[tg-bpass-kills-permits]] |
+| US / ADU market | AB 1332 gives plans away free | [[india-only]] |
+| Permit submission / plan-check features | TG-bPASS grants instant approval in the target size band | — |
 | Square-footage-first input | underdetermined, hides a design decision | [[input-is-plot-dimensions]] |
 | Chatbot / conversational input | a questionnaire with more typing and no visual feedback | [[zero-keyboard-events]] |
 | `add_hint` as the stability mechanism | unreliable in practice | [[layout-stability]] |
-| The word "architect" anywhere in copy | Architects Act §37 protects the title | [[architects-act-legal-lane]] |
+| The word "architect" anywhere in copy | Architects Act §37 protects the title | — |
 | Time-of-day sun / solar path in the 3D view | built and working for 17.4N, removed the same day on the user's call | [[realism-gaps]] |
 | Parking porch, sit-out, staircase, utility as room kinds | added by [[realism-gaps]], removed the same day on the user's call | [[realism-gaps]] |
 | `open_sided` rooms (roofed but unwalled) | the only two were the porch and sit-out; with those gone the concept had no users, so it went rather than sit unreachable | [[realism-gaps]] |

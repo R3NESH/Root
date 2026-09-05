@@ -47,8 +47,8 @@ The quadrant half-planes pin kitchen to the south-east and master bedroom to the
 **opposite corners** — so the solver satisfies them by pushing rooms outward and hollowing out
 the middle. Vaastu compliance and walkability are in direct tension under the current encoding.
 
-This cannot be fixed by dropping Vaastu: it is the market's hard requirement
-([[vaastu-is-mandatory-demand]], 73–82% of buyers). The encoding has to change instead.
+This cannot be fixed by dropping Vaastu: it is the market's hard requirement. The encoding has
+to change instead.
 
 ### A fill constraint alone does NOT fix it
 
@@ -87,9 +87,7 @@ This is a good argument for the walkthrough as a *correctness* tool, not only a 
   them assert the output is a connected, mostly-filled dwelling. New invariants needed:
   every room reachable from the entrance through an opening ≥ door width; envelope fill above
   some threshold.
-- Bears directly on [[q-competitor-defects]]. "Rooms overlap, dimensions don't sum" was listed
-  there as evidence a competitor's solver is fake. **This project's own solver produces
-  60%-void layouts** — before criticising anyone else's output, fix this.
+- **This project's own solver produces 60%-void layouts.** Fix that before anything else.
 - [[claim-most-likely-wrong]] stands: stability was measured and held. But stability of a
   layout that isn't a house is worth less than it looked.
 

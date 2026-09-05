@@ -20,16 +20,14 @@ Two weeks. **Each step has an explicit done-condition — do not advance without
 
 > [!important] Test on a real plot
 > A real **30×40 north-facing plot in Kandi, Telangana** — not a synthetic one.
-> Competing tools reportedly fail on real plots, not toy ones ([[competitor-landscape]]).
 
 **Establish the [[test-baseline]] at step 2.** Every later step reports the delta against it.
 
 ## Running in parallel, needing no code
 
-- [[q-competitor-defects]] — an hour, and it may redirect steps 4 and 5 entirely
 - [[q-does-anyone-pay]] — ten WhatsApp conversations
 
-Both of these outrank steps 3–5 in decision value. Neither blocks step 1 or 2.
+This outranks steps 3–5 in decision value. It blocks neither step 1 nor step 2.
 
 > [!success] All five steps done, 2026-08-24
 > Every done-condition met except one, recorded explicitly: **entrance N/E** in
