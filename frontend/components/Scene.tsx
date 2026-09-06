@@ -9,12 +9,33 @@ import {
   DEFAULT_SETBACK,
   edgeSetbacksIn,
   Facing,
+  isRectangularPlot,
   MAX_DIM_IN,
   MIN_DIM_IN,
   PlotDims,
+  plotPolygonIn,
   Setback,
 } from "@/lib/plot";
 import { findAdjacentRoomEdge, ROOM_LABELS, RoomName } from "@/lib/rooms";
+import {
+  clampBulgeFt,
+  curvedEdgePoints,
+  edgeNormal,
+  RoomEdgeCurves,
+  WallEdge,
+} from "@/lib/wallCurves";
+import {
+  clampThicknessIn,
+  clampWallHeightIn,
+  resolveCutouts,
+  WallEdits,
+} from "@/lib/wallEdits";
+import {
+  CutoutShape,
+  needsShapedWall,
+  wallFaceGeometry,
+  WallProfile,
+} from "@/lib/wallShapes";
 import { RoomOpening, SolvedRoom } from "@/lib/solve";
 import { clampInches, inchesToFeet, snapToFoot } from "@/lib/units";
 import {
@@ -130,6 +151,8 @@ export interface SelectedObjectInfo {
   isBuiltin?: boolean;
   isWindow?: boolean;
   isWall?: boolean;
+  /** A wall the user drew, not one the solver placed: it has an id but no room index or edge. */
+  isCustomWall?: boolean;
   isWallRemoved?: boolean;
   windowShape?: WindowShapeId;
   windowFrameFinish?: WindowFrameFinishId;
@@ -151,6 +174,22 @@ export interface SelectedObjectInfo {
 interface SceneProps {
   plot: PlotDims;
   facing: Facing;
+  /**
+   * The buildable outline the solver actually used, in plot inches, for a plot that is not a
+   * rectangle. Null on a rectangular plot and whenever the offline engine answered, in which
+   * case the setback rectangle below is the truth and is drawn instead.
+   */
+  envelopePolygonIn?: number[][] | null;
+  /**
+   * Bulge in inches per room edge, keyed by room id — a bay window, a bowed entrance wall. The
+   * room the solver placed is unchanged; only the face of the wall bows. See lib/wallCurves.ts.
+   */
+  roomEdgeCurves?: RoomEdgeCurves;
+  /**
+   * Thickness, height and rectangular cutouts, per wall. Keyed by room instance id plus edge,
+   * the same pair the paint bands use. See lib/wallEdits.ts.
+   */
+  wallEdits?: WallEdits;
   rooms: SolvedRoom[];
   setback?: Setback;
   mode?: "orbit" | "walkthrough";
@@ -439,6 +478,9 @@ function getLawnDetailTexture(): THREE.CanvasTexture | null {
 export default function Scene({
   plot,
   facing,
+  envelopePolygonIn = null,
+  roomEdgeCurves,
+  wallEdits,
   rooms,
   setback = DEFAULT_SETBACK,
   mode = "orbit",
@@ -591,6 +633,12 @@ export default function Scene({
   // Custom 3D Furniture Placement & Selection References
   const placingGhostGroupRef = useRef<THREE.Group | null>(null);
   const snapGuideMeshRef = useRef<THREE.Line | null>(null);
+
+  // A ceiling fan or a wall TV is placed at its mounting height, so the ghost has to preview it
+  // there too — a ghost on the floor for an object that lands at 8 ft is a lie about where the
+  // click will put it.
+  const placingMountHeightFt = () =>
+    FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current)?.mountHeightFt ?? 0;
   const draggedCustomObjectIdRef = useRef<string | null>(null);
   const customObjectMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
   const draggedCustomObjPosRef = useRef<{ x: number; z: number; rotationY?: number } | null>(null);
@@ -599,6 +647,9 @@ export default function Scene({
   const fanBladesRef = useRef<THREE.Group[]>([]);
   // The roof hides the plan from above, so it is only shown in first person.
   const roofGroupRef = useRef<THREE.Group | null>(null);
+  // The slab over each storey below the top one, keyed by the storey it covers. Held so the
+  // cutaway can drop the ceiling of the floor being looked at without a geometry rebuild.
+  const deckGroupsRef = useRef<Map<number, THREE.Group>>(new Map());
 
   // Player walkthrough state (5'5" eye level)
   const playerRef = useRef<PlayerTransform>({
@@ -618,6 +669,10 @@ export default function Scene({
   const bobTimer = useRef(0);
   const lastPlayerReportTime = useRef(0);
   const lastReportedPos = useRef<{ x: number; z: number; yaw: number }>({ x: 0, z: 0, yaw: 0 });
+  // The flags that ride along with the position. Held so a sprint, crouch or stop still reaches
+  // React on the next tick even when the player has not moved far enough to trip the distance
+  // test — otherwise the HUD freezes mid-stride showing the last state it was told about.
+  const lastReportedFlags = useRef<string>("");
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const isDraggingLook = useRef(false);
@@ -651,6 +706,12 @@ export default function Scene({
   const onChangeCustomRoomZonesRef = useRef(onChangeCustomRoomZones);
   const modeRef = useRef(mode);
   const activeMoveCmdRef = useRef(activeMoveCmd);
+  // Bumped once the renderer, the ground, the grids and the lights all exist. The day/night pass
+  // below runs before the scene is built — effects fire in declaration order — so on the very
+  // first pass there was nothing to apply it to and it returned early, never to run again unless
+  // the user toggled. That left the scene on whatever the initialiser happened to build, which
+  // was daylight, and it only showed once sessions started at night.
+  const [sceneEpoch, setSceneEpoch] = useState(0);
   const lightsOnRef = useRef(lightsOn);
   const roomsRef = useRef(rooms);
   const customObjectsRef = useRef(customObjects);
@@ -953,7 +1014,7 @@ export default function Scene({
         l.intensity = 1.6;
       });
     }
-  }, [lightsOn]);
+  }, [lightsOn, sceneEpoch]);
 
   // 1. Scene & Renderer Initialization
   useEffect(() => {
@@ -1363,6 +1424,7 @@ export default function Scene({
               const isBuiltin = Boolean(curr.userData.isBuiltin);
               const isWindow = Boolean(curr.userData.isWindow);
               const isWall = Boolean(curr.userData.isWall);
+              const isCustomWall = Boolean(curr.userData.isCustomWall);
               const isWallRemoved = Boolean(curr.userData.isRemoved);
               const name = curr.userData.name || (isWindow ? "Window" : isWall ? "Wall" : "Furniture");
               const type = curr.userData.type || (isWindow ? "window" : isWall ? "wall" : "sofa_3seater");
@@ -1375,6 +1437,7 @@ export default function Scene({
                 isBuiltin,
                 isWindow,
                 isWall,
+                isCustomWall,
                 isWallRemoved,
                 windowShape: curr.userData.shape,
                 windowFrameFinish: curr.userData.frameFinish,
@@ -1776,7 +1839,10 @@ export default function Scene({
           let posZ = Math.round(hitPoint.z * 2) / 2;
           let rotY = placingRotationYRef.current || 0;
 
-          if (isWall) {
+          // Partitions and anything that hangs on or stands against a wall take the same
+          // magnetic snap; a wall TV placed 4 inches off the wall is a placement the user then
+          // has to fix by hand.
+          if (isWall || itemDef?.wallMounted) {
             const snap = computeSmartWallSnap(
               hitPoint.x,
               hitPoint.z,
@@ -1797,7 +1863,9 @@ export default function Scene({
             type: placingItemTypeRef.current,
             name: itemDef?.name || (isWall ? "Partition Wall" : "Furniture"),
             x: posX,
-            y: 0,
+            // Ceiling and wall-mounted pieces carry their own mounting height; everything else
+            // sits on the floor.
+            y: itemDef?.mountHeightFt ?? 0,
             z: posZ,
             rotationY: rotY,
             scale: 1.0,
@@ -1960,6 +2028,10 @@ export default function Scene({
           if (onSelectObjectRef.current) {
             onSelectObjectRef.current(hitObj);
           }
+          // Selecting is the whole job here. Falling through to the deselect below undid it
+          // whenever something was already selected, so with the layout locked the second click
+          // on any object cleared it again and no inspector could stay open.
+          return;
         }
       }
 
@@ -1990,7 +2062,7 @@ export default function Scene({
         if (placingItemTypeRef.current) {
           const placePos = getWalkthroughPlacementPoint(pointerNdc);
           if (placingGhostGroupRef.current) {
-            placingGhostGroupRef.current.position.set(placePos.x, 0, placePos.z);
+            placingGhostGroupRef.current.position.set(placePos.x, placingMountHeightFt(), placePos.z);
             placingGhostGroupRef.current.rotation.y =
               playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0);
             placingGhostGroupRef.current.visible = true;
@@ -2056,7 +2128,7 @@ export default function Scene({
           }
 
           if (placingGhostGroupRef.current) {
-            placingGhostGroupRef.current.position.set(finalX, 0, finalZ);
+            placingGhostGroupRef.current.position.set(finalX, placingMountHeightFt(), finalZ);
             placingGhostGroupRef.current.rotation.y = finalRotY;
             placingGhostGroupRef.current.visible = true;
           }
@@ -2355,7 +2427,7 @@ export default function Scene({
               type: placingItemTypeRef.current,
               name: itemDef?.name || "Furniture",
               x: Math.round(placePos.x * 2) / 2,
-              y: 0,
+              y: itemDef?.mountHeightFt ?? 0,
               z: Math.round(placePos.z * 2) / 2,
               rotationY: playerRef.current.yaw + Math.PI + (placingRotationYRef.current || 0),
               scale: 1.0,
@@ -2806,7 +2878,10 @@ export default function Scene({
         );
         camera.lookAt(lookTarget);
 
-        const targetFov = isSprinting ? 75 : 68;
+        // Vertical FOV. 68 was ~100 deg horizontal at 16:9 — a wide angle that pushes far walls
+        // away and looms whatever is close, so rooms read larger than they are. 55 is ~85 deg
+        // horizontal, the normal first-person figure.
+        const targetFov = isSprinting ? 66 : 60;
         camera.fov += (targetFov - camera.fov) * 0.1;
         camera.updateProjectionMatrix();
 
@@ -2838,16 +2913,40 @@ export default function Scene({
           );
           const yawDiff = Math.abs(p.yaw - lastReportedPos.current.yaw);
 
-          // Throttle React state updates to 12 FPS or on movement to eliminate 60 FPS React re-renders
-          if (now - lastPlayerReportTime.current > 80 || distMoved > 0.15 || yawDiff > 0.08) {
+          // Throttle React state updates to ~12 FPS.
+          //
+          // This was `> 80 || distMoved > 0.15 || yawDiff > 0.08`, which is not a throttle: at the
+          // 7.5 ft/s walk speed 0.15 ft is covered in 20 ms, and a mouse-look clears 0.08 rad in
+          // one frame, so either arm of the `||` was true on almost every frame while moving and
+          // setPlayer ran at 60 Hz. That re-rendered the whole page — minimap, HUD, every memo —
+          // once per frame and allocated a fresh transform object each time, which is what the
+          // periodic stutter was: steady garbage, then a collection pause.
+          //
+          // The time window is the gate. Movement only decides whether there is anything worth
+          // sending inside it.
+          const flags = `${isSprinting}${isCrouched}${isMoving}${lightsOnRef.current}`;
+          const worthSending =
+            distMoved > 0.01 || yawDiff > 0.005 || flags !== lastReportedFlags.current;
+
+          // The path tracer is not on the React throttle. Its accumulation buffer is only valid
+          // for one camera pose, so it has to be reset the moment the camera actually moves —
+          // holding that for up to 80 ms would blend samples from different viewpoints and smear
+          // the image.
+          if (
+            (distMoved > 0.01 || yawDiff > 0.005) &&
+            isRaytracingRef.current &&
+            pathTracerRef.current &&
+            isPathTracerReadyRef.current
+          ) {
+            pathTracerRef.current.updateCamera();
+            pathTracerRef.current.reset();
+            setRaytraceSamples(0);
+          }
+
+          if (now - lastPlayerReportTime.current > 80 && worthSending) {
             lastPlayerReportTime.current = now;
             lastReportedPos.current = { x: p.x, z: p.z, yaw: p.yaw };
-
-            if (isRaytracingRef.current && pathTracerRef.current && isPathTracerReadyRef.current) {
-              pathTracerRef.current.updateCamera();
-              pathTracerRef.current.reset();
-              setRaytraceSamples(0);
-            }
+            lastReportedFlags.current = flags;
 
             onPlayerUpdateRef.current({
               ...p,
@@ -2903,6 +3002,9 @@ export default function Scene({
 
     frameId = requestAnimationFrame(animate);
 
+    // Everything the day/night pass touches now exists, so let it run for the first time.
+    setSceneEpoch((epoch) => epoch + 1);
+
     return () => {
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
@@ -2935,16 +3037,36 @@ export default function Scene({
     };
   }, []);
 
+  // What each storey shows.
+  //
+  // Roof on inside, off outside: a slab is what makes first person feel like a building, and
+  // exactly what stops orbit from showing the plan. "Full walls" is the other way to ask for it,
+  // and on a G+1 it is the only way to see the house as a house.
+  //
+  // The cutaway then picks a storey. Looking into the ground floor of a G+1 means not drawing the
+  // first floor on top of it, so the floor selector chooses what you are looking at and
+  // everything above steps out of the way — including the ceiling of that floor.
+  //
+  // Its own effect, and not the mode transition below, because that one moves the camera: doing
+  // this there would fly the view somewhere every time the floor changed.
+  useEffect(() => {
+    if (roofGroupRef.current) {
+      roofGroupRef.current.visible = mode === "walkthrough" || !isDollhouseCutaway;
+    }
+    const cutaway = mode !== "walkthrough" && isDollhouseCutaway;
+    roomGroupsRef.current.forEach((roomGroup, index) => {
+      const floor = roomsRef.current[index]?.floor ?? 0;
+      roomGroup.visible = !cutaway || floor <= activeFloor;
+    });
+    deckGroupsRef.current.forEach((deck, floor) => {
+      deck.visible = !cutaway || floor < activeFloor;
+    });
+  }, [mode, isDollhouseCutaway, activeFloor, rooms]);
+
   // Mode Transition Handler (Orbit <-> Walkthrough)
   useEffect(() => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-
-    // Roof on inside, off outside: a slab is what makes first person feel like a building,
-    // and exactly what stops orbit from showing the plan.
-    if (roofGroupRef.current) {
-      roofGroupRef.current.visible = mode === "walkthrough";
-    }
 
     if (!camera || !controls) return;
 
@@ -3135,6 +3257,7 @@ export default function Scene({
     roomGroupsRef.current.clear();
     roomLightsByRoomRef.current.clear();
     customObjectMeshesRef.current.clear();
+    deckGroupsRef.current.clear();
     sceneObstaclesRef.current = [];
     interactiveDoorsRef.current.clear();
     activeNearDoorRef.current = null;
@@ -3159,9 +3282,23 @@ export default function Scene({
     const envMaxX = wFt - inchesToFeet(eIn);
     const envMinZ = inchesToFeet(nIn);
     const envMaxZ = dFt - inchesToFeet(sIn);
+    // The plot outline in feet, on the ground plane. A rectangle for most plots; a splayed
+    // corner or a trapezoid gives more points — lib/plot.ts.
+    const plotOutlineFt: Array<[number, number]> = plotPolygonIn(plot).map(([x, y]) => [
+      inchesToFeet(x),
+      inchesToFeet(y),
+    ]);
+    const plotIsRect = isRectangularPlot(plot);
 
     // 1. Plot Boundary
-    const plotShape = new THREE.PlaneGeometry(wFt, dFt);
+    // A rectangle is still a rectangle: the plane is cheaper than a triangulated shape and this
+    // runs on every rebuild. Anything else is triangulated from the outline. The shape is built
+    // in (x, -y) because rotating -90 degrees about X sends the shape's y to -z.
+    const plotShape = plotIsRect
+      ? new THREE.PlaneGeometry(wFt, dFt)
+      : new THREE.ShapeGeometry(
+          new THREE.Shape(plotOutlineFt.map(([x, z]) => new THREE.Vector2(x, -z)))
+        );
     const plotMesh = new THREE.Mesh(
       plotShape,
       new THREE.MeshStandardMaterial({
@@ -3176,7 +3313,8 @@ export default function Scene({
       })
     );
     plotMesh.rotation.x = -Math.PI / 2;
-    plotMesh.position.set(wFt / 2, 0, dFt / 2);
+    // The plane is centred on its own origin; the shape already carries plot coordinates.
+    plotMesh.position.set(plotIsRect ? wFt / 2 : 0, 0, plotIsRect ? dFt / 2 : 0);
     plotMesh.receiveShadow = true;
     group.add(plotMesh);
     plotMeshRef.current = plotMesh;
@@ -3187,6 +3325,7 @@ export default function Scene({
     addSiteLandscape(group, {
       widthFt: wFt,
       depthFt: dFt,
+      outlineFt: plotIsRect ? undefined : plotOutlineFt,
       envMinX,
       envMaxX,
       envMinZ,
@@ -3195,25 +3334,29 @@ export default function Scene({
     });
 
     const plotOutline = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0.02, 0),
-        new THREE.Vector3(wFt, 0.02, 0),
-        new THREE.Vector3(wFt, 0.02, dFt),
-        new THREE.Vector3(0, 0.02, dFt),
-      ]),
+      new THREE.BufferGeometry().setFromPoints(
+        plotOutlineFt.map(([x, z]) => new THREE.Vector3(x, 0.02, z))
+      ),
       new THREE.LineBasicMaterial({ color: PLOT_COLOR, opacity: 0.85, transparent: true })
     );
     group.add(plotOutline);
 
     // 2. Setback Envelope Line
+    // On a splayed plot the buildable area is not a rectangle either, and the solver said what
+    // it is. Drawing the rectangle there would claim ground the solver refused to use.
+    const envelopeRingFt: Array<[number, number]> =
+      envelopePolygonIn && envelopePolygonIn.length >= 3
+        ? envelopePolygonIn.map(([x, y]) => [inchesToFeet(x), inchesToFeet(y)])
+        : [
+            [envMinX, envMinZ],
+            [envMaxX, envMinZ],
+            [envMaxX, envMaxZ],
+            [envMinX, envMaxZ],
+          ];
     if (envMaxX > envMinX && envMaxZ > envMinZ) {
-      const dashedGeom = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(envMinX, 0.03, envMinZ),
-        new THREE.Vector3(envMaxX, 0.03, envMinZ),
-        new THREE.Vector3(envMaxX, 0.03, envMaxZ),
-        new THREE.Vector3(envMinX, 0.03, envMaxZ),
-        new THREE.Vector3(envMinX, 0.03, envMinZ),
-      ]);
+      const dashedGeom = new THREE.BufferGeometry().setFromPoints(
+        [...envelopeRingFt, envelopeRingFt[0]].map(([x, z]) => new THREE.Vector3(x, 0.03, z))
+      );
       const dashedLine = new THREE.Line(
         dashedGeom,
         new THREE.LineDashedMaterial({ color: ACCENT, dashSize: 1, gapSize: 0.6 })
@@ -3338,6 +3481,9 @@ export default function Scene({
     const slabMat = new THREE.MeshStandardMaterial({ color: 0xb8b3aa, roughness: 0.92 });
     const SLAB_T = 0.55;
     const PARAPET_H = 3.2;
+    // Floor to floor: the wall, plus the slab that sits on it. Anything else leaves the storey
+    // above hanging in the air — which is exactly what a 0.8 ft step did.
+    const FLOOR_STEP_FT = WALL_HEIGHT_FT + SLAB_T;
 
     // 6. Build Architectural Rooms (Organized as Per-Room Sub-Graphs for $O(1)$ Culling)
     for (let i = 0; i < rooms.length; i++) {
@@ -3348,7 +3494,12 @@ export default function Scene({
       const rz = inchesToFeet(room.y_in);
       const isHub = i === hubIndex;
 
+      const isStairCore = room.name === "stairs";
       const roomGroup = new THREE.Group();
+      // Storeys stack. A G+1 comes back with every floor's rooms in one list; each floor sits at
+      // its own datum. Children are built at ground level and the group carries the lift, so
+      // nothing inside has to know which floor it is on.
+      roomGroup.position.y = (room.floor ?? 0) * FLOOR_STEP_FT;
 
       // Floor Mesh (Customized via Material & Finishes Studio & Texture Smoothness)
       // The floor is whatever the config says, full stop. Upgrade mode used to force chevron
@@ -3443,10 +3594,23 @@ export default function Scene({
        * Band spans are measured over the WHOLE wall (its full height, or its full run along the
        * room), not over the piece, so a dado line stays level as it crosses either side of a door.
        */
+      /**
+       * World-axis extents of one wall piece. A box carries them on its geometry parameters; a
+       * shaped wall is an extrusion, which has none, so it records them on itself instead.
+       */
+      const pieceDims = (mesh: THREE.Mesh) =>
+        (mesh.userData?.faceDims as { width: number; height: number; depth: number } | undefined) ??
+        ((mesh.geometry as THREE.BoxGeometry)?.parameters as
+          | { width: number; height: number; depth: number }
+          | undefined);
+
       const paintWallBands = (
         pieces: THREE.Object3D[],
         edge: "N" | "S" | "E" | "W",
-        isEW: boolean
+        isEW: boolean,
+        // The wall's own height, not the storey's: a horizontal band is a fraction of the wall it
+        // is painted on, and on a shortened wall the storey height would push every band off it.
+        wallHeightFt: number
       ) => {
         const scheme = resolveWallBandScheme(
           materialConfigRef.current,
@@ -3465,8 +3629,7 @@ export default function Scene({
 
         for (const piece of pieces) {
           const mesh = piece as THREE.Mesh;
-          const geom = mesh.geometry as THREE.BoxGeometry;
-          const params = geom?.parameters as { width: number; height: number; depth: number } | undefined;
+          const params = pieceDims(mesh);
           if (!params) continue;
 
           const { width: pw, height: ph, depth: pd } = params;
@@ -3493,8 +3656,8 @@ export default function Scene({
               pieceLo = (isEW ? px : pz) - (isEW ? pw : pd) / 2;
               pieceHi = (isEW ? px : pz) + (isEW ? pw : pd) / 2;
             } else {
-              lo = band.start * WALL_HEIGHT_FT;
-              hi = band.end * WALL_HEIGHT_FT;
+              lo = band.start * wallHeightFt;
+              hi = band.end * wallHeightFt;
               pieceLo = py - ph / 2;
               pieceHi = py + ph / 2;
             }
@@ -3578,9 +3741,7 @@ export default function Scene({
 
         for (const piece of pieces) {
           const mesh = piece as THREE.Mesh;
-          const params = (mesh.geometry as THREE.BoxGeometry)?.parameters as
-            | { width: number; height: number; depth: number }
-            | undefined;
+          const params = pieceDims(mesh);
           if (!params) continue;
 
           mesh.material = glassMat;
@@ -3638,11 +3799,18 @@ export default function Scene({
       ) => {
         const pieceMark = roomGroup.children.length;
 
+        // Per-wall geometry, under the same key as the paint and the glazing below.
+        const wallKey = wallBandKey(roomInstanceId(rooms, i), edge);
+        const wallEdit = wallEdits?.[wallKey];
+        const wallH = inchesToFeet(
+          clampWallHeightIn(wallEdit?.heightIn ?? WALL_HEIGHT_FT * 12, WALL_HEIGHT_FT * 12)
+        );
+
         // Glazing for this wall, resolved once: the door branches below need it, and so does the
         // material pass after the loop.
         const wallGlazing = resolveWallGlazing(
           materialConfigRef.current,
-          wallBandKey(roomInstanceId(rooms, i), edge),
+          wallKey,
           room.name as RoomName
         );
         const glassDoor = Boolean(wallGlazing?.door);
@@ -3690,6 +3858,9 @@ export default function Scene({
         for (let j = 0; j < rooms.length; j++) {
           if (j === i) continue;
           const rj = rooms[j];
+          // Same storey only — see the note in lib/rooms.ts findAdjacentRoomEdge. A room one
+          // floor up is not on the other side of this wall.
+          if ((rj.floor ?? 0) !== (room.floor ?? 0)) continue;
           const rjx = inchesToFeet(rj.x_in);
           const rjz = inchesToFeet(rj.y_in);
           const rjw = inchesToFeet(rj.w_in);
@@ -3874,6 +4045,57 @@ export default function Scene({
             name: wallTitle,
           };
 
+          // A bowed face, where the user asked for one. Only on a run with nothing in it: a
+          // door or a window on a curve is a joinery problem this does not solve, and quietly
+          // straightening the wall to fit one in would be the wrong answer to give silently —
+          // the control refuses the curve instead (components/RoomCustomizer.tsx).
+          // The room id the rest of the app keys per-room settings by: the name plus how many
+          // rooms of that name came before it — app/page.tsx builds roomListWithSpecs the same
+          // way, and RoomCustomizer edits under the same key.
+          const curveRoomId = `${room.name}_${rooms.slice(0, i).filter((r) => r.name === room.name).length}`;
+          const bulgeRawFt = ((roomEdgeCurves?.[curveRoomId]?.[edge as WallEdge] ?? 0) as number) / 12;
+          const bulgeFt = clampBulgeFt(bulgeRawFt, segLen);
+          const canCurve =
+            Math.abs(bulgeFt) > 0.05 &&
+            !isShared &&
+            !hasFullOpening &&
+            !hasNarrowPassage &&
+            !hasDoor &&
+            !hasWindow;
+
+          if (canCurve) {
+            const [nx, nz] = edgeNormal(edge as WallEdge);
+            const x0 = isEW ? seg.start : wx;
+            const z0 = isEW ? wz : seg.start;
+            const x1 = isEW ? seg.end : wx;
+            const z1 = isEW ? wz : seg.end;
+            const points = curvedEdgePoints(x0, z0, x1, z1, bulgeFt, nx, nz);
+            const thickness = isEW ? wd : ww;
+
+            for (let c = 1; c < points.length; c++) {
+              const [ax, az] = points[c - 1];
+              const [bx, bz] = points[c];
+              const chordLen = Math.hypot(bx - ax, bz - az);
+              if (chordLen < 0.01) continue;
+              // Chords overlap slightly so the joints between them do not show as hairlines.
+              const chord = new THREE.Mesh(
+                new THREE.BoxGeometry(chordLen + 0.05, wallH, thickness),
+                wallMaterial
+              );
+              chord.position.set((ax + bx) / 2, wallH / 2, (az + bz) / 2);
+              // A box's local +x maps to (cos y, 0, -sin y), so this is the yaw that lays it
+              // along the chord.
+              chord.rotation.y = Math.atan2(-(bz - az), bx - ax);
+              chord.castShadow = true;
+              chord.receiveShadow = true;
+              // Every chord carries the same wall identity: clicking any of them selects the
+              // wall, and the walkthrough collides with the curve rather than with its chord.
+              chord.userData = { ...wallUserData, isCurved: true };
+              roomGroup.add(chord);
+            }
+            continue;
+          }
+
           if (hasFullOpening || hasNarrowPassage) {
             // Demolished wall. A 9 in load-bearing wall cannot simply be taken away — the slab
             // above it has to land on something — so a lintel beam stays and is named as one.
@@ -3883,7 +4105,7 @@ export default function Scene({
             if (isLoadBearing) {
               const beamH = 0.75;
               const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
-              beam.position.set(seg_wx, WALL_HEIGHT_FT - beamH / 2, seg_wz);
+              beam.position.set(seg_wx, wallH - beamH / 2, seg_wz);
               beam.castShadow = true;
               beam.userData = { ...wallUserData, isLintel: true };
               roomGroup.add(beam);
@@ -3911,7 +4133,7 @@ export default function Scene({
             // single sign swings both into the room instead of out over the setback.
             const swingSign = edge === "N" || edge === "E" ? -1 : 1;
             const doorH = DOOR_HEIGHT_FT;
-            const lintelH = WALL_HEIGHT_FT - doorH;
+            const lintelH = wallH - doorH;
 
             let doorPos = isEW ? seg_wx : seg_wz;
             if (assignedDoor && assignedDoor.center >= seg.start + doorW / 2 && assignedDoor.center <= seg.end - doorW / 2) {
@@ -3931,8 +4153,8 @@ export default function Scene({
               const rightW = Math.max(0.05, (seg_wx + seg_ww / 2) - (doorPos + doorW / 2));
 
               if (leftW > 0.08) {
-                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
-                leftWall.position.set(seg_wx - seg_ww / 2 + leftW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, wallH, seg_wd), wallMaterial);
+                leftWall.position.set(seg_wx - seg_ww / 2 + leftW / 2, wallH / 2, seg_wz);
                 leftWall.castShadow = true;
                 leftWall.receiveShadow = true;
                 leftWall.userData = { ...wallUserData };
@@ -3944,8 +4166,8 @@ export default function Scene({
               }
 
               if (rightW > 0.08) {
-                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
-                rightWall.position.set(seg_wx + seg_ww / 2 - rightW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, wallH, seg_wd), wallMaterial);
+                rightWall.position.set(seg_wx + seg_ww / 2 - rightW / 2, wallH / 2, seg_wz);
                 rightWall.castShadow = true;
                 rightWall.receiveShadow = true;
                 rightWall.userData = { ...wallUserData };
@@ -4057,6 +4279,10 @@ export default function Scene({
               });
 
               // Add doorway obstacle to collision engine (blocks movement while closed!)
+              // Obstacles are flat: minX/maxX/minZ/maxZ and no height. The walkthrough is a
+              // ground-floor walk, so a first-floor door registered here would be an invisible
+              // wall standing in the middle of the ground floor.
+              if ((room.floor ?? 0) === 0)
               sceneObstaclesRef.current.push({
                 id: doorId,
                 minX: doorPos - doorW / 2,
@@ -4094,8 +4320,8 @@ export default function Scene({
               const bottomD = Math.max(0.05, (seg_wz + seg_wd / 2) - (doorPos + doorW / 2));
 
               if (topD > 0.08) {
-                const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, topD), wallMaterial);
-                topWall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz - seg_wd / 2 + topD / 2);
+                const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, topD), wallMaterial);
+                topWall.position.set(seg_wx, wallH / 2, seg_wz - seg_wd / 2 + topD / 2);
                 topWall.castShadow = true;
                 topWall.receiveShadow = true;
                 topWall.userData = { ...wallUserData };
@@ -4107,8 +4333,8 @@ export default function Scene({
               }
 
               if (bottomD > 0.08) {
-                const botWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, bottomD), wallMaterial);
-                botWall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz + seg_wd / 2 - bottomD / 2);
+                const botWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, bottomD), wallMaterial);
+                botWall.position.set(seg_wx, wallH / 2, seg_wz + seg_wd / 2 - bottomD / 2);
                 botWall.castShadow = true;
                 botWall.receiveShadow = true;
                 botWall.userData = { ...wallUserData };
@@ -4217,6 +4443,8 @@ export default function Scene({
               });
 
               // Add doorway obstacle to collision engine (blocks movement while closed!)
+              // Ground floor only — see the note on the other doorway obstacle above.
+              if ((room.floor ?? 0) === 0)
               sceneObstaclesRef.current.push({
                 id: doorId,
                 minX: seg_wx - seg_ww / 2,
@@ -4261,20 +4489,20 @@ export default function Scene({
             );
             const winH = winProps.heightFt ?? (windowSpec?.height_in ? inchesToFeet(windowSpec.height_in) : WINDOW_H_FT);
             const sillH = winProps.sillHeightFt ?? (windowSpec?.sill_in != null ? inchesToFeet(windowSpec.sill_in) : WINDOW_SILL_Y_FT);
-            const topH = Math.max(0.1, WALL_HEIGHT_FT - (sillH + winH));
+            const topH = Math.max(0.1, wallH - (sillH + winH));
 
             if (isEW) {
               const sideW = Math.max(0.2, (seg_ww - winW) / 2);
 
-              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
-              leftWall.position.set(seg_wx - seg_ww / 2 + sideW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), wallMaterial);
+              leftWall.position.set(seg_wx - seg_ww / 2 + sideW / 2, wallH / 2, seg_wz);
               leftWall.castShadow = true;
               leftWall.receiveShadow = true;
               leftWall.userData = { ...wallUserData };
               roomGroup.add(leftWall);
 
-              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_HEIGHT_FT, seg_wd), wallMaterial);
-              rightWall.position.set(seg_wx + seg_ww / 2 - sideW / 2, WALL_HEIGHT_FT / 2, seg_wz);
+              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), wallMaterial);
+              rightWall.position.set(seg_wx + seg_ww / 2 - sideW / 2, wallH / 2, seg_wz);
               rightWall.castShadow = true;
               rightWall.receiveShadow = true;
               rightWall.userData = { ...wallUserData };
@@ -4338,15 +4566,15 @@ export default function Scene({
             } else {
               const sideD = Math.max(0.2, (seg_wd - winW) / 2);
 
-              const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, sideD), wallMaterial);
-              topWallSeg.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz - seg_wd / 2 + sideD / 2);
+              const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), wallMaterial);
+              topWallSeg.position.set(seg_wx, wallH / 2, seg_wz - seg_wd / 2 + sideD / 2);
               topWallSeg.castShadow = true;
               topWallSeg.receiveShadow = true;
               topWallSeg.userData = { ...wallUserData };
               roomGroup.add(topWallSeg);
 
-              const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, sideD), wallMaterial);
-              botWallSeg.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz + seg_wd / 2 - sideD / 2);
+              const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), wallMaterial);
+              botWallSeg.position.set(seg_wx, wallH / 2, seg_wz + seg_wd / 2 - sideD / 2);
               botWallSeg.castShadow = true;
               botWallSeg.receiveShadow = true;
               botWallSeg.userData = { ...wallUserData };
@@ -4409,20 +4637,147 @@ export default function Scene({
               }
             }
           } else {
-            // Solid Wall
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, WALL_HEIGHT_FT, seg_wd), wallMaterial);
-            wall.position.set(seg_wx, WALL_HEIGHT_FT / 2, seg_wz);
-            wall.castShadow = true;
-            wall.receiveShadow = true;
-            wall.userData = { ...wallUserData };
-            roomGroup.add(wall);
+            // Solid Wall, less whatever has been cut out of it.
+            //
+            // A cutout is positioned from the start of the whole run, not from this segment, so
+            // it keeps its place when a neighbouring room resizes and re-segments the wall. Only
+            // a hole that lands wholly inside one segment is built: one straddling the junction
+            // between two segments would need the pier either side to be split across a partition
+            // that may not even be the same thickness.
+            const runStart = isEW ? rx : rz;
+            const holes = resolveCutouts(wallEdit?.cutouts, (isEW ? rw : rd) * 12, wallH * 12)
+              .map((c) => ({
+                shape: c.shape ?? ("rect" as CutoutShape),
+                start: runStart + inchesToFeet(c.offsetIn),
+                end: runStart + inchesToFeet(c.offsetIn + c.widthIn),
+                sill: inchesToFeet(c.sillIn),
+                top: inchesToFeet(c.sillIn + c.heightIn),
+              }))
+              .filter((h) => h.start >= seg.start - 0.01 && h.end <= seg.end + 0.01);
+            const profile = wallEdit?.profile ?? ("square" as WallProfile);
 
-            const baseboard = new THREE.Mesh(
-              new THREE.BoxGeometry(isEW ? seg_ww : seg_ww + 0.04, BASEBOARD_H_FT, isEW ? seg_wd + 0.04 : seg_wd),
-              baseboardMaterial
-            );
-            baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
-            roomGroup.add(baseboard);
+            // Skirting along `from`..`to`. Only where the wall meets the floor: a hole cut down
+            // to the floor takes the baseboard with it, which is what happens on site.
+            const addBaseboard = (from: number, to: number) => {
+              const runLen = to - from;
+              if (runLen < 0.02) return;
+              const mid = (from + to) / 2;
+              const base = new THREE.Mesh(
+                isEW
+                  ? new THREE.BoxGeometry(runLen, BASEBOARD_H_FT, seg_wd + 0.04)
+                  : new THREE.BoxGeometry(seg_ww + 0.04, BASEBOARD_H_FT, runLen),
+                baseboardMaterial
+              );
+              base.position.set(isEW ? mid : seg_wx, BASEBOARD_H_FT / 2, isEW ? seg_wz : mid);
+              roomGroup.add(base);
+            };
+
+            // One solid span, registered for the walkthrough. Same body-height gate the generic
+            // wall collider pass uses, so a lintel overhead still does not block anyone.
+            const addCollider = (from: number, to: number, y0: number, y1: number) => {
+              if (to - from < 0.02 || y1 - y0 < 0.02) return;
+              if (y0 >= 5.0 || y1 <= 0.5) return;
+              sceneObstaclesRef.current.push({
+                id: `wall_${i}_${edge}_${sIdx}_${from.toFixed(2)}_${y0.toFixed(2)}`,
+                minX: isEW ? from : seg_wx - seg_ww / 2,
+                maxX: isEW ? to : seg_wx + seg_ww / 2,
+                minZ: isEW ? seg_wz - seg_wd / 2 : from,
+                maxZ: isEW ? seg_wz + seg_wd / 2 : to,
+              });
+            };
+
+            // One piece of masonry, spanning `from`..`to` along the run and `y0`..`y1` up it.
+            const addPiece = (from: number, to: number, y0: number, y1: number) => {
+              const runLen = to - from;
+              const pieceH = y1 - y0;
+              if (runLen < 0.02 || pieceH < 0.02) return;
+              const mid = (from + to) / 2;
+              const piece = new THREE.Mesh(
+                isEW
+                  ? new THREE.BoxGeometry(runLen, pieceH, seg_wd)
+                  : new THREE.BoxGeometry(seg_ww, pieceH, runLen),
+                wallMaterial
+              );
+              piece.position.set(isEW ? mid : seg_wx, y0 + pieceH / 2, isEW ? seg_wz : mid);
+              piece.castShadow = true;
+              piece.receiveShadow = true;
+              piece.userData = { ...wallUserData };
+              roomGroup.add(piece);
+
+              if (y0 < 0.01 && pieceH > BASEBOARD_H_FT) addBaseboard(from, to);
+            };
+
+            if (needsShapedWall(profile, holes)) {
+              // A rounded corner or an arched head is not expressible in boxes, so the whole
+              // segment is drawn once as its own elevation and extruded through its thickness.
+              const segLen = seg.end - seg.start;
+              const thickness = isEW ? seg_wd : seg_ww;
+              const shaped = new THREE.Mesh(
+                wallFaceGeometry(
+                  profile,
+                  segLen,
+                  wallH,
+                  thickness,
+                  holes.map((h) => ({
+                    shape: h.shape,
+                    cx: (h.start + h.end) / 2 - seg.start,
+                    cy: (h.sill + h.top) / 2,
+                    w: h.end - h.start,
+                    h: h.top - h.sill,
+                  }))
+                ),
+                wallMaterial
+              );
+              shaped.position.set(seg_wx, wallH / 2, seg_wz);
+              if (!isEW) shaped.rotation.y = -Math.PI / 2;
+              shaped.castShadow = true;
+              shaped.receiveShadow = true;
+              shaped.userData = {
+                ...wallUserData,
+                // The collision pass reads a mesh's bounding box, which for this one spans the
+                // holes as well. Its solid parts are registered by hand below instead.
+                isShapedWall: true,
+                faceDims: {
+                  width: isEW ? segLen : thickness,
+                  height: wallH,
+                  depth: isEW ? thickness : segLen,
+                },
+              };
+              roomGroup.add(shaped);
+
+              // Skirting on the spans that still meet the floor.
+              let baseCursor = seg.start;
+              for (const h of holes) {
+                addBaseboard(baseCursor, h.start);
+                if (h.sill > BASEBOARD_H_FT) addBaseboard(h.start, h.end);
+                baseCursor = h.end;
+              }
+              addBaseboard(baseCursor, seg.end);
+
+              // Colliders from the solid spans. A shaped hole is approximated by its bounding
+              // rectangle here, so an arch or a circle blocks a little less than it draws — the
+              // walkthrough is a circle sliding on boxes and cannot be told about a curve.
+              if ((room.floor ?? 0) === 0) {
+                let solidCursor = seg.start;
+                for (const h of holes) {
+                  addCollider(solidCursor, h.start, 0, wallH);
+                  addCollider(h.start, h.end, 0, h.sill);
+                  solidCursor = h.end;
+                }
+                addCollider(solidCursor, seg.end, 0, wallH);
+              }
+            } else if (holes.length === 0) {
+              addPiece(seg.start, seg.end, 0, wallH);
+            } else {
+              let cursor = seg.start;
+              for (const h of holes) {
+                addPiece(cursor, h.start, 0, wallH);
+                addPiece(h.start, h.end, 0, h.sill);
+                addPiece(h.start, h.end, h.top, wallH);
+                cursor = h.end;
+              }
+              addPiece(cursor, seg.end, 0, wallH);
+            }
 
             // Architectural Wainscoting / Boiserie Relief Panels in Upgraded Mode
             if (isUpgradedRef.current && (room.name === "hall" || room.name === "dining") && (isEW ? seg_ww : seg_wd) > 2.8) {
@@ -4449,21 +4804,19 @@ export default function Scene({
             (c) => (c as THREE.Mesh).isMesh && c.userData?.isWall && !c.userData?.isThreshold
           );
         // Glass first: a glazed wall is not painted, it is glazed.
-        const glazedHere = resolveWallGlazing(
-          materialConfigRef.current,
-          wallBandKey(roomInstanceId(rooms, i), edge),
-          room.name as RoomName
-        );
-        if (glazedHere?.wall) {
+        if (wallGlazing?.wall) {
           glazeWall(pieces, edge, isEW);
         } else {
-          paintWallBands(pieces, edge, isEW);
+          paintWallBands(pieces, edge, isEW, wallH);
         }
 
         // Register solid wall colliders for all physical wall segments
         for (const pMesh of pieces) {
-          // Exclude lintels (which sit above doors/windows) and floor thresholds
+          // Exclude lintels (which sit above doors/windows) and floor thresholds. A shaped
+          // wall is one mesh with its holes inside it, so its bounding box is the whole wall —
+          // it registers its solid spans itself.
           if (pMesh.userData?.isLintel || pMesh.userData?.isThreshold) continue;
+          if (pMesh.userData?.isShapedWall) continue;
 
           const box = new THREE.Box3().setFromObject(pMesh);
           // Only register walls that stand at human body height (between 0.5 ft and 5.5 ft)
@@ -4479,18 +4832,24 @@ export default function Scene({
         }
       };
 
-      const wt = room.wall_thickness_in != null
+      // The room's thickness, unless this one wall has been given its own.
+      const roomWt = room.wall_thickness_in != null
         ? inchesToFeet(room.wall_thickness_in)
         : WALL_THICK_INT_FT;
+      const wtOf = (edge: "N" | "S" | "E" | "W") => {
+        const override = wallEdits?.[wallBandKey(roomInstanceId(rooms, i), edge)]
+          ?.thicknessIn;
+        return override != null ? inchesToFeet(clampThicknessIn(override)) : roomWt;
+      };
 
       // North Wall
-      buildWall("N", rx + rw / 2, rz + wt / 2, rw, wt, true);
+      buildWall("N", rx + rw / 2, rz + wtOf("N") / 2, rw, wtOf("N"), true);
       // South Wall
-      buildWall("S", rx + rw / 2, rz + rd - wt / 2, rw, wt, true);
+      buildWall("S", rx + rw / 2, rz + rd - wtOf("S") / 2, rw, wtOf("S"), true);
       // West Wall
-      buildWall("W", rx + wt / 2, rz + rd / 2, wt, rd, false);
+      buildWall("W", rx + wtOf("W") / 2, rz + rd / 2, wtOf("W"), rd, false);
       // East Wall
-      buildWall("E", rx + rw - wt / 2, rz + rd / 2, wt, rd, false);
+      buildWall("E", rx + rw - wtOf("E") / 2, rz + rd / 2, wtOf("E"), rd, false);
 
       // Warm interior recessed spotlight (Non-shadowed to eliminate 30+ GPU shadow depth passes per frame)
       const roomLight = new THREE.PointLight(0xfff0dd, 1.2, 28, 1.2);
@@ -4560,6 +4919,118 @@ export default function Scene({
       badge.position.set(rx + rw / 2, WALL_HEIGHT_FT + 1.8, rz + rd / 2);
       roomGroup.add(badge);
 
+      // The staircase. The solver places the core as a rectangle repeated on every floor
+      // (backend/api/main.py) and until now the renderer drew that as an empty room — a plan with
+      // a hole labelled "Staircase" in it.
+      //
+      // A dog-leg with a half-landing, because that is what fits: one straight flight would have
+      // to climb 9.55 ft in the 10 ft the core is deep, which is a 45 degree ladder. Two flights
+      // of eight risers give a 7.2 in riser on a ~10 in tread at about 33 degrees, which is what
+      // a house is built with. The core is sized for it — see STAIR_MIN_W_IN.
+      if (isStairCore) {
+        const rise = FLOOR_STEP_FT;
+        const alongZ = rd >= rw;
+        const along = alongZ ? rd : rw;
+        const across = alongZ ? rw : rd;
+        const landingD = Math.min(3.2, along * 0.32);
+        const runLen = Math.max(2, along - landingD - 0.4);
+        const perFlight = 8;
+        const riserH = rise / (perFlight * 2);
+        const treadD = runLen / perFlight;
+        const flightW = Math.max(1.8, across / 2 - 0.35);
+
+        // `a` runs along the flight from the near end of the core, `c` across it. This is the
+        // only place the two orientations differ.
+        const place = (mesh: THREE.Mesh, a: number, c: number, y: number) =>
+          mesh.position.set(alongZ ? rx + c : rx + a, y, alongZ ? rz + a : rz + c);
+        const box = (alongSize: number, h: number, acrossSize: number) =>
+          new THREE.BoxGeometry(
+            alongZ ? acrossSize : alongSize,
+            h,
+            alongZ ? alongSize : acrossSize
+          );
+
+        const treadMat = new THREE.MeshStandardMaterial({ color: 0x8d6e52, roughness: 0.6 });
+        const landingMat = new THREE.MeshStandardMaterial({ color: 0xd9d3c8, roughness: 0.8 });
+        const railMat = new THREE.MeshStandardMaterial({
+          color: 0x2b2f36,
+          roughness: 0.4,
+          metalness: 0.5,
+        });
+
+        const cLower = flightW / 2 + 0.2;
+        const cUpper = across - flightW / 2 - 0.2;
+
+        // Lower flight: solid from the floor up, so the underside reads as a stair with the
+        // usual cupboard under it rather than as treads floating in air.
+        for (let stepIndex = 0; stepIndex < perFlight; stepIndex++) {
+          const top = riserH * (stepIndex + 1);
+          const step = new THREE.Mesh(box(treadD, top, flightW), treadMat);
+          place(step, 0.2 + treadD * (stepIndex + 0.5), cLower, top / 2);
+          step.castShadow = true;
+          step.receiveShadow = true;
+          step.userData = { isStair: true, roomIndex: i };
+          roomGroup.add(step);
+        }
+
+        // Half-landing at the far end, spanning both flights.
+        const landing = new THREE.Mesh(box(landingD, riserH, across - 0.4), landingMat);
+        place(landing, along - landingD / 2 - 0.2, across / 2, rise / 2 - riserH / 2);
+        landing.castShadow = true;
+        landing.receiveShadow = true;
+        landing.userData = { isStair: true, roomIndex: i };
+        roomGroup.add(landing);
+
+        // Upper flight, turning back over the lower one. Slab-thick treads: there is a stairwell
+        // under this half, not a cupboard.
+        for (let stepIndex = 0; stepIndex < perFlight; stepIndex++) {
+          const top = rise / 2 + riserH * (stepIndex + 1);
+          const step = new THREE.Mesh(box(treadD, 0.42, flightW), treadMat);
+          place(
+            step,
+            along - landingD - 0.2 - treadD * (stepIndex + 0.5),
+            cUpper,
+            top - 0.21
+          );
+          step.castShadow = true;
+          step.receiveShadow = true;
+          step.userData = { isStair: true, roomIndex: i };
+          roomGroup.add(step);
+        }
+
+        // One rail per flight, along the open side.
+        const railLen = Math.hypot(runLen, rise / 2);
+        const pitch = Math.atan2(rise / 2, runLen);
+        for (const [cRail, dir, baseY] of [
+          [cLower - flightW / 2 + 0.06, 1, rise / 4],
+          [cUpper + flightW / 2 - 0.06, -1, (rise * 3) / 4],
+        ] as Array<[number, number, number]>) {
+          const rail = new THREE.Mesh(box(railLen, 0.12, 0.12), railMat);
+          place(
+            rail,
+            dir > 0 ? 0.2 + runLen / 2 : along - landingD - 0.2 - runLen / 2,
+            cRail,
+            baseY + 2.6
+          );
+          if (alongZ) rail.rotation.x = -dir * pitch;
+          else rail.rotation.z = dir * pitch;
+          roomGroup.add(rail);
+        }
+
+        // The walkthrough cannot climb — it walks one storey at a fixed eye height — so the
+        // flight is something to walk around, not through. Blocking the core is the honest
+        // version of that until the walk can take stairs.
+        if ((room.floor ?? 0) === 0) {
+          sceneObstaclesRef.current.push({
+            id: `stair_core_${i}`,
+            minX: rx,
+            maxX: rx + rw,
+            minZ: rz,
+            maxZ: rz + rd,
+          });
+        }
+      }
+
       group.add(roomGroup);
       roomGroupsRef.current.set(i, roomGroup);
       roomLightsByRoomRef.current.set(i, [roomLight]);
@@ -4593,13 +5064,24 @@ export default function Scene({
         if (child.userData && child.userData.isFurniture && !child.userData.isCustomObject) {
           // Skip windows, curtains, thresholds, fans, lights
           if (child.userData.isWindow || child.userData.type === "window" || child.userData.isThreshold) return;
-          const box = new THREE.Box3().setFromObject(child);
-          if (!box.isEmpty() && box.min.y < 3.5 && box.max.y > 0.4) {
+          // Footprint taken from the parts that actually stand in the walking band, not from the
+          // whole group's box. A group box also swallows whatever overhangs the piece — a kitchen
+          // chimney and its duct, a faucet spout, a canopy — and the player then collides with
+          // empty air beside the furniture.
+          const box = new THREE.Box3();
+          child.traverse((part) => {
+            if (!(part as THREE.Mesh).isMesh) return;
+            const partBox = new THREE.Box3().setFromObject(part);
+            if (partBox.isEmpty() || partBox.min.y > 3.0 || partBox.max.y < 0.4) return;
+            box.union(partBox);
+          });
+          if (!box.isEmpty()) {
             const cx = (box.min.x + box.max.x) / 2;
             const cz = (box.min.z + box.max.z) / 2;
             const bw = box.max.x - box.min.x;
             const bd = box.max.z - box.min.z;
-            // Only substantial ground furniture items (beds, sofas, tables, wardrobes, counters)
+            // Only substantial ground furniture items (beds, sofas, tables, wardrobes, counters),
+            // and only on the storey being walked: a sofa on the first floor is not in the way.
             if (bw > 1.2 && bd > 1.2) {
               const hw = (bw * 0.7) / 2;
               const hd = (bd * 0.7) / 2;
@@ -4623,6 +5105,10 @@ export default function Scene({
       const x2 = inchesToFeet(cw.endXIn);
       const z2 = inchesToFeet(cw.endYIn);
       const th = inchesToFeet(cw.thicknessIn || 9.0) / 2;
+      // A wall drawn on the first floor stands at first-floor level. It was blocking the
+      // ground-floor walk before storeys were solved, and it is not a new bug, but it is the
+      // same one.
+      if ((cw.floor ?? 0) === 0)
       sceneObstaclesRef.current.push({
         id: `cwall_${cw.id}`,
         minX: Math.min(x1, x2) - th,
@@ -4632,30 +5118,58 @@ export default function Scene({
       });
     }
 
-    // 7. Roof — RCC slab & parapet
+    // 7. Slabs. The ceiling of one storey is the floor of the next, so every floor but the top
+    // one gets a slab that is always drawn — without it a G+1 is two plans hanging in the air
+    // over each other. Only the top slab is the roof, and only that one obeys the dollhouse
+    // view, because hiding it is what lets you look into the house at all.
     if (rooms.length > 0) {
       const roof = new THREE.Group();
-      roof.visible = modeRef.current === "walkthrough";
+      roof.visible = modeRef.current === "walkthrough" || !isDollhouseCutaway;
       roofGroupRef.current = roof;
       group.add(roof);
 
-      for (const room of rooms) {
-        const rw = inchesToFeet(room.w_in);
-        const rd = inchesToFeet(room.d_in);
-        const rx = inchesToFeet(room.x_in);
-        const rz = inchesToFeet(room.y_in);
-        const slab = new THREE.Mesh(new THREE.BoxGeometry(rw, SLAB_T, rd), slabMat);
-        slab.position.set(rx + rw / 2, WALL_HEIGHT_FT + SLAB_T / 2, rz + rd / 2);
-        slab.castShadow = true;
-        slab.receiveShadow = true;
-        roof.add(slab);
+      deckGroupsRef.current.clear();
+
+      const storeys = Array.from(new Set(rooms.map((r) => r.floor ?? 0))).sort((a, b) => a - b);
+      const topStorey = storeys[storeys.length - 1];
+
+      for (const f of storeys) {
+        const elev = f * FLOOR_STEP_FT;
+        const isTop = f === topStorey;
+        for (const room of rooms) {
+          if ((room.floor ?? 0) !== f) continue;
+          // The stairwell. The core sits at the same place on every floor, so leaving its slab
+          // out below the top storey is exactly the hole the flight climbs through.
+          if (room.name === "stairs" && !isTop) continue;
+          const rw = inchesToFeet(room.w_in);
+          const rd = inchesToFeet(room.d_in);
+          const rx = inchesToFeet(room.x_in);
+          const rz = inchesToFeet(room.y_in);
+          const slab = new THREE.Mesh(new THREE.BoxGeometry(rw, SLAB_T, rd), slabMat);
+          slab.position.set(rx + rw / 2, elev + WALL_HEIGHT_FT + SLAB_T / 2, rz + rd / 2);
+          slab.castShadow = true;
+          slab.receiveShadow = true;
+          if (isTop) {
+            roof.add(slab);
+          } else {
+            let deck = deckGroupsRef.current.get(f);
+            if (!deck) {
+              deck = new THREE.Group();
+              deckGroupsRef.current.set(f, deck);
+              group.add(deck);
+            }
+            deck.add(slab);
+          }
+        }
       }
 
-      const fx0 = Math.min(...rooms.map((r) => inchesToFeet(r.x_in)));
-      const fz0 = Math.min(...rooms.map((r) => inchesToFeet(r.y_in)));
-      const fx1 = Math.max(...rooms.map((r) => inchesToFeet(r.x_in + r.w_in)));
-      const fz1 = Math.max(...rooms.map((r) => inchesToFeet(r.y_in + r.d_in)));
-      const parapetY = WALL_HEIGHT_FT + SLAB_T + PARAPET_H / 2;
+      const topRooms = rooms.filter((r) => (r.floor ?? 0) === topStorey);
+      const topElev = topStorey * FLOOR_STEP_FT;
+      const fx0 = Math.min(...topRooms.map((r) => inchesToFeet(r.x_in)));
+      const fz0 = Math.min(...topRooms.map((r) => inchesToFeet(r.y_in)));
+      const fx1 = Math.max(...topRooms.map((r) => inchesToFeet(r.x_in + r.w_in)));
+      const fz1 = Math.max(...topRooms.map((r) => inchesToFeet(r.y_in + r.d_in)));
+      const parapetY = topElev + WALL_HEIGHT_FT + SLAB_T + PARAPET_H / 2;
       const PT = 0.4;
       for (const [px, pz, pw, pd] of [
         [(fx0 + fx1) / 2, fz0 + PT / 2, fx1 - fx0, PT],
@@ -4953,16 +5467,62 @@ export default function Scene({
           wallGroup.rotation.y = angle;
 
           const openings = wall.openings || [];
-          if (openings.length === 0) {
-            const wallMesh = new THREE.Mesh(
-              new THREE.BoxGeometry(chordLenFt, heightFt, thickFt),
+          const wallProfile = wall.profile ?? ("square" as WallProfile);
+          // A shaped wall is drawn as one extrusion of its elevation. Every opening becomes a
+          // hole in it — a door and a window are holes too — and the loop below still hangs the
+          // leaf, the frame and the glass in them. Only the masonry changes.
+          const shapedCustomWall = needsShapedWall(
+            wallProfile,
+            openings.filter((o) => o.kind === "opening").map((o) => ({ shape: o.shape }))
+          );
+
+          if (shapedCustomWall) {
+            const solid = new THREE.Mesh(
+              wallFaceGeometry(
+                wallProfile,
+                chordLenFt,
+                heightFt,
+                thickFt,
+                openings.map((o) => {
+                  const w = o.widthIn / 12;
+                  const h = (o.heightIn || 84) / 12;
+                  const sill = (o.sillIn || 0) / 12;
+                  return {
+                    shape: o.kind === "opening" ? o.shape ?? "rect" : ("rect" as CutoutShape),
+                    cx: o.offsetIn / 12 + w / 2,
+                    cy: sill + h / 2,
+                    w,
+                    h,
+                  };
+                })
+              ),
               wallMat
             );
-            wallMesh.position.set(0, heightFt / 2, 0);
-            wallMesh.castShadow = true;
-            wallMesh.receiveShadow = true;
-            wallMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Wall` };
-            wallGroup.add(wallMesh);
+            solid.position.set(0, heightFt / 2, 0);
+            solid.castShadow = true;
+            solid.receiveShadow = true;
+            solid.userData = {
+              isCustomWall: true,
+              id: wall.id,
+              isWall: true,
+              isShapedWall: true,
+              name: `${wall.wallType} Wall`,
+            };
+            wallGroup.add(solid);
+          }
+
+          if (openings.length === 0) {
+            if (!shapedCustomWall) {
+              const wallMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(chordLenFt, heightFt, thickFt),
+                wallMat
+              );
+              wallMesh.position.set(0, heightFt / 2, 0);
+              wallMesh.castShadow = true;
+              wallMesh.receiveShadow = true;
+              wallMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Wall` };
+              wallGroup.add(wallMesh);
+            }
           } else {
             // Segmented wall around openings
             const sortedOps = [...openings].sort((a, b) => a.offsetIn - b.offsetIn);
@@ -4975,7 +5535,7 @@ export default function Scene({
 
               // Left solid segment
               const segLenIn = opStartIn - currentOffsetIn;
-              if (segLenIn > 2) {
+              if (!shapedCustomWall && segLenIn > 2) {
                 const segLenFt = segLenIn / 12;
                 const segCenterIn = currentOffsetIn + segLenIn / 2;
                 const segCenterFt = segCenterIn / 12 - chordLenFt / 2;
@@ -4998,7 +5558,7 @@ export default function Scene({
               const opHeightFt = (op.heightIn || 84) / 12;
               const lintelHeightFt = Math.max(0.5, heightFt - opHeightFt - ((op.sillIn || 0) / 12));
 
-              if (lintelHeightFt > 0.2) {
+              if (!shapedCustomWall && lintelHeightFt > 0.2) {
                 const lintelMesh = new THREE.Mesh(
                   new THREE.BoxGeometry(opWidthFt, lintelHeightFt, thickFt),
                   wallMat
@@ -5010,7 +5570,7 @@ export default function Scene({
               }
 
               // Bottom Sill (if window)
-              if (op.sillIn && op.sillIn > 0) {
+              if (!shapedCustomWall && op.sillIn && op.sillIn > 0) {
                 const sillHeightFt = op.sillIn / 12;
                 const sillMesh = new THREE.Mesh(
                   new THREE.BoxGeometry(opWidthFt, sillHeightFt, thickFt),
@@ -5149,7 +5709,7 @@ export default function Scene({
             }
 
             // Trailing solid segment
-            if (currentOffsetIn < totalLenIn - 2) {
+            if (!shapedCustomWall && currentOffsetIn < totalLenIn - 2) {
               const segLenIn = totalLenIn - currentOffsetIn;
               const segLenFt = segLenIn / 12;
               const segCenterIn = currentOffsetIn + segLenIn / 2;
@@ -5229,6 +5789,9 @@ export default function Scene({
   }, [
     plot,
     facing,
+    envelopePolygonIn,
+    roomEdgeCurves,
+    wallEdits,
     setback,
     rooms,
     customWalls,

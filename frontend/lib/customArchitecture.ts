@@ -29,6 +29,8 @@ export type CustomFloorMaterial =
   | "paver"
   | "concrete";
 
+import { CutoutShape, WallProfile } from "./wallShapes";
+
 export interface CustomWallOpening {
   id: string;
   kind: "door" | "entrance" | "window" | "opening" | "french_door" | "sliding_door" | "arch_door" | "curved_window" | "revolving_door";
@@ -36,6 +38,8 @@ export interface CustomWallOpening {
   widthIn: number;  // Width in inches (e.g. 36" for standard door, 48" for window, 60" for bow window)
   heightIn: number; // Height in inches (e.g. 84" for door, 48" for window)
   sillIn?: number;  // Height above finished floor (e.g. 32" for windows)
+  /** Outline of the opening. Only read for `kind: "opening"` — a door leaf has its own shape. */
+  shape?: CutoutShape;
 }
 
 export interface CustomDrawnWall {
@@ -48,6 +52,8 @@ export interface CustomDrawnWall {
   wallType: CustomWallType;
   thicknessIn: number; // 9" for exterior, 4.5" for interior, 3" for partition
   heightFt?: number;   // default 9.0 ft
+  /** Elevation outline. Absent means a flat top — see lib/wallShapes.ts. */
+  profile?: WallProfile;
   isCurved?: boolean;  // whether the wall follows a circular/quadratic arc
   curveBulgeIn?: number; // arc midpoint offset in inches (e.g. +24" or -24")
   openings: CustomWallOpening[];

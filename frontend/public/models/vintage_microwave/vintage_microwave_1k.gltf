@@ -1,0 +1,259 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v5.1.20",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "vintage_microwave"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "vintage_microwave",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "alphaMode": "BLEND",
+      "doubleSided": true,
+      "name": "vintage_microwave_glass",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "microwave_oven_01.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "vintage_microwave_nor_gl",
+      "uri": "textures/vintage_microwave_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "vintage_microwave_diff",
+      "uri": "textures/vintage_microwave_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "vintage_microwave_metal-vintage_microwave_rough",
+      "uri": "textures/vintage_microwave_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "vintage_microwave_diff-vintage_microwave_alpha",
+      "uri": "textures/vintage_microwave_diff_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 5829,
+      "max": [
+        0.5699540376663208,
+        0.525826096534729,
+        0.38639992475509644
+      ],
+      "min": [
+        -0.503757119178772,
+        -5.960464477539063e-8,
+        -0.3591553568840027
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 5829,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 5829,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 24150,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 64,
+      "max": [
+        0.4717576503753662,
+        0.4585443139076233,
+        0.3462364673614502
+      ],
+      "min": [
+        -0.38495486974716187,
+        0.1388038992881775,
+        0.3434358239173889
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 64,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 64,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 210,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 69948,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 69948,
+      "byteOffset": 69948,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 46632,
+      "byteOffset": 139896,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48300,
+      "byteOffset": 186528,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 768,
+      "byteOffset": 234828,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 768,
+      "byteOffset": 235596,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 512,
+      "byteOffset": 236364,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 420,
+      "byteOffset": 236876,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 237296,
+      "uri": "vintage_microwave.bin"
+    }
+  ]
+}

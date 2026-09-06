@@ -2,9 +2,11 @@ import { inchesToFeet } from "./units";
 import { SolvedRoom } from "./solve";
 import { PlotDims, Facing } from "./plot";
 
-// Eye level calibrated for realistic, grand residential interior perspectives (4.4 ft / 53 inches)
-export const EYE_LEVEL_FT = 4.4; // 4.4 ft
-export const CROUCH_HEIGHT_FT = 2.8; // 2.8 ft crouched
+// Eye level of a standing adult, ~5 ft 9 in tall. It was 4.4 ft, which reads as a child and made
+// every room and every piece of furniture tower — a "grand" interior bought by lying about who is
+// walking through it. A 10x10 bedroom should look like a 10x10 bedroom.
+export const EYE_LEVEL_FT = 5.4; // 5.4 ft
+export const CROUCH_HEIGHT_FT = 3.4; // 3.4 ft crouched
 export const WALK_SPEED_FPS = 7.5; // ft per second (realistic walk)
 export const SPRINT_SPEED_FPS = 13.5; // ft per second (sprint)
 export const ROTATE_SPEED_RAD = 1.9; // rad per second
@@ -152,9 +154,64 @@ export function checkPlayerCollision(
 }
 
 /**
- * Robust sliding penetration resolver.
- * Projects candidate player movement onto obstacle boundary planes,
- * enabling fluid sliding along walls and preventing frozen or stuck player states.
+ * Push a player who is already overlapping something out of the deepest obstacle they are in,
+ * one at a time. Only reached when the player started a frame inside a box — spawned there, or
+ * the layout moved underneath them.
+ */
+function depenetrate(
+  startX: number,
+  startZ: number,
+  radius: number,
+  obstacles: ObstacleBox[]
+): { x: number; z: number } {
+  let x = startX;
+  let z = startZ;
+
+  for (let pass = 0; pass < 4; pass++) {
+    let deepest: ObstacleBox | null = null;
+    let deepestOverlap = 0;
+
+    for (const obs of obstacles) {
+      if (!pointCollidesWithBox(x, z, radius, obs)) continue;
+      // Inside the circle test implies inside the radius-expanded box, so all four are positive.
+      const overlap = Math.min(
+        x - (obs.minX - radius),
+        obs.maxX + radius - x,
+        z - (obs.minZ - radius),
+        obs.maxZ + radius - z
+      );
+      if (overlap > deepestOverlap) {
+        deepestOverlap = overlap;
+        deepest = obs;
+      }
+    }
+
+    if (!deepest) break;
+
+    const left = x - (deepest.minX - radius);
+    const right = deepest.maxX + radius - x;
+    const near = z - (deepest.minZ - radius);
+    const far = deepest.maxZ + radius - z;
+    const shortest = Math.min(left, right, near, far);
+
+    if (shortest === left) x = deepest.minX - radius;
+    else if (shortest === right) x = deepest.maxX + radius;
+    else if (shortest === near) z = deepest.minZ - radius;
+    else z = deepest.maxZ + radius;
+  }
+
+  return { x, z };
+}
+
+/**
+ * Move the player, sliding along whatever blocks the direct path.
+ *
+ * Try the whole step; if it collides, try each axis on its own and take the first that is clear.
+ * That is what produces the slide along a wall, and unlike a push-out relaxation loop it can
+ * never leave the player inside an obstacle: the fallback is to stay where they were, which was
+ * free. The loop it replaces pushed out of each box in list order, so a sofa beside a wall would
+ * eject the player into the wall and the wall would eject them back into the sofa — three passes
+ * later they were still overlapping, and the next frame did the same thing. That was the stall.
  */
 export function resolvePlayerMovement(
   currentX: number,
@@ -168,49 +225,34 @@ export function resolvePlayerMovement(
     return { x: targetX, z: targetZ };
   }
 
-  let px = targetX;
-  let pz = targetZ;
+  const isFree = (x: number, z: number) => !checkPlayerCollision(x, z, radius, obstacles);
 
-  // 3-pass relaxation loop handles corners and multi-wall junctions
-  for (let pass = 0; pass < 3; pass++) {
-    let hadCollision = false;
-
-    for (let i = 0; i < obstacles.length; i++) {
-      const obs = obstacles[i];
-      if (obs.isDoor && obs.isOpen) continue;
-
-      const bMinX = obs.minX - radius;
-      const bMaxX = obs.maxX + radius;
-      const bMinZ = obs.minZ - radius;
-      const bMaxZ = obs.maxZ + radius;
-
-      // Check if candidate position is inside the expanded collision box
-      if (px > bMinX && px < bMaxX && pz > bMinZ && pz < bMaxZ) {
-        hadCollision = true;
-
-        const pushLeft = px - bMinX;
-        const pushRight = bMaxX - px;
-        const pushTop = pz - bMinZ;
-        const pushBottom = bMaxZ - pz;
-
-        const minPush = Math.min(pushLeft, pushRight, pushTop, pushBottom);
-
-        if (minPush === pushLeft) {
-          px = bMinX;
-        } else if (minPush === pushRight) {
-          px = bMaxX;
-        } else if (minPush === pushTop) {
-          pz = bMinZ;
-        } else {
-          pz = bMaxZ;
-        }
-      }
-    }
-
-    if (!hadCollision) break;
+  if (isFree(targetX, targetZ)) {
+    return { x: targetX, z: targetZ };
   }
 
-  return { x: px, z: pz };
+  // Dominant axis first, so a glancing approach keeps the bigger half of its speed.
+  const dx = targetX - currentX;
+  const dz = targetZ - currentZ;
+  const slides: Array<[number, number]> =
+    Math.abs(dx) >= Math.abs(dz)
+      ? [
+          [targetX, currentZ],
+          [currentX, targetZ],
+        ]
+      : [
+          [currentX, targetZ],
+          [targetX, currentZ],
+        ];
+
+  for (const [x, z] of slides) {
+    if (isFree(x, z)) return { x, z };
+  }
+
+  if (!isFree(currentX, currentZ)) {
+    return depenetrate(currentX, currentZ, radius, obstacles);
+  }
+  return { x: currentX, z: currentZ };
 }
 
 export interface DoorwayConnection {

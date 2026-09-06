@@ -49,6 +49,9 @@ class Wall:
     is_exterior: bool
     # Room indices this wall bounds: one for an exterior wall, two for a partition.
     room_indices: tuple[int, ...]
+    # Which storey the wall stands on. Walls are derived per floor: a room on the first floor
+    # shares no wall with one on the ground, and pairing them would invent partitions.
+    floor: int = 0
     openings: list[dict] = field(default_factory=list)
 
     @property

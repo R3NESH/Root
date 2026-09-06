@@ -6,7 +6,7 @@ Real scanned furniture that replaces the procedural boxes in
 
 ## Source and licence
 
-All 15 assets are from [Poly Haven](https://polyhaven.com/models), released under
+All 38 assets are from [Poly Haven](https://polyhaven.com/models), released under
 **CC0 1.0** — public domain, no attribution required, commercial use permitted.
 Recorded here for provenance, not obligation.
 
@@ -18,7 +18,18 @@ Recorded here for provenance, not obligation.
 - Hotlinking `dl.polyhaven.org` from every page load spends someone else's
   bandwidth for no benefit to them.
 
-Cost is 7.3 MB in `frontend/public/models/`.
+Cost is 19 MB in `frontend/public/models/`.
+
+The first 15 covered the auto-furnished rooms. The 23 added since cover the
+**fit-out set** — the pieces an interior designer places by hand: a lounge
+chair, ottoman, side and console tables, nightstand, chest of drawers, dining
+chair, bar stool, office desk and shelving, television, hob, microwave, AC
+condenser, ceiling fan, and the whole lighting layer (chandelier, caged
+pendant, flush ceiling lamp, desk lamp, wall sconce) plus planter, picture
+frame, floor mirror, cushions and a brass diya.
+
+`potted_plant_01` was fetched and dropped: 5.6 MB on its own, against 0.2-1.2 MB
+for everything else, and `potted_plant_02` was already committed.
 
 ## Preparation
 
@@ -75,3 +86,17 @@ The swap is additive and failure-tolerant:
 `pooja_mandir`, `bed_single`, `dining_round` and the café-specific pieces still
 render procedurally. No CC0 model in the set is an honest match; a wrong model
 reads worse than a clean box.
+
+The same is true of everything in the `bath` category, the kitchen sink and
+chimney, the washing machine, the geyser, the split AC indoor unit and the
+curtains. Poly Haven has no sanitaryware and no Indian kitchen fittings at all,
+so those are modelled in `furnitureCatalog.ts` and that is all they will ever
+be. It is the largest remaining gap in the library.
+
+## Mounting height
+
+Catalog items carry an optional `mountHeightFt`. Ceiling and wall pieces — fan,
+chandelier, pendant, flush lamp, sconce, wall TV, split AC, geyser, chimney,
+hob, microwave, cushions — are modelled from their own base upward like
+everything else, so without it they would be placed on the floor. The placement
+ghost previews at the same height.

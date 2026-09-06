@@ -16,6 +16,8 @@ import { Facing, PlotDims } from "@/lib/plot";
 import { DEFAULT_PROGRAM, PROGRAMS, ProgramKey } from "@/lib/programs";
 import { RoomName } from "@/lib/rooms";
 import { RoomOpening } from "@/lib/solve";
+import { RoomEdgeCurves } from "@/lib/wallCurves";
+import { WallEdits } from "@/lib/wallEdits";
 import { WindowConfig } from "@/lib/windowCatalog";
 
 export const PROJECT_STORAGE_KEY = "vastu_builder_project_data_v1";
@@ -36,6 +38,17 @@ export interface SavedProject {
   customDims: Record<string, CustomDim>;
   customOpenings: Record<string, RoomOpening[]>;
   customWallThickness: Record<string, number>;
+  /** Abutting road width in metres — what the bye-law keys setbacks and height off. Absent in a
+   *  save made when the setbacks were still hardcoded. */
+  roadWidthM?: number;
+  /** Storeys packed, ground included. Absent in a save from when only the ground was solved. */
+  floorsCount?: number;
+  /** False when the user has overridden the derived setbacks with the old fixed ones. */
+  autoSetback?: boolean;
+  /** Bowed wall faces, per room edge. Absent in a save made before walls could curve. */
+  roomEdgeCurves?: RoomEdgeCurves;
+  /** Per-wall thickness, height and cutouts. Absent in a save made before walls could be cut. */
+  wallEdits?: WallEdits;
   customWalls: CustomDrawnWall[];
   customRoomZones: CustomRoomZone[];
   customObjects: PlacedCustomObject[];

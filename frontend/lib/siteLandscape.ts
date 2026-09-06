@@ -29,6 +29,42 @@ export interface SiteLandscapeArgs {
   envMaxZ: number;
   /** Which boundary the house fronts. The driveway crosses the planting here. */
   entranceEdge: CardinalEdge;
+  /**
+   * The plot outline in feet, when it is not a rectangle — a splayed corner plot, a trapezoid on
+   * a bend. Omitted means the rectangle `widthFt` x `depthFt`, which is what every plot was
+   * before lib/plot.ts could describe anything else.
+   */
+  outlineFt?: Array<[number, number]>;
+}
+
+/** The outline the plot actually has: the one supplied, or the rectangle. */
+function outlineOf(a: SiteLandscapeArgs): Array<[number, number]> {
+  if (a.outlineFt && a.outlineFt.length >= 3) return a.outlineFt;
+  return [
+    [0, 0],
+    [a.widthFt, 0],
+    [a.widthFt, a.depthFt],
+    [0, a.depthFt],
+  ];
+}
+
+/**
+ * The outline pulled `inset` feet toward its own centroid.
+ *
+ * A true inward offset of a polygon is a mitre-and-trim job. This is the cheap version, and for
+ * a convex plot with a bed a few feet wide the difference is smaller than one shrub. It is a
+ * planting bed, not a boundary line — the outline itself is drawn from the real polygon.
+ */
+function pulledIn(outline: Array<[number, number]>, inset: number): Array<[number, number]> {
+  const cx = outline.reduce((t, p) => t + p[0], 0) / outline.length;
+  const cz = outline.reduce((t, p) => t + p[1], 0) / outline.length;
+  return outline.map(([x, z]) => {
+    const dx = cx - x;
+    const dz = cz - z;
+    const len = Math.hypot(dx, dz) || 1;
+    const t = Math.min(inset / len, 0.45);
+    return [x + dx * t, z + dz * t] as [number, number];
+  });
 }
 
 interface Spot {
@@ -59,12 +95,19 @@ function bedSpots(
     return seed / 0x7fffffff;
   };
 
-  const runs: Array<{ from: Spot; to: Spot; edge: CardinalEdge }> = [
-    { from: { x: mid, z: mid }, to: { x: w - mid, z: mid }, edge: "N" },
-    { from: { x: w - mid, z: mid }, to: { x: w - mid, z: d - mid }, edge: "E" },
-    { from: { x: w - mid, z: d - mid }, to: { x: mid, z: d - mid }, edge: "S" },
-    { from: { x: mid, z: d - mid }, to: { x: mid, z: mid }, edge: "W" },
-  ];
+  // The bed centreline, one run per outline edge. On a rectangle these are the same four runs
+  // this always walked; on a splayed plot the extra run is the splay itself.
+  const centre = pulledIn(outlineOf(a), mid);
+  const runs: Array<{ from: Spot; to: Spot; edge: CardinalEdge }> = centre.map((p, i) => {
+    const q = centre[(i + 1) % centre.length];
+    const dx = q[0] - p[0];
+    const dz = q[1] - p[1];
+    // Which boundary this run belongs to, from the direction it faces outward. Only the
+    // entrance edge matters, and only so the driveway crossing stays clear of planting.
+    const edge: CardinalEdge =
+      Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? "N" : "S") : dz > 0 ? "E" : "W";
+    return { from: { x: p[0], z: p[1] }, to: { x: q[0], z: q[1] }, edge };
+  });
 
   for (const run of runs) {
     const dx = run.to.x - run.from.x;
@@ -115,21 +158,15 @@ export function addSiteLandscape(group: THREE.Group, a: SiteLandscapeArgs): bool
   const driveMin = (entranceRun - driveW) / 2;
   const driveMax = driveMin + driveW;
 
-  // 1. Planting bed: the plot rectangle with the inner lawn cut out of it.
-  const outer = new THREE.Shape([
-    new THREE.Vector2(0, 0),
-    new THREE.Vector2(w, 0),
-    new THREE.Vector2(w, d),
-    new THREE.Vector2(0, d),
-  ]);
-  outer.holes.push(
-    new THREE.Path([
-      new THREE.Vector2(bed, bed),
-      new THREE.Vector2(bed, d - bed),
-      new THREE.Vector2(w - bed, d - bed),
-      new THREE.Vector2(w - bed, bed),
-    ])
-  );
+  // 1. Planting bed: the plot outline with the inner lawn cut out of it.
+  const outline = outlineOf(a);
+  const inner = pulledIn(outline, bed);
+  // Built in (x, -z): the -90 degree rotation below sends the shape's y to -z, so negating here
+  // is what puts the bed back on the plot. A rectangle survives the mirror unchanged and used to
+  // hide this; a splayed plot does not.
+  const outer = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, -z)));
+  // The hole runs the other way round the ring, which is what Shape wants of a hole.
+  outer.holes.push(new THREE.Path([...inner].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
 
   const bedMesh = new THREE.Mesh(
     new THREE.ShapeGeometry(outer),

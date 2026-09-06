@@ -23,7 +23,12 @@ export type RoomName =
   | "pantry"
   | "wash"
   | "washroom"
-  | "staff";
+  | "staff"
+  // Placed by the solver, never by the user: the stair core that ties the storeys of a G+1
+  // together. Deliberately absent from ROOM_NAMES below, so it appears in no mix and no counter
+  // — "staircase as a room kind" stays rejected (notes/decisions/rejected-approaches.md); this
+  // is structure the plan cannot be without once there is a floor above.
+  | "stairs";
 
 // One vocabulary across every building type; lib/programs.ts decides which subset a given
 // programme offers. Keeping it one union means every Record below stays total and the twenty-odd
@@ -68,6 +73,7 @@ export const ROOM_LABELS: Record<RoomName, string> = {
   wash: "Wash-up",
   washroom: "Washroom",
   staff: "Staff",
+  stairs: "Staircase",
 };
 
 // Distinct hues so adjacent rooms read as separate volumes in the 3D model.
@@ -91,6 +97,7 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   wash: 0x6a93a8,
   washroom: 0x8a6fc4,
   staff: 0x6f7f6a,
+  stairs: 0x8b8177,
 };
 
 // Rooms people spend time in. Drives the interior detailing.
@@ -136,7 +143,14 @@ export interface AdjacentRoomEdgeMatch {
  * Finds if another room is physically adjacent and touching along a specific wall edge.
  */
 export function findAdjacentRoomEdge(
-  rooms: { x_in: number; y_in: number; w_in: number; d_in: number; name?: string }[],
+  rooms: {
+    x_in: number;
+    y_in: number;
+    w_in: number;
+    d_in: number;
+    name?: string;
+    floor?: number;
+  }[],
   roomIndex: number,
   edge: "N" | "S" | "E" | "W"
 ): AdjacentRoomEdgeMatch | null {
@@ -146,6 +160,11 @@ export function findAdjacentRoomEdge(
   for (let j = 0; j < rooms.length; j++) {
     if (j === roomIndex) continue;
     const r2 = rooms[j];
+    // Rooms on different storeys are not neighbours, however neatly their edges line up in plan.
+    // Without this a first-floor bedroom sitting over a ground-floor hall counted as sharing a
+    // wall with it: the shared run was built once, by the lower room, and the upper room was
+    // left with a hole where its wall should be.
+    if ((r1.floor ?? 0) !== (r2.floor ?? 0)) continue;
 
     if (edge === "E") {
       // r1 East edge (x = x1 + w1) touches r2 West edge (x = x2)

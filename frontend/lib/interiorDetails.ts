@@ -7,6 +7,22 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { addCafeInteriorDetails, CAFE_SPACES } from "./cafeInteriors";
 import { RoomName, ROOM_LABELS } from "./rooms";
 
+/**
+ * A real piece of furniture, trimmed only if the room genuinely cannot take it.
+ *
+ * Every size in this file used to be a fraction of the room — `rw * 0.48` for a bed, `rw * 0.65`
+ * for a dining table — capped at a maximum. That is why no room ever felt any less full than any
+ * other: the furniture grew with the room, so the ratio of floor to stuff was fixed by
+ * construction and a 14 ft bedroom was as tight as a 10 ft one. A bed is 6 ft 6 long wherever it
+ * is put; what changes with the room is how much floor is left around it.
+ *
+ * `clearanceFt` is the walkway the room must keep, so the piece still shrinks in a room that
+ * cannot fit it at full size rather than filling the space wall to wall.
+ */
+export function fitSize(realFt: number, roomExtentFt: number, clearanceFt: number): number {
+  return Math.max(1.2, Math.min(realFt, roomExtentFt - clearanceFt));
+}
+
 export function createRoundedBox(
   w: number,
   h: number,
@@ -687,8 +703,10 @@ export function addRoomInteriorDetails(
     else headEdge = "S";
 
     const bedGroup = new THREE.Group();
-    const bedW = Math.min(rw * 0.48, 6.2);
-    const bedL = Math.min(rd * 0.52, 6.6);
+    // Indian queen is 60 x 78 in, king 72 x 78. A master gets the king; every other bedroom
+    // gets the queen, and neither grows just because the room did.
+    const bedW = fitSize(rw * rd >= 150 ? 6.0 : 5.0, rw, 3.4);
+    const bedL = fitSize(6.5, rd, 3.0);
 
     const frame = new THREE.Mesh(createRoundedBox(bedW, 0.9, bedL, 0.05, 4), woodMat);
     frame.position.y = 0.45;
@@ -718,7 +736,11 @@ export function addRoomInteriorDetails(
     pillow2.position.set(bedW * 0.24, 1.5, -bedL / 2 + 1.2);
     bedGroup.add(pillow2);
 
-    for (const side of [-1, 1]) {
+    // A nightstand each side needs 5 ft of wall beyond the bed. Below that the room gets one,
+    // and below that it gets none — an NBC-minimum 10 x 10 bedroom does not have room for two
+    // bedside tables and the walkway they stand in.
+    const standSides = rw >= bedW + 5.2 ? [-1, 1] : rw >= bedW + 3.0 ? [1] : [];
+    for (const side of standSides) {
       const stand = new THREE.Mesh(createRoundedBox(1.6, 1.4, 1.4, 0.08, 4), woodMat);
       stand.position.set(side * (bedW / 2 + 1.1), 0.7, -bedL / 2 + 0.9);
       stand.castShadow = true;
@@ -772,7 +794,8 @@ export function addRoomInteriorDetails(
       closetEdge = headEdge === "N" || headEdge === "S" ? "W" : "S";
     }
 
-    const closetW = Math.min(rw * 0.36, 5.8);
+    // A 3-door wardrobe is about 4 ft across, not a third of whatever room it lands in.
+    const closetW = fitSize(4.0, rw, 2.5);
     const closet = new THREE.Mesh(createRoundedBox(closetW, 7.8, 2.0, 0.08, 4), closetMat);
 
     if (closetEdge === "E") {
@@ -788,12 +811,24 @@ export function addRoomInteriorDetails(
     }
     closet.castShadow = true;
 
+    // The placement belongs on the group, not on the meshes inside it. mountFurnitureModel()
+    // swaps a host's children for the real model placed at the host's own origin, so a host
+    // left at (0,0,0) with world-placed children drops its wardrobe on the plot corner,
+    // outside the house.
+    const wardrobeX = closet.position.x;
+    const wardrobeZ = closet.position.z;
+    const wardrobeYaw = closet.rotation.y;
+    closet.position.set(0, closet.position.y, 0);
+    closet.rotation.y = 0;
+
     const handle = new THREE.Mesh(createRoundedBox(0.06, 1.6, 0.08, 0.02, 3), handleMat);
-    handle.position.set(closet.position.x, 3.8, closet.position.z + 1.05);
+    handle.position.set(0, 3.8, 1.05);
 
     const wardrobeId = `builtin_${roomIndex}_wardrobe`;
     if (!deletedIds?.has(wardrobeId)) {
       const wardrobeGroup = new THREE.Group();
+      wardrobeGroup.position.set(wardrobeX, 0, wardrobeZ);
+      wardrobeGroup.rotation.y = wardrobeYaw;
       wardrobeGroup.add(closet, handle);
       wardrobeGroup.userData = {
         isFurniture: true,
@@ -801,10 +836,10 @@ export function addRoomInteriorDetails(
         id: wardrobeId,
         name: "3-Door Wardrobe",
         type: "wardrobe",
-        x: closet.position.x,
+        x: wardrobeX,
         y: 0,
-        z: closet.position.z,
-        rotationY: closet.rotation.y,
+        z: wardrobeZ,
+        rotationY: wardrobeYaw,
       };
       group.add(wardrobeGroup);
     }
@@ -818,7 +853,9 @@ export function addRoomInteriorDetails(
     }
 
     const deskId = `builtin_${roomIndex}_desk`;
-    if (!deletedIds?.has(deskId) && !doorEdges.has(deskEdge) && rw >= 8 && rd >= 8) {
+    // A bed, a wardrobe and a desk only coexist in a bedroom with floor to spare. At the old
+    // 8 x 8 gate a 10 x 10 room got all three and no walkway.
+    if (!deletedIds?.has(deskId) && !doorEdges.has(deskEdge) && rw >= 11 && rd >= 11) {
       const deskGroup = new THREE.Group();
       const deskMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
       const chairMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
@@ -1218,16 +1255,17 @@ export function addRoomInteriorDetails(
 
       const isEWTV = tvEdge === "N" || tvEdge === "S";
 
-      const rugW = isEWTV ? Math.min(rw * 0.55, 10.0) : Math.min(rw * 0.48, 8.0);
-      const rugD = isEWTV ? Math.min(rd * 0.48, 8.0) : Math.min(rd * 0.55, 10.0);
+      // 8 x 5.5 ft rug — a large room gets more bare floor around it, not a bigger rug.
+      const rugW = fitSize(isEWTV ? 8.0 : 5.5, rw, 2.5);
+      const rugD = fitSize(isEWTV ? 5.5 : 8.0, rd, 2.5);
       const rug = new THREE.Mesh(new THREE.PlaneGeometry(rugW, rugD), rugMat);
       rug.rotation.x = -Math.PI / 2;
       rug.position.set(cx, 0.05, cz);
       rug.receiveShadow = true;
       group.add(rug);
 
-      const slatW = isEWTV ? Math.min(rw * 0.55, 6.0) : 0.15;
-      const slatD = isEWTV ? 0.15 : Math.min(rd * 0.55, 6.0);
+      const slatW = isEWTV ? fitSize(6.0, rw, 2.5) : 0.15;
+      const slatD = isEWTV ? 0.15 : fitSize(6.0, rd, 2.5);
       const slatPanel = new THREE.Mesh(new THREE.BoxGeometry(slatW, 7.2, slatD), slatMat);
 
       let tvWallX = cx;
@@ -1267,8 +1305,8 @@ export function addRoomInteriorDetails(
         screenMesh.position.set(tvWallX - 0.21, 4.5, tvWallZ);
       }
 
-      const conW = isEWTV ? Math.min(rw * 0.48, 5.8) : 1.2;
-      const conD = isEWTV ? 1.2 : Math.min(rd * 0.48, 5.8);
+      const conW = isEWTV ? fitSize(5.0, rw, 2.5) : 1.2;
+      const conD = isEWTV ? 1.2 : fitSize(5.0, rd, 2.5);
       const mediaConsole = new THREE.Mesh(createRoundedBox(conW, 0.9, conD, 0.08, 4), consoleMat);
 
       let conX = tvWallX;
@@ -1300,7 +1338,8 @@ export function addRoomInteriorDetails(
       }
 
       const sofaGroup = new THREE.Group();
-      const sofaMainW = Math.min(isEWTV ? rw * 0.44 : rd * 0.44, 7.2);
+      // A three-seater is 7 ft. It was up to 7.2 and down to nothing depending on the room.
+      const sofaMainW = fitSize(7.0, isEWTV ? rw : rd, 3.0);
       const sofaMain = new THREE.Mesh(createRoundedBox(sofaMainW, 1.4, 2.2, 0.16, 5), sofaMat);
       sofaMain.position.set(0, 0.7, 0);
       sofaMain.castShadow = true;
@@ -1357,14 +1396,17 @@ export function addRoomInteriorDetails(
       }
 
       const coffeeTop = new THREE.Mesh(createRoundedBox(isEWTV ? 2.8 : 1.8, 0.08, isEWTV ? 1.8 : 2.8, 0.03, 3), glassTableMat);
-      coffeeTop.position.set(cx, 1.1, cz);
+      coffeeTop.position.set(0, 1.1, 0);
 
       const coffeeBase = new THREE.Mesh(createRoundedBox(isEWTV ? 2.6 : 1.6, 1.0, isEWTV ? 1.6 : 2.6, 0.06, 4), brassMat);
-      coffeeBase.position.set(cx, 0.55, cz);
+      coffeeBase.position.set(0, 0.55, 0);
 
       const coffeeId = `builtin_${roomIndex}_coffee_table`;
       if (!deletedIds?.has(coffeeId)) {
+        // Same reason as the wardrobe above: the group carries the placement so the real-model
+        // swap has an origin to mount on.
         const coffeeGroup = new THREE.Group();
+        coffeeGroup.position.set(cx, 0, cz);
         coffeeGroup.add(coffeeTop, coffeeBase);
         coffeeGroup.userData = {
           isFurniture: true,
@@ -1392,8 +1434,9 @@ export function addRoomInteriorDetails(
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf6, roughness: 0.7 });
         const brassLegMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
 
-        const tableW = Math.min(rw * 0.65, 7.2);
-        const tableD = Math.min(rd * 0.48, 3.6);
+        // Six-seater: 6 x 3 ft, with 3 ft all round to pull a chair out.
+        const tableW = fitSize(6.0, rw, 3.5);
+        const tableD = fitSize(3.0, rd, 3.5);
 
         // Oval Marble Table Top
         const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.18, tableD, 0.1, 4), tableMat);
@@ -1436,8 +1479,9 @@ export function addRoomInteriorDetails(
         const legMat = new THREE.MeshStandardMaterial({ color: 0xcfd4dc, metalness: 0.9, roughness: 0.2 });
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
 
-        const tableW = Math.min(rw * 0.55, 5.8);
-        const tableD = Math.min(rd * 0.45, 3.2);
+        // Four-seater: 4.5 x 2.75 ft.
+        const tableW = fitSize(4.5, rw, 3.5);
+        const tableD = fitSize(2.75, rd, 3.5);
 
         const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.15, tableD, 0.06, 4), tableMat);
         tableTop.position.set(0, 2.6, 0);
@@ -1565,7 +1609,8 @@ export function addRoomInteriorDetails(
 
     // Deep Soaking Bathtub
     const tubMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
-    const tub = new THREE.Mesh(createRoundedBox(Math.min(4.8, rw * 0.5), 1.8, Math.min(2.4, rd * 0.4), 0.22, 5), tubMat);
+    // A standard soaking tub is 5 ft 3 x 2 ft 6.
+    const tub = new THREE.Mesh(createRoundedBox(fitSize(5.25, rw, 2.0), 1.8, fitSize(2.5, rd, 2.0), 0.22, 5), tubMat);
     tub.position.set(rx + 2.8, 0.9, rz + rd - 1.6);
     tub.castShadow = true;
     group.add(tub);
@@ -1604,11 +1649,11 @@ export function addRoomInteriorDetails(
       roughness: 0.1,
     });
 
-    const altarBase = new THREE.Mesh(createRoundedBox(Math.min(rw * 0.65, 3.8), 1.2, Math.min(rd * 0.48, 2.4), 0.08, 4), mandirMat);
+    const altarBase = new THREE.Mesh(createRoundedBox(fitSize(2.8, rw, 1.6), 1.2, fitSize(1.6, rd, 1.4), 0.08, 4), mandirMat);
     altarBase.position.set(cx, 0.6, rz + 1.2);
     altarBase.castShadow = true;
 
-    const altarTier = new THREE.Mesh(createRoundedBox(Math.min(rw * 0.45, 2.8), 0.8, Math.min(rd * 0.35, 1.8), 0.06, 4), mandirMat);
+    const altarTier = new THREE.Mesh(createRoundedBox(fitSize(2.0, rw, 2.4), 0.8, fitSize(1.2, rd, 1.8), 0.06, 4), mandirMat);
     altarTier.position.set(cx, 1.6, rz + 1.2);
 
     const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);

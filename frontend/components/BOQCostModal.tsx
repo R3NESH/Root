@@ -9,6 +9,7 @@ import {
   printBoqReport,
   BoqQualityTier,
 } from "@/lib/boqEngine";
+import { extraWallLengthFt, RoomEdgeCurves } from "@/lib/wallCurves";
 import styles from "./BOQCostModal.module.css";
 
 interface BOQCostModalProps {
@@ -17,6 +18,8 @@ interface BOQCostModalProps {
   plot: PlotDims;
   facing: Facing;
   rooms: SolvedRoom[];
+  /** Bowed wall faces. A curve is longer than the run it replaces and has to be costed as such. */
+  roomEdgeCurves?: RoomEdgeCurves;
 }
 
 export default function BOQCostModal({
@@ -25,13 +28,22 @@ export default function BOQCostModal({
   plot,
   facing,
   rooms,
+  roomEdgeCurves,
 }: BOQCostModalProps) {
   const [tier, setTier] = useState<BoqQualityTier>("standard");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const boq = useMemo(() => {
-    return calculateBoq(plot, facing, rooms, tier);
-  }, [plot, facing, rooms, tier]);
+    const curveExtraFt = extraWallLengthFt(
+      roomEdgeCurves,
+      rooms.map((r, i) => ({
+        id: `${r.name}_${rooms.slice(0, i).filter((o) => o.name === r.name).length}`,
+        widthFt: r.w_in / 12,
+        depthFt: r.d_in / 12,
+      }))
+    );
+    return calculateBoq(plot, facing, rooms, tier, curveExtraFt);
+  }, [plot, facing, rooms, tier, roomEdgeCurves]);
 
   const filteredItems = useMemo(() => {
     if (selectedCategory === "all") return boq.items;

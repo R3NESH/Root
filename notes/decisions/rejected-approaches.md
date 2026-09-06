@@ -18,6 +18,12 @@ date: 2026-08-23
 | `open_sided` rooms (roofed but unwalled) | the only two were the porch and sit-out; with those gone the concept had no users, so it went rather than sit unreachable | [[realism-gaps]] |
 | Client-side fallback when the API returns no `openings` | a fallback *is* the duplication that was just deleted; fail loudly instead | [[duplicated-geometry]] |
 
+> [!note] On the staircase
+> Still rejected **as a room kind**: it is in no catalog, no mix and no counter. What multi-storey
+> added on 2026-09-06 is a solver-placed stair *core* — one rectangle repeated on each floor and
+> pinned across them, which exists only because a storey above the ground has to be reachable.
+> The user never adds or removes it. See [[bye-law-and-storeys]].
+
 > [!note] On the sun
 > It was not rejected for being wrong — the solar model was correct and cheap, and it made plot
 > facing visible for the first time. It was rejected because it was not asked for. If daylight

@@ -63,6 +63,33 @@ export const FURNITURE_MODELS: Record<string, ModelPart[]> = {
   ],
 
   dining_6seater: [{ url: p("dining_table") }, ...DINING_CHAIRS],
+
+  // Fit-out set. One model each, no arrangement: these are placed individually.
+  accent_chair: [{ url: p("modern_arm_chair_01") }],
+  ottoman: [{ url: p("Ottoman_01") }],
+  side_table: [{ url: p("side_table_01") }],
+  console_table: [{ url: p("ClassicConsole_01") }],
+  nightstand: [{ url: p("ClassicNightstand_01") }],
+  chest_of_drawers: [{ url: p("vintage_wooden_drawer_01") }],
+  dining_chair: [{ url: p("dining_chair_02") }],
+  bar_stool: [{ url: p("bar_chair_round_01") }],
+  office_desk: [{ url: p("metal_office_desk") }],
+  office_shelving: [{ url: p("steel_frame_shelves_01") }],
+  television: [{ url: p("Television_01") }],
+  cooktop: [{ url: p("electric_stove") }],
+  microwave: [{ url: p("vintage_microwave") }],
+  ac_outdoor_unit: [{ url: p("exterior_aircon_unit") }],
+  ceiling_fan_unit: [{ url: p("ceiling_fan") }],
+  chandelier: [{ url: p("Chandelier_02") }],
+  pendant_light: [{ url: p("caged_hanging_light") }],
+  ceiling_lamp: [{ url: p("modern_ceiling_lamp_01") }],
+  desk_lamp: [{ url: p("desk_lamp_arm_01") }],
+  wall_sconce: [{ url: p("industrial_wall_sconce") }],
+  planter_box: [{ url: p("planter_box_01") }],
+  wall_art_frame: [{ url: p("hanging_picture_frame_01") }],
+  floor_mirror: [{ url: p("ornate_mirror_01") }],
+  throw_pillows: [{ url: p("throw_pillows_01") }],
+  diya_lantern: [{ url: p("brass_diya_lantern") }],
   dining_table: [{ url: p("dining_table") }, ...DINING_CHAIRS],
 
   // Lounge grouping: sofa at the back, low round table in front, two chairs turned inward.

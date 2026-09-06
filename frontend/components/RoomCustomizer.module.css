@@ -173,6 +173,32 @@
   letter-spacing: 0.02em;
 }
 
+.curveRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.curveRowLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8e8a82;
+  letter-spacing: 0.04em;
+}
+
+.curveStepper {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.curveStepper .stepBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .rotateRow {
   display: flex;
   gap: 6px;

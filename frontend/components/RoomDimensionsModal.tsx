@@ -4,6 +4,7 @@ import React from "react";
 import { RoomName } from "@/lib/rooms";
 import { SolvedRoom } from "@/lib/solve";
 import RoomCustomizer, { CustomDim } from "./RoomCustomizer";
+import { RoomEdgeCurves } from "@/lib/wallCurves";
 import styles from "./RoomDimensionsModal.module.css";
 
 interface RoomDimensionsModalProps {
@@ -13,6 +14,8 @@ interface RoomDimensionsModalProps {
   rooms: SolvedRoom[];
   customDims: Record<string, CustomDim>;
   onChangeCustomDims: (next: Record<string, CustomDim>) => void;
+  roomEdgeCurves?: RoomEdgeCurves;
+  onChangeRoomEdgeCurves?: (next: RoomEdgeCurves) => void;
 }
 
 export default function RoomDimensionsModal({
@@ -22,6 +25,8 @@ export default function RoomDimensionsModal({
   rooms,
   customDims,
   onChangeCustomDims,
+  roomEdgeCurves,
+  onChangeRoomEdgeCurves,
 }: RoomDimensionsModalProps) {
   if (!isOpen) return null;
 
@@ -51,6 +56,8 @@ export default function RoomDimensionsModal({
             rooms={rooms}
             customDims={customDims}
             onChangeCustomDims={onChangeCustomDims}
+            roomEdgeCurves={roomEdgeCurves}
+            onChangeRoomEdgeCurves={onChangeRoomEdgeCurves}
           />
         </div>
 

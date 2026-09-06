@@ -32,6 +32,9 @@ class Room:
     habitable: bool = True
     wet: bool = False
     max_aspect_x10: int = 18  # 1.8:1
+    # Which storey this room sits on. Zero for every room in a single-storey house, which is
+    # what [[single-storey-first]] promised the field would cost: one integer.
+    floor: int = 0
 
 
 def ft(feet: float) -> int:

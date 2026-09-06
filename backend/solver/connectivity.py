@@ -20,6 +20,8 @@ sharing a vertical edge, `overlap >= DOOR` is exactly the pair of linear constra
 `a.y + DOOR <= b.ye` and `b.y + DOOR <= a.ye`, each posted under `only_enforce_if`.
 """
 
+from collections.abc import Sequence
+
 from ortools.sat.python import cp_model
 
 from programs import RESIDENTIAL, Program, resolve_entrance_edges, resolve_rules
@@ -98,8 +100,17 @@ def _may_be_parent(child, parent, forbidden, rules: dict[str, QuadrantRule]) -> 
 
 
 def hub_index(rooms, program: Program = RESIDENTIAL) -> int:
-    """Index of the circulation hub: the programme's hub kind, then its fallbacks, then room 0."""
-    for kind in (program.hub, *program.hub_fallbacks):
+    """Index of the circulation hub: the programme's hub kind, then its fallbacks, then the
+    stair core, then room 0.
+
+    The stair rung matters on an upper floor. There is no hall up there, and without it the tree
+    roots on whatever the programme happened to list first — which put the bedrooms of a G+1
+    opening off the bathroom. A floor with no hall is organised around its landing.
+    """
+    # The stair core outranks the generic fallbacks: on a floor with no hall, the landing is the
+    # circulation, and a fallback would otherwise make a bedroom the root and hang the other
+    # bedroom off the bathroom.
+    for kind in (program.hub, "stairs", *program.hub_fallbacks):
         for i, r in enumerate(rooms):
             if r.name == kind:
                 return i
@@ -144,7 +155,11 @@ def assign_parents(
             return tuple(k for k in prefs.get(rooms[i].name, (program.hub,)) if k != program.ensuite[1]) + (
                 program.ensuite[1],
             )
-        return prefs.get(rooms[i].name, (program.hub,))
+        # The landing is everyone's last preference before the loop starts attaching rooms to
+        # whatever happens to be adjacent. Upstairs there is no hall, and without this a bedroom
+        # ends up opening off the bathroom.
+        preferred = prefs.get(rooms[i].name, (program.hub,))
+        return preferred if "stairs" in preferred else preferred + ("stairs",)
 
     attached = {hub}
     remaining = [i for i in range(len(rooms)) if i != hub]
@@ -560,14 +575,27 @@ def add_entrance(
     return None
 
 
-def reachable_count(rooms, openings: list[list[dict]], start: int = 0) -> int:
-    """Flood-fill the door graph. Used by tests to assert the house is actually walkable."""
+def reachable_count(
+    rooms, openings: list[list[dict]], start: int = 0, links: Sequence[Sequence[int]] = ()
+) -> int:
+    """Flood-fill the door graph. Used by tests to assert the house is actually walkable.
+
+    `links` joins rooms that connect by something that is not a door. There is one such thing:
+    the stair core, whose copies on consecutive floors are the same staircase. Without it a G+1
+    reads as half a house unreachable, which is exactly the false alarm
+    notes/solver/rooms-do-not-form-a-house.md exists to prevent — and it would be crying wolf.
+    """
     adj: dict[int, set[int]] = {i: set() for i in range(len(rooms))}
     for i, ops in enumerate(openings):
         for o in ops:
             if o["to_room"] is not None:
                 adj[i].add(o["to_room"])
                 adj[o["to_room"]].add(i)
+    for group in links:
+        for a in group:
+            for b in group:
+                if a != b:
+                    adj[a].add(b)
     seen = {start}
     stack = [start]
     while stack:

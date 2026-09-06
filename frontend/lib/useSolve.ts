@@ -20,6 +20,10 @@ interface UseSolveArgs {
   setback: Setback;
   /** Which building programme to pack. Omitted means the residence. */
   program?: ProgramKey;
+  /** Corner splays in inches, clockwise from north-west. Undefined on a rectangular plot. */
+  cornerCutsIn?: [number, number, number, number];
+  /** Storeys to pack, ground included. */
+  floors?: number;
 }
 
 function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
@@ -27,7 +31,7 @@ function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
   return r.id || `${r.name}_${index}`;
 }
 
-export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program }: UseSolveArgs) {
+export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program, cornerCutsIn, floors }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
   // Walls as objects and their bill of quantities. Absent from an older backend and from the
@@ -43,6 +47,11 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
 
   // Persistent instance-level position map: roomId -> { x_in, y_in } (envelope relative)
   const savedPositionsRef = useRef<Map<string, { x_in: number; y_in: number }>>(new Map());
+
+  // Bumped when the position map is replaced from outside — an undo, a redo, a blueprint load.
+  // The map is a ref, so nothing else would tell the solve effect that the layout it should be
+  // packing to has changed underneath it.
+  const [positionRevision, setPositionRevision] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,6 +77,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
           {
             plotWIn,
             plotDIn,
+            cornerCutsIn,
+            floors,
             facing,
             rooms: roomList,
             setback,
@@ -107,7 +118,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
       clearTimeout(timer);
       controller.abort();
     };
-  }, [plotWIn, plotDIn, facing, roomList, setback, program]);
+  }, [plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, program, positionRevision]);
 
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(
@@ -153,6 +164,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         const res = await requestSolve({
           plotWIn,
           plotDIn,
+          cornerCutsIn,
+          floors,
           facing,
           rooms: roomList,
           setback,
@@ -180,7 +193,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, facing, roomList, setback]
+    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback]
   );
 
   // Immediate optimistic room crop resizing (width, depth, and position)
@@ -242,6 +255,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         const res = await requestSolve({
           plotWIn,
           plotDIn,
+          cornerCutsIn,
+          floors,
           facing,
           rooms: nextRoomList,
           setback,
@@ -269,7 +284,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, facing, roomList, setback]
+    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback]
   );
 
   const resetPositions = useCallback(() => {
@@ -286,5 +301,18 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
     });
   }, []);
 
-  return { rooms, walls, quantities, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions, setRoomPositions };
+  /**
+   * Put the layout back to a set of positions and re-solve to them. Same map as
+   * `setRoomPositions`, but this one asks for the solve rather than waiting for some other input
+   * to change — which is what undoing a room drag needs.
+   */
+  const restoreRoomPositions = useCallback(
+    (positions: Record<string, { xFt: number; yFt: number }>) => {
+      setRoomPositions(positions);
+      setPositionRevision((r) => r + 1);
+    },
+    [setRoomPositions]
+  );
+
+  return { rooms, walls, quantities, meta, pending, error, staleBackend, moveRoom, resizeRoom, resetPositions, setRoomPositions, restoreRoomPositions };
 }

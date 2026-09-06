@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { AIFurnitureParametricDef, createAIFurnitureMesh } from "./aiFurnitureEngine";
+import { buildStair, isStairType } from "./stairCatalog";
 
 function createRoundedBox(
   w: number,
@@ -14,9 +15,44 @@ function createRoundedBox(
   return new RoundedBoxGeometry(w, h, d, segments, safeRadius);
 }
 
+/**
+ * Stand-in massing for a piece whose finished geometry is a scanned model (see
+ * lib/furnitureModels.ts): a proportioned body, optionally on legs. It is what shows for the
+ * moment before the model arrives, and for good if the load fails, so it has to read as the right
+ * object at a glance without pretending to be it.
+ */
+function massingPiece(
+  root: THREE.Group,
+  w: number,
+  h: number,
+  d: number,
+  body: THREE.Material,
+  legs?: { height: number; material: THREE.Material; radius?: number }
+): void {
+  const bodyH = Math.max(0.05, legs ? h - legs.height : h);
+  const shell = new THREE.Mesh(createRoundedBox(w, bodyH, d, 0.06, 3), body);
+  shell.position.y = (legs ? legs.height : 0) + bodyH / 2;
+  shell.castShadow = true;
+  root.add(shell);
+  if (!legs) return;
+  const r = legs.radius ?? 0.07;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(r, r, legs.height, 8), legs.material);
+      leg.position.set(sx * (w / 2 - r * 2.2), legs.height / 2, sz * (d / 2 - r * 2.2));
+      root.add(leg);
+    }
+  }
+}
+
 export type FurnitureCategory =
   // residence
-  | "living"| "bedroom"| "dining"| "kitchen"| "office"| "decor"| "sacred"// shared
+  | "living"| "bedroom"| "dining"| "kitchen"| "office"| "decor"| "sacred"// The fit-out half of the tool. An architect lays the rooms out; an interior designer dresses
+  // them, and dressing needs trades of its own: sanitaryware, the appliances big enough that they
+  // have to be drawn rather than assumed, the lighting layer, and soft furnishing.
+  | "bath"| "appliance"| "lighting"| "soft"// Vertical circulation. Its own trade: a stair is chosen for the shape it folds a fixed climb
+  // into, not for how it looks against a sofa.
+  | "stairs"// shared
   | "walls"// cafe. Split by where the piece lives in the service flow rather than lumped under one
   // "cafe" heading, so the left rail can offer a fit-out toolset instead of a bin.
   | "cafe_seating"| "cafe_service"| "cafe_decor"| "cafe_signage"| "cafe_boh"| "cafe_outdoor";
@@ -36,6 +72,18 @@ export interface FurnitureItemDef {
    * `tag` on OpeningItemDef. Items without one fall back to `name`.
    */
   ribbonTag?: string;
+  /**
+   * Height of the piece's origin off the floor, in feet. Ceiling and wall-mounted pieces — a
+   * chandelier, a sconce, a wall TV, a split AC — are modelled from their own base upward like
+   * everything else, so without this they land on the floor when placed.
+   */
+  mountHeightFt?: number;
+  /**
+   * True for a piece that belongs against a wall — a wall TV, a sconce, a WC, a sink run. These
+   * get the same magnetic snap the partitions get, so placing one is a click near the wall
+   * rather than a nudge-and-rotate.
+   */
+  wallMounted?: boolean;
 }
 
 export interface PlacedCustomObject {
@@ -412,8 +460,11 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
   {
     type: "staircase_spiral_curved",
     name: "Curved Spiral Helical Staircase",
-    category: "decor",
+    // Re-homed from "decor" when the stairs trade arrived: it was always a staircase, and a
+    // Stairs panel that omits the spiral while Decor keeps it is two places to look.
+    category: "stairs",
     icon: "SPR",
+    ribbonTag: "Spiral",
     dimensions: { widthFt: 6.5, depthFt: 6.5, heightFt: 10.0 },
     description: "Architectural curved spiral staircase with central steel pillar, teakwood steps, and curved glass handrail.",
     defaultColor: 0x78350f,
@@ -724,6 +775,400 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     description: "Hooped stand by the frontage. Cheap footfall, and it keeps bikes off the shopfront glass.",
     defaultColor: 0x1a1d21,
   },
+
+  // ---------------------------------------------------------------------------
+  // Staircases. Geometry and the code minima they hold to are in lib/stairCatalog.ts;
+  // the footprints below are what each shape needs to fold 16 risers into, which is
+  // the whole difference between them.
+  // ---------------------------------------------------------------------------
+  {
+    type: "stair_straight",
+    name: "Straight Flight",
+    category: "stairs",
+    icon: "STR",
+    ribbonTag: "Straight",
+    dimensions: { widthFt: 3.6, depthFt: 14, heightFt: 10 },
+    description:
+      "One run, no turn. Cheapest to build and the easiest to carry furniture up, at the cost of 14 ft of floor. 16 risers at 7.2 in on a 10.1 in tread.",
+    defaultColor: 0x8d6e52,
+  },
+  {
+    type: "stair_l_shaped",
+    name: "L-Shaped Quarter Turn",
+    category: "stairs",
+    icon: "LST",
+    ribbonTag: "L-Shape",
+    // 16 risers need 13.1 ft of run whatever shape they are folded into. Split evenly across two
+    // legs with a 3.6 ft landing in the corner, that is a 10.5 ft square.
+    dimensions: { widthFt: 10.5, depthFt: 10.5, heightFt: 10 },
+    description:
+      "Two flights meeting at a quarter-turn landing. Fits a corner, and the landing is a rest and a fall break the straight flight does not have.",
+    defaultColor: 0x8d6e52,
+  },
+  {
+    type: "stair_dog_leg",
+    name: "Dog-Leg Half Turn",
+    category: "stairs",
+    icon: "DOG",
+    ribbonTag: "Dog-Leg",
+    dimensions: { widthFt: 7.5, depthFt: 11, heightFt: 10 },
+    description:
+      "Two parallel flights and a half landing, turning back on itself. The Indian default, and the shape the solver's own stair core uses.",
+    defaultColor: 0x8d6e52,
+  },
+  {
+    type: "stair_winder",
+    name: "Winder Quarter Turn",
+    category: "stairs",
+    icon: "WND",
+    ribbonTag: "Winder",
+    // Three kite treads climb through the corner instead of a flat landing, which is about a
+    // foot off each leg against the L-shape.
+    dimensions: { widthFt: 9.4, depthFt: 9.8, heightFt: 10 },
+    description:
+      "Turns on three kite treads instead of a landing, which buys back about 3 ft of run. Tighter to walk: the inside of a winder tread is narrow.",
+    defaultColor: 0x8d6e52,
+  },
+  {
+    type: "stair_floating",
+    name: "Floating Cantilever",
+    category: "stairs",
+    icon: "FLT",
+    ribbonTag: "Floating",
+    dimensions: { widthFt: 3.6, depthFt: 14, heightFt: 10 },
+    wallMounted: true,
+    description:
+      "Treads cantilevered off the wall with a glass balustrade and no stringer. Needs a structural wall behind it - the loads go somewhere.",
+    defaultColor: 0x6b4a2f,
+  },
+  {
+    type: "stair_bifurcated",
+    name: "Bifurcated Split Flight",
+    category: "stairs",
+    icon: "BIF",
+    ribbonTag: "Bifurcated",
+    dimensions: { widthFt: 11, depthFt: 12, heightFt: 10 },
+    description:
+      "One wide flight to a landing, splitting into two returns. A hall-scale gesture: it wants 11 x 12 ft and a double-height space over it.",
+    defaultColor: 0x8d6e52,
+  },
+  // ---------------------------------------------------------------------------
+  // Fit-out set. Everything below is what a room needs once the architecture is
+  // settled: seating that is not a sofa, storage, sanitaryware, the appliances
+  // that occupy real floor and wall, the lighting layer, and soft furnishing.
+  // Most are backed by a scanned CC0 model in lib/furnitureModels.ts.
+  // ---------------------------------------------------------------------------
+  {
+    type: "accent_chair",
+    name: "Accent Lounge Chair",
+    category: "living",
+    icon: "CHR",
+    dimensions: { widthFt: 2.6, depthFt: 2.7, heightFt: 2.8 },
+    description: "Single upholstered lounge chair for a reading corner or a conversation pair.",
+  },
+  {
+    type: "ottoman",
+    name: "Upholstered Ottoman",
+    category: "living",
+    icon: "OTT",
+    dimensions: { widthFt: 2.2, depthFt: 2.2, heightFt: 1.4 },
+    description: "Footstool and spare seat. Pairs with the lounge chair or sits under a console.",
+  },
+  {
+    type: "side_table",
+    name: "Side Table",
+    category: "living",
+    icon: "SDT",
+    dimensions: { widthFt: 1.6, depthFt: 1.6, heightFt: 1.9 },
+    description: "Lamp-height table for beside a sofa arm or a chair.",
+  },
+  {
+    type: "console_table",
+    wallMounted: true,
+    name: "Entry Console Table",
+    category: "living",
+    icon: "CNS",
+    dimensions: { widthFt: 4.0, depthFt: 1.3, heightFt: 2.6 },
+    description: "Narrow console for a hall wall or behind a floating sofa.",
+  },
+  {
+    type: "television",
+    wallMounted: true,
+    name: "Wall-Mounted Television",
+    category: "living",
+    icon: "TVW",
+    dimensions: { widthFt: 4.1, depthFt: 0.4, heightFt: 2.4 },
+    mountHeightFt: 3.4,
+    description: "55-inch flatscreen at seated eye level. Mounts on the wall, not on the unit.",
+  },
+  {
+    type: "nightstand",
+    name: "Bedside Nightstand",
+    category: "bedroom",
+    icon: "NST",
+    dimensions: { widthFt: 1.7, depthFt: 1.5, heightFt: 2.0 },
+    description: "Two-drawer bedside table, mattress height.",
+  },
+  {
+    type: "chest_of_drawers",
+    wallMounted: true,
+    name: "Chest of Drawers",
+    category: "bedroom",
+    icon: "CHD",
+    dimensions: { widthFt: 3.4, depthFt: 1.6, heightFt: 3.0 },
+    description: "Four-drawer chest for the wall opposite the bed.",
+  },
+  {
+    type: "dining_chair",
+    name: "Dining Chair",
+    category: "dining",
+    icon: "DCH",
+    dimensions: { widthFt: 1.6, depthFt: 1.7, heightFt: 3.0 },
+    description: "Single dining chair, for making up a setting that is not six.",
+  },
+  {
+    type: "bar_stool",
+    name: "Counter Bar Stool",
+    category: "kitchen",
+    icon: "STL",
+    dimensions: { widthFt: 1.4, depthFt: 1.4, heightFt: 2.6 },
+    description: "Round-seat stool at breakfast-counter height.",
+  },
+  {
+    type: "cooktop",
+    name: "Four-Burner Hob",
+    category: "kitchen",
+    icon: "HOB",
+    dimensions: { widthFt: 2.4, depthFt: 1.9, heightFt: 0.5 },
+    mountHeightFt: 2.95,
+    description: "Drop-in hob. Sits on the counter run, under the chimney.",
+  },
+  {
+    type: "chimney_hood",
+    wallMounted: true,
+    name: "Chimney Hood",
+    category: "kitchen",
+    icon: "CHM",
+    dimensions: { widthFt: 3.0, depthFt: 1.8, heightFt: 2.4 },
+    mountHeightFt: 5.2,
+    description: "Wall chimney over the hob, ducted up to the slab.",
+  },
+  {
+    type: "microwave",
+    name: "Microwave Oven",
+    category: "kitchen",
+    icon: "MWO",
+    dimensions: { widthFt: 1.7, depthFt: 1.3, heightFt: 1.0 },
+    mountHeightFt: 2.95,
+    description: "Counter-top microwave.",
+  },
+  {
+    type: "kitchen_sink",
+    wallMounted: true,
+    name: "Double-Bowl Sink Unit",
+    category: "kitchen",
+    icon: "SNK",
+    dimensions: { widthFt: 3.6, depthFt: 2.1, heightFt: 3.0 },
+    description: "Two stainless bowls in a base unit, with a pillar tap.",
+  },
+  {
+    type: "office_desk",
+    name: "Steel Office Desk",
+    category: "office",
+    icon: "ODK",
+    dimensions: { widthFt: 4.6, depthFt: 2.3, heightFt: 2.5 },
+    description: "Flat working desk, no return. For a study or a home office.",
+  },
+  {
+    type: "office_shelving",
+    wallMounted: true,
+    name: "Steel Frame Shelving",
+    category: "office",
+    icon: "SHV",
+    dimensions: { widthFt: 3.2, depthFt: 1.3, heightFt: 5.9 },
+    description: "Open utility shelving for a store, a study or a utility room.",
+  },
+  {
+    type: "wc_toilet",
+    wallMounted: true,
+    name: "Wall-Hung WC",
+    category: "bath",
+    icon: "WC",
+    dimensions: { widthFt: 1.4, depthFt: 2.3, heightFt: 2.7 },
+    description: "WC with cistern block behind. 2 ft 3 in projection from the wall.",
+  },
+  {
+    type: "washbasin_vanity",
+    wallMounted: true,
+    name: "Washbasin & Vanity",
+    category: "bath",
+    icon: "BSN",
+    dimensions: { widthFt: 2.7, depthFt: 1.7, heightFt: 5.6 },
+    description: "Counter-top basin on a vanity, mirror over. Stone top, tall mixer.",
+  },
+  {
+    type: "shower_enclosure",
+    wallMounted: true,
+    name: "Glass Shower Enclosure",
+    category: "bath",
+    icon: "SHW",
+    dimensions: { widthFt: 3.0, depthFt: 3.0, heightFt: 6.9 },
+    description: "Corner tray with two glass panels and an overhead rain head.",
+  },
+  {
+    type: "bathtub",
+    wallMounted: true,
+    name: "Soaking Bathtub",
+    category: "bath",
+    icon: "TUB",
+    dimensions: { widthFt: 5.6, depthFt: 2.6, heightFt: 1.9 },
+    description: "Rectangular soaking tub with a deck mixer.",
+  },
+  {
+    type: "washing_machine",
+    wallMounted: true,
+    name: "Front-Load Washing Machine",
+    category: "appliance",
+    icon: "WSH",
+    dimensions: { widthFt: 2.0, depthFt: 2.1, heightFt: 2.9 },
+    description: "Front loader for the utility or the bathroom.",
+  },
+  {
+    type: "water_heater",
+    wallMounted: true,
+    name: "Storage Water Heater",
+    category: "appliance",
+    icon: "GYS",
+    dimensions: { widthFt: 1.5, depthFt: 1.5, heightFt: 1.6 },
+    mountHeightFt: 6.2,
+    description: "Wall-mounted geyser, 25 litre. Goes high, over the WC or the basin.",
+  },
+  {
+    type: "ac_indoor_unit",
+    wallMounted: true,
+    name: "Split AC Indoor Unit",
+    category: "appliance",
+    icon: "ACI",
+    dimensions: { widthFt: 3.4, depthFt: 0.9, heightFt: 1.1 },
+    mountHeightFt: 7.4,
+    description: "Hi-wall indoor unit. Sits high on a wall with no window under it.",
+  },
+  {
+    type: "ac_outdoor_unit",
+    name: "AC Condenser Unit",
+    category: "appliance",
+    icon: "ACO",
+    dimensions: { widthFt: 2.9, depthFt: 1.2, heightFt: 2.2 },
+    description: "Outdoor condenser. Belongs on the setback strip or a slab off the wall.",
+  },
+  {
+    type: "ceiling_fan_unit",
+    name: "Ceiling Fan",
+    category: "appliance",
+    icon: "FAN",
+    dimensions: { widthFt: 4.2, depthFt: 4.2, heightFt: 1.2 },
+    mountHeightFt: 8.4,
+    description: "Down-rod fan. The furnished rooms already carry one; this is for the rest.",
+  },
+  {
+    type: "chandelier",
+    name: "Chandelier",
+    category: "lighting",
+    icon: "CHN",
+    dimensions: { widthFt: 2.6, depthFt: 2.6, heightFt: 3.0 },
+    mountHeightFt: 6.6,
+    description: "Multi-arm hanging fitting for a tall hall or over a dining table.",
+  },
+  {
+    type: "pendant_light",
+    name: "Caged Pendant",
+    category: "lighting",
+    icon: "PND",
+    dimensions: { widthFt: 1.1, depthFt: 1.1, heightFt: 2.2 },
+    mountHeightFt: 7.2,
+    description: "Single pendant on a cord. Hang three in a row over an island.",
+  },
+  {
+    type: "ceiling_lamp",
+    name: "Flush Ceiling Lamp",
+    category: "lighting",
+    icon: "CLP",
+    dimensions: { widthFt: 1.6, depthFt: 1.6, heightFt: 0.9 },
+    mountHeightFt: 8.6,
+    description: "Flush fitting for a corridor, bath or utility where a pendant is in the way.",
+  },
+  {
+    type: "desk_lamp",
+    name: "Articulated Desk Lamp",
+    category: "lighting",
+    icon: "DLP",
+    dimensions: { widthFt: 1.4, depthFt: 1.4, heightFt: 1.9 },
+    mountHeightFt: 2.5,
+    description: "Task lamp for a desk or a bedside table.",
+  },
+  {
+    type: "wall_sconce",
+    wallMounted: true,
+    name: "Wall Sconce",
+    category: "lighting",
+    icon: "SCN",
+    dimensions: { widthFt: 0.9, depthFt: 0.8, heightFt: 1.4 },
+    mountHeightFt: 5.8,
+    description: "Wall light for a corridor, a stair, or either side of a bed.",
+  },
+  {
+    type: "planter_box",
+    name: "Planter Box",
+    category: "decor",
+    icon: "PLB",
+    dimensions: { widthFt: 3.2, depthFt: 1.1, heightFt: 1.3 },
+    description: "Long low planter for a balcony edge, a sill, or a divider line.",
+  },
+  {
+    type: "wall_art_frame",
+    wallMounted: true,
+    name: "Framed Wall Art",
+    category: "decor",
+    icon: "ART",
+    dimensions: { widthFt: 2.2, depthFt: 0.2, heightFt: 2.8 },
+    mountHeightFt: 4.2,
+    description: "Framed piece, hung on a 5 ft 6 in centre line.",
+  },
+  {
+    type: "floor_mirror",
+    wallMounted: true,
+    name: "Ornate Floor Mirror",
+    category: "decor",
+    icon: "MIR",
+    dimensions: { widthFt: 2.6, depthFt: 0.4, heightFt: 5.4 },
+    description: "Leaning full-length mirror. Doubles the light in a narrow room.",
+  },
+  {
+    type: "diya_lantern",
+    name: "Brass Diya Lantern",
+    category: "sacred",
+    icon: "DIY",
+    dimensions: { widthFt: 0.9, depthFt: 0.9, heightFt: 1.5 },
+    description: "Brass lamp for the mandir shelf or either side of the entrance.",
+  },
+  {
+    type: "throw_pillows",
+    name: "Throw Cushion Set",
+    category: "soft",
+    icon: "CSH",
+    dimensions: { widthFt: 1.8, depthFt: 1.4, heightFt: 0.9 },
+    mountHeightFt: 1.35,
+    description: "Cushion pair, at seat height so they land on a sofa and not on the floor.",
+  },
+  {
+    type: "curtain_panel",
+    wallMounted: true,
+    name: "Curtain Panel Pair",
+    category: "soft",
+    icon: "CRT",
+    dimensions: { widthFt: 5.0, depthFt: 0.6, heightFt: 8.0 },
+    description: "Floor-length pair on a rod. Set against a window wall, not a blank one.",
+  },
 ];
 
 // --------------------------------------------------------------------------------------
@@ -737,6 +1182,18 @@ export function createFurnitureMesh(
 ): THREE.Group {
   if (aiDef) {
     return createAIFurnitureMesh(aiDef, customColor);
+  }
+
+  // Staircases are generated from the rise and the code minima rather than modelled, so they
+  // live in their own module — lib/stairCatalog.ts.
+  if (isStairType(type)) {
+    const def = FURNITURE_CATALOG.find((i) => i.type === type);
+    return buildStair(
+      type,
+      def?.dimensions.widthFt ?? 3.6,
+      def?.dimensions.depthFt ?? 13.5,
+      customColor ?? def?.defaultColor
+    );
   }
 
   const root = new THREE.Group();
@@ -2993,6 +3450,530 @@ export function createFurnitureMesh(
           const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.5, 10), rackMat);
           leg.position.set(i * 2.0 + sx * 1.0, 0.75, 0);
           root.add(leg);
+        }
+      }
+      break;
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Fit-out set. The pieces with a scanned model behind them (lib/furnitureModels.ts) only
+    // need massing here; the ones with no CC0 equivalent - sanitaryware, the kitchen sink,
+    // the appliances, curtains - are built for real, because this is all they will ever be.
+    // ----------------------------------------------------------------------------------
+    case "accent_chair": {
+      massingPiece(root, 2.4, 1.5, 2.3, fabricMat, { height: 0.55, material: darkWoodMat });
+      const back = new THREE.Mesh(createRoundedBox(2.4, 1.5, 0.35, 0.1, 3), fabricMat);
+      back.position.set(0, 2.05, -0.95);
+      back.castShadow = true;
+      root.add(back);
+      break;
+    }
+
+    case "ottoman": {
+      massingPiece(root, 2.2, 1.4, 2.2, fabricMat, { height: 0.4, material: darkWoodMat });
+      break;
+    }
+
+    case "side_table": {
+      massingPiece(root, 1.5, 1.9, 1.5, walnutMat, { height: 1.35, material: darkWoodMat });
+      break;
+    }
+
+    case "console_table": {
+      massingPiece(root, 4.0, 2.6, 1.3, walnutMat, { height: 1.9, material: darkWoodMat });
+      break;
+    }
+
+    case "nightstand": {
+      massingPiece(root, 1.7, 2.0, 1.5, walnutMat, { height: 0.5, material: darkWoodMat });
+      break;
+    }
+
+    case "chest_of_drawers": {
+      massingPiece(root, 3.4, 3.0, 1.6, walnutMat, { height: 0.4, material: darkWoodMat });
+      for (let i = 0; i < 4; i++) {
+        const pull = new THREE.Mesh(createRoundedBox(1.0, 0.08, 0.08, 0.03, 3), brassMat);
+        pull.position.set(0, 0.85 + i * 0.6, 0.82);
+        root.add(pull);
+      }
+      break;
+    }
+
+    case "dining_chair": {
+      const seatMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.6 });
+      massingPiece(root, 1.5, 1.6, 1.5, seatMat, { height: 1.45, material: darkWoodMat, radius: 0.05 });
+      const back = new THREE.Mesh(createRoundedBox(1.5, 1.4, 0.14, 0.05, 3), seatMat);
+      back.position.set(0, 2.3, -0.68);
+      root.add(back);
+      break;
+    }
+
+    case "bar_stool": {
+      const seatMat = new THREE.MeshStandardMaterial({ color: 0x4e342e, roughness: 0.6 });
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.28, 20), seatMat);
+      seat.position.y = 2.45;
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.3, 12), chromeMat);
+      column.position.y = 1.15;
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.72, 0.1, 20), chromeMat);
+      foot.position.y = 0.05;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 20), chromeMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.75;
+      root.add(seat, column, foot, ring);
+      break;
+    }
+
+    case "office_desk": {
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.7, roughness: 0.35 });
+      const top = new THREE.Mesh(createRoundedBox(4.6, 0.16, 2.3, 0.03, 3), walnutMat);
+      top.position.y = 2.42;
+      top.castShadow = true;
+      root.add(top);
+      for (const sx of [-1, 1]) {
+        const gable = new THREE.Mesh(createRoundedBox(0.12, 2.34, 2.1, 0.03, 3), steelMat);
+        gable.position.set(sx * 2.1, 1.17, 0);
+        root.add(gable);
+      }
+      break;
+    }
+
+    case "office_shelving": {
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0x707a82, metalness: 0.75, roughness: 0.4 });
+      for (let i = 0; i < 5; i++) {
+        const shelf = new THREE.Mesh(createRoundedBox(3.2, 0.09, 1.3, 0.02, 3), steelMat);
+        shelf.position.y = 0.3 + i * 1.35;
+        shelf.castShadow = true;
+        root.add(shelf);
+      }
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const post = new THREE.Mesh(createRoundedBox(0.12, 5.9, 0.12, 0.02, 3), steelMat);
+          post.position.set(sx * 1.54, 2.95, sz * 0.59);
+          root.add(post);
+        }
+      }
+      break;
+    }
+
+    case "television": {
+      const screenMat = new THREE.MeshStandardMaterial({ color: 0x0b0f14, roughness: 0.15, metalness: 0.4 });
+      const panel = new THREE.Mesh(createRoundedBox(4.1, 2.4, 0.14, 0.03, 3), screenMat);
+      panel.position.y = 1.2;
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.9, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.08, metalness: 0.6 })
+      );
+      face.position.set(0, 1.2, 0.08);
+      root.add(panel, face);
+      break;
+    }
+
+    // ---- Sanitaryware -----------------------------------------------------------------
+    case "wc_toilet": {
+      const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
+      const cistern = new THREE.Mesh(createRoundedBox(1.35, 1.5, 0.7, 0.06, 3), ceramicMat);
+      cistern.position.set(0, 1.95, -0.78);
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.46, 1.25, 14), ceramicMat);
+      pedestal.position.set(0, 0.62, 0.1);
+      const bowl = new THREE.Mesh(createRoundedBox(1.2, 0.85, 1.5, 0.28, 5), ceramicMat);
+      bowl.position.set(0, 1.55, 0.15);
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.08, 22), ceramicMat);
+      seat.scale.z = 1.3;
+      seat.position.set(0, 2.0, 0.18);
+      const lever = new THREE.Mesh(createRoundedBox(0.3, 0.1, 0.1, 0.03, 3), chromeMat);
+      lever.position.set(0.4, 2.55, -0.78);
+      root.add(cistern, pedestal, bowl, seat, lever);
+      break;
+    }
+
+    case "washbasin_vanity": {
+      const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
+      const cabinet = new THREE.Mesh(createRoundedBox(2.7, 2.1, 1.6, 0.05, 3), walnutMat);
+      cabinet.position.y = 1.05;
+      cabinet.castShadow = true;
+      const counter = new THREE.Mesh(createRoundedBox(2.8, 0.18, 1.7, 0.03, 3), marbleMat);
+      counter.position.y = 2.2;
+      const bowl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.62, 22, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        ceramicMat
+      );
+      bowl.scale.y = 0.7;
+      bowl.position.set(0, 2.72, 0.02);
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.0, 12), chromeMat);
+      column.position.set(0, 2.8, -0.62);
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.55, 12), chromeMat);
+      spout.rotation.x = Math.PI / 2;
+      spout.position.set(0, 3.28, -0.38);
+      const mirror = new THREE.Mesh(
+        createRoundedBox(2.2, 2.6, 0.07, 0.03, 3),
+        new THREE.MeshStandardMaterial({ color: 0xdbeafe, metalness: 0.92, roughness: 0.05 })
+      );
+      mirror.position.set(0, 4.3, -0.78);
+      root.add(cabinet, counter, bowl, column, spout, mirror);
+      break;
+    }
+
+    case "shower_enclosure": {
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0xdbeafe,
+        transparent: true,
+        opacity: 0.22,
+        roughness: 0.05,
+        metalness: 0.1,
+        side: THREE.DoubleSide,
+      });
+      const tray = new THREE.Mesh(createRoundedBox(3.0, 0.3, 3.0, 0.06, 3), new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.3 }));
+      tray.position.y = 0.15;
+      const panelBack = new THREE.Mesh(createRoundedBox(3.0, 6.5, 0.07, 0.02, 3), glassMat);
+      panelBack.position.set(0, 3.55, -1.46);
+      const panelSide = new THREE.Mesh(createRoundedBox(0.07, 6.5, 3.0, 0.02, 3), glassMat);
+      panelSide.position.set(-1.46, 3.55, 0);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 10), chromeMat);
+      arm.rotation.x = Math.PI / 2;
+      arm.position.set(0, 6.3, -0.95);
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.09, 22), chromeMat);
+      head.position.set(0, 6.25, -0.42);
+      root.add(tray, panelBack, panelSide, arm, head);
+      break;
+    }
+
+    case "bathtub": {
+      const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
+      const shell = new THREE.Mesh(createRoundedBox(5.6, 1.9, 2.6, 0.22, 4), ceramicMat);
+      shell.position.y = 0.95;
+      shell.castShadow = true;
+      const wellMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.1 });
+      const well = new THREE.Mesh(createRoundedBox(5.0, 0.5, 2.0, 0.18, 4), wellMat);
+      well.position.y = 1.68;
+      const mixer = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 12), chromeMat);
+      mixer.position.set(-2.4, 2.2, 0);
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 12), chromeMat);
+      spout.rotation.z = Math.PI / 2;
+      spout.position.set(-2.15, 2.5, 0);
+      root.add(shell, well, mixer, spout);
+      break;
+    }
+
+    // ---- Kitchen ----------------------------------------------------------------------
+    case "kitchen_sink": {
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0xc7cdd3, metalness: 0.85, roughness: 0.25 });
+      const cabinet = new THREE.Mesh(createRoundedBox(3.6, 2.85, 2.0, 0.04, 3), walnutMat);
+      cabinet.position.y = 1.42;
+      cabinet.castShadow = true;
+      const counter = new THREE.Mesh(createRoundedBox(3.7, 0.16, 2.1, 0.02, 3), quartzMat);
+      counter.position.y = 2.92;
+      root.add(cabinet, counter);
+      for (const sx of [-1, 1]) {
+        const basin = new THREE.Mesh(createRoundedBox(1.5, 0.7, 1.4, 0.06, 3), steelMat);
+        basin.position.set(sx * 0.87, 2.62, 0);
+        root.add(basin);
+      }
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 12), chromeMat);
+      column.position.set(0, 3.5, -0.8);
+      const neck = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 8, 16, Math.PI), chromeMat);
+      neck.rotation.y = Math.PI / 2;
+      neck.position.set(0, 4.05, -0.48);
+      root.add(column, neck);
+      break;
+    }
+
+    case "cooktop": {
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x111418, roughness: 0.12, metalness: 0.35 });
+      const plate = new THREE.Mesh(createRoundedBox(2.4, 0.14, 1.9, 0.03, 3), glassMat);
+      plate.position.y = 0.07;
+      root.add(plate);
+      const burnerMat = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.5, metalness: 0.6 });
+      for (const bx of [-0.6, 0.6]) {
+        for (const bz of [-0.45, 0.45]) {
+          const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 16), burnerMat);
+          burner.position.set(bx, 0.2, bz);
+          root.add(burner);
+        }
+      }
+      break;
+    }
+
+    case "chimney_hood": {
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c7, metalness: 0.8, roughness: 0.3 });
+      const canopy = new THREE.Mesh(createRoundedBox(3.0, 0.55, 1.8, 0.05, 3), steelMat);
+      canopy.position.y = 0.28;
+      canopy.castShadow = true;
+      const duct = new THREE.Mesh(createRoundedBox(1.0, 1.9, 0.75, 0.04, 3), steelMat);
+      duct.position.set(0, 1.5, -0.3);
+      const filter = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.6, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.5, metalness: 0.6, side: THREE.DoubleSide })
+      );
+      filter.rotation.x = Math.PI / 2;
+      filter.position.y = 0.01;
+      root.add(canopy, duct, filter);
+      break;
+    }
+
+    case "microwave": {
+      const caseMat = new THREE.MeshStandardMaterial({ color: 0xd7dade, metalness: 0.5, roughness: 0.35 });
+      const body = new THREE.Mesh(createRoundedBox(1.7, 1.0, 1.3, 0.04, 3), caseMat);
+      body.position.y = 0.5;
+      const door = new THREE.Mesh(
+        createRoundedBox(1.1, 0.8, 0.06, 0.03, 3),
+        new THREE.MeshStandardMaterial({ color: 0x1f2328, roughness: 0.2, metalness: 0.4 })
+      );
+      door.position.set(-0.22, 0.5, 0.66);
+      root.add(body, door);
+      break;
+    }
+
+    // ---- Appliances -------------------------------------------------------------------
+    case "washing_machine": {
+      const caseMat = new THREE.MeshStandardMaterial({ color: 0xeef1f3, roughness: 0.3, metalness: 0.2 });
+      const body = new THREE.Mesh(createRoundedBox(2.0, 2.9, 2.1, 0.05, 3), caseMat);
+      body.position.y = 1.45;
+      body.castShadow = true;
+      const door = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.12, 24), chromeMat);
+      door.rotation.x = Math.PI / 2;
+      door.position.set(0, 1.55, 1.05);
+      const glass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 0.06, 24),
+        new THREE.MeshStandardMaterial({ color: 0x243040, roughness: 0.1, metalness: 0.3 })
+      );
+      glass.rotation.x = Math.PI / 2;
+      glass.position.set(0, 1.55, 1.12);
+      const panel = new THREE.Mesh(createRoundedBox(1.8, 0.35, 0.06, 0.02, 3), new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.4 }));
+      panel.position.set(0, 2.62, 1.05);
+      root.add(body, door, glass, panel);
+      break;
+    }
+
+    case "water_heater": {
+      const caseMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.3, metalness: 0.15 });
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.5, 24), caseMat);
+      drum.rotation.z = Math.PI / 2;
+      drum.position.y = 0.8;
+      drum.castShadow = true;
+      for (const sx of [-1, 1]) {
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 10), chromeMat);
+        pipe.position.set(sx * 0.45, 0.1, 0);
+        root.add(pipe);
+      }
+      root.add(drum);
+      break;
+    }
+
+    case "ac_indoor_unit": {
+      const caseMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+      const body = new THREE.Mesh(createRoundedBox(3.4, 1.05, 0.9, 0.16, 4), caseMat);
+      body.position.y = 0.52;
+      const louvre = new THREE.Mesh(
+        createRoundedBox(3.0, 0.12, 0.5, 0.04, 3),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 })
+      );
+      louvre.position.set(0, 0.16, 0.3);
+      root.add(body, louvre);
+      break;
+    }
+
+    case "ac_outdoor_unit": {
+      const caseMat = new THREE.MeshStandardMaterial({ color: 0xd7dade, metalness: 0.45, roughness: 0.45 });
+      const body = new THREE.Mesh(createRoundedBox(2.9, 2.2, 1.2, 0.05, 3), caseMat);
+      body.position.y = 1.1;
+      body.castShadow = true;
+      const grille = new THREE.Mesh(
+        new THREE.TorusGeometry(0.75, 0.07, 8, 24),
+        new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.5, metalness: 0.5 })
+      );
+      grille.position.set(0, 1.15, 0.62);
+      root.add(body, grille);
+      break;
+    }
+
+    case "ceiling_fan_unit": {
+      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.5 });
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 10), chromeMat);
+      rod.position.y = 0.75;
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.4, 18), chromeMat);
+      hub.position.y = 0.2;
+      root.add(rod, hub);
+      for (let i = 0; i < 3; i++) {
+        const blade = new THREE.Mesh(createRoundedBox(2.0, 0.06, 0.55, 0.02, 3), bladeMat);
+        const angle = (i / 3) * Math.PI * 2;
+        blade.position.set(Math.cos(angle) * 1.2, 0.15, Math.sin(angle) * 1.2);
+        blade.rotation.y = -angle;
+        root.add(blade);
+      }
+      break;
+    }
+
+    // ---- Lighting ---------------------------------------------------------------------
+    case "chandelier": {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 10), brassMat);
+      stem.position.y = 2.4;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 18, 12), brassMat);
+      body.position.y = 1.7;
+      root.add(stem, body);
+      const shadeMat = new THREE.MeshStandardMaterial({ color: 0xfff7e0, emissive: 0xffe6a8, emissiveIntensity: 0.5, roughness: 0.4 });
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 8), brassMat);
+        arm.rotation.z = Math.PI / 2;
+        arm.position.set(Math.cos(angle) * 0.6, 1.6, Math.sin(angle) * 0.6);
+        arm.rotation.y = -angle;
+        const shade = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.45, 14, 1, true), shadeMat);
+        shade.position.set(Math.cos(angle) * 1.15, 1.35, Math.sin(angle) * 1.15);
+        root.add(arm, shade);
+      }
+      break;
+    }
+
+    case "pendant_light": {
+      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x1f2328, roughness: 0.7 }));
+      cord.position.y = 1.55;
+      const cage = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 14, 10),
+        new THREE.MeshStandardMaterial({ color: 0x1f2328, roughness: 0.5, metalness: 0.6, wireframe: true })
+      );
+      cage.position.y = 0.55;
+      const bulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 14, 10),
+        new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffdf9a, emissiveIntensity: 0.8, roughness: 0.3 })
+      );
+      bulb.position.y = 0.55;
+      root.add(cord, cage, bulb);
+      break;
+    }
+
+    case "ceiling_lamp": {
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.1, 22), chromeMat);
+      plate.position.y = 0.82;
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(0.8, 22, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0xfffaf0, emissive: 0xffe9bf, emissiveIntensity: 0.45, roughness: 0.35 })
+      );
+      dome.position.y = 0.78;
+      root.add(plate, dome);
+      break;
+    }
+
+    case "desk_lamp": {
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.45, metalness: 0.4 });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.12, 20), baseMat);
+      base.position.y = 0.06;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 10), baseMat);
+      stem.position.set(0, 0.75, 0);
+      stem.rotation.z = 0.18;
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 10), baseMat);
+      arm.rotation.z = Math.PI / 2.4;
+      arm.position.set(0.3, 1.5, 0);
+      const shade = new THREE.Mesh(
+        new THREE.ConeGeometry(0.32, 0.45, 16, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffdf9a, emissiveIntensity: 0.5, roughness: 0.4, side: THREE.DoubleSide })
+      );
+      shade.rotation.z = Math.PI;
+      shade.position.set(0.68, 1.62, 0);
+      root.add(base, stem, arm, shade);
+      break;
+    }
+
+    case "wall_sconce": {
+      const backPlate = new THREE.Mesh(createRoundedBox(0.5, 0.7, 0.1, 0.03, 3), brassMat);
+      backPlate.position.set(0, 0.85, -0.35);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8), brassMat);
+      arm.rotation.x = Math.PI / 2;
+      arm.position.set(0, 1.0, -0.12);
+      const shade = new THREE.Mesh(
+        new THREE.ConeGeometry(0.32, 0.5, 16, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffdf9a, emissiveIntensity: 0.55, roughness: 0.4, side: THREE.DoubleSide })
+      );
+      shade.position.set(0, 1.1, 0.12);
+      root.add(backPlate, arm, shade);
+      break;
+    }
+
+    // ---- Decor and soft furnishing ----------------------------------------------------
+    case "planter_box": {
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.7 });
+      const box = new THREE.Mesh(createRoundedBox(3.2, 1.2, 1.1, 0.05, 3), boxMat);
+      box.position.y = 0.6;
+      box.castShadow = true;
+      root.add(box);
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f6b3a, roughness: 0.85, flatShading: true });
+      for (let i = 0; i < 5; i++) {
+        const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 0), leafMat);
+        bush.position.set(-1.2 + i * 0.6, 1.35, (i % 2 === 0 ? 0.12 : -0.12));
+        bush.scale.y = 0.8;
+        root.add(bush);
+      }
+      break;
+    }
+
+    case "wall_art_frame": {
+      const frame = new THREE.Mesh(createRoundedBox(2.2, 2.8, 0.14, 0.03, 3), brassMat);
+      frame.position.y = 1.4;
+      const art = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.9, 2.5),
+        new THREE.MeshStandardMaterial({ color: 0xcbb89a, roughness: 0.85 })
+      );
+      art.position.set(0, 1.4, 0.08);
+      root.add(frame, art);
+      break;
+    }
+
+    case "floor_mirror": {
+      const frame = new THREE.Mesh(createRoundedBox(2.6, 5.4, 0.22, 0.08, 4), brassMat);
+      frame.position.y = 2.7;
+      frame.castShadow = true;
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.2, 5.0),
+        new THREE.MeshStandardMaterial({ color: 0xdbeafe, metalness: 0.95, roughness: 0.04 })
+      );
+      glass.position.set(0, 2.7, 0.12);
+      root.add(frame, glass);
+      break;
+    }
+
+    case "diya_lantern": {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.16, 18), brassMat);
+      base.position.y = 0.08;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.85, 12), brassMat);
+      stem.position.y = 0.6;
+      const bowl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.34, 18, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        brassMat
+      );
+      bowl.position.y = 1.2;
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(0.12, 0.3, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffd27f, emissive: 0xffa63d, emissiveIntensity: 1.2, roughness: 0.3 })
+      );
+      flame.position.y = 1.4;
+      root.add(base, stem, bowl, flame);
+      break;
+    }
+
+    case "throw_pillows": {
+      for (const sx of [-0.45, 0.45]) {
+        const pillow = new THREE.Mesh(createRoundedBox(0.85, 0.85, 0.3, 0.12, 4), sx < 0 ? fabricMat : cushionMat);
+        pillow.position.set(sx, 0.45, 0);
+        pillow.rotation.z = sx < 0 ? 0.12 : -0.12;
+        pillow.castShadow = true;
+        root.add(pillow);
+      }
+      break;
+    }
+
+    case "curtain_panel": {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 5.4, 12), brassMat);
+      rod.rotation.z = Math.PI / 2;
+      rod.position.y = 7.9;
+      root.add(rod);
+      const clothMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0xd6cbb6, roughness: 0.9, side: THREE.DoubleSide });
+      // Each panel is a run of narrow slats offset in depth, which reads as a gathered fall
+      // where a flat plane reads as a board.
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 6; i++) {
+          const slat = new THREE.Mesh(createRoundedBox(0.32, 7.5, 0.16, 0.06, 3), clothMat);
+          slat.position.set(side * (0.45 + i * 0.33), 4.0, Math.sin(i * 1.1) * 0.14);
+          slat.castShadow = true;
+          root.add(slat);
         }
       }
       break;

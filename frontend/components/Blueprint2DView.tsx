@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { PlotDims, Facing, Setback, edgeSetbacksIn, frontCardinalIndex } from "@/lib/plot";
+import { PlotDims, Facing, Setback, edgeSetbacksIn, frontCardinalIndex, plotPolygonIn } from "@/lib/plot";
+import {
+  clampBulgeFt,
+  curvedEdgePoints,
+  edgeNormal,
+  RoomEdgeCurves,
+  WallEdge,
+} from "@/lib/wallCurves";
 import { RoomOpening, SolvedRoom, SolveMeta } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
 import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName, findAdjacentRoomEdge } from "@/lib/rooms";
@@ -56,6 +63,9 @@ interface Blueprint2DViewProps {
   meta: SolveMeta | null;
   counts: Record<RoomName, number>;
   customDims: Record<string, CustomDim>;
+  /** Bowed wall faces per room edge, in inches. A plan that draws them straight is not the plan
+   *  that gets built — lib/wallCurves.ts. */
+  roomEdgeCurves?: RoomEdgeCurves;
   customOpenings?: Record<string, RoomOpening[]>;
   customWallThickness?: Record<string, number>;
   customWalls?: CustomDrawnWall[];
@@ -95,6 +105,7 @@ export default function Blueprint2DView({
   rooms,
   counts,
   customDims,
+  roomEdgeCurves,
   customOpenings,
   customWallThickness,
   customWalls = [],
@@ -2059,12 +2070,12 @@ export default function Blueprint2DView({
             </g>
           )}
 
-          {/* Plot Boundary Outline */}
-          <rect
-            x={plotPxX}
-            y={plotPxY}
-            width={plotPxW}
-            height={plotPxH}
+          {/* Plot Boundary Outline. A splayed or trapezoidal plot is drawn from its real
+              outline; a rectangle produces the same four corners it always did. */}
+          <polygon
+            points={plotPolygonIn(plot)
+              .map(([x, y]) => `${toPxX(x)},${toPxY(y)}`)
+              .join(" ")}
             fill="none"
             stroke="#eceae5"
             strokeWidth="2.5"
@@ -2128,6 +2139,9 @@ export default function Blueprint2DView({
 
           {/* Placed Rooms with Interactive Walls & Doors */}
           {rooms.map((room, idx) => {
+            // The plan is one storey, like any plan. Rooms on another floor are skipped rather
+            // than filtered out, so an index still means the same room everywhere else.
+            if ((room.floor ?? 0) !== (activeFloor ?? 0)) return null;
             const isDraggingThis = draggingIndex === idx;
             const isCropDraggingThis = draggingCrop?.roomIndex === idx;
             const cropP = isCropDraggingThis && cropPreview ? cropPreview : null;
@@ -2216,6 +2230,40 @@ export default function Blueprint2DView({
                   style={{ cursor: isDraggingThis ? "grabbing" : "grab" }}
                   onMouseDown={(e) => handleRoomMouseDown(e, idx)}
                 />
+
+                {/* Bowed wall faces. Drawn as the wall material added outside the straight run,
+                    so the plan shows where the wall actually is — lib/wallCurves.ts. */}
+                {(["N", "E", "S", "W"] as WallEdge[]).map((edge) => {
+                  const bulgeIn = roomEdgeCurves?.[
+                    `${room.name}_${rooms.slice(0, idx).filter((o) => o.name === room.name).length}`
+                  ]?.[edge];
+                  if (!bulgeIn) return null;
+                  const runIn = edge === "N" || edge === "S" ? currentWIn : currentDIn;
+                  const bulgeFt = clampBulgeFt(bulgeIn / 12, runIn / 12);
+                  if (Math.abs(bulgeFt) < 0.05) return null;
+
+                  const [nx, nz] = edgeNormal(edge);
+                  const x0In = edge === "E" ? currentXIn + currentWIn : currentXIn;
+                  const y0In = edge === "S" ? currentYIn + currentDIn : currentYIn;
+                  const x1In = edge === "N" || edge === "S" ? currentXIn + currentWIn : x0In;
+                  const y1In = edge === "E" || edge === "W" ? currentYIn + currentDIn : y0In;
+
+                  const points = curvedEdgePoints(x0In, y0In, x1In, y1In, bulgeFt * 12, nx, nz);
+                  const d =
+                    `M ${toPxX(x0In)},${toPxY(y0In)} ` +
+                    points.map(([x, y]) => `L ${toPxX(x)},${toPxY(y)}`).join(" ") +
+                    " Z";
+                  return (
+                    <path
+                      key={`curve-${edge}`}
+                      d={d}
+                      fill={isSelected ? "#3d5c69" : "#0c3b6d"}
+                      stroke="#eceae5"
+                      strokeWidth="1.2"
+                      pointerEvents="none"
+                    />
+                  );
+                })}
 
                 {/* Inner Wall Cavity */}
                 <rect

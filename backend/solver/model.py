@@ -11,7 +11,8 @@ Step 5 adds Vaastu direction constraints (notes/decisions/vaastu-as-constraints.
 front rather than scored afterwards.
 """
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 
 from ortools.sat.python import cp_model
 
@@ -84,6 +85,7 @@ class PlacedRoom:
     # re-look-up room semantics by name — notes/solver/realism-gaps.md.
     habitable: bool = True
     wet: bool = False
+    floor: int = 0
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,8 @@ def _build_and_solve(
     maximise_area: bool = True,
     program: Program = RESIDENTIAL,
     facing: str = "N",
+    halfplanes: Sequence[tuple[int, int, int]] = (),
+    aligned: Sequence[Sequence[int]] = (),
 ) -> tuple[int, cp_model.CpSolver, list[tuple[Room, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar]], list[str]]:
     model = cp_model.CpModel()
 
@@ -180,27 +184,95 @@ def _build_and_solve(
         x_intervals.append(x_interval)
         y_intervals.append(y_interval)
 
-    model.add_no_overlap_2d(x_intervals, y_intervals)
+    # Rooms only compete for space with rooms on their own floor. One model still holds every
+    # storey, because the stair core has to land on the same footprint on each of them and that
+    # is a constraint across floors — see `aligned` below.
+    floors = sorted({getattr(r, "floor", 0) for r in rooms})
+    by_floor = {
+        f: [i for i, r in enumerate(rooms) if getattr(r, "floor", 0) == f] for f in floors
+    }
+
+    for f in floors:
+        idx = by_floor[f]
+        model.add_no_overlap_2d([x_intervals[i] for i in idx], [y_intervals[i] for i in idx])
+
+    # Walls stack. An upper storey has to land on the one below it — its loads have nowhere else
+    # to go, and a first floor hanging off the side of the ground floor is what the renderer was
+    # faithfully drawing. Constraining each upper room to the ground floor's own bounding box is
+    # the cheap version of that rule: it does not force wall-on-wall, but it does stop a storey
+    # floating off the building.
+    if len(floors) > 1:
+        ground_vars = [var_dicts[i] for i in by_floor[floors[0]]]
+        gx0 = model.new_int_var(0, env_w_in, "ground_x0")
+        gx1 = model.new_int_var(0, env_w_in, "ground_x1")
+        gz0 = model.new_int_var(0, env_d_in, "ground_z0")
+        gz1 = model.new_int_var(0, env_d_in, "ground_z1")
+        model.add_min_equality(gx0, [v["x"] for v in ground_vars])
+        model.add_max_equality(gx1, [v["xe"] for v in ground_vars])
+        model.add_min_equality(gz0, [v["y"] for v in ground_vars])
+        model.add_max_equality(gz1, [v["ye"] for v in ground_vars])
+        for f in floors[1:]:
+            for i in by_floor[f]:
+                v = var_dicts[i]
+                model.add(v["x"] >= gx0)
+                model.add(v["xe"] <= gx1)
+                model.add(v["y"] >= gz0)
+                model.add(v["ye"] <= gz1)
+
+    # The stair core: the same rectangle on every floor it serves. Without this a G+1 has two
+    # staircases that do not meet, which is not a house — the vertical case of the rule in
+    # notes/solver/rooms-do-not-form-a-house.md.
+    for group in aligned:
+        first = var_dicts[group[0]]
+        for other_index in group[1:]:
+            other = var_dicts[other_index]
+            model.add(other["x"] == first["x"])
+            model.add(other["y"] == first["y"])
+            model.add(other["w"] == first["w"])
+            model.add(other["d"] == first["d"])
+
+    # A plot that is not a rectangle arrives as one half-plane per plot edge, already inset by
+    # the setback and already in envelope-local inches — see envelope/polygon.py. For an
+    # axis-aligned rectangle the largest value of a·x + b·y sits on the corner picked out by the
+    # signs of a and b, and those signs are constants here, so containment is one linear
+    # constraint per room per edge. A rectangular plot sends none of these and is unaffected.
+    for a, b, c in halfplanes:
+        for v in var_dicts:
+            x_term = v["xe"] if a > 0 else v["x"]
+            y_term = v["ye"] if b > 0 else v["y"]
+            model.add(a * x_term + b * y_term <= c)
 
     rules = resolve_rules(program, facing)
 
-    hub = hub_index(rooms, program)
-    if connect_rooms and len(rooms) > 1:
-        add_tree_adjacency(model, var_dicts, assign_parents(rooms, program, facing))
-        add_room_separation(model, var_dicts, rooms, hub, program)
+    # Connectivity, separation and daylight are all statements about one floor: a bedroom is not
+    # reachable from a hall one storey below it, and the outside face of the building is the
+    # outside face of *that* floor's footprint. Each is posted per floor, over that floor's own
+    # rooms, which is exactly what these functions already do for a single-storey house.
+    for f in floors:
+        idx = by_floor[f]
+        floor_rooms = [rooms[i] for i in idx]
+        floor_vars = [var_dicts[i] for i in idx]
+        if connect_rooms and len(floor_rooms) > 1:
+            add_tree_adjacency(model, floor_vars, assign_parents(floor_rooms, program, facing))
+            add_room_separation(
+                model, floor_vars, floor_rooms, hub_index(floor_rooms, program), program
+            )
+        if require_daylight:
+            add_daylight_constraints(model, floor_vars, floor_rooms, env_w_in, env_d_in)
 
     # notes/solver/realism-gaps.md — proportion is free, daylight costs four booleans a room.
     add_aspect_constraints(model, var_dicts, rooms)
-    if require_daylight:
-        add_daylight_constraints(model, var_dicts, rooms, env_w_in, env_d_in)
 
     applied: list[str] = []
     if apply_vaastu:
         if program.street_edge_spaces:
+            # Only the ground floor meets the street. A first-floor room held to the street edge
+            # is a rule applied to a boundary it does not touch.
+            ground = by_floor.get(floors[0], [])
             add_street_edge_constraints(
                 model,
-                var_dicts,
-                rooms,
+                [var_dicts[i] for i in ground],
+                [rooms[i] for i in ground],
                 program.street_edge_spaces,
                 primary_cardinal(facing),
                 env_w_in,
@@ -270,6 +342,8 @@ def solve_layout(
     moved_index: int | None = None,
     program: Program = RESIDENTIAL,
     facing: str = "N",
+    halfplanes: Sequence[tuple[int, int, int]] = (),
+    aligned: Sequence[Sequence[int]] = (),
 ) -> SolveResult:
     if not rooms or env_w_in <= 0 or env_d_in <= 0:
         return SolveResult(status="EMPTY", rooms=[], solve_ms=0.0)
@@ -297,7 +371,7 @@ def solve_layout(
         return _build_and_solve(
             env_w_in, env_d_in, rs, prev, vaastu, connect_rooms, time_limit,
             vaastu_exempt, require_daylight=daylight, maximise_area=area,
-            program=program, facing=facing,
+            program=program, facing=facing, halfplanes=halfplanes, aligned=aligned,
         )
 
     def ok(st) -> bool:
@@ -313,6 +387,7 @@ def solve_layout(
             habitable=r.habitable,
             wet=r.wet,
             max_aspect_x10=r.max_aspect_x10,
+            floor=getattr(r, "floor", 0),
         )
         for r in rooms
     ]
@@ -351,12 +426,42 @@ def solve_layout(
         for room, x, y, w, d in placements
     ]
 
+    # Doors, windows and the front door are per floor for the same reason the constraints are.
+    # Each helper works on one floor's rooms and returns indices into that subset, so the
+    # openings it produces are translated back to global indices before they are merged.
+    floors_out = sorted({getattr(r, "floor", 0) for r in rooms})
+    rooms_by_floor = {
+        f: [i for i, r in enumerate(rooms) if getattr(r, "floor", 0) == f] for f in floors_out
+    }
+
+    openings: list[list[dict]] = [[] for _ in placed]
+    bounds_by_floor: dict[int, tuple[int, int, int, int]] = {}
+    entrance_edge = None
+
+    for f in floors_out:
+        idx = rooms_by_floor[f]
+        subset_rooms = [rooms[i] for i in idx]
+        subset_placed = [placed[i] for i in idx]
+        subset_hub = hub_index(subset_rooms, program)
+        subset_parents = assign_parents(subset_rooms, program, facing)
+        bounds_by_floor[f] = footprint(subset_placed)
+        subset_openings = derive_openings(subset_placed, subset_parents)
+
+        # The front door belongs to the floor that meets the street, and there is one of it.
+        if f == floors_out[0]:
+            entrance_edge = add_entrance(
+                subset_placed, subset_openings, subset_hub, program, facing
+            )
+        derive_windows(subset_placed, subset_openings)
+
+        for local, global_index in enumerate(idx):
+            for opening in subset_openings[local]:
+                to_room = opening.get("to_room")
+                if to_room is not None:
+                    opening["to_room"] = idx[to_room]
+            openings[global_index] = subset_openings[local]
+
     hub = hub_index(rooms, program)
-    parents = assign_parents(rooms, program, facing)
-    bounds = footprint(placed)
-    openings = derive_openings(placed, parents)
-    entrance_edge = add_entrance(placed, openings, hub, program, facing)
-    derive_windows(placed, openings)
 
     placed = [
         PlacedRoom(
@@ -366,9 +471,14 @@ def solve_layout(
             w_in=p.w_in,
             d_in=p.d_in,
             openings=openings[i],
-            wall_thickness_in=EXTERIOR_WALL_IN if _on_exterior(p, bounds) else INTERIOR_WALL_IN,
+            wall_thickness_in=(
+                EXTERIOR_WALL_IN
+                if _on_exterior(p, bounds_by_floor[getattr(rooms[i], "floor", 0)])
+                else INTERIOR_WALL_IN
+            ),
             habitable=p.habitable,
             wet=p.wet,
+            floor=getattr(rooms[i], "floor", 0),
         )
         for i, p in enumerate(placed)
     ]
@@ -381,7 +491,21 @@ def solve_layout(
         if i not in vaastu_exempt
     }
 
-    walls = derive_walls(placed, openings)
+    # Per floor, then re-indexed: derive_walls pairs rooms that share a run, and two rooms on
+    # different storeys never do.
+    walls = []
+    for f in floors_out:
+        idx = rooms_by_floor[f]
+        floor_walls = derive_walls([placed[i] for i in idx], [openings[i] for i in idx])
+        for wall in floor_walls:
+            walls.append(
+                replace(
+                    wall,
+                    id=f"f{f}_{wall.id}",
+                    room_indices=tuple(idx[r] for r in wall.room_indices),
+                    floor=f,
+                )
+            )
 
     return SolveResult(
         status=status_name,
@@ -391,7 +515,7 @@ def solve_layout(
         quantities=take_off(placed, walls),
         vaastu_constraints_applied=applied,
         entrance_edge=entrance_edge,
-        rooms_reachable=reachable_count(placed, openings, hub),
+        rooms_reachable=reachable_count(placed, openings, hub, aligned),
         vaastu_relaxed=bool(apply_vaastu and expected_rules and not applied),
         program=program.key,
         rules_label=program.rules_label,

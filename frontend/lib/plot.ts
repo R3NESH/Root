@@ -23,6 +23,71 @@ export function frontCardinalIndex(facing: Facing): 0 | 1 | 2 | 3 {
 export interface PlotDims {
   widthIn: number; // X axis, in scene: East–West
   depthIn: number; // Z axis, in scene: North–South
+  /**
+   * Corner splays, in inches, clockwise from the north-west corner: [NW, NE, SE, SW]. Zero is a
+   * square corner and is what every plot used to be.
+   *
+   * A corner plot is cut where its two roads meet, and a plot on a bend is trapezoidal. Both are
+   * ordinary and neither could be expressed before. The cut is symmetric — the same distance
+   * back along each of the two edges — which is what a splay usually is and which keeps the
+   * outline convex by construction, the one thing the solver requires (backend
+   * envelope/polygon.py).
+   */
+  cornerCutsIn?: [number, number, number, number];
+}
+
+export type PlotPoint = [number, number];
+
+/**
+ * The plot outline in plot inches: x east, y south, (0, 0) at the north-west corner. Corners
+ * with no splay contribute one point, splayed ones contribute two.
+ */
+export function plotPolygonIn(plot: PlotDims): PlotPoint[] {
+  const cuts = plot.cornerCutsIn;
+  const w = plot.widthIn;
+  const d = plot.depthIn;
+  if (!cuts || cuts.every((c) => c <= 0)) {
+    return [
+      [0, 0],
+      [w, 0],
+      [w, d],
+      [0, d],
+    ];
+  }
+
+  // A cut can never eat more than its share of either edge it sits on, or the outline folds
+  // through itself and stops being a plot.
+  const clamp = (i: number, along: number) =>
+    Math.max(0, Math.min(Math.round(cuts[i] ?? 0), Math.floor(along / 2) - 1));
+  const nw = Math.min(clamp(0, w), clamp(0, d));
+  const ne = Math.min(clamp(1, w), clamp(1, d));
+  const se = Math.min(clamp(2, w), clamp(2, d));
+  const sw = Math.min(clamp(3, w), clamp(3, d));
+
+  const points: PlotPoint[] = [];
+  // North edge, west to east.
+  points.push(nw > 0 ? [nw, 0] : [0, 0]);
+  points.push(ne > 0 ? [w - ne, 0] : [w, 0]);
+  // East edge, north to south.
+  if (ne > 0) points.push([w, ne]);
+  points.push(se > 0 ? [w, d - se] : [w, d]);
+  // South edge, east to west.
+  if (se > 0) points.push([w - se, d]);
+  points.push(sw > 0 ? [sw, d] : [0, d]);
+  // West edge, south to north.
+  if (sw > 0) points.push([0, d - sw]);
+  if (nw > 0) points.push([0, nw]);
+  return points;
+}
+
+/** True when the plot is a plain rectangle, which is the fast path everywhere downstream. */
+export function isRectangularPlot(plot: PlotDims): boolean {
+  return !plot.cornerCutsIn || plot.cornerCutsIn.every((c) => c <= 0);
+}
+
+/** Largest splay that still leaves a sane plot, in inches. */
+export function maxCornerCutIn(plot: PlotDims): number {
+  return Math.max(0, Math.floor(Math.min(plot.widthIn, plot.depthIn) / 2) - 1);
 }
 
 export interface PlotPreset {

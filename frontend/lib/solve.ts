@@ -1,6 +1,6 @@
 // API client — notes/build/step-3-wire-together.md: fetch from FastAPI solver backend.
 
-import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
+import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, plotPolygonIn, Setback } from "./plot";
 import { ProgramKey } from "./programs";
 import { RoomName, withCounts } from "./rooms";
 
@@ -50,6 +50,13 @@ export interface SolveMeta {
   envelope_w_in: number;
   envelope_d_in: number;
   unknown_room_names: string[];
+  // The buildable outline of a non-rectangular plot, in plot inches, already inset by the
+  // setback. Null or absent means the plot is a rectangle and the origin and dimensions above
+  // say everything — backend envelope/polygon.py.
+  envelope_polygon_in?: number[][] | null;
+  /** Storeys actually packed. Absent from a backend that predates multi-storey, which is itself
+   *  the signal: it packed one. */
+  floors_solved?: number;
   // Only sent when nothing was placed: the spaces to remove for the mix to pack, verified by the
   // solver re-solving without them. Absent from the offline engine, which has no such probe.
   drop_to_fit?: string[];
@@ -137,6 +144,11 @@ export interface SolveRequestArgs {
   facing: Facing;
   rooms: (RoomName | RoomSpecIn)[];
   setback?: Setback;
+  // Corner splays in inches, clockwise from north-west. Sent to the solver as a convex outline;
+  // absent or all-zero means a rectangular plot and nothing changes.
+  cornerCutsIn?: [number, number, number, number];
+  /** Storeys to pack, ground included. Omitted or 1 is the single-storey house. */
+  floors?: number;
   prev?: PrevRoomIn[];
   // Index of the room the user just dragged — only that room is released from its Vaastu
   // quadrant. See notes/solver/vaastu-and-connectivity-drop-on-edit.md.
@@ -178,10 +190,19 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     ? edgeSetbacksIn(args.facing, args.setback)
     : edgeSetbacksIn("N", DEFAULT_SETBACK);
 
-  const envOriginX = westIn;
-  const envOriginZ = northIn;
-  const envW = Math.max(120, args.plotWIn - westIn - eastIn);
-  const envD = Math.max(120, args.plotDIn - northIn - southIn);
+  // The offline engine packs an axis-aligned rectangle and has no half-planes, so on a splayed
+  // plot it uses the largest rectangle that misses every splay: conservative, and never claims
+  // ground the real solver would have refused. A rectangular plot is unaffected.
+  const cuts = args.cornerCutsIn ?? [0, 0, 0, 0];
+  const cutW = Math.max(cuts[0], cuts[3]);
+  const cutE = Math.max(cuts[1], cuts[2]);
+  const cutN = Math.max(cuts[0], cuts[1]);
+  const cutS = Math.max(cuts[2], cuts[3]);
+
+  const envOriginX = westIn + cutW;
+  const envOriginZ = northIn + cutN;
+  const envW = Math.max(120, args.plotWIn - westIn - eastIn - cutW - cutE);
+  const envD = Math.max(120, args.plotDIn - northIn - southIn - cutN - cutS);
   const cardinalFacing = toCardinalEdge(args.facing);
 
   const rawRooms = args.rooms || [];
@@ -397,6 +418,9 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       // graph, so it may not report any of them as satisfied — notes/architecture/client-side-fallback.md.
       status: OFFLINE_ESTIMATE_STATUS,
       solve_ms: 8,
+      // This engine packs one floor whatever was asked for. Saying so is the whole contract of
+      // notes/architecture/client-side-fallback.md: fail loudly rather than invent.
+      floors_solved: 1,
       vaastu_constraints_applied: [],
       envelope_origin_x_in: envOriginX,
       envelope_origin_z_in: envOriginZ,
@@ -426,9 +450,19 @@ export async function requestSolve(
   // road setback landed on the side boundary and the 3 ft side setback on the frontage.
   const setback = args.setback ?? DEFAULT_SETBACK;
 
+  const cuts = args.cornerCutsIn;
+  const polygon =
+    cuts && cuts.some((c) => c > 0)
+      ? plotPolygonIn({ widthIn: args.plotWIn, depthIn: args.plotDIn, cornerCutsIn: cuts }).map(
+          ([x, y]) => [Math.round(x), Math.round(y)]
+        )
+      : undefined;
+
   const payload = {
     plot_w_in: Math.round(args.plotWIn),
     plot_d_in: Math.round(args.plotDIn),
+    plot_polygon_in: polygon,
+    floors: args.floors && args.floors > 1 ? Math.round(args.floors) : undefined,
     facing: args.facing,
     rooms: args.rooms.map((r) => {
       if (typeof r === "string") return r;

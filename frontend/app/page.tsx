@@ -20,6 +20,9 @@ import {
   PlotDims,
 } from "@/lib/plot";
 import { findAdjacentRoomEdge, RoomName, ROOM_NAMES, ROOM_LABELS, withCounts } from "@/lib/rooms";
+import WallInspector from "@/components/WallInspector";
+import { WALL_HEIGHT_FT } from "@/lib/sceneConstants";
+import { edgeName, isEmptyWallEdit, WallEdit, WallEdits } from "@/lib/wallEdits";
 import { defaultCounts, getProgram, ProgramKey } from "@/lib/programs";
 import { seatingCapacity } from "@/lib/cafeInteriors";
 import {
@@ -69,9 +72,15 @@ import {
 import {
   CustomDrawnWall,
   CustomRoomZone,
+  CustomWallOpening,
   CustomWallType,
   CadTool,
+  WALL_TYPE_CONFIGS,
 } from "@/lib/customArchitecture";
+import { DesignSnapshot, describeDesignChange, useDesignHistory } from "@/lib/designHistory";
+import { OFFLINE_ESTIMATE_STATUS } from "@/lib/solve";
+import { assessCompliance, DEFAULT_ROAD_WIDTH_M } from "@/lib/compliance";
+import { MAX_BULGE_IN, RoomEdgeCurves } from "@/lib/wallCurves";
 import { clearProject, loadProject, programOfSavedProject, saveProject } from "@/lib/projectStorage";
 import styles from "./page.module.css";
 
@@ -94,6 +103,27 @@ export default function Home() {
   const [customDims, setCustomDims] = useState<Record<string, CustomDim>>({});
   const [customOpenings, setCustomOpenings] = useState<Record<string, RoomOpening[]>>({});
   const [customWallThickness, setCustomWallThickness] = useState<Record<string, number>>({});
+  // Bowed wall faces, per room edge — lib/wallCurves.ts. The solver still packs rectangles; only
+  // the face of a wall it placed bows.
+  const [roomEdgeCurves, setRoomEdgeCurves] = useState<RoomEdgeCurves>({});
+  // Thickness, height and rectangular cutouts, per wall — lib/wallEdits.ts. Keyed by room
+  // instance id plus edge, the same pair the paint bands and the glazing use.
+  const [wallEdits, setWallEdits] = useState<WallEdits>({});
+  // What Ctrl+C picked up. A wall copies its geometry — thickness, height, outline and the holes
+  // in it — which is the same shape for both kinds of wall, so a drawn wall's profile pastes onto
+  // a solver one. Anything else copies the placed object itself.
+  const [clipboard, setClipboard] = useState<
+    { kind: "wall"; edit: WallEdit } | { kind: "object"; obj: PlacedCustomObject } | null
+  >(null);
+  // The abutting road width, in metres. G.O. Ms. 168 keys both the front setback and the height
+  // ceiling off it, so it is an input the plan cannot be honest without — lib/compliance.ts.
+  const [roadWidthM, setRoadWidthM] = useState<number>(DEFAULT_ROAD_WIDTH_M);
+  // Setbacks derived from the bye-law rather than the old hardcoded 5/5/3/3 ft. Off puts the
+  // fixed values back, for a plot whose rules this does not cover.
+  const [autoSetback, setAutoSetback] = useState<boolean>(true);
+  // Storeys the solver packs, ground included. The mix is split across them in the API and a
+  // stair core is added to each — notes/decisions/single-storey-first.md, finally cashed in.
+  const [floorsCount, setFloorsCount] = useState<number>(1);
   const [customWalls, setCustomWalls] = useState<CustomDrawnWall[]>([]);
   const [customRoomZones, setCustomRoomZones] = useState<CustomRoomZone[]>([]);
   const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
@@ -110,7 +140,9 @@ export default function Home() {
   const [activeCadTool, setActiveCadTool] = useState<CadTool>("select");
   const [activeWallType, setActiveWallType] = useState<CustomWallType>("exterior");
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
-  const [lightsOn, setLightsOn] = useState(true);
+  // Sessions open at night. A saved project still wins: the loader below reads `lightsOn` back,
+  // so this is what a new build starts on, not an override of what someone chose last time.
+  const [lightsOn, setLightsOn] = useState(false);
   const [furnished, setFurnished] = useState(true);
   const [materialConfig, setMaterialConfig] = useState<HouseMaterialConfig>(DEFAULT_MATERIAL_CONFIG);
   const [windowConfig, setWindowConfig] = useState<WindowConfig>(DEFAULT_WINDOW_CONFIG);
@@ -173,6 +205,11 @@ export default function Home() {
       if (data.customDims) setCustomDims(data.customDims);
       if (data.customOpenings) setCustomOpenings(data.customOpenings);
       if (data.customWallThickness) setCustomWallThickness(data.customWallThickness);
+      if (data.roomEdgeCurves) setRoomEdgeCurves(data.roomEdgeCurves);
+      if (data.wallEdits) setWallEdits(data.wallEdits);
+      if (typeof data.roadWidthM === "number") setRoadWidthM(data.roadWidthM);
+      if (typeof data.autoSetback === "boolean") setAutoSetback(data.autoSetback);
+      if (typeof data.floorsCount === "number") setFloorsCount(data.floorsCount);
       if (Array.isArray(data.customWalls)) setCustomWalls(data.customWalls);
       if (Array.isArray(data.customRoomZones)) setCustomRoomZones(data.customRoomZones);
       if (Array.isArray(data.customObjects)) setCustomObjects(data.customObjects);
@@ -198,7 +235,7 @@ export default function Home() {
     isSprinting: false,
     isCrouched: false,
     isMoving: false,
-    lightsOn: true,
+    lightsOn: false,
   });
 
   const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
@@ -223,6 +260,14 @@ export default function Home() {
     return list;
   }, [counts, customDims]);
 
+  // What the bye-law requires for this plot on this road, and the setback actually in force.
+  // The report is recomputed below once the solver has answered; this first pass only needs the
+  // rule, which depends on the plot and the road, not on the rooms.
+  const activeSetback = useMemo(
+    () => (autoSetback ? assessCompliance(plot, [], roadWidthM).requiredSetback : DEFAULT_SETBACK),
+    [plot, roadWidthM, autoSetback]
+  );
+
   const {
     rooms: solvedRooms,
     quantities,
@@ -234,19 +279,175 @@ export default function Home() {
     resizeRoom,
     resetPositions,
     setRoomPositions,
+    restoreRoomPositions,
   } = useSolve({
     plotWIn: plot.widthIn,
     plotDIn: plot.depthIn,
     facing,
     rooms: roomListWithSpecs,
-    setback: DEFAULT_SETBACK,
+    setback: activeSetback,
     program: programKey,
+    cornerCutsIn: plot.cornerCutsIn,
+    floors: floorsCount,
   });
+
+  // ---- Undo and redo ---------------------------------------------------------------------
+  const captureDesign = useCallback(
+    (): DesignSnapshot => ({
+      plot,
+      facing,
+      programKey,
+      counts,
+      customDims,
+      customOpenings,
+      customWallThickness,
+      roomEdgeCurves,
+      wallEdits,
+      roadWidthM,
+      autoSetback,
+      floorsCount,
+      customWalls,
+      customRoomZones,
+      customObjects,
+      deletedBuiltinIds,
+      materialConfig,
+      windowConfig,
+      roomPositions: Object.fromEntries(
+        solvedRooms.map((r, i) => [
+          roomListWithSpecs[i]?.id ?? `${r.name}_${i}`,
+          {
+            xFt: inchesToFeet(r.x_in - (meta?.envelope_origin_x_in ?? 0)),
+            yFt: inchesToFeet(r.y_in - (meta?.envelope_origin_z_in ?? 0)),
+          },
+        ])
+      ),
+    }),
+    [
+      plot,
+      facing,
+      programKey,
+      counts,
+      customDims,
+      customOpenings,
+      customWallThickness,
+      roomEdgeCurves,
+      wallEdits,
+      roadWidthM,
+      autoSetback,
+      floorsCount,
+      customWalls,
+      customRoomZones,
+      customObjects,
+      deletedBuiltinIds,
+      materialConfig,
+      windowConfig,
+      solvedRooms,
+      roomListWithSpecs,
+      meta,
+    ]
+  );
+
+  const restoreDesign = useCallback(
+    (snapshot: DesignSnapshot) => {
+      setPlot(snapshot.plot);
+      setFacing(snapshot.facing);
+      setProgramKey(snapshot.programKey);
+      setCounts(snapshot.counts);
+      setCustomDims(snapshot.customDims);
+      setCustomOpenings(snapshot.customOpenings);
+      setCustomWallThickness(snapshot.customWallThickness);
+      setRoomEdgeCurves(snapshot.roomEdgeCurves);
+      setWallEdits(snapshot.wallEdits);
+      setRoadWidthM(snapshot.roadWidthM);
+      setAutoSetback(snapshot.autoSetback);
+      setFloorsCount(snapshot.floorsCount);
+      setCustomWalls(snapshot.customWalls);
+      setCustomRoomZones(snapshot.customRoomZones);
+      setCustomObjects(snapshot.customObjects);
+      setDeletedBuiltinIds(snapshot.deletedBuiltinIds);
+      setMaterialConfig(snapshot.materialConfig);
+      setWindowConfig(snapshot.windowConfig);
+      // The restored document may not contain whatever was selected or half-placed, and an
+      // inspector describing an object that no longer exists is worse than no selection.
+      setSelectedObjectId(null);
+      setSelectedObjectInfo(null);
+      setPlacingItemType(null);
+      // Entries pushed before the first solve answered carry no layout. Replaying an empty map
+      // would throw away the packing rather than restore it.
+      if (Object.keys(snapshot.roomPositions).length > 0) {
+        restoreRoomPositions(snapshot.roomPositions);
+      }
+    },
+    [restoreRoomPositions]
+  );
+
+  const history = useDesignHistory(captureDesign, restoreDesign);
+  const { record: recordHistory, commitBefore: commitHistory, reset: resetHistory } = history;
+
+  // The document is watched rather than instrumented at each mutation: an author adding a new
+  // edit tomorrow gets undo for it without knowing this exists, and no call site can forget.
+  // Room geometry is the one exception — see lib/designHistory.ts.
+  const prevDocRef = useRef<DesignSnapshot | null>(null);
+  useEffect(() => {
+    const next = captureDesign();
+    const prev = prevDocRef.current;
+    prevDocRef.current = next;
+    // No prev is the first settle: record it anyway, to give the history a baseline to undo back
+    // to. A re-run with nothing changed — React runs mount effects twice in development — gets
+    // no label and no entry.
+    const label = prev === null ? "Edit" : describeDesignChange(prev, next);
+    if (label) recordHistory(label);
+    // Intentionally not keyed on captureDesign: it also closes over the solved rooms, which
+    // change on their own every time the solver answers, and a re-solve is not an edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    plot,
+    facing,
+    programKey,
+    counts,
+    customDims,
+    customOpenings,
+    customWallThickness,
+    roomEdgeCurves,
+    wallEdits,
+    roadWidthM,
+    autoSetback,
+    floorsCount,
+    customWalls,
+    customRoomZones,
+    customObjects,
+    deletedBuiltinIds,
+    materialConfig,
+    windowConfig,
+    recordHistory,
+  ]);
+
+  // A loaded project is where history starts, not something to undo back out of.
+  useEffect(() => {
+    if (isLoadedFromStorage) resetHistory();
+  }, [isLoadedFromStorage, resetHistory]);
+
+  // Rooms are solver output, so moving one changes nothing the watcher can see.
+  const handleRoomMove = useCallback(
+    (roomIndex: number, targetPlotXIn: number, targetPlotYIn: number) => {
+      commitHistory("Move room");
+      moveRoom(roomIndex, targetPlotXIn, targetPlotYIn);
+    },
+    [commitHistory, moveRoom]
+  );
 
   // Why the viewport is empty, when it is. Every one of these used to render as a blank screen
   // that looks like a rendering bug and is not one: a backend that predates a space in the mix
   // rejects it by name and returns nothing at all. `staleBackend` already existed for the
   // related case and was computed but never shown.
+  // How many storeys came back, not how many were asked for. The offline engine packs one floor
+  // whatever the request said (lib/solve.ts), and a floor badge that reads "solved" over a floor
+  // nobody solved is the kind of claim this app does not make.
+  const solvedFloorCount = useMemo(
+    () => new Set(solvedRooms.map((r) => r.floor ?? 0)).size || 1,
+    [solvedRooms]
+  );
+
   const requestedSpaceCount = roomListWithSpecs.length;
   const solverNotice: { title: string; detail: string } | null = (() => {
     if (pending) return null;
@@ -256,6 +457,21 @@ export default function Home() {
         detail: `${error}. Check the backend terminal, then reload.`,
       };
     }
+    // Asked for a duplex, got a bungalow. Silent before this: the offline engine packs one floor
+    // whatever the request said, and a backend started before multi-storey ignores `floors`
+    // outright, so a duplex blueprint came back as a single storey with nothing said about it.
+    if (floorsCount > 1 && solvedRooms.length > 0 && solvedFloorCount < floorsCount) {
+      const offline = meta?.status === OFFLINE_ESTIMATE_STATUS;
+      return {
+        title: `Asked for ${floorsCount === 2 ? "G+1" : `G+${floorsCount - 1}`}, got ${
+          solvedFloorCount === 1 ? "one storey" : `${solvedFloorCount} storeys`
+        }`,
+        detail: offline
+          ? "The offline engine packs the ground floor only - it has no half-planes, no stair core and no per-floor packing. Start the backend (./dev.ps1) and the upper floors will be solved."
+          : "The backend answered with fewer storeys than were asked for, which means it predates multi-storey solving. Restart it so it picks up the current code.",
+      };
+    }
+
     const unknown = meta?.unknown_room_names ?? [];
     if (unknown.length > 0) {
       return {
@@ -541,10 +757,22 @@ export default function Home() {
       depthIn: feetToInches(bp.plotDepthFt),
     });
     setFacing(bp.facing);
+    // Finishes the plan is drawn with, laid over the current config rather than replacing it, so
+    // a plan that names only a wall colour does not silently reset every floor in the house.
+    if (bp.materialConfig) {
+      setMaterialConfig((prev) => ({ ...prev, ...bp.materialConfig }));
+    }
+    // A duplex plan is a G+1 plan; a single-storey one has to put the storeys back, or the last
+    // duplex applied would leave every plan after it two floors tall.
+    setFloorsCount(bp.floors ?? 1);
     setCounts(withCounts(bp.counts));
     setCustomDims(bp.customDims);
     setCustomOpenings(bp.customOpenings ?? {});
     setCustomWallThickness(bp.customWallThickness ?? {});
+    // No blueprint carries wall cutouts, so applying one has to clear the last plan's — a hole
+    // is cut in a named wall of a named room, and the next plan's room of that name is a
+    // different wall in a different place.
+    setWallEdits({});
     setCustomWalls([]);
     setCustomRoomZones([]);
     setDeletedBuiltinIds([]);
@@ -663,6 +891,7 @@ export default function Home() {
     setCustomDims({});
     setCustomOpenings({});
     setCustomWallThickness({});
+    setWallEdits({});
     setCustomObjects([]);
     setActiveCadTool("draw_wall");
     setMode("blueprint");
@@ -678,6 +907,7 @@ export default function Home() {
       setCustomDims({});
       setCustomOpenings({});
       setCustomWallThickness({});
+      setWallEdits({});
       setCustomWalls([]);
       setCustomRoomZones([]);
       setCustomObjects([]);
@@ -701,6 +931,11 @@ export default function Home() {
         customDims,
         customOpenings,
         customWallThickness,
+        roomEdgeCurves,
+        wallEdits,
+        roadWidthM,
+        autoSetback,
+        floorsCount,
         customWalls,
         customRoomZones,
         customObjects,
@@ -753,8 +988,259 @@ export default function Home() {
     });
   }, [solvedRooms, customOpenings, customWallThickness, roomListWithSpecs]);
 
-  const buildableW = useMemo(() => buildableWidthIn(plot, facing, DEFAULT_SETBACK), [plot, facing]);
-  const buildableD = useMemo(() => buildableDepthIn(plot, facing, DEFAULT_SETBACK), [plot, facing]);
+  // The wall the user clicked in 3D, in the shape the inspector wants.
+  //
+  // There are two kinds and they store this differently. A wall the solver placed has a room and
+  // an edge, keeps its overrides in `wallEdits`, and its length is the room's. A wall the user
+  // drew has neither, keeps thickness and height on itself, and owns its own length — its holes
+  // are already expressible as openings of the kind that draws no leaf. The panel is handed the
+  // same four numbers either way.
+  const selectedWall = useMemo(() => {
+    const info = selectedObjectInfo;
+    if (!info?.isWall) return null;
+
+    if (info.isCustomWall) {
+      const wall = customWalls.find((w) => w.id === info.id);
+      if (!wall) return null;
+      const cfg = WALL_TYPE_CONFIGS[wall.wallType];
+      const lenIn = Math.hypot(wall.endXIn - wall.startXIn, wall.endYIn - wall.startYIn);
+      return {
+        kind: "custom" as const,
+        wallId: wall.id,
+        title: cfg?.name ?? `${wall.wallType} Wall`,
+        subtitle: "Drawn wall",
+        runFt: lenIn / 12,
+        defaultThicknessIn: cfg?.thicknessIn ?? 9,
+        edit: {
+          thicknessIn: wall.thicknessIn,
+          heightIn: Math.round((wall.heightFt ?? cfg?.defaultHeightFt ?? WALL_HEIGHT_FT) * 12),
+          profile: wall.profile ?? "square",
+          cutouts: (wall.openings ?? [])
+            .filter((o) => o.kind === "opening")
+            .map((o) => ({
+              id: o.id,
+              shape: o.shape,
+              offsetIn: o.offsetIn,
+              sillIn: o.sillIn ?? 0,
+              widthIn: o.widthIn,
+              heightIn: o.heightIn,
+            })),
+        } as WallEdit,
+        curveIn: wall.curveBulgeIn ?? 0,
+      };
+    }
+
+    if (info.roomIndex == null || !info.edge) return null;
+    const room = rooms[info.roomIndex];
+    if (!room) return null;
+    const isEW = info.edge === "E" || info.edge === "W";
+    const roomId = roomInstanceId(solvedRooms, info.roomIndex);
+    const key = wallBandKey(roomId, info.edge);
+    return {
+      kind: "room" as const,
+      roomIndex: info.roomIndex,
+      edge: info.edge,
+      key,
+      roomId,
+      title: `${edgeName(info.edge)} Wall`,
+      subtitle: ROOM_LABELS[room.name as RoomName] ?? room.name,
+      // An N or S wall runs along the room's width; an E or W wall along its depth.
+      runFt: inchesToFeet(isEW ? room.d_in : room.w_in),
+      isEW,
+      defaultThicknessIn: room.wall_thickness_in ?? 4.5,
+      edit: wallEdits[key],
+      lengthNote: "Length belongs to the room — this resizes it and re-solves.",
+      curveIn: roomEdgeCurves[roomId]?.[info.edge] ?? 0,
+      // Same rule the room customiser posts: joinery on a bowed wall is a problem this does not
+      // solve, so the control refuses rather than quietly straightening the wall to fit a door.
+      curveBlocked: (room.openings ?? []).some((o) => o.edge === info.edge)
+        ? "This wall carries a door or window, so it cannot be bowed."
+        : undefined,
+    };
+  }, [selectedObjectInfo, rooms, solvedRooms, customWalls, wallEdits, roomEdgeCurves]);
+
+  const handleChangeSelectedWallEdit = useCallback(
+    (next: WallEdit) => {
+      const sel = selectedWall;
+      if (!sel) return;
+
+      if (sel.kind === "custom") {
+        setCustomWalls((prev) =>
+          prev.map((w) => {
+            if (w.id !== sel.wallId) return w;
+            // A hole is an opening with no leaf, so it round-trips through the wall's own
+            // openings list. Doors and windows already on the wall are left untouched.
+            const keep = (w.openings ?? []).filter((o) => o.kind !== "opening");
+            const holes: CustomWallOpening[] = (next.cutouts ?? []).map((c) => ({
+              id: c.id,
+              kind: "opening",
+              shape: c.shape,
+              offsetIn: Math.round(c.offsetIn),
+              widthIn: Math.round(c.widthIn),
+              heightIn: Math.round(c.heightIn),
+              sillIn: Math.round(c.sillIn),
+            }));
+            return {
+              ...w,
+              thicknessIn: next.thicknessIn ?? w.thicknessIn,
+              heightFt: next.heightIn != null ? next.heightIn / 12 : w.heightFt,
+              profile: next.profile ?? w.profile,
+              openings: [...keep, ...holes],
+            };
+          })
+        );
+        return;
+      }
+
+      setWallEdits((prev) => {
+        const merged = { ...prev };
+        // An entry that overrides nothing is dropped, so the wall falls back to its room rather
+        // than carrying an empty object around in every save.
+        if (isEmptyWallEdit(next)) delete merged[sel.key];
+        else merged[sel.key] = next;
+        return merged;
+      });
+    },
+    [selectedWall]
+  );
+
+  const handleChangeSelectedWallLength = useCallback(
+    (deltaFt: number) => {
+      const sel = selectedWall;
+      if (!sel) return;
+
+      // A drawn wall owns its length: the far end slides along the line the wall already runs on,
+      // so the wall keeps its start point and its direction. Integer inches, per [[integer-inches]].
+      if (sel.kind === "custom") {
+        setCustomWalls((prev) =>
+          prev.map((w) => {
+            if (w.id !== sel.wallId) return w;
+            const dx = w.endXIn - w.startXIn;
+            const dy = w.endYIn - w.startYIn;
+            const len = Math.hypot(dx, dy);
+            if (len < 1) return w;
+            const nextLen = Math.max(12, len + deltaFt * 12);
+            return {
+              ...w,
+              endXIn: Math.round(w.startXIn + (dx / len) * nextLen),
+              endYIn: Math.round(w.startYIn + (dy / len) * nextLen),
+            };
+          })
+        );
+        return;
+      }
+
+      // A solver wall's length is the room's, so this resizes the room and the plan re-packs.
+      const room = rooms[sel.roomIndex];
+      if (!room) return;
+      const current = customDims[sel.roomId] ?? {
+        wFt: Math.round(inchesToFeet(room.w_in) * 10) / 10,
+        dFt: Math.round(inchesToFeet(room.d_in) * 10) / 10,
+      };
+      const grown = Math.max(4, (sel.isEW ? current.dFt : current.wFt) + deltaFt);
+      setCustomDims({
+        ...customDims,
+        [sel.roomId]: sel.isEW ? { ...current, dFt: grown } : { ...current, wFt: grown },
+      });
+    },
+    [selectedWall, rooms, customDims]
+  );
+
+  // Bowing the wall in plan. Both kinds could already do this — a room edge through the room
+  // customiser, a drawn wall through the 2D inspector — but neither was reachable from the wall
+  // you had just clicked in 3D.
+  const handleChangeSelectedWallCurve = useCallback(
+    (deltaIn: number) => {
+      const sel = selectedWall;
+      if (!sel) return;
+
+      if (sel.kind === "custom") {
+        setCustomWalls((prev) =>
+          prev.map((w) => {
+            if (w.id !== sel.wallId) return w;
+            const nextBulge = Math.max(
+              -MAX_BULGE_IN,
+              Math.min(MAX_BULGE_IN, (w.curveBulgeIn ?? 0) + deltaIn)
+            );
+            return { ...w, curveBulgeIn: nextBulge, isCurved: Math.abs(nextBulge) > 1 };
+          })
+        );
+        return;
+      }
+
+      setRoomEdgeCurves((prev) => {
+        const forRoom = { ...(prev[sel.roomId] ?? {}) };
+        const next = Math.max(
+          -MAX_BULGE_IN,
+          Math.min(MAX_BULGE_IN, (forRoom[sel.edge] ?? 0) + deltaIn)
+        );
+        if (next === 0) delete forRoom[sel.edge];
+        else forRoom[sel.edge] = next;
+        return { ...prev, [sel.roomId]: forRoom };
+      });
+    },
+    [selectedWall]
+  );
+
+  const handleCopySelection = useCallback(() => {
+    if (selectedWall) {
+      setClipboard({ kind: "wall", edit: selectedWall.edit ?? {} });
+      return;
+    }
+    const obj = customObjects.find((o) => o.id === selectedObjectId);
+    if (obj) setClipboard({ kind: "object", obj });
+  }, [selectedWall, customObjects, selectedObjectId]);
+
+  const handlePasteSelection = useCallback(() => {
+    if (!clipboard) return;
+
+    if (clipboard.kind === "wall") {
+      // Needs somewhere to land. Pasting a wall onto nothing is not an error worth reporting,
+      // it just does not apply.
+      if (!selectedWall) return;
+      handleChangeSelectedWallEdit({
+        ...clipboard.edit,
+        // Fresh ids, or the two walls would name their holes the same thing — and on a drawn
+        // wall a cutout id is an opening id, which the renderer keys its joinery by.
+        cutouts: (clipboard.edit.cutouts ?? []).map((c) => ({
+          ...c,
+          id: `cut_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        })),
+      });
+      return;
+    }
+
+    // A pasted object lands beside the original rather than inside it, so it is visible and
+    // draggable straight away instead of z-fighting with what it was copied from.
+    const copy: PlacedCustomObject = {
+      ...clipboard.obj,
+      id: `obj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      x: clipboard.obj.x + 1.5,
+      z: clipboard.obj.z + 1.5,
+    };
+    setCustomObjects((prev) => [...prev, copy]);
+    setSelectedObjectId(copy.id);
+    setSelectedObjectInfo({
+      id: copy.id,
+      name: copy.name,
+      type: copy.type,
+      isBuiltin: false,
+      x: copy.x,
+      y: 0,
+      z: copy.z,
+      rotationY: copy.rotationY,
+    });
+  }, [clipboard, selectedWall, handleChangeSelectedWallEdit]);
+
+  const buildableW = useMemo(() => buildableWidthIn(plot, facing, activeSetback), [plot, facing, activeSetback]);
+  const buildableD = useMemo(() => buildableDepthIn(plot, facing, activeSetback), [plot, facing, activeSetback]);
+
+  // Coverage, achieved FAR and the rule behind them. One floor: the solver packs one, and
+  // claiming a FAR for storeys it never placed would be the same lie as the floor selector.
+  const compliance = useMemo(
+    () => assessCompliance(plot, solvedRooms, roadWidthM),
+    [plot, solvedRooms, roadWidthM]
+  );
 
   // Real-time room detection
   const detected = useMemo(() => {
@@ -1234,6 +1720,22 @@ export default function Home() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
+      if ((e.ctrlKey || e.metaKey) && (e.code === "KeyZ" || e.code === "KeyY")) {
+        e.preventDefault();
+        // Ctrl+Y and Ctrl+Shift+Z both redo: the first is what Windows tools trained people on,
+        // the second is what browsers and Mac apps did.
+        if (e.code === "KeyY" || e.shiftKey) history.redo();
+        else history.undo();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.code === "KeyC" || e.code === "KeyV")) {
+        e.preventDefault();
+        if (e.code === "KeyC") handleCopySelection();
+        else handlePasteSelection();
+        return;
+      }
+
       if (e.code === "Escape") {
         setPlacingItemType(null);
         setPlacingRotationY(0);
@@ -1360,6 +1862,20 @@ export default function Home() {
         onStartFromScratch={handleStartFromScratch}
         onResetDesign={handleResetDesign}
         lastSavedTime={lastSavedTime}
+        roadWidthM={roadWidthM}
+        onChangeRoadWidthM={setRoadWidthM}
+        autoSetback={autoSetback}
+        onToggleAutoSetback={setAutoSetback}
+        compliance={compliance}
+        floorsCount={floorsCount}
+        onChangeFloorsCount={setFloorsCount}
+        solvedFloorCount={solvedFloorCount}
+        onUndo={history.undo}
+        onRedo={history.redo}
+        canUndo={history.canUndo}
+        canRedo={history.canRedo}
+        undoLabel={history.undoLabel}
+        redoLabel={history.redoLabel}
         activeFloor={activeFloor}
         onChangeActiveFloor={setActiveFloor}
         activeCadTool={activeCadTool}
@@ -1409,11 +1925,12 @@ export default function Home() {
               spaces={program.spaces}
               plot={plot}
               facing={facing}
-              setback={DEFAULT_SETBACK}
+              setback={activeSetback}
               rooms={rooms}
               meta={meta}
               counts={counts}
               customDims={customDims}
+              roomEdgeCurves={roomEdgeCurves}
               customOpenings={customOpenings}
               customWallThickness={customWallThickness}
               customWalls={customWalls}
@@ -1435,7 +1952,7 @@ export default function Home() {
               onChangeCustomDims={setCustomDims}
               onChangeCustomOpenings={setCustomOpenings}
               onChangeCustomWallThickness={setCustomWallThickness}
-              onRoomMove={moveRoom}
+              onRoomMove={handleRoomMove}
               onRoomResize={handleRoomResize}
               onOpenExportModal={() => setIsExportModalOpen(true)}
               onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
@@ -1448,6 +1965,8 @@ export default function Home() {
               <Scene
                 plot={plot}
                 facing={facing}
+                envelopePolygonIn={meta?.envelope_polygon_in ?? null}
+                roomEdgeCurves={roomEdgeCurves}
                 rooms={rooms}
                 customOpenings={customOpenings}
                 customWalls={customWalls}
@@ -1462,7 +1981,7 @@ export default function Home() {
                 onChangeCustomRoomZones={setCustomRoomZones}
                 onChangeCustomOpenings={setCustomOpenings}
                 onStartFromScratch={handleStartFromScratch}
-                setback={DEFAULT_SETBACK}
+                setback={activeSetback}
                 mode={mode}
                 activeMoveCmd={activeMoveCmd}
                 teleportTarget={teleportTarget}
@@ -1490,8 +2009,9 @@ export default function Home() {
                 onPlotChange={setPlot}
                 onPlayerUpdate={setPlayer}
                 onToggleLights={handleToggleLights}
-                onRoomMove={moveRoom}
+                onRoomMove={handleRoomMove}
                 onRoomResize={handleRoomResize}
+                wallEdits={wallEdits}
                 onAddCustomObject={(newObj) => {
                   setCustomObjects((prev) => [...prev, newObj]);
                   setPlacingItemType(null);
@@ -1526,6 +2046,31 @@ export default function Home() {
                 onNearestDoorChange={setDoorPrompt}
                 onRegisterDoorTrigger={(fn) => { doorTriggerRef.current = fn; }}
               /> {/* Orbit View HUD Overlay */}
+              {/* Clicked a wall in 3D: its own thickness, height and cutouts. */}
+              {mode === "orbit" && selectedWall && (
+                <WallInspector
+                  title={selectedWall.title}
+                  subtitle={selectedWall.subtitle}
+                  runFt={selectedWall.runFt}
+                  storeyHeightIn={WALL_HEIGHT_FT * 12}
+                  defaultThicknessIn={selectedWall.defaultThicknessIn}
+                  edit={selectedWall.edit}
+                  onChange={handleChangeSelectedWallEdit}
+                  onChangeLength={handleChangeSelectedWallLength}
+                  lengthNote={selectedWall.lengthNote}
+                  curveIn={selectedWall.curveIn}
+                  onChangeCurve={handleChangeSelectedWallCurve}
+                  curveBlocked={selectedWall.curveBlocked}
+                  onCopy={handleCopySelection}
+                  onPaste={handlePasteSelection}
+                  canPaste={clipboard?.kind === "wall"}
+                  onClose={() => {
+                    setSelectedObjectInfo(null);
+                    setSelectedObjectId(null);
+                  }}
+                />
+              )}
+
               {mode === "orbit" && (
                 <>
                   <div className={styles.plotMetaOverlay}>
@@ -1578,6 +2123,8 @@ export default function Home() {
         rooms={rooms}
         customDims={customDims}
         onChangeCustomDims={setCustomDims}
+        roomEdgeCurves={roomEdgeCurves}
+        onChangeRoomEdgeCurves={setRoomEdgeCurves}
       /> {/* Materials & Finishes Studio Dialog Modal */}
       <MaterialCustomizerModal
         isOpen={isMaterialModalOpen}
@@ -1601,7 +2148,7 @@ export default function Home() {
         onClose={() => setIsExportModalOpen(false)}
         plot={plot}
         facing={facing}
-        setback={DEFAULT_SETBACK}
+        setback={activeSetback}
         rooms={rooms}
         meta={meta}
       /> {/* Curated Model Blueprints Catalog Modal */}
@@ -1642,6 +2189,7 @@ export default function Home() {
         plot={plot}
         facing={facing}
         rooms={rooms}
+        roomEdgeCurves={roomEdgeCurves}
       /> {/* Custom Wall Partitions & Permutations Studio Modal */}
       <CustomWallBlendModal
         isOpen={isCustomWallBlendModalOpen}

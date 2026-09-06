@@ -32,14 +32,24 @@ export interface GraphicsSettings {
   showPerformanceHUD: boolean;
 }
 
+/**
+ * What a session opens on: the balanced preset, not the ultra one.
+ *
+ * Ultra asks for 150% super-sampling, 4096px procedural textures and 4096px shadow maps before
+ * anyone has said what machine they are on — around 9 GB of VRAM by `estimateVRAMUsageGB` — so
+ * the first thing most laptops did with this app was struggle. The presets are one click away in
+ * the graphics modal for anyone whose GPU wants more.
+ *
+ * Not persisted, so this default applies every session rather than being a first-run value.
+ */
 export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
-  preset: "ultra_extreme",
-  renderScale: 1.5, // 150% Super-Sampling DSR for High-End GPUs
-  textureQuality: "ultra_4k", // 4096px uncompressed procedural textures
-  anisotropicFiltering: 16,
-  shadowQuality: "ultra_4k", // 4096px PCF Soft contact-hardening shadows
+  preset: "medium_balanced",
+  renderScale: 0.75, // 75% render scale, upscaled
+  textureQuality: "medium", // 1024px procedural textures
+  anisotropicFiltering: 4,
+  shadowQuality: "medium", // 1024px shadow maps
   toneMapping: "aces_filmic",
-  exposure: 1.15,
+  exposure: 1.05,
   showPerformanceHUD: true,
 };
 

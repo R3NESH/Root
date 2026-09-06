@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ROOM_COLORS, ROOM_LABELS, RoomName, ROOM_NAMES } from "@/lib/rooms";
+import { MAX_BULGE_IN, RoomEdgeCurves, WallEdge } from "@/lib/wallCurves";
 import { SolvedRoom } from "@/lib/solve";
 import { inchesToFeet } from "@/lib/units";
 import styles from "./RoomCustomizer.module.css";
@@ -16,6 +17,9 @@ interface RoomCustomizerProps {
   rooms: SolvedRoom[];
   customDims: Record<string, CustomDim>;
   onChangeCustomDims: (next: Record<string, CustomDim>) => void;
+  /** Bowed wall faces per room edge, in inches — lib/wallCurves.ts. */
+  roomEdgeCurves?: RoomEdgeCurves;
+  onChangeRoomEdgeCurves?: (next: RoomEdgeCurves) => void;
 }
 
 export default function RoomCustomizer({
@@ -23,6 +27,8 @@ export default function RoomCustomizer({
   rooms,
   customDims,
   onChangeCustomDims,
+  roomEdgeCurves,
+  onChangeRoomEdgeCurves,
 }: RoomCustomizerProps) {
   // Build active room list from counts so it works for single room, 2 rooms, or any count
   const activeRooms: { id: string; name: RoomName; label: string; index: number }[] = [];
@@ -98,6 +104,29 @@ export default function RoomCustomizer({
 
   const handleResetAll = () => {
     onChangeCustomDims({});
+  };
+
+  // A door or a window on a bowed wall is a joinery problem the renderer does not solve, so the
+  // control is refused rather than the curve being silently dropped at draw time.
+  const edgeHasOpening = (roomIdx: number, edge: WallEdge) => {
+    const solved = rooms[roomIdx];
+    if (!solved) return false;
+    return (solved.openings ?? []).some((o) => o.edge === edge);
+  };
+
+  const handleCurveChange = (id: string, edge: WallEdge, deltaIn: number) => {
+    if (!onChangeRoomEdgeCurves) return;
+    const current = roomEdgeCurves?.[id]?.[edge] ?? 0;
+    const next = Math.max(0, Math.min(MAX_BULGE_IN, current + deltaIn));
+    if (next === current) return;
+
+    const forRoom = { ...(roomEdgeCurves?.[id] ?? {}), [edge]: next };
+    if (next === 0) delete forRoom[edge];
+
+    const all = { ...(roomEdgeCurves ?? {}) };
+    if (Object.keys(forRoom).length === 0) delete all[id];
+    else all[id] = forRoom;
+    onChangeRoomEdgeCurves(all);
   };
 
   return (
@@ -178,6 +207,38 @@ export default function RoomCustomizer({
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Bowed wall faces. A curve is a property of the wall, not of the plan: the room
+                  keeps the rectangle the solver packed and only its face bows outward. */}
+              <div className={styles.curveRow}>
+                <span className={styles.curveRowLabel}>Curve</span>
+                {(["N", "E", "S", "W"] as WallEdge[]).map((edge) => {
+                  const bulgeIn = roomEdgeCurves?.[item.id]?.[edge] ?? 0;
+                  const blocked = edgeHasOpening(item.index, edge);
+                  return (
+                    <div key={edge} className={styles.curveStepper}>
+                      <span className={styles.dimLabel}>{edge}</span>
+                      <button
+                        className={styles.stepBtn}
+                        disabled={blocked}
+                        onClick={() => handleCurveChange(item.id, edge, -6)}
+                        title={blocked ? "This wall carries a door or window" : "Flatten"}
+                      >
+                        -
+                      </button>
+                      <span className={styles.dimValue}>{Math.round((bulgeIn / 12) * 10) / 10}&apos;</span>
+                      <button
+                        className={styles.stepBtn}
+                        disabled={blocked}
+                        onClick={() => handleCurveChange(item.id, edge, 6)}
+                        title={blocked ? "This wall carries a door or window" : "Bow outward"}
+                      >
+                        +
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Rotate Clockwise & Anticlockwise Controls */}

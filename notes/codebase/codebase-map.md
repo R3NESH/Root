@@ -65,8 +65,18 @@ The module README is the graph node standing in for the code.
 | `frontend/lib/sceneDoorways.ts` | door edge arithmetic; mirrors `_edge_origin()` in [[connectivity.py]] | **done** — extracted from `Scene.tsx` 2026-08-30 |
 | `frontend/lib/blueprint2dPresets.ts` | SVG viewport + drafting preset pills | **done** — extracted from `Blueprint2DView.tsx` 2026-08-30 |
 | `frontend/lib/projectStorage.ts` | `localStorage` persistence — see [[environment-notes]] | **done** — extracted from `page.tsx` 2026-08-30 |
+| `frontend/lib/designHistory.ts` | Undo/redo — snapshot stack over the design document | **done** 2026-09-06 — watcher-driven, so new edits get undo without instrumenting their call site |
+| `backend/envelope/polygon.py` | Convex polygon plots — [[curves-are-a-face-not-a-plan]] | **done** 2026-09-06 — one integer half-plane per plot edge, straight into CP-SAT |
+| `frontend/lib/wallCurves.ts` | Bowed wall faces on rectangular rooms — [[curves-are-a-face-not-a-plan]] | **done** 2026-09-06 — one polyline feeds geometry, collision and the take-off |
+| `frontend/lib/wallEdits.ts` | Per-wall thickness, height and rectangular cutouts | **done** 2026-09-06 — keyed by room instance id plus edge, the same pair `wallBandKey` already uses. Render-only, like the per-room `customWallThickness` beside it: never sent to `/solve` |
+| `frontend/components/WallInspector.tsx` | Click a wall in 3D, edit its geometry | **done** 2026-09-06 — length (resizes the room), thickness, height, and holes cut through the face |
+| `frontend/lib/wallShapes.ts` | Wall elevations and the holes in them, as extruded outlines | **done** 2026-09-06 — arched and rounded wall tops, and rounded / arched / circular cutouts. Only taken when a wall actually needs a shape; a plain wall is still a box |
+| `frontend/lib/useFitCount.ts` | How many of a row's children fit; the rest go to an overflow | **done** 2026-09-06 — shared by the ribbon shelf and the application bar, which both had their own broken version |
+| `frontend/lib/stairCatalog.ts` | Six placeable stair styles, generated to NBC minima — [[stair-styles]] | **done** 2026-09-06 — Structure tab, Stairs panel |
+| `frontend/lib/compliance.ts` | Setbacks, coverage and FAR from G.O. Ms. 168 — [[bye-law-and-storeys]] | **done** 2026-09-06 — replaces the hardcoded 5/5/3/3 ft; road width is a new input |
+| `backend/solver/model.py` (floors) | Per-floor packing and the stair core — [[bye-law-and-storeys]] | **done** 2026-09-06 — G+2, one core pinned across storeys, `tests/test_floors.py` |
 | `frontend/lib/rooms.ts` | room vocabulary + colours; mirrors `solver/rooms.py` | **done** — 8 kinds |
-| `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — sends `moved_index`, supports `setRoomPositions()` for contiguous blueprint layouts |
+| `frontend/lib/solve.ts`, `frontend/lib/useSolve.ts` | [[step-3-wire-together]] — 350 ms debounced `POST /solve` | **done** — sends `moved_index`, supports `setRoomPositions()` for contiguous blueprint layouts, and `restoreRoomPositions()` which re-solves so an undo can put a dragged room back |
 | `frontend/lib/walkthrough.ts` | [[step-6-walkthrough]] | **done** — 5'5" eye level, room detection, spawn |
 | `frontend/lib/interiorDetails.ts` | [[step-6-walkthrough]] | **done** — procedural PBR textures, furniture, door-aware placement |
 | `frontend/app/page.tsx` | composition root; CAD ribbon, 3D viewport, 2D blueprint modes | **done** |

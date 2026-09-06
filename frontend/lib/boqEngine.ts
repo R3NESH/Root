@@ -58,7 +58,11 @@ export function calculateBoq(
   plot: PlotDims,
   facing: Facing,
   rooms: SolvedRoom[],
-  tier: BoqQualityTier = "standard"
+  tier: BoqQualityTier = "standard",
+  // How much longer the bowed wall faces are than the straight runs they replace, in feet.
+  // Perimeters below are computed from room rectangles, which a curve is not — without this the
+  // masonry, plaster and paint on every curved wall would be built and never costed.
+  extraWallLengthFt: number = 0
 ): BoqEstimate {
   const plotWFt = inchesToFeet(plot.widthIn);
   const plotDFt = inchesToFeet(plot.depthIn);
@@ -83,6 +87,8 @@ export function calculateBoq(
       kitchenAreaSqFt += area;
     }
   }
+
+  totalWallLengthFt += Math.max(0, extraWallLengthFt);
 
   // Built-up area includes outer walls and plinth projection (~15% above carpet area)
   const builtUpAreaSqFt = Math.max(100, Math.round(carpetAreaSqFt * 1.15));

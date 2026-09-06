@@ -3,6 +3,7 @@ import { ProgramKey } from "./programs";
 import { RoomName } from "./rooms";
 import { RoomOpening } from "./solve";
 import { CustomDim } from "@/components/RoomCustomizer";
+import { HouseMaterialConfig } from "./materialsCatalog";
 
 export interface ModelBlueprint {
   id: string;
@@ -34,9 +35,211 @@ export interface ModelBlueprint {
   customPositions?: Record<string, { xFt: number; yFt: number }>;
   customOpenings?: Record<string, RoomOpening[]>;
   customWallThickness?: Record<string, number>;
+  /**
+   * Storeys this plan is drawn for, ground included. Absent or 1 is a single-storey plan, which
+   * is what every plan here was before the solver could pack more than one. A duplex sets 2 and
+   * the mix is split across the floors on the way to the solver — backend/api/main.py.
+   */
+  floors?: number;
+  /**
+   * The finishes this plan is drawn with — the facade colour, the glazing, the floors. Partial:
+   * whatever it names is laid over the current config, and everything it does not name is left
+   * alone. A plan reconstructed from an elevation is mostly this.
+   */
+  materialConfig?: Partial<HouseMaterialConfig>;
 }
 
 export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
+  // ---------------------------------------------------------------------------
+  // Duplexes. Every one of these is G+1: `floors: 2` sends the mix to the solver
+  // to be split across two storeys with a stair core on each — see
+  // notes/decisions/bye-law-and-storeys.md. The room programmes and sizes below
+  // are taken from published Indian plans for the same plot sizes, listed in
+  // notes/blueprints/duplex-sources.md, not invented.
+  // ---------------------------------------------------------------------------
+  {
+    id: "duplex_30x50_glazed_stair_tower",
+    name: "30×50 Duplex — Glazed Stair Tower",
+    type: "Duplex 3BHK",
+    plotSizeLabel: "30×50 (1,500 sq ft)",
+    plotWidthFt: 30,
+    plotDepthFt: 50,
+    facing: "E",
+    floors: 2,
+    builtUpAreaSqFt: 1240,
+    totalSqFt: 1500,
+    rating: "Vaastu Compliant",
+    description:
+      "Built from a street elevation, not a plan: a G+1 whose stair core is expressed as a full-height glazed tower on the front, with the porch beside it and a balcony over it. Charcoal render, brick accent and black metal, as drawn. The room layout is the solver's own - an elevation cannot say where a bedroom goes.",
+    highlights: [
+      "Stair core glazed floor to ceiling, the way the elevation draws it",
+      "Charcoal render with a warm brick accent and black metal",
+      "3BHK over two storeys, parents' bedroom on the ground",
+      "Terrace over the first floor, reachable from the stair",
+    ],
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 3, pooja: 1, store: 1 },
+    customDims: {
+      hall_0: { wFt: 15, dFt: 13 },
+      dining_0: { wFt: 12, dFt: 10 },
+      kitchen_0: { wFt: 11, dFt: 9 },
+      bedroom_0: { wFt: 12, dFt: 11 },
+      bedroom_1: { wFt: 14, dFt: 12 },
+      bedroom_2: { wFt: 11, dFt: 11 },
+      bathroom_0: { wFt: 7, dFt: 5 },
+      bathroom_1: { wFt: 8, dFt: 5 },
+      bathroom_2: { wFt: 7, dFt: 5 },
+      pooja_0: { wFt: 5, dFt: 4 },
+      store_0: { wFt: 6, dFt: 5 },
+    },
+    // The facade the elevation actually shows. Only the stair core is glazed - that tower is the
+    // whole idea of the front - and the rest is charcoal render with a terracotta accent on the
+    // hall, which is as close as the palette gets to the exposed brick strip.
+    materialConfig: {
+      globalWallColor: "charcoal_slate",
+      globalFloor: "scandi_grey_ash",
+      globalDoorColor: "charcoal_slate",
+      roomFloors: { hall: "terrazzo_venice", pooja: "botticino_gold" },
+      roomWallColors: { hall: "terracotta", pooja: "champagne_gold" },
+      roomGlazing: {
+        stairs: { styleId: "structural", wall: true, door: false, mullions: 3 },
+      },
+    },
+  },
+  {
+    id: "duplex_30x40_3bhk",
+    name: "30×40 Duplex — 3BHK G+1",
+    type: "Duplex 3BHK",
+    plotSizeLabel: "30×40 (1,200 sq ft)",
+    plotWidthFt: 30,
+    plotDepthFt: 40,
+    facing: "E",
+    floors: 2,
+    builtUpAreaSqFt: 1150,
+    totalSqFt: 1200,
+    rating: "Vaastu Compliant",
+    description:
+      "The standard Bengaluru and Hyderabad duplex on a 30×40 site: living, dining and kitchen on the ground with a parents' bedroom and its bathroom, and the master plus a second bedroom upstairs off the landing.",
+    highlights: [
+      "Ground: 12×14 living, dining, kitchen with utility",
+      "Parents' bedroom and bathroom kept on the ground floor",
+      "First: 12×14 master with ensuite, 10×10 second bedroom",
+      "Stair core solved on both floors, not drawn by hand",
+    ],
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 2, pooja: 1 },
+    customDims: {
+      hall_0: { wFt: 14, dFt: 12 },
+      dining_0: { wFt: 11, dFt: 10 },
+      kitchen_0: { wFt: 10, dFt: 9 },
+      bedroom_0: { wFt: 11, dFt: 11 },
+      bedroom_1: { wFt: 14, dFt: 12 },
+      bedroom_2: { wFt: 10, dFt: 10 },
+      bathroom_0: { wFt: 7, dFt: 5 },
+      bathroom_1: { wFt: 7, dFt: 5 },
+      pooja_0: { wFt: 5, dFt: 4 },
+    },
+  },
+  {
+    id: "duplex_30x50_4bhk",
+    name: "30×50 Duplex — 4BHK G+1",
+    type: "Duplex 4BHK",
+    plotSizeLabel: "30×50 (1,500 sq ft)",
+    plotWidthFt: 30,
+    plotDepthFt: 50,
+    facing: "E",
+    floors: 2,
+    builtUpAreaSqFt: 1330,
+    totalSqFt: 1500,
+    rating: "Vaastu Compliant",
+    description:
+      "An east-facing 30×50 duplex with the living room to the north-east and the kitchen north-west, the two positions Vaastu and cross-ventilation both want. Four bedrooms across two floors, with a dedicated pooja room off the hall.",
+    highlights: [
+      "Living north-east, kitchen north-west on an east-facing plot",
+      "Dedicated pooja room, not a niche in the hall",
+      "Pooja room and store, both off the hall rather than in it",
+      "Three bedrooms upstairs, parents' room on the ground",
+    ],
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, pooja: 1, store: 1 },
+    customDims: {
+      hall_0: { wFt: 15, dFt: 13 },
+      dining_0: { wFt: 12, dFt: 11 },
+      kitchen_0: { wFt: 11, dFt: 9 },
+      bedroom_0: { wFt: 12, dFt: 11 },
+      bedroom_1: { wFt: 14, dFt: 13 },
+      bedroom_2: { wFt: 11, dFt: 11 },
+      bedroom_3: { wFt: 10, dFt: 10 },
+      bathroom_0: { wFt: 7, dFt: 5 },
+      bathroom_1: { wFt: 8, dFt: 5 },
+      bathroom_2: { wFt: 7, dFt: 5 },
+      pooja_0: { wFt: 5, dFt: 4 },
+      store_0: { wFt: 6, dFt: 5 },
+    },
+  },
+  {
+    id: "duplex_40x60_4bhk",
+    name: "40×60 Duplex — 4BHK Villa G+1",
+    type: "Duplex 4BHK",
+    plotSizeLabel: "40×60 (2,400 sq ft)",
+    plotWidthFt: 40,
+    plotDepthFt: 60,
+    facing: "N",
+    floors: 2,
+    builtUpAreaSqFt: 1760,
+    totalSqFt: 2400,
+    rating: "Vaastu Compliant",
+    description:
+      "The villa end of the duplex range on a 40×60 site: a 16×18 living hall, an island kitchen, a guest bedroom on the ground and a 12×16 master suite upstairs with two more bedrooms.",
+    highlights: [
+      "16×18 living hall opening onto the dining",
+      "10×14 island kitchen with utility and store",
+      "12×16 master suite upstairs, 12×12 and 10×12 beyond it",
+      "Guest bedroom and bathroom on the ground floor",
+    ],
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, pooja: 1, store: 1 },
+    customDims: {
+      hall_0: { wFt: 18, dFt: 16 },
+      dining_0: { wFt: 14, dFt: 12 },
+      kitchen_0: { wFt: 14, dFt: 10 },
+      bedroom_0: { wFt: 12, dFt: 11 },
+      bedroom_1: { wFt: 16, dFt: 12 },
+      bedroom_2: { wFt: 12, dFt: 12 },
+      bedroom_3: { wFt: 12, dFt: 10 },
+      bathroom_0: { wFt: 8, dFt: 5 },
+      bathroom_1: { wFt: 8, dFt: 6 },
+      bathroom_2: { wFt: 7, dFt: 5 },
+      pooja_0: { wFt: 6, dFt: 4 },
+      store_0: { wFt: 7, dFt: 5 },
+    },
+  },
+  {
+    id: "duplex_20x30_2bhk",
+    name: "20×30 Duplex — Compact 2BHK G+1",
+    type: "Duplex 2BHK",
+    plotSizeLabel: "20×30 (600 sq ft)",
+    plotWidthFt: 20,
+    plotDepthFt: 30,
+    facing: "S",
+    floors: 2,
+    builtUpAreaSqFt: 690,
+    totalSqFt: 600,
+    rating: "Vaastu Compliant",
+    description:
+      "A 600 sq ft plot goes vertical or it goes nowhere. Living, kitchen and one bedroom on the ground, the second bedroom and its bathroom above — about 492 sq ft of footprint per floor once the setbacks are taken.",
+    highlights: [
+      "Under 75 sq yd: registration on BuildNow, not a sanctioned permission",
+      "One bedroom and bathroom on each floor",
+      "Zero side and rear setback in this plot band, so the full width is usable",
+      "Circulation kept to the stair core — no passage waste",
+    ],
+    counts: { hall: 1, kitchen: 1, bedroom: 2, bathroom: 2 },
+    customDims: {
+      hall_0: { wFt: 12, dFt: 10 },
+      kitchen_0: { wFt: 8, dFt: 7 },
+      bedroom_0: { wFt: 10, dFt: 10 },
+      bedroom_1: { wFt: 11, dFt: 10 },
+      bathroom_0: { wFt: 6, dFt: 4 },
+      bathroom_1: { wFt: 6, dFt: 4 },
+    },
+  },
   // 0. 36x48 (1,728 sq ft) — Parisian Haute Penthouse Dollhouse
   {
     id: "parisian_haute_penthouse",

@@ -35,35 +35,103 @@ interface LeftToolRailProps {
 
 type SectionId = FurnitureCategory | "finishes" | "manage";
 
+/**
+ * Which cluster of the rail a section belongs to.
+ *
+ * The rail was one flat column of up to fifteen three-letter tags with a single divider in it,
+ * so finding anything meant reading every button. Grouping is the move the ribbon above makes —
+ * a small set of related commands under a heading — applied down the side instead of across the
+ * top.
+ */
+/**
+ * Rail glyphs: 16x16, stroked, one path array each.
+ *
+ * These replaced three-letter tags — SOF, MND, SAN, APP, LUM, SFT — which read as a code you had
+ * to learn before the rail was usable at all. A picture of a sofa is not self-explanatory either;
+ * Nielsen Norman's finding is that almost no icon is, which is why every one of these keeps its
+ * word underneath it rather than hiding it in a tooltip. See
+ * notes/architecture/ribbon-organisation.md.
+ */
+const RAIL_GLYPHS: Record<string, string[]> = {
+  sofa: ["M2.5 9.5v-2.5a1.5 1.5 0 0 1 3 0v1h5v-1a1.5 1.5 0 0 1 3 0v2.5", "M2.5 9.5h11v3.5h-11z", "M4.5 13v1M11.5 13v1"],
+  bed: ["M2.5 13V6.5", "M2.5 9.5h11v3.5h-11z", "M4.5 9.5V7.5h4.5v2", "M13.5 13v-3.5"],
+  table: ["M2.5 5.5h11", "M8 5.5v7", "M5.5 12.5h5"],
+  hob: ["M3 3.5h10v9H3z", "M6.6 6.6a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 1 1 2.2 0", "M11.9 6.6a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 1 1 2.2 0", "M4.5 10.5h7"],
+  desk: ["M2.5 10.5h11", "M4 10.5v3M12 10.5v3", "M6 4.5h4.5v4H6z", "M8.2 8.5v2"],
+  basin: ["M3 8.5h10v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z", "M8 8.5V5.5a1.5 1.5 0 0 1 3 0"],
+  stairs: ["M2.5 13.5V11h3V8.5h3V6h3V3.5h2"],
+  divider: ["M3.5 2.5v11M12.5 2.5v11", "M3.5 8h2.5M10 8h2.5"],
+  lamp: ["M8 2v3", "M4 10.5 8 5l4 5.5z", "M6.5 13h3"],
+  washer: ["M3.5 2.5h9v11h-9z", "M10.6 8.5a2.6 2.6 0 1 1-5.2 0 2.6 2.6 0 1 1 5.2 0", "M5.5 4.5h1.5"],
+  curtain: ["M2.5 3h11", "M5 3c1 3.5-1 6.5 0 10M8 3c1 3.5-1 6.5 0 10M11 3c1 3.5-1 6.5 0 10"],
+  plant: ["M8 13.5V8", "M8 8C5 8 4 6 4 3.5 7 3.5 8 5.5 8 8z", "M8 8c3 0 4-2 4-4.5C9 3.5 8 5.5 8 8z", "M5.5 13.5h5"],
+  mandir: ["M8 2 12.5 6H3.5z", "M5 6h6v7.5H5z", "M8 8.5v3.5"],
+  counter: ["M2.5 7.5h11v2h-11z", "M4.5 9.5v4M11.5 9.5v4", "M5.5 7.5V4.5h5v3"],
+  fridge: ["M4 2.5h8v11H4z", "M4 6.5h8", "M6 4.2v1.5M6 8.2v2"],
+  umbrella: ["M8 8v4.5", "M2.5 8a5.5 5.5 0 0 1 11 0z", "M8 12.5a1.6 1.6 0 0 0 3.2 0"],
+  sign: ["M3 3.5h10v6H3z", "M8 9.5v4", "M6 13.5h4", "M5.5 6.5h5"],
+  roller: ["M3 3.5h7v3H3z", "M10 5h2.5v3.5H7.5V13", "M6.5 13.5h2"],
+  layers: ["M8 2.5 14 6l-6 3.5L2 6z", "M2 9.5 8 13l6-3.5"],
+};
+
+function RailGlyph({ paths }: { paths: string[] }) {
+  return (
+    <svg className={styles.railIcon} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      {paths.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+type RailGroup = "rooms" | "build" | "fit" | "dress" | "project";
+
+const GROUP_LABELS: Record<RailGroup, string> = {
+  rooms: "Rooms",
+  build: "Build",
+  fit: "Fit-out",
+  dress: "Dress",
+  project: "Project",
+};
+
+const GROUP_ORDER: RailGroup[] = ["rooms", "build", "fit", "dress", "project"];
+
 interface RailSection {
   id: SectionId;
+  /** Key into RAIL_GLYPHS. */
   icon: string;
   label: string;
   title: string;
+  group: RailGroup;
 }
 
 // One entry per furniture category. Which of these the rail shows comes from the active
 // programme's `furnitureCategories` — see lib/programs.ts.
 const CATEGORY_META: Record<FurnitureCategory, Omit<RailSection, "id">> = {
-  living: { icon: "SOF", label: "Living", title: "Sofas, tables & living room objects" },
-  bedroom: { icon: "BED", label: "Bed", title: "Beds, wardrobes & bedroom objects" },
-  dining: { icon: "DIN", label: "Dining", title: "Dining tables, chairs & servers" },
-  kitchen: { icon: "KIT", label: "Kitchen", title: "Counters, appliances & kitchen units" },
-  office: { icon: "DSK", label: "Office", title: "Desks, chairs & study units" },
-  decor: { icon: "PLT", label: "Decor", title: "Plants, lighting, rugs & wall art" },
-  sacred: { icon: "MND", label: "Mandir", title: "Pooja mandir & sacred objects" },
-  walls: { icon: "WAL", label: "Divide", title: "Partitions, screens & room dividers" },
-  cafe_seating: { icon: "CAF", label: "Covers", title: "Tables, chairs, banquettes & bar stools" },
-  cafe_service: { icon: "SVC", label: "Service", title: "Counter kit: espresso, till, display, condiments, retail" },
-  cafe_decor: { icon: "LGT", label: "Decor", title: "Lighting, planting, neon & wall art" },
-  cafe_signage: { icon: "SGN", label: "Signage", title: "Menu boards & pavement signs" },
-  cafe_boh: { icon: "REF", label: "Back", title: "Back of house: fridge, prep bench, racking, ice" },
-  cafe_outdoor: { icon: "UMB", label: "Terrace", title: "Outdoor covers, rope line & bike rack" },
+  living: { icon: "sofa", label: "Living", title: "Sofas, coffee tables, TV units and living room pieces", group: "rooms" },
+  bedroom: { icon: "bed", label: "Bedroom", title: "Beds, wardrobes, nightstands and dressers", group: "rooms" },
+  dining: { icon: "table", label: "Dining", title: "Dining tables, chairs and sideboards", group: "rooms" },
+  kitchen: { icon: "hob", label: "Kitchen", title: "Counters, hobs, sinks and kitchen appliances", group: "rooms" },
+  office: { icon: "desk", label: "Study", title: "Desks, office chairs and bookshelves", group: "rooms" },
+  bath: { icon: "basin", label: "Bathroom", title: "WC, basin, shower and bathtub", group: "rooms" },
+  stairs: { icon: "stairs", label: "Stairs", title: "Straight, L-shaped, dog-leg, winder, floating and spiral stairs", group: "build" },
+  walls: { icon: "divider", label: "Dividers", title: "Partitions, screens and room dividers", group: "build" },
+  lighting: { icon: "lamp", label: "Lighting", title: "Chandeliers, pendants, wall sconces and task lights", group: "fit" },
+  appliance: { icon: "washer", label: "Appliances", title: "Washing machine, geyser, air conditioner and fans", group: "fit" },
+  soft: { icon: "curtain", label: "Curtains", title: "Curtains, cushions and soft furnishing", group: "dress" },
+  decor: { icon: "plant", label: "Decor", title: "Plants, rugs, mirrors and wall art", group: "dress" },
+  sacred: { icon: "mandir", label: "Mandir", title: "Pooja mandir and sacred objects", group: "dress" },
+  cafe_seating: { icon: "table", label: "Seating", title: "Tables, chairs, banquettes and bar stools", group: "rooms" },
+  cafe_service: { icon: "counter", label: "Service", title: "Counter kit: espresso machine, till, display case, condiments, retail", group: "rooms" },
+  cafe_boh: { icon: "fridge", label: "Back of house", title: "Fridge, prep bench, racking and ice machine", group: "build" },
+  cafe_outdoor: { icon: "umbrella", label: "Terrace", title: "Outdoor covers, rope line and bike rack", group: "build" },
+  cafe_signage: { icon: "sign", label: "Signage", title: "Menu boards and pavement signs", group: "fit" },
+  cafe_decor: { icon: "plant", label: "Decor", title: "Lighting, planting, neon and wall art", group: "dress" },
 };
 
 const FIXED_SECTIONS: RailSection[] = [
-  { id: "finishes", icon: "PNT", label: "Finish", title: "Floors, wall paint, door colours & themes" },
-  { id: "manage", icon: "MOD", label: "Manage", title: "Placed objects, AI modelling & cleanup" },
+  { id: "finishes", icon: "roller", label: "Finishes", title: "Floor materials, wall paint, door colours and whole-house themes", group: "project" },
+  { id: "manage", icon: "layers", label: "Manage", title: "Everything you have placed, AI modelling and cleanup", group: "project" },
 ];
 
 export default function LeftToolRail({
@@ -83,10 +151,17 @@ export default function LeftToolRail({
 }: LeftToolRailProps) {
   const [openSection, setOpenSection] = useState<SectionId | null>(null);
 
-  const railSections: RailSection[] = [
+  // The programme decides which categories exist; the group decides where each one sits. Within
+  // a group the programme's own order is kept, so a cafe still lists its covers before its till.
+  const allSections: RailSection[] = [
     ...program.furnitureCategories.map((id) => ({ id, ...CATEGORY_META[id] })),
     ...FIXED_SECTIONS,
   ];
+  const railGroups = GROUP_ORDER.map((group) => ({
+    group,
+    sections: allSections.filter((s) => s.group === group),
+  })).filter((g) => g.sections.length > 0);
+  const railSections = railGroups.flatMap((g) => g.sections);
 
   // Switching building type retires whole categories. A panel left open on one of them would
   // render an empty flyout, so fall back to closed rather than showing a dead panel.
@@ -122,18 +197,24 @@ export default function LeftToolRail({
       {/* Docked icon rail */}
       <nav className={styles.rail} aria-label="Interior design tools">
         <div className={styles.railCaption}>{program.railCaption}</div>
+        {/* The rail is a set of drawers, and nothing about a column of buttons says so. One line
+            costs almost nothing and is the difference between clicking to find out and knowing. */}
+        <p className={styles.railHint}>Pick a category, then drag a piece onto the plan.</p>
 
-        {railSections.map((section) => (
-          <React.Fragment key={section.id}>
-            {section.id === "finishes" && <div className={styles.railDivider} />}
-            <button
-              className={`${styles.railBtn} ${openSection === section.id ? styles.railBtnActive : ""}`}
-              onClick={() => setOpenSection((prev) => (prev === section.id ? null : section.id))}
-              title={section.title}
-            >
-              <span className={styles.railIcon}>{section.icon}</span>
-              <span className={styles.railLabel}>{section.label}</span>
-            </button>
+        {railGroups.map(({ group, sections }) => (
+          <React.Fragment key={group}>
+            <div className={styles.railGroupLabel}>{GROUP_LABELS[group]}</div>
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                className={`${styles.railBtn} ${openSection === section.id ? styles.railBtnActive : ""}`}
+                onClick={() => setOpenSection((prev) => (prev === section.id ? null : section.id))}
+                title={section.title}
+              >
+                <RailGlyph paths={RAIL_GLYPHS[section.icon]} />
+                <span className={styles.railLabel}>{section.label}</span>
+              </button>
+            ))}
           </React.Fragment>
         ))}
       </nav>
@@ -155,12 +236,17 @@ export default function LeftToolRail({
         <div className={styles.flyout}>
           <div className={styles.flyoutHeader}>
             <span className={styles.flyoutTitle}>
-              {active.icon} {active.title}
+              <RailGlyph paths={RAIL_GLYPHS[active.icon]} />
+              {active.label}
             </span>
             <button className={styles.flyoutClose} onClick={() => setOpenSection(null)} title="Close panel">
               ✕
             </button>
           </div>
+
+          {/* What is actually in this drawer, in words. It used to be the panel's only title,
+              which meant the heading read as a sentence and the category name was nowhere. */}
+          <p className={styles.flyoutSubtitle}>{active.title}</p>
 
           <div className={styles.flyoutBody}>
             {active.id === "finishes" ? (

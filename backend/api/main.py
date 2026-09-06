@@ -8,12 +8,19 @@ Ships the solver's derived `openings`, `wall_thickness_in`, `entrance_edge` and 
 rather than blanking them — notes/architecture/duplicated-geometry.md.
 """
 
+from dataclasses import replace
 from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from envelope import DEFAULT_SETBACK, FACINGS, Setback, buildable_envelope
+from envelope import (
+    DEFAULT_SETBACK,
+    FACINGS,
+    Setback,
+    buildable_envelope,
+    buildable_polygon,
+)
 from programs import PROGRAMS, RESIDENTIAL, Program, get_program
 from solver.model import solve_layout
 from solver.rooms import ROOM_CATALOG, Room
@@ -78,6 +85,16 @@ class SolveRequest(BaseModel):
     facing: str = "N"
     rooms: list[Union[str, RoomSpecIn]]
     setback: SetbackIn | None = None
+    # A plot that is not a rectangle, as [[x_in, y_in], ...] in plot coordinates: x east, y
+    # south, (0, 0) at the north-west corner, wound either way. Must be convex — see
+    # envelope/polygon.py for why, and what happens when it is not. `plot_w_in`/`plot_d_in` are
+    # still required and are the polygon's bounding box, so an older client is unaffected and a
+    # newer one degrades to the rectangle if the outline is rejected.
+    plot_polygon_in: list[list[int]] | None = None
+    # How many storeys to pack, ground included. 1 is what every client sent before this existed
+    # and is still the default. The mix is split across them by SPLIT_TO_UPPER below, and a stair
+    # core is added to every floor — see notes/decisions/single-storey-first.md.
+    floors: int = 1
     prev: list[PrevRoom] | None = None
     apply_vaastu: bool = True
     # Which building programme to pack — "residence" (default) or "cafe". An old client that
@@ -109,6 +126,7 @@ class RoomOut(BaseModel):
 class WallOut(BaseModel):
     """A wall as an object, not as four edges of a room — see solver/walls.py."""
 
+    floor: int = 0
     id: str
     x0_in: int
     y0_in: int
@@ -159,6 +177,14 @@ class SolveMeta(BaseModel):
     envelope_w_in: int
     envelope_d_in: int
     unknown_room_names: list[str]
+    # The buildable outline for a non-rectangular plot, in plot inches, already inset by the
+    # setback. Absent on a rectangular plot, where the origin and the two dimensions above say
+    # everything there is to say.
+    envelope_polygon_in: list[list[int]] | None = None
+    # How many storeys the solver actually packed. A client that asked for two and reads one here
+    # is talking to a backend that predates multi-storey, and can say so instead of quietly
+    # showing a bungalow.
+    floors_solved: int = 1
     entrance_edge: str | None = None
     rooms_reachable: int = 0
     # Which programme was packed and what its directional rules are called. `rules_applied` is
@@ -241,6 +267,75 @@ def _drop_to_fit(
     return []
 
 
+# Ground plus two. Past that the bye-law stops being about setbacks and starts being about
+# fire escape and lifts, none of which this models — see notes/decisions/project-phases.md.
+MAX_FLOORS = 3
+
+# Which spaces move upstairs when there is an upstairs, in the order they go. The Indian norm:
+# the public half of the house stays on the ground where the street door is, bedrooms go up. A
+# space not listed here never leaves the ground floor.
+SPLIT_TO_UPPER = ("bedroom", "bathroom")
+
+# The stair core. Deliberately not a room kind in ROOM_CATALOG: "staircase as a room kind" is
+# recorded as rejected in notes/decisions/rejected-approaches.md, and this is not that. It is
+# not offered in the mix, cannot be added or removed by the user, and exists only because a
+# storey above the ground has to be reachable from it. One rectangle, repeated on every floor at
+# the same position, which is what `aligned` posts to the solver.
+# Sized for a dog-leg with a half-landing, which is what an Indian house actually builds: two
+# flights side by side need about 5.5 ft of width, and 16 risers over two 7 ft runs give a
+# ~7.2 in riser and a ~10.5 in tread. A 3.5 ft core forces one straight flight at 50 degrees,
+# which is a ladder, not a staircase.
+STAIR_MIN_W_IN, STAIR_MAX_W_IN = 66, 90
+STAIR_MIN_D_IN, STAIR_MAX_D_IN = 114, 132
+
+
+def _stair_core(floor: int) -> Room:
+    return Room(
+        name="stairs",
+        min_w_in=STAIR_MIN_W_IN,
+        max_w_in=STAIR_MAX_W_IN,
+        min_d_in=STAIR_MIN_D_IN,
+        max_d_in=STAIR_MAX_D_IN,
+        # Not habitable and not wet: a landing needs neither a window quota nor a drain, and
+        # forcing it onto an exterior wall would waste the frontage it would take.
+        habitable=False,
+        wet=False,
+        max_aspect_x10=40,
+        floor=floor,
+    )
+
+
+def assign_floors(rooms: list[Room], floors: int) -> list[Room]:
+    """Spread the mix over `floors` storeys, ground first.
+
+    The hub and the service half stay down. Bedrooms and their bathrooms fill the ground floor
+    first and then go up, so a G+1 with two bedrooms keeps one of each downstairs rather than
+    leaving a whole floor to one room. Deterministic: the same mix always splits the same way,
+    which is what layout stability needs of it (notes/solver/layout-stability.md).
+    """
+    if floors <= 1:
+        return rooms
+
+    movable = [i for i, r in enumerate(rooms) if r.name in SPLIT_TO_UPPER]
+    if not movable:
+        return rooms
+
+    # Keep at least one of each movable kind on the ground: a house whose only bathroom is
+    # upstairs is a house with no ground floor bathroom.
+    kept: set[int] = set()
+    for kind in SPLIT_TO_UPPER:
+        first = next((i for i in movable if rooms[i].name == kind), None)
+        if first is not None:
+            kept.add(first)
+
+    to_move = [i for i in movable if i not in kept]
+    upper_floors = floors - 1
+    out = list(rooms)
+    for position, index in enumerate(to_move):
+        out[index] = replace(rooms[index], floor=1 + position % upper_floors)
+    return out
+
+
 @app.post("/solve", response_model=SolveResponse)
 def solve(req: SolveRequest) -> SolveResponse:
     facing = req.facing if req.facing in FACINGS else "N"
@@ -255,7 +350,25 @@ def solve(req: SolveRequest) -> SolveResponse:
         else DEFAULT_SETBACK
     )
 
+    floors = max(1, min(MAX_FLOORS, req.floors))
+
     env = buildable_envelope(req.plot_w_in, req.plot_d_in, facing, setback)
+
+    # A convex outline replaces the rectangle envelope with its own bounding box plus one
+    # half-plane per plot edge. An outline that is concave, degenerate or setback out of
+    # existence falls back to the rectangle rather than failing the solve: the plot dimensions
+    # are always present and always mean something.
+    poly_env = (
+        buildable_polygon([(p[0], p[1]) for p in req.plot_polygon_in], facing, setback)
+        if req.plot_polygon_in
+        else None
+    )
+    if poly_env is not None:
+        env = poly_env
+    halfplanes = (
+        [(h.a, h.b, h.c) for h in poly_env.halfplanes] if poly_env is not None else []
+    )
+
     program = get_program(req.program)
 
     unknown: list[str] = []
@@ -333,6 +446,17 @@ def solve(req: SolveRequest) -> SolveResponse:
             ),
         )
 
+    # Storeys. The mix is split first, then a stair core is added to each floor and the copies
+    # are pinned to one another so the staircase lands on the same footprint all the way up.
+    rooms = assign_floors(rooms, floors)
+    aligned: list[list[int]] = []
+    if floors > 1:
+        core_indices = []
+        for f in range(floors):
+            core_indices.append(len(rooms))
+            rooms.append(_stair_core(f))
+        aligned.append(core_indices)
+
     prev = {p.index: (p.x_in, p.y_in) for p in req.prev} if req.prev else None
     result = solve_layout(
         env.width_in,
@@ -343,6 +467,8 @@ def solve(req: SolveRequest) -> SolveResponse:
         moved_index=req.moved_index,
         program=program,
         facing=facing,
+        halfplanes=halfplanes,
+        aligned=aligned,
     )
     is_residence = program.key == RESIDENTIAL.key
 
@@ -356,6 +482,7 @@ def solve(req: SolveRequest) -> SolveResponse:
 
     walls_out = [
         WallOut(
+            floor=w.floor,
             id=w.id,
             # Envelope-relative to plot-relative, the same shift the rooms get.
             x0_in=w.x0_in + env.origin_x_in,
@@ -407,7 +534,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         rooms=[
             RoomOut(
                 name=r.name,
-                floor=0,
+                floor=r.floor,
                 x_in=r.x_in + env.origin_x_in,
                 y_in=r.y_in + env.origin_z_in,
                 w_in=r.w_in,
@@ -428,6 +555,10 @@ def solve(req: SolveRequest) -> SolveResponse:
             envelope_w_in=env.width_in,
             envelope_d_in=env.depth_in,
             unknown_room_names=unknown,
+            floors_solved=len({r.floor for r in result.rooms}) or 1,
+            envelope_polygon_in=(
+                [[x, y] for x, y in poly_env.polygon_in] if poly_env is not None else None
+            ),
             entrance_edge=result.entrance_edge,
             rooms_reachable=result.rooms_reachable,
             vaastu_relaxed=result.vaastu_relaxed and is_residence,
