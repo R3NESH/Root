@@ -23,6 +23,92 @@ export function fitSize(realFt: number, roomExtentFt: number, clearanceFt: numbe
   return Math.max(1.2, Math.min(realFt, roomExtentFt - clearanceFt));
 }
 
+// --- dining clearances, in feet -------------------------------------------------------
+//
+// fitSize() above is the wrong tool for a dining table and was what made a dining room
+// unwalkable. It reserves clearance once, against a piece measured by its own top. A dining
+// table stands in the middle of the floor: the chairs stick out past the top on both sides, and
+// the walkway is needed on both sides as well. A 6-seater in a room 8 ft across came out with
+// 1.1 ft of floor between the chair backs and the wall.
+//
+// A table is also not a thing that can be trimmed to fit. fitSize()'s 1.2 ft floor will happily
+// return a dining table the size of a stool.
+
+/** 36 in — the route you actually walk, and the same number lib/cafeInteriors.ts uses. */
+const DINING_ROUTE_FT = 3.0;
+/** The far chair side, where a chair is pulled out but nobody passes behind it. */
+const DINING_SQUEEZE_FT = 2.0;
+/** The table ends, which carry no chairs in either set below. */
+const DINING_END_FT = 1.5;
+
+/** Real tables, largest first. Trimming below the last one gives a stool, not a dining table. */
+const DINING_TABLES = [
+  { tableW: 6.0, tableD: 3.0 },
+  { tableW: 4.5, tableD: 2.75 },
+  { tableW: 3.0, tableD: 2.5 },
+];
+
+export interface DiningFit {
+  tableW: number;
+  tableD: number;
+  /** True when the set is turned a quarter turn so the chairs face the room's long axis. */
+  rotate: boolean;
+  /** 2 for a table you walk all the way round, 1 for one pushed back against a wall. */
+  chairSides: 1 | 2;
+  /** How far to push the set off centre, along the chair axis, when chairSides is 1. */
+  offsetFt: number;
+}
+
+/**
+ * The largest dining set this room can hold with a walkway left over, or null for none.
+ *
+ * Orientation is half the answer. The set is built with its chairs on the z sides, so a 12 x 8
+ * room used to push the chairs into the 8 ft direction however much room the 12 ft direction
+ * had going spare. Turning it a quarter turn is usually the whole fix.
+ *
+ * `chairReachFt` is how far a tucked chair sticks out past the table edge, which differs
+ * between the two sets drawn below and is measured off their own geometry.
+ */
+export function fitDiningSet(rw: number, rd: number, chairReachFt: number): DiningFit | null {
+  // Seating both sides is worth more than seating more people, so every table and both
+  // orientations are tried that way before any of them is pushed back against a wall. Folding
+  // the two into one pass takes the wall-side table in a 12 x 8 room and never notices that a
+  // quarter turn would have seated both sides of the same table.
+  for (const chairSides of [2, 1] as const) {
+    for (const { tableW, tableD } of DINING_TABLES) {
+      for (const rotate of [false, true]) {
+        // Without the turn the chairs face z; with it they face x.
+        const alongChairs = rotate ? rw : rd;
+        const alongTable = rotate ? rd : rw;
+        if (alongTable < tableW + 2 * DINING_END_FT) continue;
+
+        if (chairSides === 2) {
+          const needed = tableD + 2 * chairReachFt + DINING_ROUTE_FT + DINING_SQUEEZE_FT;
+          if (alongChairs >= needed) {
+            return { tableW, tableD, rotate, chairSides: 2, offsetFt: 0 };
+          }
+          continue;
+        }
+
+        // Nothing walks all the way round, so the table goes back against a wall and seats one
+        // side. A small table against the wall is what a house this size actually does.
+        const needed = tableD + chairReachFt + DINING_ROUTE_FT + 0.75;
+        if (alongChairs >= needed) {
+          return {
+            tableW,
+            tableD,
+            rotate,
+            chairSides: 1,
+            // Table back edge 0.75 ft off the wall, chairs and the route on the other side.
+            offsetFt: -(alongChairs / 2 - tableD / 2 - 0.75),
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function createRoundedBox(
   w: number,
   h: number,
@@ -1425,7 +1511,15 @@ export function addRoomInteriorDetails(
 
   } else if (roomName === "dining") {
     const diningId = `builtin_${roomIndex}_dining`;
-    if (!deletedIds?.has(diningId)) {
+    // Tub chair: a 0.75 ft radius seat centred 0.9 ft out. Dining chair: a 1.2 ft seat centred
+    // 0.8 ft out. Both measured off the geometry below, so a change there has to come here.
+    const chairReachFt = isUpgraded ? 1.65 : 1.4;
+    const diningFit = fitDiningSet(rw, rd, chairReachFt);
+    // No set fits with a walkway left. An empty dining room is honest; one you cannot walk
+    // through is what this whole block was fixed for.
+    if (!deletedIds?.has(diningId) && diningFit) {
+      const { tableW, tableD, rotate, chairSides, offsetFt } = diningFit;
+      const chairZSides: number[] = chairSides === 1 ? [1] : [-1, 1];
       const diningGroup = new THREE.Group();
 
       if (isUpgraded) {
@@ -1433,10 +1527,6 @@ export function addRoomInteriorDetails(
         const tableMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.16, metalness: 0.08 });
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xfcfaf6, roughness: 0.7 });
         const brassLegMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
-
-        // Six-seater: 6 x 3 ft, with 3 ft all round to pull a chair out.
-        const tableW = fitSize(6.0, rw, 3.5);
-        const tableD = fitSize(3.0, rd, 3.5);
 
         // Oval Marble Table Top
         const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.18, tableD, 0.1, 4), tableMat);
@@ -1451,8 +1541,8 @@ export function addRoomInteriorDetails(
           diningGroup.add(pedestal);
         }
 
-        // 8 Curved Plush Tub Chairs
-        for (const zSide of [-1, 1]) {
+        // Curved plush tub chairs, on whichever sides the room can seat.
+        for (const zSide of chairZSides) {
           for (const chairX of [-tableW * 0.35, -tableW * 0.12, tableW * 0.12, tableW * 0.35]) {
             const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.2, 20), chairMat);
             seat.position.set(chairX, 1.5, zSide * (tableD / 2 + 0.9));
@@ -1479,10 +1569,6 @@ export function addRoomInteriorDetails(
         const legMat = new THREE.MeshStandardMaterial({ color: 0xcfd4dc, metalness: 0.9, roughness: 0.2 });
         const chairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
 
-        // Four-seater: 4.5 x 2.75 ft.
-        const tableW = fitSize(4.5, rw, 3.5);
-        const tableD = fitSize(2.75, rd, 3.5);
-
         const tableTop = new THREE.Mesh(createRoundedBox(tableW, 0.15, tableD, 0.06, 4), tableMat);
         tableTop.position.set(0, 2.6, 0);
         tableTop.castShadow = true;
@@ -1496,7 +1582,7 @@ export function addRoomInteriorDetails(
           }
         }
 
-        for (const zSide of [-1, 1]) {
+        for (const zSide of chairZSides) {
           for (const chairX of [-tableW * 0.32, 0, tableW * 0.32]) {
             const seat = new THREE.Mesh(createRoundedBox(1.2, 0.1, 1.2, 0.04, 3), chairMat);
             seat.position.set(chairX, 1.5, zSide * (tableD / 2 + 0.8));
@@ -1518,7 +1604,15 @@ export function addRoomInteriorDetails(
         }
       }
 
-      diningGroup.position.set(cx, 0, cz);
+      // The offset is in the set's own frame, so it is turned with it: a quarter turn sends a
+      // local -z push out along world x. Rotating the group itself rather than wrapping it in a
+      // pivot keeps the object the raycaster hits, and its userData, exactly where they were.
+      diningGroup.rotation.y = rotate ? Math.PI / 2 : 0;
+      diningGroup.position.set(
+        cx + (rotate ? offsetFt : 0),
+        0,
+        cz + (rotate ? 0 : offsetFt)
+      );
       diningGroup.userData = {
         isFurniture: true,
         isBuiltin: true,
@@ -1607,26 +1701,44 @@ export function addRoomInteriorDetails(
     towelBar.position.set(rx + rw - 1.6, 3.5, rz + rd - 0.4);
     group.add(towelBar);
 
-    // Deep Soaking Bathtub
-    const tubMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
-    // A standard soaking tub is 5 ft 3 x 2 ft 6.
-    const tub = new THREE.Mesh(createRoundedBox(fitSize(5.25, rw, 2.0), 1.8, fitSize(2.5, rd, 2.0), 0.22, 5), tubMat);
-    tub.position.set(rx + 2.8, 0.9, rz + rd - 1.6);
-    tub.castShadow = true;
-    group.add(tub);
+    // Deep soaking bathtub, in the bathrooms that can hold one.
+    //
+    // A standard soaking tub is 5 ft 3 x 2 ft 6 and there is no such thing as a smaller one.
+    // fitSize() used to trim it to the room, which in a 4 ft wide bathroom — the catalog
+    // minimum, and a real Indian size — produced a 2 ft bathtub. A 4 x 6 bathroom in India has
+    // a shower, and the shower above is already drawn in every one of them.
+    const hasTub = rw >= 6.0 && rd >= 6.0;
+    if (hasTub) {
+      const tubMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12 });
+      const tub = new THREE.Mesh(createRoundedBox(5.25, 1.8, 2.5, 0.22, 5), tubMat);
+      tub.position.set(rx + 2.8, 0.9, rz + rd - 1.6);
+      tub.castShadow = true;
+      group.add(tub);
+    }
 
-    // Front-Loading Washing Machine
-    const washerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
-    const drumMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.8 });
-    const washer = new THREE.Mesh(createRoundedBox(2.0, 2.8, 2.0, 0.08, 4), washerMat);
-    washer.position.set(rx + rw - 1.4, 1.4, rz + rd - 1.4);
-    washer.castShadow = true;
-    group.add(washer);
+    // Front-loading washing machine.
+    //
+    // It stands in the same back corner as the tub, so the two were being drawn through each
+    // other in any bathroom narrow enough for their footprints to meet: the tub reaches
+    // rx + 5.4 and the machine starts at rx + rw - 2.4, which overlap below 7.8 ft of width.
+    // The catalog never makes a bathroom that wide, so a bathroom with a tub does not also get
+    // a machine.
+    //
+    // The machine belongs in the utility anyway, now that there is one — solver/rooms.py. This
+    // block cannot see the other rooms, so it cannot make that call; noted rather than guessed.
+    if (!hasTub && rw >= 4.5) {
+      const washerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 });
+      const drumMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.8 });
+      const washer = new THREE.Mesh(createRoundedBox(2.0, 2.8, 2.0, 0.08, 4), washerMat);
+      washer.position.set(rx + rw - 1.4, 1.4, rz + rd - 1.4);
+      washer.castShadow = true;
+      group.add(washer);
 
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.08, 24), drumMat);
-    drum.rotation.x = Math.PI / 2;
-    drum.position.set(rx + rw - 1.4, 1.4, rz + rd - 2.4);
-    group.add(drum);
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.08, 24), drumMat);
+      drum.rotation.x = Math.PI / 2;
+      drum.position.set(rx + rw - 1.4, 1.4, rz + rd - 2.4);
+      group.add(drum);
+    }
 
   } else if (roomName === "pooja") {
     // ---------------------------------------------------------
@@ -1649,11 +1761,22 @@ export function addRoomInteriorDetails(
       roughness: 0.1,
     });
 
-    const altarBase = new THREE.Mesh(createRoundedBox(fitSize(2.8, rw, 1.6), 1.2, fitSize(1.6, rd, 1.4), 0.08, 4), mandirMat);
+    // A mandir stands against a wall, so it needs its own depth plus somewhere to stand or
+    // kneel — not clearance on all four sides. It is sized off the wall it is against.
+    //
+    // The two tiers used to be sized by two independent fitSize() calls with different
+    // clearances, which in the catalog's smallest 3 ft pooja room returned a 1.4 ft base under a
+    // 1.2 ft tier — the tier only that wide because it had hit fitSize()'s 1.2 ft floor, not
+    // because anything chose it. The tier is a proportion of the base now, so it can never come
+    // out wider than the thing it stands on.
+    const altarW = Math.min(2.8, rw - 0.8);
+    const altarD = Math.min(1.6, rd - 1.4);
+
+    const altarBase = new THREE.Mesh(createRoundedBox(altarW, 1.2, altarD, 0.08, 4), mandirMat);
     altarBase.position.set(cx, 0.6, rz + 1.2);
     altarBase.castShadow = true;
 
-    const altarTier = new THREE.Mesh(createRoundedBox(fitSize(2.0, rw, 2.4), 0.8, fitSize(1.2, rd, 1.8), 0.06, 4), mandirMat);
+    const altarTier = new THREE.Mesh(createRoundedBox(altarW * 0.72, 0.8, altarD * 0.75, 0.06, 4), mandirMat);
     altarTier.position.set(cx, 1.6, rz + 1.2);
 
     const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);
