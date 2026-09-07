@@ -26,6 +26,7 @@ A complete, chronological and categorized record of all engineering systems, arc
 12. [[#12. 🚶 First-Person Walkthrough & Live Radar Minimap]]
 13. [[#13. 📤 Production Export & Blueprint Documentation]]
 14. [[#14. ⌨️ Unified Global Hotkeys & CAD Controls]]
+15. [[#15. 💬 Free-Text Plan Input (Claude → Constraints → CP-SAT)]]
 
 ---
 
@@ -229,13 +230,35 @@ A complete, chronological and categorized record of all engineering systems, arc
 
 ---
 
+## 15. 💬 Free-Text Plan Input (Claude → Constraints → CP-SAT)
+
+*Describe the house in a sentence; the solver still designs it.* Added 2026-09-06, reversing the
+chatbot rejection in [[rejected-approaches]] on the owner's call — [[free-text-input]].
+
+| Capability | Description |
+| :--- | :--- |
+| **Prompt bar** | Sits over the viewport. *"30x40 north facing 2BHK with a pooja room and car parking"*. The tap path — room tray, compass dial, plot stepper — is unchanged and still reaches a plan with no keyboard ([[zero-keyboard-events]]). |
+| **Constraints, never geometry** | `POST /ai/plan` returns a `/solve` **body**, not a plan. Claude maps words onto the room vocabulary; CP-SAT places every room, so a language model can never hand back a layout that breaks Vaastu, setbacks or connectivity. |
+| **Nothing silently dropped** | An ask the catalog cannot express — a swimming pool, a lift, a budget — comes back in `unsupported` and is shown. A plot size or facing that was never stated is presented as an assumption, not as the person's answer. |
+| **No offline path** | No credential, no answer: 503, and the person is told. A regex parser standing in for the model would be [[client-side-fallback]] wearing a different hat. |
+| **Requested pairs** | *"the guest bedroom near the kitchen"* becomes a scored objective term, not a constraint — the one preference in the solver that is scored, and why: [[preferences-are-scored]]. |
+| **Three new room kinds** | `sitout`, `parking`, `utility`. The first two are roofed and not walled: no exterior wall is emitted, none is rendered, and the bill of quantities bills no bricks for them. |
+
+> [!warning] Never verified against the real model
+> Validation, index remapping, refusal handling and the 503 are unit-tested against a stub. No
+> live API call has been made, so the prompt itself is unproven.
+
+---
+
 ## 📊 Summary of Implemented Capabilities
 
-- **Backend Tests Passing**: **90 / 90 (100%)**
+- **Backend Tests Passing**: **139 passing, 1 failing** — the failure is a pre-existing wall-clock flake, measured in [[2026-09-06]]
 - **TypeScript Errors**: **0 Errors** (`npx tsc --noEmit`)
 - **Production Build**: **Compiled Successfully (Code 0)**
 - **BIM Core**: **Walls as first-class objects with persistent IDs, thicknesses, and single-hosted openings**
 - **Estimation Core**: **Real-time Bill of Quantities (BOQ) with Economy, Premium, and Luxury tiers**
 - **Supported Floor Plan Models**: **20 Curated Architectural Blueprints**
+- **Residential Room Kinds**: **11** — hall, dining, kitchen, bedroom, bathroom, pooja, store, entrance, utility, sit-out, car porch
+- **Input Paths**: **2** — taps and drags, or a sentence ([[free-text-input]])
 - **Supported Material Finishes**: **15+ High-Definition PBR Procedural Shaders & Wall Paint Blending**
 - **Supported Graphic Modes**: **Hardware GPU Path Tracer, UPGRADE Studio Mode, DSR render scaling to 200%, 4096px procedural textures, 4096px PCF soft shadows, Day / Night, 3D Dollhouse Cutaway**

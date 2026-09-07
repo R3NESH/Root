@@ -10,13 +10,19 @@ date: 2026-08-23
 | US / ADU market | AB 1332 gives plans away free | [[india-only]] |
 | Permit submission / plan-check features | TG-bPASS grants instant approval in the target size band | — |
 | Square-footage-first input | underdetermined, hides a design decision | [[input-is-plot-dimensions]] |
-| Chatbot / conversational input | a questionnaire with more typing and no visual feedback | [[zero-keyboard-events]] |
+| ~~Chatbot / conversational input~~ | **reversed 2026-09-06** — a prompt box now sits beside the tap path, which is unchanged | [[free-text-input]] |
 | `add_hint` as the stability mechanism | unreliable in practice | [[layout-stability]] |
 | The word "architect" anywhere in copy | Architects Act §37 protects the title | — |
 | Time-of-day sun / solar path in the 3D view | built and working for 17.4N, removed the same day on the user's call | [[realism-gaps]] |
-| Parking porch, sit-out, staircase, utility as room kinds | added by [[realism-gaps]], removed the same day on the user's call | [[realism-gaps]] |
-| `open_sided` rooms (roofed but unwalled) | the only two were the porch and sit-out; with those gone the concept had no users, so it went rather than sit unreachable | [[realism-gaps]] |
+| ~~Parking porch, sit-out, utility as room kinds~~ | **reversed 2026-09-06** — free text needs a vocabulary wide enough to answer with | [[free-text-input]] |
+| Staircase as a room kind | still rejected; see the note below | [[realism-gaps]] |
+| ~~`open_sided` rooms (roofed but unwalled)~~ | **reversed 2026-09-06** — its two users came back with the porch and the sit-out | [[free-text-input]] |
 | Client-side fallback when the API returns no `openings` | a fallback *is* the duplication that was just deleted; fail loudly instead | [[duplicated-geometry]] |
+
+> [!note] Two of these were reversed on 2026-09-06
+> Struck-through rows above were rejected and are no longer. The reversal, what was given up
+> with it, and what still holds are in [[free-text-input]]. They are left here struck through
+> rather than deleted: a decision that was reversed is not a decision that was never made.
 
 > [!note] On the staircase
 > Still rejected **as a room kind**: it is in no catalog, no mix and no counter. What multi-storey

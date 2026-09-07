@@ -8,6 +8,8 @@ Index of daily notes. New one: `Ctrl+P` → *Daily notes: Open today's daily not
 
 ## Entries
 
+- [[2026-09-06]] — requested room pairs scored not constrained (`NEAR_WEIGHT = 60`, swept); size drift built and deleted after measuring 1 in of churn over 10 edits; two locked decisions reversed for [[free-text-input]]; [[furniture-clearances]] found from a user report
+- [[2026-09-03]] — walls as objects, bill of quantities, NBC 2016 room sizing, compact footprint objective
 - [[2026-08-30]] — 20 authentic prebuilt blueprints, contiguous snapping matrix, exterior window constraint, awning alignment; then structurize pass (5 modules out of the 3 biggest files, 2 duplications killed), graph 548→651 nodes, root `CLAUDE.md`, and [[client-side-fallback]] found
 - [[2026-08-25]] — full project review: two blocking regressions found, vault drift corrected
 - [[2026-08-24]] — step 2: CP-SAT solver core built, test baseline established (5/5 passing)

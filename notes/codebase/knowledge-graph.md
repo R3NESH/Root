@@ -2,7 +2,7 @@
 tags: [codebase, tooling]
 status: built
 date: 2026-08-30
-updated: 2026-08-30
+updated: 2026-09-07
 ---
 # Knowledge graph (graphify)
 
@@ -12,11 +12,26 @@ A queryable graph over the whole corpus — 135 files in `manifest.json`, code a
 
 ## What was built
 
-| | 2026-08-25 | 2026-08-30 |
-|---|---|---|
-| Nodes | 548 | **651** |
-| Edges | 1,319 | **1,536** |
-| Communities | 28 | **38** |
+| | 2026-08-25 | 2026-08-30 | 2026-09-07 |
+|---|---|---|---|
+| Nodes | 548 | 651 | **1,538** |
+| Edges | 1,319 | 1,536 | **3,355** |
+| Communities | 28 | 38 | **84** |
+
+The 2026-09-07 column is counted the same way as the one before it, off `graph.json` and not off
+the build log. `notes/build/` came through with **26 nodes**, so the skip-dir trap below did not
+bite this time — it is still worth checking every run, because nothing warns you.
+
+> [!warning] The command in `CLAUDE.md` was wrong and has been corrected
+> `graphify --update` is not a command any more: the CLI is now `graphify update <path>`, and it
+> answers an unknown flag with `error: unknown command` rather than doing nothing quietly. The
+> package has also moved on to 0.9.49 while the installed skill is still 0.9.31, which it warns
+> about on every invocation. `graphify install` refreshes it; that writes into assistant config
+> directories outside this repo, so it has not been run here.
+>
+> Community labels are stale for the same reason a rebuild always makes them stale: 62 saved
+> labels against 84 communities now, 38 renamed by their hub. `graphify label` refreshes them
+> and needs an LLM key, which this machine does not have.
 
 > [!warning] Counted from `graph.json` on 2026-08-31, not from the build log
 > The 2026-08-30 column previously read 662 / 1,547 / 35, and [[Home]] and [[codebase-map]]

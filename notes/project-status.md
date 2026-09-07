@@ -1,12 +1,17 @@
 ---
 tags: [moc, status]
 status: current
-date: 2026-09-03
+date: 2026-09-07
 ---
-# Project status — 2026-09-03
+# Project status — 2026-09-07
 
-Reviewed against the working tree at commit `4e77ca7` plus uncommitted work, with every number
-below re-measured on 2026-09-03 rather than carried over from [[daily-log|the daily notes]].
+Reviewed against the working tree at commit `8a29fcc` plus a large body of uncommitted work,
+with every number below re-measured on 2026-09-07 rather than carried over from
+[[daily-log|the daily notes]].
+
+> [!warning] Nothing from the 2026-09-06 session is committed
+> Twenty-five files, roughly +900 lines. Three features, two reversed decisions, one deleted
+> experiment. It exists only in the working tree.
 
 > [!success] Updated on 2026-09-03 — Walls as Objects (BIM), Quantities Takeoff, NBC 2016 Sizing & Compact Footprint
 > - **Walls as First-Class Objects**: 0-inch gap shared partition walls derived post-solve with persistent IDs, thickness, and hosted openings.
@@ -20,11 +25,13 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 | | |
 |---|---|
 | Phase | [[project-phases\|Phase 1]] — production CAD, BIM takeoff & 3D walkthrough ready |
-| Commits | **36** on `main` |
-| Code | **3,600+** lines backend Python · **28,000+** TS/TSX + **9,000+** CSS frontend |
-| Tests | **93 passing** in ~198 s — up from the 50 recorded in [[test-baseline]] |
+| Commits | **46** on `main`, plus 25 uncommitted files |
+| Code | **6,900** lines backend Python incl. tests · **38,900** TS/TSX + **9,500** CSS frontend |
+| Tests | **139 passing, 1 failing** in ~280 s — the failure is a pre-existing flake, measured below |
 | Frontend checks | `tsc --noEmit` 0 errors · `next build` 0 warnings |
 | Blueprints | **20 authentic curated models** with 4-directional filtering |
+| Room kinds | **11 residential** — sit-out, car porch and utility returned 2026-09-06 |
+| Input paths | taps **and** free text — [[free-text-input]] |
 | Paying users | **none**, and nobody asked yet |
 
 ## What works, verified today
@@ -44,6 +51,9 @@ below re-measured on 2026-09-03 rather than carried over from [[daily-log|the da
 
 | Issue | Severity | Note |
 |---|---|---|
+| `test_the_house_fills_most_of_what_the_catalog_allows` fails on roughly 2 runs in 4 | **medium** | Pre-existing. It measures the 2 s budget, not the objective — [[2026-09-06]] |
+| The free-text path has never made a real API call | **medium** | No `ANTHROPIC_API_KEY` on the dev machine; stub-tested only — [[free-text-input]] |
+| Nothing from 2026-09-06 has been seen rendered | **medium** | No browser driver in the repo; `tsc` and `next build` are not eyes — [[furniture-clearances]] |
 | A twelve-room program hits the 2 s cold budget and returns FEASIBLE, not OPTIMAL | low | [[realism-gaps]] |
 | Renderer hard-depends on the API for doors; an old backend silently draws a doorless house (now flagged in the UI) | medium | [[realism-gaps]] |
 | Setbacks still hardcoded | known gap | [[environment-notes]] |
@@ -106,19 +116,52 @@ page, and the one no test can turn red.
 > silently lost to the composer, moiré banding read as lawn stripes) were only caught because the
 > user said the picture looked wrong.
 
+## Added 2026-09-06 (pairs, catalog, free text) — [[2026-09-06]]
+
+- **Requested room pairs.** `near` on `POST /solve`, scored rather than constrained, threaded to
+  the frontend. `NEAR_WEIGHT = 60` from a six-point sweep — [[preferences-are-scored]].
+- **Size drift built and deleted.** Ten perturbed edits churned room sizes by **1 inch** without
+  it. The problem did not exist; the term went. The measurement is the point, not the feature.
+- **Two locked decisions reversed on the user's call** — [[free-text-input]]. A prompt box now
+  sits beside the tap path, which is unchanged; sit-out, car porch and utility are back in the
+  catalog with `open_sided`. Struck through, not deleted, in [[rejected-approaches]].
+- **[[furniture-clearances]] found from a user report, not a test.** A dining table left 1.1 ft
+  of floor each side; a 4 ft bathroom got a 2 ft bathtub drawn through the washing machine. Three
+  rooms fixed. Nobody has looked at the result.
+
+> [!warning] The same warning as 2026-09-04 still applies, and is now worse
+> Nothing in this session was verified against a screenshot either. The app was launched and
+> both servers answered, but there is no browser driver in the repo, so no picture was seen. The
+> two regressions that survived 2026-09-04's checks were caught by the user's eyes — and it was
+> the user's eyes that found [[furniture-clearances]] as well.
+
 ## Recommended order
 
 0. ~~**Fix or label [[client-side-fallback]].**~~ **Done 2026-08-31.** The offline engine reports
    `OFFLINE_ESTIMATE` with an empty rule list, no longer falls through on a non-`ok` response,
    and the ribbon shows a warning instead of a sparkle. Pointing the deploy at a hosted backend
    is the remaining half, and it needs a backend that does not exist yet — [[environment-notes]].
-1. **Answer [[q-does-anyone-pay]].** Zero code, ten days overdue. Nobody has been asked for
-   money, so nothing built so far is known to be wanted.
-2. Test on the real 30x40 north-facing Kandi plot. Still never done.
-3. Check the catalog maximums against real house plans. The fill metric is only as honest as
-   the ceiling it is measured against.
-4. Surface INFEASIBLE usefully in the UI: "this program does not fit - remove a room".
-5. Only then: touch controls for the walkthrough, or [[project-phases|Phase 2]].
+1. **Answer [[q-does-anyone-pay]].** Zero code, two weeks overdue. Four more features have been
+   built on top of it since. Nobody has been asked for money, so nothing built so far is known to
+   be wanted.
+2. **Verify the free-text path against the real model.** It has never made a call. Set
+   `ANTHROPIC_API_KEY` and try four prompts — normal, vague, impossible, adjacency. Everything in
+   that layer is stub-tested, and the field descriptions that steer the model are guesses until
+   one real call proves otherwise.
+3. **Look at a car porch, a dining room and a bathroom in 3D.** Three rooms changed on 2026-09-06
+   and none has been seen. This is a five-minute check that `tsc` structurally cannot do.
+4. **Commit.** 25 files, nothing staged, three separable commits.
+5. **Decide the flaky fill test.** It fails about half the time on committed code and measures
+   the 2 s budget rather than the objective. Give it a fixed longer budget or delete it —
+   `test_the_house_reads_as_one_building` already locks down what the compactness term buys.
+   Leaving it red trains everyone to ignore a red suite.
+6. **Host a backend.** A deployed visitor still gets the offline grid, and now also gets a prompt
+   box that 503s or points at their own localhost. Free text made the deployment gap *worse*.
+7. Check the catalog maximums against real house plans. The fill metric is only as honest as the
+   ceiling it is measured against.
+8. Only then: curved room footprints — [[curves-are-a-face-not-a-plan]] is the standing decision
+   and a round room would be a change to it — touch controls, or [[project-phases|Phase 2]].
 
 **Links.** [[Home]] · [[workflow]] · [[HANDOFF]] · [[build-order]] · [[test-baseline]] ·
-[[codebase-map]] · [[knowledge-graph]] · [[client-side-fallback]]
+[[codebase-map]] · [[knowledge-graph]] · [[client-side-fallback]] · [[free-text-input]] ·
+[[furniture-clearances]]

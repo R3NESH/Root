@@ -176,7 +176,8 @@ Repo root **is** the Obsidian vault root. Code and notes one graph.
 - New module → add row to `notes/codebase/codebase-map.md`.
 - Module folder gets own `README.md`. That README wikilink the notes it implement.
 - Obsidian only graph Markdown. README is the node standing for the code.
-- Rebuild graph: `graphify --update` from repo root.
+- Rebuild graph: `graphify update .` from repo root. (`--update` was the old spelling and is
+  now rejected as an unknown command.)
   **Gotcha:** graphify skip any folder named `build/`. Here `notes/build/` is design doc, not
   artifact. Lift `"build"` out of `_SKIP_DIRS` or lose the whole Phase 1 plan, silent.
 
