@@ -40,9 +40,14 @@ export const RESIDENCE_PROGRAM: BuildingProgram = {
   label: "Residence",
   icon: "HSE",
   blurb: "Indian home. Vaastu quadrants posted as constraints, rooms opening onto a central hall.",
-  spaces: ["hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance"],
+  spaces: [
+    "hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance",
+    "utility", "sitout", "parking",
+  ],
   defaultMix: ["hall", "kitchen", "bedroom", "bedroom", "bathroom"],
-  maxPerSpace: {},
+  // One car porch and one sit-out. A house with two front porches is a data entry mistake, and
+  // both eat street frontage the rooms need — backend/programs/registry.py street_edge_spaces.
+  maxPerSpace: { parking: 1, sitout: 1, utility: 1 },
   rulesLabel: "Vaastu",
   railCaption: "Interior",
   furnitureCategories: [

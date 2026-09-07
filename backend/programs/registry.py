@@ -73,7 +73,10 @@ RESIDENTIAL = Program(
     key="residence",
     label="Residence",
     blurb="Indian home. Vaastu quadrants posted as constraints, rooms opening onto a central hall.",
-    spaces=("hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance"),
+    spaces=(
+        "hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance",
+        "utility", "sitout", "parking",
+    ),
     default_mix=("hall", "kitchen", "bedroom", "bedroom", "bathroom"),
     hub="hall",
     hub_fallbacks=("bedroom",),
@@ -85,7 +88,20 @@ RESIDENTIAL = Program(
         "kitchen": ("hall", "dining"),
         "bedroom": ("hall", "dining"),
         "entrance": ("hall", "dining"),
+        # The washing area opens off the kitchen. That is where the machine, the sink and the
+        # second door are in an Indian house; hanging it off the hall puts wet washing through
+        # the living room.
+        "utility": ("kitchen", "hall"),
+        # The sit-out is the outdoor half of the front of the house, so it sits against the
+        # entrance or the hall.
+        "sitout": ("entrance", "hall"),
+        # The porch is reached from the sit-out where there is one, and from the front of the
+        # house where there is not. It is pinned to the street edge below, so this only decides
+        # which door it shares.
+        "parking": ("sitout", "entrance", "hall"),
     },
+    # Not added: pooja next to the utility. It is plausibly a taboo of the same family as the
+    # two below, and no source was checked for it, so it is not asserted here.
     forbidden_pairs=frozenset({("kitchen", "bathroom"), ("pooja", "bathroom")}),
     # Read as absolute world fractions: (x_min, x_max, z_min, z_max). Mirrors vaastu.V1_RULES,
     # which stays the source of truth — see resolve_rules().
@@ -104,6 +120,12 @@ RESIDENTIAL = Program(
     entrance_edges=("N", "E", "W", "S"),
     facing_relative_rules=False,
     ensuite=("bathroom", "bedroom"),
+    # A car porch behind the house is a porch no car can reach. This is a physical fact about
+    # a driveway, not a direction rule — but the mechanism that posts it is currently inside
+    # the Vaastu branch of solver/model.py, so a solve with Vaastu turned off, and the last two
+    # rungs of the relaxation ladder, will not pin it. That is the ladder doing its job on a
+    # plot that is too tight; it is not a claim that the porch is optional.
+    street_edge_spaces=("parking",),
 )
 
 

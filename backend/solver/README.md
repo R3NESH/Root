@@ -9,4 +9,7 @@ CP-SAT room placement. Implements [[cp-sat-api]], [[cp-sat-gotchas]].
 Not yet: [[step-4-drift-objective]] (stability, [[layout-stability]]), [[step-5-vaastu]]
 (direction constraints, land in `../vaastu/`).
 
+Requested room pairs are scored rather than constrained — the one preference in this solver
+that is, and why: [[preferences-are-scored]].
+
 All lengths in inches: [[integer-inches]].

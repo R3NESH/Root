@@ -405,3 +405,85 @@
   color: #b5b0a6;
   word-break: break-word;
 }
+
+/* Free-text input. Sits over the viewport rather than in the ribbon: it is an alternative to
+   the room tray, not another control on it. */
+.promptBar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  display: flex;
+  gap: 6px;
+  width: min(620px, calc(100% - 32px));
+  background: #21201b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.promptInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e6e2d8;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.promptInput::placeholder {
+  color: #6f6a60;
+}
+
+.promptGo {
+  flex: none;
+  background: #3f6d52;
+  color: #f2efe7;
+  border: none;
+  border-radius: 2px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.promptGo:disabled {
+  background: #34322c;
+  color: #6f6a60;
+  cursor: default;
+}
+
+/* What was assumed and what could not be built. Never collapsed into the plan itself: an ask
+   that quietly vanishes is the defect in notes/architecture/client-side-fallback.md. */
+.promptNotice {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  width: min(620px, calc(100% - 32px));
+  background: #21201b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 10px 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.promptError {
+  color: #c98374;
+}
+
+.promptAssumed {
+  color: #b5b0a6;
+}
+
+.promptUnsupported {
+  color: #d0a24a;
+  margin-top: 4px;
+}

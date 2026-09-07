@@ -208,3 +208,65 @@ def test_solve_prompt_endpoint():
     assert len(data["data"]["rooms"]) >= 5
     assert "<svg" in data["svg"]
 
+
+
+def _pair_gap(rooms, i, j) -> float:
+    a, b = rooms[i], rooms[j]
+    return abs((a["x_in"] + a["w_in"] / 2) - (b["x_in"] + b["w_in"] / 2)) + abs(
+        (a["y_in"] + a["d_in"] / 2) - (b["y_in"] + b["d_in"] / 2)
+    )
+
+
+def test_near_pairs_are_indexed_against_the_request_not_the_solver():
+    """An unknown name is skipped, so request position is not solver index.
+
+    Without the translation in solve(), a mix carrying one bad name would silently pair the
+    wrong two rooms — or, as here, name an index the solver does not have and do nothing.
+    """
+    payload = {
+        **BASE,
+        "plot_w_in": 480,
+        "plot_d_in": 660,
+        "rooms": ["hall", "kitchen", "nonsense", "bedroom"],
+    }
+    loose = client.post("/solve", json=payload).json()
+    # Request positions 1 and 3 — the kitchen and the bedroom, either side of the bad name.
+    pulled = client.post("/solve", json={**payload, "near": [[1, 3]]}).json()
+
+    assert loose["meta"]["unknown_room_names"] == ["nonsense"]
+    assert len(loose["rooms"]) == 3
+    # Which are solver indices 1 and 2 once "nonsense" is dropped.
+    assert _pair_gap(pulled["rooms"], 1, 2) < _pair_gap(loose["rooms"], 1, 2)
+
+
+def test_open_sided_rooms_are_flagged_to_the_renderer():
+    """The renderer cannot tell a porch from a bedroom by name, and must not draw it a box.
+
+    No exterior wall is emitted for these, so a renderer falling back to the room rectangle
+    would invent walls the bill of quantities never costed.
+    """
+    payload = {
+        **BASE,
+        "plot_w_in": 480,
+        "plot_d_in": 660,
+        "rooms": ["hall", "kitchen", "bedroom", "sitout", "parking"],
+    }
+    body = client.post("/solve", json=payload).json()
+    assert body["meta"]["unknown_room_names"] == []
+    flags = {r["name"]: r["open_sided"] for r in body["rooms"]}
+    assert flags["sitout"] is True
+    assert flags["parking"] is True
+    assert flags["hall"] is False
+
+
+def test_ai_plan_says_503_when_there_is_no_credential(monkeypatch):
+    """No offline path — notes/architecture/client-side-fallback.md.
+
+    503 and not 500: the service is fine, it has not been given a key. The test strips the
+    environment so it can never make a real request, on this machine or in CI.
+    """
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    r = client.post("/ai/plan", json={"prompt": "30x40 north facing 2bhk with car parking"})
+    assert r.status_code == 503
+    assert "credential" in r.json()["detail"].lower()

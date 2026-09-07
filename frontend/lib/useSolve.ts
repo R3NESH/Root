@@ -24,6 +24,12 @@ interface UseSolveArgs {
   cornerCutsIn?: [number, number, number, number];
   /** Storeys to pack, ground included. */
   floors?: number;
+  /**
+   * Pairs of indices into `rooms` to keep close together. Memoise it in the caller: this goes
+   * straight into the solve effect's dependency list, and a fresh array every render would
+   * re-solve the house on every render.
+   */
+  near?: number[][];
 }
 
 function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
@@ -31,7 +37,7 @@ function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
   return r.id || `${r.name}_${index}`;
 }
 
-export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program, cornerCutsIn, floors }: UseSolveArgs) {
+export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program, cornerCutsIn, floors, near }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
   // Walls as objects and their bill of quantities. Absent from an older backend and from the
@@ -83,6 +89,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
             rooms: roomList,
             setback,
             program,
+            near,
             prev: prevPayload.length > 0 ? prevPayload : undefined,
           },
           controller.signal
@@ -118,7 +125,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
       clearTimeout(timer);
       controller.abort();
     };
-  }, [plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, program, positionRevision]);
+  }, [plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, program, near, positionRevision]);
 
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(
@@ -169,6 +176,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
           facing,
           rooms: roomList,
           setback,
+          near,
           prev: nextPrev,
           movedIndex: roomIndex,
         });
@@ -193,7 +201,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback]
+    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, near]
   );
 
   // Immediate optimistic room crop resizing (width, depth, and position)
@@ -260,6 +268,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
           facing,
           rooms: nextRoomList,
           setback,
+          near,
           prev: nextPrev,
           movedIndex: roomIndex,
         });
@@ -284,7 +293,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback]
+    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, near]
   );
 
   const resetPositions = useCallback(() => {

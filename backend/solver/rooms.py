@@ -5,7 +5,11 @@ All sizes are in inches — see notes/decisions/integer-inches.md.
 The v1 catalog held five kinds (hall, kitchen, bedroom, bathroom, pooja). That is enough to
 test a packer and not enough to describe a house — see notes/solver/realism-gaps.md, which
 added six more. Four of those (parking porch, sit-out, staircase, utility) were removed again
-on 2026-08-25; the reasons are in notes/decisions/rejected-approaches.md.
+on 2026-08-25; the reasons are in notes/decisions/rejected-approaches.md. Three came back on
+2026-09-06 — sit-out, parking and utility — because free-text input needs a vocabulary wide
+enough to answer with, and a name the catalog does not hold is a request the solver silently
+drops. The staircase is still not a room kind: the stair *core* is solver-placed and the user
+never asks for it.
 
 Each room carries the properties the constraints need, rather than the solver special-casing
 names:
@@ -17,6 +21,10 @@ names:
 - `wet`        — carries plumbing, and therefore needs ventilation even though nobody lingers.
 - `max_aspect` — how elongated the room may be, x10 to stay integral. A bedroom that is four
                  times as long as it is wide is a corridor.
+- `open_sided`  — roofed but not walled: a sit-out, a car porch. It has no exterior walls, so
+                 walls.py emits none for it and it gets no windows; it does still have to reach
+                 the outside face of the building, because a covered porch in the middle of the
+                 plan is a cupboard with a car in it.
 """
 
 from dataclasses import dataclass
@@ -32,6 +40,8 @@ class Room:
     habitable: bool = True
     wet: bool = False
     max_aspect_x10: int = 18  # 1.8:1
+    # Roofed, not walled. See the module docstring; solver/walls.py acts on it.
+    open_sided: bool = False
     # Which storey this room sits on. Zero for every room in a single-storey house, which is
     # what [[single-storey-first]] promised the field would cost: one integer.
     floor: int = 0
@@ -78,6 +88,27 @@ ROOM_CATALOG: dict[str, Room] = {
     # small. See VENT_MIN_WALL_IN.
     "bathroom": Room("bathroom", ft(4), ft(7), ft(6), ft(8), habitable=False, wet=True),
     "store": Room("store", ft(4), ft(7), ft(4), ft(7), habitable=False),
+    # A washing area off the kitchen: machine, sink, drain, and a door to hang things outside.
+    # Wet, so it is ventilated; not habitable, so it needs no window quota. Indian practice is
+    # 4-6 ft wide by 6-10 ft long — https://www.bricknbolt.com/blogs-and-articles/home-design-guide/utility-room-design-ideas-uses
+    "utility": Room("utility", ft(4), ft(6), ft(6), ft(10), habitable=False, wet=True,
+                    max_aspect_x10=25),
+
+    # --- roofed, not walled -----------------------------------------------------------
+    # The front sit-out. An apartment balcony is 3-4 ft deep by 8-10 ft wide; an independent
+    # house builds a larger one that works as an outdoor room —
+    # https://worldofoutdoors.in/blog/standard-balcony-size-india
+    "sitout": Room("sitout", ft(8), ft(12), ft(4), ft(8), habitable=False,
+                   max_aspect_x10=30, open_sided=True),
+    # The car porch. NBC 2016 puts a common car space at 2.5 x 5.0 m (~8.2 x 16.4 ft) and an
+    # individual one at 3.0 x 6.0 m (~9.8 x 19.7 ft), which is the range below. NBC binds only
+    # once a state adopts it into its bye-law, so read the local one —
+    # https://infralens.in/thumbrules
+    #
+    # A porch the car cannot reach is not a porch, which is why "parking" is in the
+    # programme's street_edge_spaces rather than carrying a direction rule.
+    "parking": Room("parking", ft(8.25), ft(10), ft(16.5), ft(20), habitable=False,
+                    max_aspect_x10=25, open_sided=True),
 
     # --- cafe / small restaurant -------------------------------------------------------
     # One vocabulary, not one per building type: a name means the same thing everywhere, and

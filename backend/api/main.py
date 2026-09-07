@@ -10,7 +10,7 @@ rather than blanking them — notes/architecture/duplicated-geometry.md.
 
 from dataclasses import replace
 from typing import Union
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -103,6 +103,12 @@ class SolveRequest(BaseModel):
     # Index of the room the user just dragged. Only that room is released from its Vaastu
     # quadrant — notes/solver/vaastu-and-connectivity-drop-on-edit.md.
     moved_index: int | None = None
+    # Pairs of rooms the caller would like close together, as indices into `rooms` above:
+    # [[0, 3], [1, 2]]. A preference, scored rather than constrained — see
+    # solver/realism.py near_terms() for why this one is the exception to
+    # notes/decisions/vaastu-as-constraints.md. Pairs naming an unknown room, a room on another
+    # storey, or a room twice are dropped.
+    near: list[list[int]] | None = None
 
     @field_validator("plot_w_in", "plot_d_in", "moved_index", mode="before")
     def coerce(cls, v):
@@ -121,6 +127,10 @@ class RoomOut(BaseModel):
     openings: list[dict]
     habitable: bool = True
     wet: bool = False
+    # Roofed, not walled — a sit-out or a car porch. The renderer must draw a slab and posts,
+    # not a box: no wall is emitted for its outside faces, so drawing one from the room
+    # rectangle would invent walls the bill of quantities did not cost.
+    open_sided: bool = False
 
 
 class WallOut(BaseModel):
@@ -373,8 +383,12 @@ def solve(req: SolveRequest) -> SolveResponse:
 
     unknown: list[str] = []
     rooms: list[Room] = []
+    # An unknown name is skipped, so position i in the request is not room i in the solver.
+    # `near` indexes the request's own list, and without this translation a single bad name in
+    # the mix would silently pair the wrong two rooms.
+    index_map: dict[int, int] = {}
 
-    for item in req.rooms:
+    for request_index, item in enumerate(req.rooms):
         if isinstance(item, str):
             r_name = item
             custom_w = None
@@ -410,6 +424,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         if min_d > max_d:
             max_d = min_d
 
+        index_map[request_index] = len(rooms)
         rooms.append(
             Room(
                 name=r_name,
@@ -426,6 +441,7 @@ def solve(req: SolveRequest) -> SolveResponse:
                 habitable=base.habitable,
                 wet=base.wet,
                 max_aspect_x10=base.max_aspect_x10,
+                open_sided=base.open_sided,
             )
         )
 
@@ -458,6 +474,12 @@ def solve(req: SolveRequest) -> SolveResponse:
         aligned.append(core_indices)
 
     prev = {p.index: (p.x_in, p.y_in) for p in req.prev} if req.prev else None
+    near = [
+        (index_map[pair[0]], index_map[pair[1]])
+        for pair in (req.near or [])
+        if len(pair) == 2 and pair[0] in index_map and pair[1] in index_map
+    ]
+
     result = solve_layout(
         env.width_in,
         env.depth_in,
@@ -469,6 +491,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         facing=facing,
         halfplanes=halfplanes,
         aligned=aligned,
+        near=near,
     )
     is_residence = program.key == RESIDENTIAL.key
 
@@ -543,6 +566,7 @@ def solve(req: SolveRequest) -> SolveResponse:
                 openings=r.openings,
                 habitable=r.habitable,
                 wet=r.wet,
+                open_sided=r.open_sided,
             )
             for r in result.rooms
         ],
@@ -970,6 +994,57 @@ def model_furniture(req: AIModelFurnitureRequest) -> AIModelFurnitureResponse:
         confidence=0.94,
         tags=["AI Modeled", "Armchair", "Accent Furniture"],
         components=components,
+    )
+
+
+class AIPlanRequest(BaseModel):
+    prompt: str
+
+
+class AIPlanResponse(BaseModel):
+    """A POST /solve body, plus everything about the ask that did not fit into one.
+
+    Deliberately not a plan. The model reads the sentence, this endpoint hands back the
+    constraints it produced, and the caller posts them to /solve like any other client — so
+    there is exactly one path that places rooms, and it is CP-SAT.
+    """
+
+    solve_request: dict
+    # Asks the catalog cannot express, in the person's own words. The caller is expected to
+    # show these. Swallowing them is the defect in notes/architecture/client-side-fallback.md.
+    unsupported: list[str]
+    # The model was not told a plot size / a facing and a default was used. Present them as
+    # questions, not as facts the person supplied.
+    assumed_plot: bool
+    assumed_facing: bool
+
+
+@app.post("/ai/plan", response_model=AIPlanResponse)
+def ai_plan(req: AIPlanRequest) -> AIPlanResponse:
+    from ai import parse_prompt, resolve
+    from ai.prompt_constraints import MissingCredential
+
+    try:
+        parsed = parse_prompt(req.prompt)
+    except MissingCredential as exc:
+        # 503 and not 500: the service is fine, it has not been given a key. Anything else
+        # from the SDK is left to propagate rather than dressed up as a working plan.
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    plan = resolve(parsed)
+    return AIPlanResponse(
+        solve_request={
+            "plot_w_in": round(plan.plot_w_ft * 12),
+            "plot_d_in": round(plan.plot_d_ft * 12),
+            "facing": plan.facing,
+            "floors": plan.floors,
+            "rooms": plan.rooms,
+            "near": plan.near,
+            "apply_vaastu": plan.apply_vaastu,
+        },
+        unsupported=plan.unsupported,
+        assumed_plot=plan.assumed_plot,
+        assumed_facing=plan.assumed_facing,
     )
 
 

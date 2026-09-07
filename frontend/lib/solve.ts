@@ -27,6 +27,9 @@ export interface SolvedRoom {
   // re-derive them from the name — notes/solver/realism-gaps.md.
   habitable: boolean;
   wet: boolean;
+  // Roofed, not walled: a sit-out or a car porch. The solver emits no exterior wall for one,
+  // so the renderer must not build one from the room rectangle either.
+  open_sided: boolean;
   openings: RoomOpening[];
 }
 
@@ -156,6 +159,10 @@ export interface SolveRequestArgs {
   // Which building programme to pack. Omitted means "residence", which is what every caller
   // meant before there was a second one.
   program?: ProgramKey;
+  // Pairs of indices into `rooms` the person asked to have close together. A preference, scored
+  // rather than constrained — backend/solver/realism.py near_terms(). The offline engine below
+  // ignores it, which is one more thing it does not do rather than a new gap.
+  near?: number[][];
 }
 
 const SOLVER_API_URL = process.env.NEXT_PUBLIC_SOLVER_URL ?? "http://localhost:8000";
@@ -407,6 +414,7 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       wall_thickness_in: 9.0,
       habitable: ["hall", "bedroom", "dining", "pooja", "entrance"].includes(spec.name),
       wet: ["bathroom", "kitchen"].includes(spec.name),
+      open_sided: ["sitout", "parking"].includes(spec.name),
       openings,
     };
   });
@@ -488,6 +496,7 @@ export async function requestSolve(
       y_in: Math.round(p.y_in),
     })),
     moved_index: args.movedIndex != null ? Math.round(args.movedIndex) : undefined,
+    near: args.near && args.near.length > 0 ? args.near : undefined,
     apply_vaastu: true,
     program: args.program ?? "residence",
   };

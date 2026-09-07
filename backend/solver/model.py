@@ -37,11 +37,13 @@ from .realism import (
     AREA_WEIGHT,
     COMPACT_WEIGHT,
     DRIFT_WEIGHT,
+    NEAR_WEIGHT,
     add_aspect_constraints,
     add_daylight_constraints,
     add_street_edge_constraints,
     area_terms,
     footprint_perimeter_term,
+    near_terms,
 )
 from .quantities import Quantities, take_off
 from .rooms import ROOM_CATALOG, Room
@@ -85,6 +87,9 @@ class PlacedRoom:
     # re-look-up room semantics by name — notes/solver/realism-gaps.md.
     habitable: bool = True
     wet: bool = False
+    # Roofed, not walled — solver/rooms.py. derive_walls() reads it off the placed room, and
+    # the renderer needs it to know not to draw a box.
+    open_sided: bool = False
     floor: int = 0
 
 
@@ -160,6 +165,7 @@ def _build_and_solve(
     facing: str = "N",
     halfplanes: Sequence[tuple[int, int, int]] = (),
     aligned: Sequence[Sequence[int]] = (),
+    near: Sequence[tuple[int, int]] = (),
 ) -> tuple[int, cp_model.CpSolver, list[tuple[Room, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar, cp_model.IntVar]], list[str]]:
     model = cp_model.CpModel()
 
@@ -306,6 +312,13 @@ def _build_and_solve(
     # chosen between layouts that are equally stable — notes/solver/layout-stability.md stays
     # the differentiator. With no `prev` there is no drift term and this is pure area.
     objective = DRIFT_WEIGHT * sum(objective_terms) if objective_terms else 0
+    # Requested pairs sit below drift and in the same band as compactness: both are linear
+    # measures in inches, so one pair's closeness is worth the same per inch as the building
+    # not straggling.
+    if near:
+        objective = objective + NEAR_WEIGHT * sum(
+            near_terms(model, var_dicts, near, env_w_in, env_d_in)
+        )
     if maximise_area:
         objective = objective - AREA_WEIGHT * sum(
             area_terms(model, var_dicts, rooms, env_w_in, env_d_in)
@@ -315,7 +328,7 @@ def _build_and_solve(
         objective = objective + COMPACT_WEIGHT * footprint_perimeter_term(
             model, var_dicts, env_w_in, env_d_in
         )
-    if objective_terms or maximise_area:
+    if objective_terms or maximise_area or near:
         model.minimize(objective)
 
     solver = cp_model.CpSolver()
@@ -344,6 +357,7 @@ def solve_layout(
     facing: str = "N",
     halfplanes: Sequence[tuple[int, int, int]] = (),
     aligned: Sequence[Sequence[int]] = (),
+    near: Sequence[tuple[int, int]] = (),
 ) -> SolveResult:
     if not rooms or env_w_in <= 0 or env_d_in <= 0:
         return SolveResult(status="EMPTY", rooms=[], solve_ms=0.0)
@@ -352,6 +366,18 @@ def solve_layout(
     for r in rooms:
         if r.min_w_in > env_w_in or r.min_d_in > env_d_in:
             return SolveResult(status="INFEASIBLE", rooms=[], solve_ms=0.0)
+
+    # A requested pair is a statement about one plan, and two rooms on different storeys never
+    # appear on the same one. Out-of-range and self-pairs are dropped rather than raising: this
+    # arrives from a client, and one bad pair is not a reason to refuse the house.
+    near = [
+        (i, j)
+        for i, j in near
+        if i != j
+        and 0 <= i < len(rooms)
+        and 0 <= j < len(rooms)
+        and getattr(rooms[i], "floor", 0) == getattr(rooms[j], "floor", 0)
+    ]
 
     time_limit = interactive_budget(len(rooms)) if prev else SOLVE_TIME_LIMIT_SECONDS
 
@@ -372,6 +398,10 @@ def solve_layout(
             env_w_in, env_d_in, rs, prev, vaastu, connect_rooms, time_limit,
             vaastu_exempt, require_daylight=daylight, maximise_area=area,
             program=program, facing=facing, halfplanes=halfplanes, aligned=aligned,
+            # The last rung drops the area preference to buy speed on a mix that is barely
+            # fitting. The pair preference goes with it, for the same reason and at the same
+            # point: at that rung the question is whether these rooms fit at all.
+            near=near if area else (),
         )
 
     def ok(st) -> bool:
@@ -387,6 +417,7 @@ def solve_layout(
             habitable=r.habitable,
             wet=r.wet,
             max_aspect_x10=r.max_aspect_x10,
+            open_sided=getattr(r, "open_sided", False),
             floor=getattr(r, "floor", 0),
         )
         for r in rooms
@@ -422,6 +453,7 @@ def solve_layout(
             d_in=solver.value(d),
             habitable=room.habitable,
             wet=room.wet,
+            open_sided=getattr(room, "open_sided", False),
         )
         for room, x, y, w, d in placements
     ]
@@ -478,6 +510,7 @@ def solve_layout(
             ),
             habitable=p.habitable,
             wet=p.wet,
+            open_sided=p.open_sided,
             floor=getattr(rooms[i], "floor", 0),
         )
         for i, p in enumerate(placed)

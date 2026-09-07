@@ -1,7 +1,9 @@
 // Room vocabulary — mirrors backend/solver/rooms.py ROOM_CATALOG. Keep the two in sync by hand.
 // notes/solver/realism-gaps.md added six kinds to the original five; parking, sit-out,
 // staircase and utility were removed again on 2026-08-25 — see
-// notes/decisions/rejected-approaches.md.
+// notes/decisions/rejected-approaches.md. Three of those four came back on 2026-09-06 for
+// free-text input, which needs a vocabulary wide enough to answer with — [[free-text-input]].
+// The staircase did not: it is still structure the solver places, never a room anyone asks for.
 
 export type RoomName =
   // residence
@@ -13,6 +15,10 @@ export type RoomName =
   | "pooja"
   | "store"
   | "entrance"
+  | "utility"
+  // Roofed, not walled. The renderer must not draw these a box — see SolvedRoom.open_sided.
+  | "sitout"
+  | "parking"
   // cafe / small restaurant
   | "seating"
   | "lounge"
@@ -42,6 +48,9 @@ export const ROOM_NAMES: RoomName[] = [
   "pooja",
   "store",
   "entrance",
+  "utility",
+  "sitout",
+  "parking",
   "seating",
   "lounge",
   "entry",
@@ -63,6 +72,9 @@ export const ROOM_LABELS: Record<RoomName, string> = {
   pooja: "Pooja",
   store: "Store",
   entrance: "Entrance",
+  utility: "Utility",
+  sitout: "Sit-out",
+  parking: "Car Porch",
   seating: "Seating",
   lounge: "Lounge",
   entry: "Entry",
@@ -86,6 +98,11 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   pooja: 0xd9b64a,
   store: 0x8d8577,
   entrance: 0xe8912d,
+  utility: 0x7f9aa6,
+  // The two open-sided spaces share a muted outdoor green so they read as "not indoors" at a
+  // glance, the way the cafe's front/back split does below.
+  sitout: 0x6f9c63,
+  parking: 0x5c8457,
   // Cafe: front of house warm, back of house cool, so the 60/40 split reads at a glance in 3D.
   seating: 0xc98a5e,
   lounge: 0xb9745c,

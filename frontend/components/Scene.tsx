@@ -4842,14 +4842,21 @@ export default function Scene({
         return override != null ? inchesToFeet(clampThicknessIn(override)) : roomWt;
       };
 
+      // A sit-out or a car porch is roofed and not walled. backend/solver/walls.py emits no
+      // exterior wall for one and the bill of quantities never costs the bricks, so building
+      // one here from the room rectangle would draw a garage and invent masonry with it. The
+      // faces it shares with the rooms behind it are real walls and stay.
+      const openSide = (edge: "N" | "S" | "E" | "W") =>
+        room.open_sided === true && !findAdjacentRoomEdge(rooms, i, edge);
+
       // North Wall
-      buildWall("N", rx + rw / 2, rz + wtOf("N") / 2, rw, wtOf("N"), true);
+      if (!openSide("N")) buildWall("N", rx + rw / 2, rz + wtOf("N") / 2, rw, wtOf("N"), true);
       // South Wall
-      buildWall("S", rx + rw / 2, rz + rd - wtOf("S") / 2, rw, wtOf("S"), true);
+      if (!openSide("S")) buildWall("S", rx + rw / 2, rz + rd - wtOf("S") / 2, rw, wtOf("S"), true);
       // West Wall
-      buildWall("W", rx + wtOf("W") / 2, rz + rd / 2, wtOf("W"), rd, false);
+      if (!openSide("W")) buildWall("W", rx + wtOf("W") / 2, rz + rd / 2, wtOf("W"), rd, false);
       // East Wall
-      buildWall("E", rx + rw - wtOf("E") / 2, rz + rd / 2, wtOf("E"), rd, false);
+      if (!openSide("E")) buildWall("E", rx + rw - wtOf("E") / 2, rz + rd / 2, wtOf("E"), rd, false);
 
       // Warm interior recessed spotlight (Non-shadowed to eliminate 30+ GPU shadow depth passes per frame)
       const roomLight = new THREE.PointLight(0xfff0dd, 1.2, 28, 1.2);

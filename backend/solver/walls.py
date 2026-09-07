@@ -143,6 +143,12 @@ def derive_walls(rooms, openings: list[list[dict]]) -> list[Wall]:
                 seen.add(key)
 
                 shared = j is not None
+
+                # A sit-out or a car porch is roofed and not walled. Its partitions against
+                # the rooms behind it are real; its outside faces are the reason it exists.
+                # Emitting them turned a porch into a garage and billed the bricks for it.
+                if not shared and getattr(room, "open_sided", False):
+                    continue
                 if horizontal:
                     x0, y0, x1, y1 = lo, line, hi, line
                 else:

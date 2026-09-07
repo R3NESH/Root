@@ -239,3 +239,111 @@ def test_pooja_placed_in_northeast_quadrant():
     assert centre_x >= ENV_W_IN * 0.5, f"pooja centre_x {centre_x} not in East half (>= {ENV_W_IN * 0.5})"
     assert centre_z <= ENV_D_IN * 0.5, f"pooja centre_z {centre_z} not in North half (<= {ENV_D_IN * 0.5})"
 
+
+
+# --- requested pairs ------------------------------------------------------------------
+#
+# solver/realism.py near_terms(): "put the kitchen near that bedroom" is a taste, not a
+# bye-law, so it is the one thing in this solver that is scored rather than constrained.
+
+# This mix on the full envelope returns the same layout on every run, so the pair tests below
+# compare two solves rather than two samples of a distribution.
+NEAR_MIX = ["hall", "kitchen", "bedroom", "bathroom"]
+NEAR_PAIR = (1, 2)  # kitchen <-> bedroom
+
+
+def _centre_distance(a, b) -> float:
+    """Manhattan distance between two placed rooms' centres, in inches."""
+    return abs((a.x_in + a.w_in / 2) - (b.x_in + b.w_in / 2)) + abs(
+        (a.y_in + a.d_in / 2) - (b.y_in + b.d_in / 2)
+    )
+
+
+def test_a_requested_pair_lands_closer_than_it_otherwise_would():
+    """The invariant that says the pair term actually reaches the objective.
+
+    Measured at 162 in apart unpaired and 132 in paired on this fixture; the weight sweep
+    behind that number is in solver/realism.py.
+    """
+    _, loose = _solve(NEAR_MIX)
+    _, pulled = _solve(NEAR_MIX, near=[NEAR_PAIR])
+    i, j = NEAR_PAIR
+    assert _centre_distance(pulled.rooms[i], pulled.rooms[j]) < _centre_distance(
+        loose.rooms[i], loose.rooms[j]
+    )
+
+
+def test_a_requested_pair_costs_neither_vaastu_nor_reachability():
+    """A preference may cost room area. It may not cost a rule or a door.
+
+    notes/decisions/vaastu-as-constraints.md — a plan that breaks Vaastu is a rejected plan,
+    not a worse one. The pair term sits in the objective precisely so that it can never trade
+    one away, and this is the test that says so.
+    """
+    _, loose = _solve(NEAR_MIX)
+    _, pulled = _solve(NEAR_MIX, near=[NEAR_PAIR])
+    assert pulled.vaastu_constraints_applied == loose.vaastu_constraints_applied
+    assert not pulled.vaastu_relaxed
+    assert pulled.rooms_reachable == len(pulled.rooms)
+
+
+def test_a_pair_naming_a_room_that_is_not_there_is_ignored():
+    """Pairs arrive from a client. One bad pair is not a reason to refuse the house."""
+    _, result = _solve(NEAR_MIX, near=[(0, 99), (3, 3), (-1, 2)])
+    assert result.rooms_reachable == len(result.rooms)
+
+
+# --- outdoor and service space --------------------------------------------------------
+#
+# sit-out, car porch and utility came back into the catalog on 2026-09-06 — solver/rooms.py.
+# The first two are roofed and not walled, which is a property nothing in the solver had
+# before and three separate places now have to respect.
+
+OUTDOOR_MIX = ["hall", "kitchen", "bedroom", "bathroom", "utility", "sitout", "parking"]
+
+
+def test_an_open_sided_room_owns_no_exterior_wall():
+    """A sit-out with four walls is a room, and a car porch with four walls is a garage.
+
+    Its partitions against the rooms behind it are real and stay. Only the outside faces go,
+    which is also what keeps them out of the bill of quantities.
+    """
+    _, result = _solve(OUTDOOR_MIX)
+    open_indices = {i for i, r in enumerate(result.rooms) if r.open_sided}
+    assert open_indices, "fixture no longer contains an open-sided room"
+
+    for wall in result.walls:
+        if not wall.is_exterior:
+            continue
+        offenders = set(wall.room_indices) & open_indices
+        assert not offenders, (
+            f"exterior wall {wall.id} was emitted for open-sided room(s) "
+            f"{[result.rooms[i].name for i in offenders]}"
+        )
+
+
+def test_an_open_sided_room_still_reaches_the_outside_of_the_building():
+    """It has no windows to need, but a roofed porch behind four rooms is not a porch."""
+    _, result = _solve(OUTDOOR_MIX)
+    for room in result.rooms:
+        if room.open_sided:
+            assert _on_exterior(room, result.rooms), f"{room.name} is buried in the plan"
+
+
+def test_the_car_porch_lands_on_the_street_edge():
+    """A porch no car can reach is not a porch — programs/registry.py street_edge_spaces.
+
+    The fixture faces north, so the street edge is the north face of the footprint.
+    """
+    _, result = _solve(OUTDOOR_MIX)
+    _fx0, fz0, _fx1, _fz1 = footprint(result.rooms)
+    porch = next(r for r in result.rooms if r.name == "parking")
+    assert porch.y_in == fz0
+
+
+def test_the_utility_opens_off_the_kitchen():
+    """Not off the hall: that runs wet washing through the living room."""
+    rooms, _ = _solve(OUTDOOR_MIX)
+    parents = assign_parents(rooms)
+    names = [r.name for r in rooms]
+    assert parents[names.index("utility")] == names.index("kitchen")

@@ -41,6 +41,33 @@ AREA_WEIGHT = 1
 # than the time limit — the thing its comment warns about.
 COMPACT_WEIGHT = 120
 
+# Pulling one requested pair of rooms together, per doubled inch of Manhattan distance between
+# their centres. See near_terms() for why the distance is doubled.
+#
+# 60 is measured. Swept on the six-room Vaastu mix (hall, kitchen, bedroom x2, bathroom, pooja)
+# in a 30x40 north-facing envelope, one requested kitchen<->bedroom pair, three cold runs each.
+# Weight 0 is the same solve with no pair requested, and is the baseline both other columns are
+# read against:
+#
+#   weight   pair centres apart   fill/ceiling   void   status
+#        0             197 in            84%      4%   FEASIBLE
+#       30             172 in            84%      4%   FEASIBLE
+#       60             153 in            81%      4%   FEASIBLE
+#      120             121 in            77%      9%   FEASIBLE/OPTIMAL
+#      250             102 in            72%     18%   FEASIBLE
+#      500             102 in            72%     18%   FEASIBLE
+#
+# The cost of a pair is paid in room area and in void inside the footprint, and the two do not
+# turn up together. Up to 60 the void does not move at all: the pair is being satisfied by
+# choosing among arrangements the compactness term already liked, which is exactly what a
+# preference should do. At 120 the void more than doubles — past that point the solver is
+# pulling two rooms together by making the building straggle, and the person who asked for a
+# kitchen near a bedroom did not ask for that. 250 saturates: the pair cannot get closer
+# without overlapping, and the extra weight only buys more damage elsewhere.
+#
+# 60 buys 22% of the distance for three points of fill and no void at all.
+NEAR_WEIGHT = 60
+
 
 def add_aspect_constraints(model: cp_model.CpModel, var_dicts: list[dict], rooms) -> None:
     """Forbid absurdly elongated rooms.
@@ -79,7 +106,14 @@ def add_daylight_constraints(
 
     Returns the indices actually constrained, so callers can report them.
     """
-    targets = [i for i, r in enumerate(rooms) if r.habitable or r.wet]
+    # An open-sided room is not here for daylight — it has no walls to put a window in. It is
+    # here because the rule this function actually posts is "touch the outside face of the
+    # building", and a roofed porch buried behind four rooms is not a porch.
+    targets = [
+        i
+        for i, r in enumerate(rooms)
+        if r.habitable or r.wet or getattr(r, "open_sided", False)
+    ]
     if not targets:
         return []
 
@@ -123,6 +157,33 @@ def area_terms(
         area = model.new_int_var(0, cap, f"area_{i}_{room.name}")
         model.add_multiplication_equality(area, [v["w"], v["d"]])
         out.append(area)
+    return out
+
+
+def near_terms(
+    model: cp_model.CpModel, var_dicts: list[dict], pairs, env_w_in: int, env_d_in: int
+) -> list[cp_model.IntVar]:
+    """Manhattan distance between the centres of each requested pair, for use in the objective.
+
+    "Put the guest bedroom near the kitchen" is a preference, not a bye-law. There is no
+    threshold at which two rooms become near, and forcing them to share a wall would make an
+    ordinary ask INFEASIBLE on a plot with room to spare. So this is scored rather than
+    constrained — which is the opposite of what Vaastu gets, and deliberately so: Vaastu is a
+    rule the plan either meets or fails (notes/decisions/vaastu-as-constraints.md), while this
+    is one person's taste and a plan that honours it less well is still a house.
+
+    Centres are carried doubled. A centre is `x + w/2` and half an inch is not an integer
+    (notes/decisions/integer-inches.md), so the model works with `2x + w` throughout and
+    NEAR_WEIGHT absorbs the factor of two.
+    """
+    out = []
+    for i, j in pairs:
+        a, b = var_dicts[i], var_dicts[j]
+        dx = model.new_int_var(0, 3 * env_w_in, f"near_dx_{i}_{j}")
+        dy = model.new_int_var(0, 3 * env_d_in, f"near_dy_{i}_{j}")
+        model.add_abs_equality(dx, (2 * a["x"] + a["w"]) - (2 * b["x"] + b["w"]))
+        model.add_abs_equality(dy, (2 * a["y"] + a["d"]) - (2 * b["y"] + b["d"]))
+        out.extend([dx, dy])
     return out
 
 

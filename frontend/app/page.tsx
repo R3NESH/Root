@@ -24,6 +24,7 @@ import WallInspector from "@/components/WallInspector";
 import { WALL_HEIGHT_FT } from "@/lib/sceneConstants";
 import { edgeName, isEmptyWallEdit, WallEdit, WallEdits } from "@/lib/wallEdits";
 import { defaultCounts, getProgram, ProgramKey } from "@/lib/programs";
+import { NearPairIds, nearIndices, requestAIPlan } from "@/lib/aiPlan";
 import { seatingCapacity } from "@/lib/cafeInteriors";
 import {
   resolveWallBandScheme,
@@ -238,6 +239,16 @@ export default function Home() {
     lightsOn: false,
   });
 
+  // Free text input — backend/ai/README.md. Pairs are held by room id, not by index, because
+  // the mix is rebuilt from `counts` in ROOM_NAMES order and the model's indices would point at
+  // the wrong rooms by the time the solver saw them.
+  const [nearPairIds, setNearPairIds] = useState<NearPairIds[]>([]);
+  const [promptText, setPromptText] = useState("");
+  const [promptBusy, setPromptBusy] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [promptUnsupported, setPromptUnsupported] = useState<string[]>([]);
+  const [promptAssumed, setPromptAssumed] = useState<string[]>([]);
+
   const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
   const [doorPrompt, setDoorPrompt] = useState<{ doorId: string; label: string; isOpen: boolean } | null>(null);
   const doorTriggerRef = useRef<(() => void) | null>(null);
@@ -259,6 +270,13 @@ export default function Home() {
     }
     return list;
   }, [counts, customDims]);
+
+  // Resolved against the room list actually going to the solver, so a pair whose room has since
+  // been deleted from the tray drops out instead of pointing at whatever took its place.
+  const nearForSolver = useMemo(
+    () => nearIndices(nearPairIds, roomListWithSpecs.map((r) => r.id ?? "")),
+    [nearPairIds, roomListWithSpecs]
+  );
 
   // What the bye-law requires for this plot on this road, and the setback actually in force.
   // The report is recomputed below once the solver has answered; this first pass only needs the
@@ -289,7 +307,42 @@ export default function Home() {
     program: programKey,
     cornerCutsIn: plot.cornerCutsIn,
     floors: floorsCount,
+    near: nearForSolver,
   });
+
+  // Read a sentence into a room mix. The model maps words onto the catalog; CP-SAT still does
+  // every placement, and anything the catalog could not express is shown rather than dropped —
+  // backend/ai/README.md.
+  const applyPrompt = useCallback(async () => {
+    const text = promptText.trim();
+    if (!text || promptBusy) return;
+    setPromptBusy(true);
+    setPromptError(null);
+    try {
+      const plan = await requestAIPlan(text, programKey);
+      setPlot({ widthIn: plan.plotWIn, depthIn: plan.plotDIn });
+      setFacing(plan.facing);
+      setFloorsCount(plan.floors);
+      setCounts(withCounts(plan.counts as Record<RoomName, number>));
+      setNearPairIds(plan.near);
+      setPromptUnsupported(plan.unsupported);
+      // A default the person never gave is a question, not an answer. Naming both the field and
+      // the value used means they can correct it instead of discovering it in the 3D view.
+      setPromptAssumed([
+        ...(plan.assumedPlot
+          ? [`plot size — using ${Math.round(plan.plotWIn / 12)}x${Math.round(plan.plotDIn / 12)} ft`]
+          : []),
+        ...(plan.assumedFacing ? ["facing — using north"] : []),
+      ]);
+      // A new mix is a new house. Drifting it towards where the last one's rooms sat is what
+      // the drift objective is for and exactly wrong here.
+      resetPositions();
+    } catch (e) {
+      setPromptError((e as Error).message);
+    } finally {
+      setPromptBusy(false);
+    }
+  }, [promptText, promptBusy, programKey, resetPositions]);
 
   // ---- Undo and redo ---------------------------------------------------------------------
   const captureDesign = useCallback(
@@ -448,13 +501,32 @@ export default function Home() {
     [solvedRooms]
   );
 
+  // Whether the app is being used on the machine that runs the solver, or on a deployed site.
+  //
+  // The advice for an unreachable backend is completely different in the two cases and only one
+  // of them was ever written down. "Start the backend (./dev.ps1)" is the right thing to tell a
+  // developer and useless to someone on a deployed URL, where there is no terminal to start it
+  // in — the backend has to be hosted somewhere the browser can reach, and
+  // NEXT_PUBLIC_SOLVER_URL has to point at it. Read in an effect rather than during render so a
+  // prerendered build and its hydration agree.
+  const [isLocalDev, setIsLocalDev] = useState(true);
+  useEffect(() => {
+    setIsLocalDev(/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname));
+  }, []);
+
+  const backendAdvice = isLocalDev
+    ? "Start the backend (./dev.ps1) and reload."
+    : "This site is deployed without one: the browser is trying http://localhost:8000, which is your own machine. Host the FastAPI backend and point NEXT_PUBLIC_SOLVER_URL at it, over HTTPS.";
+
   const requestedSpaceCount = roomListWithSpecs.length;
   const solverNotice: { title: string; detail: string } | null = (() => {
     if (pending) return null;
     if (error) {
       return {
         title: "The solver rejected the request",
-        detail: `${error}. Check the backend terminal, then reload.`,
+        detail: `${error}. ${
+          isLocalDev ? "Check the backend terminal, then reload." : backendAdvice
+        }`,
       };
     }
     // Asked for a duplex, got a bungalow. Silent before this: the offline engine packs one floor
@@ -467,7 +539,7 @@ export default function Home() {
           solvedFloorCount === 1 ? "one storey" : `${solvedFloorCount} storeys`
         }`,
         detail: offline
-          ? "The offline engine packs the ground floor only - it has no half-planes, no stair core and no per-floor packing. Start the backend (./dev.ps1) and the upper floors will be solved."
+          ? `The offline engine packs the ground floor only - it has no half-planes, no stair core and no per-floor packing, and it is not a solver at all. ${backendAdvice}`
           : "The backend answered with fewer storeys than were asked for, which means it predates multi-storey solving. Restart it so it picks up the current code.",
       };
     }
@@ -1912,6 +1984,47 @@ export default function Home() {
         />
 
         <section className={styles.viewport}>
+          {/* Free text in. The room tray below is unchanged and still reaches a plan with no
+              keyboard at all — notes/decisions/zero-keyboard-events.md was reversed for this
+              input, not replaced by it. */}
+          <div className={styles.promptBar}>
+            <input
+              className={styles.promptInput}
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyPrompt();
+              }}
+              placeholder="30x40 north facing 2BHK with a pooja room and car parking"
+              disabled={promptBusy}
+              aria-label="Describe the house you want"
+            />
+            <button
+              className={styles.promptGo}
+              onClick={applyPrompt}
+              disabled={promptBusy || promptText.trim().length === 0}
+            >
+              {promptBusy ? "Reading" : "Build"}
+            </button>
+          </div>
+
+          {(promptError || promptAssumed.length > 0 || promptUnsupported.length > 0) && (
+            <div className={styles.promptNotice} role="status">
+              {promptError && <div className={styles.promptError}>{promptError}</div>}
+              {promptAssumed.length > 0 && (
+                <div className={styles.promptAssumed}>
+                  You did not say: {promptAssumed.join("; ")}. Change it in the ribbon if that is
+                  wrong.
+                </div>
+              )}
+              {promptUnsupported.length > 0 && (
+                <div className={styles.promptUnsupported}>
+                  Not built, because this tool cannot: {promptUnsupported.join("; ")}.
+                </div>
+              )}
+            </div>
+          )}
+
           {solverNotice && (
             <div className={styles.solverNotice} role="alert">
               <div className={styles.solverNoticeTitle}>⚠ {solverNotice.title}</div>
