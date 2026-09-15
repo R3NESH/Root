@@ -270,3 +270,48 @@ def test_ai_plan_says_503_when_there_is_no_credential(monkeypatch):
     r = client.post("/ai/plan", json={"prompt": "30x40 north facing 2bhk with car parking"})
     assert r.status_code == 503
     assert "credential" in r.json()["detail"].lower()
+
+
+# --- a size band on a room, from ai/plan_from_image.py --------------------------------
+
+
+def test_a_min_max_band_is_honoured_and_not_widened_past_the_catalog():
+    """`min_*_in`/`max_*_in` sat in RoomSpecIn unread until a plan photo needed "about 12 ft".
+
+    The band is respected where it falls inside the catalog range and clipped where it does not —
+    a drawing that prints a 4 ft bedroom must not undo the NBC 2016 minimums in solver/rooms.py.
+    """
+    bedroom = ROOM_CATALOG["bedroom"]
+    r = client.post(
+        "/solve",
+        json={
+            **BASE,
+            "rooms": [
+                "hall",
+                "kitchen",
+                {"name": "bedroom", "min_w_in": 132, "max_w_in": 156},
+                {"name": "bedroom", "min_w_in": 12, "max_w_in": 24},
+            ],
+        },
+    )
+    assert r.status_code == 200
+    banded, clipped = [x for x in r.json()["rooms"] if x["name"] == "bedroom"]
+    assert 132 <= banded["w_in"] <= 156
+    assert clipped["w_in"] >= bedroom.min_w_in
+
+
+def test_a_bare_room_name_is_unaffected_by_the_band():
+    r = client.post("/solve", json=BASE)
+    assert r.status_code == 200
+    for room in r.json()["rooms"]:
+        base = ROOM_CATALOG[room["name"]]
+        assert base.min_w_in <= room["w_in"] <= base.max_w_in
+
+
+def test_an_upload_that_is_not_an_image_is_a_400_not_a_500():
+    r = client.post(
+        "/ai/plan-image",
+        json={"image_base64": "not base64 at all!!", "media_type": "image/tiff"},
+    )
+    assert r.status_code == 400
+    assert "image/tiff" in r.json()["detail"]

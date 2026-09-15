@@ -196,6 +196,21 @@ class MissingCredential(RuntimeError):
     """
 
 
+def client_or_raise(reason: str):
+    """A real client, or `MissingCredential` naming what the caller cannot do without one.
+
+    Shared with plan_from_image.py so the two input paths cannot drift on what counts as a
+    credential: either one the SDK resolves does, and checking only `api_key` would refuse a
+    machine authenticated by token.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic()
+    if not (client.api_key or client.auth_token):
+        raise MissingCredential(reason)
+    return client
+
+
 def parse_prompt(prompt: str, client=None) -> PlanRequest:
     """Ask the model to fill in PlanRequest.
 
@@ -205,16 +220,10 @@ def parse_prompt(prompt: str, client=None) -> PlanRequest:
     notes/architecture/client-side-fallback.md wearing a different hat.
     """
     if client is None:
-        import anthropic
-
-        client = anthropic.Anthropic()
-        # Either credential the SDK resolves counts. Checking only api_key would refuse a
-        # machine that is authenticated by token.
-        if not (client.api_key or client.auth_token):
-            raise MissingCredential(
-                "No Anthropic credential is set, so free-text input cannot be read. "
-                "Set ANTHROPIC_API_KEY, or use the room tray."
-            )
+        client = client_or_raise(
+            "No Anthropic credential is set, so free-text input cannot be read. "
+            "Set ANTHROPIC_API_KEY, or use the room tray."
+        )
 
     response = client.messages.parse(
         model=MODEL,

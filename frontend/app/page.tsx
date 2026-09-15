@@ -25,6 +25,8 @@ import { WALL_HEIGHT_FT } from "@/lib/sceneConstants";
 import { edgeName, isEmptyWallEdit, WallEdit, WallEdits } from "@/lib/wallEdits";
 import { defaultCounts, getProgram, ProgramKey } from "@/lib/programs";
 import { NearPairIds, nearIndices, requestAIPlan } from "@/lib/aiPlan";
+import { PLAN_IMAGE_TYPES, readImageFile, requestAIPlanFromImage } from "@/lib/aiPlanImage";
+import { applyFacade, requestAIFacade, summary as facadeSummary } from "@/lib/aiFacadeImage";
 import { seatingCapacity } from "@/lib/cafeInteriors";
 import {
   resolveWallBandScheme,
@@ -248,6 +250,11 @@ export default function Home() {
   const [promptError, setPromptError] = useState<string | null>(null);
   const [promptUnsupported, setPromptUnsupported] = useState<string[]>([]);
   const [promptAssumed, setPromptAssumed] = useState<string[]>([]);
+  // What an uploaded drawing did and did not become. Separate from promptAssumed: this is not a
+  // default the person failed to give, it is what the solver did to their plan.
+  const [planImageNotice, setPlanImageNotice] = useState<string | null>(null);
+  const planImageInputRef = useRef<HTMLInputElement | null>(null);
+  const facadeImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
   const [doorPrompt, setDoorPrompt] = useState<{ doorId: string; label: string; isOpen: boolean } | null>(null);
@@ -260,11 +267,20 @@ export default function Home() {
       for (let c = 0; c < count; c++) {
         const id = `${name}_${c}`;
         const custom = customDims[id];
+        // A tolerance makes it a band rather than a pin, and a zero on one axis means that axis
+        // was never given and is left to the room catalog — see CustomDim in RoomCustomizer.tsx.
+        const tol = custom?.tolFt ? custom.tolFt * 12 : 0;
+        const wIn = custom && custom.wFt > 0 ? custom.wFt * 12 : undefined;
+        const dIn = custom && custom.dFt > 0 ? custom.dFt * 12 : undefined;
         list.push({
           id,
           name,
-          custom_w_in: custom ? custom.wFt * 12 : undefined,
-          custom_d_in: custom ? custom.dFt * 12 : undefined,
+          custom_w_in: tol ? undefined : wIn,
+          custom_d_in: tol ? undefined : dIn,
+          min_w_in: tol && wIn != null ? wIn - tol : undefined,
+          max_w_in: tol && wIn != null ? wIn + tol : undefined,
+          min_d_in: tol && dIn != null ? dIn - tol : undefined,
+          max_d_in: tol && dIn != null ? dIn + tol : undefined,
         });
       }
     }
@@ -313,8 +329,8 @@ export default function Home() {
   // Read a sentence into a room mix. The model maps words onto the catalog; CP-SAT still does
   // every placement, and anything the catalog could not express is shown rather than dropped —
   // backend/ai/README.md.
-  const applyPrompt = useCallback(async () => {
-    const text = promptText.trim();
+  const applyPromptText = useCallback(async (raw: string) => {
+    const text = raw.trim();
     if (!text || promptBusy) return;
     setPromptBusy(true);
     setPromptError(null);
@@ -342,7 +358,105 @@ export default function Home() {
     } finally {
       setPromptBusy(false);
     }
-  }, [promptText, promptBusy, programKey, resetPositions]);
+  }, [promptBusy, programKey, resetPositions]);
+
+  // Read a photographed floor plan into a room mix. The model reads what is printed on the
+  // drawing; CP-SAT still does every placement, so what comes back is a legal plan resembling the
+  // upload rather than a tracing of it. `planImageNotice` is where that gets said out loud —
+  // backend/ai/plan_from_image.md.
+  const applyPlanImage = useCallback(
+    async (file: File, note: string) => {
+      if (promptBusy) return;
+      setPromptBusy(true);
+      setPromptError(null);
+      setPlanImageNotice(null);
+      try {
+        const { base64, mediaType } = await readImageFile(file);
+        const plan = await requestAIPlanFromImage(base64, mediaType, note.trim() || undefined);
+
+        if (plan.counts && Object.keys(plan.counts).length === 0) {
+          // The backend found no rooms, which is what it returns for an image that is not a floor
+          // plan. Saying why beats applying an empty mix and blanking the viewport.
+          setPromptUnsupported(plan.unsupported);
+          setPromptError("No floor plan found in that image.");
+          return;
+        }
+
+        setPlot({ widthIn: plan.plotWIn, depthIn: plan.plotDIn });
+        setFacing(plan.facing);
+        setFloorsCount(plan.floors);
+        setCounts(withCounts(plan.counts as Record<RoomName, number>));
+        setCustomDims(plan.customDims);
+        setNearPairIds(plan.near);
+        setPromptUnsupported(plan.unsupported);
+        setPromptAssumed([
+          ...(plan.assumedPlot
+            ? [`plot size — using ${Math.round(plan.plotWIn / 12)}x${Math.round(plan.plotDIn / 12)} ft`]
+            : []),
+          ...(plan.assumedFacing ? ["facing — using north"] : []),
+        ]);
+        setPlanImageNotice(
+          plan.readDimensions
+            ? "Re-solved from your drawing, not traced from it. Room sizes are held within a foot of what was printed; setbacks, Vaastu and door reachability are enforced, so rooms will have moved."
+            : "The drawing's room labels were read, but no dimensions were printed clearly enough to use. Sizes come from the room catalog."
+        );
+        // A new mix is a new house. Drifting it towards where the last one's rooms sat is what the
+        // drift objective is for and exactly wrong here.
+        resetPositions();
+      } catch (e) {
+        setPromptError((e as Error).message);
+      } finally {
+        setPromptBusy(false);
+      }
+    },
+    [promptBusy, resetPositions]
+  );
+
+  // Read a photo of a house from outside: the facade is read, the plan and the interior are
+  // generated. facadeSummary() is the sentence that says which is which, and it is not optional —
+  // backend/ai/facade_from_image.py.
+  const applyFacadePhoto = useCallback(
+    async (file: File, note: string) => {
+      if (promptBusy) return;
+      setPromptBusy(true);
+      setPromptError(null);
+      setPlanImageNotice(null);
+      try {
+        const { base64, mediaType } = await readImageFile(file);
+        // The plot is never read from a photograph — no scale reference, no north arrow. The
+        // programme is sized to the plot the person already set.
+        const plan = await requestAIFacade(
+          base64,
+          mediaType,
+          plot.widthIn / 12,
+          plot.depthIn / 12,
+          note.trim() || undefined
+        );
+
+        if (Object.keys(plan.counts).length === 0) {
+          setPromptUnsupported(plan.unsupported);
+          setPromptError("No building found in that photo.");
+          return;
+        }
+
+        setFloorsCount(plan.floors);
+        setCounts(withCounts(plan.counts as Record<RoomName, number>));
+        // A generated plan sets no per-room sizes: the catalog and the solver size every room.
+        setCustomDims({});
+        setMaterialConfig((current) => applyFacade(current, plan));
+        setNearPairIds([]);
+        setPromptUnsupported(plan.unsupported);
+        setPromptAssumed([]);
+        setPlanImageNotice(facadeSummary(plan));
+        resetPositions();
+      } catch (e) {
+        setPromptError((e as Error).message);
+      } finally {
+        setPromptBusy(false);
+      }
+    },
+    [promptBusy, plot.widthIn, plot.depthIn, resetPositions]
+  );
 
   // ---- Undo and redo ---------------------------------------------------------------------
   const captureDesign = useCallback(
@@ -1959,7 +2073,14 @@ export default function Home() {
         onSelectPlaceOpening={handleSelectPlaceOpening}
         isDoorsWindowsDrawerOpen={isDoorsWindowsDrawerOpen}
         onPromptToSimulate={handlePromptToSimulate}
-        isSimulatingPrompt={isSimulatingPrompt}
+        isSimulatingPrompt={isSimulatingPrompt || promptBusy}
+        onBuildFromText={applyPromptText}
+        onReadPlanPhoto={applyPlanImage}
+        onReadHousePhoto={applyFacadePhoto}
+        aiNotice={planImageNotice}
+        aiError={promptError}
+        aiAssumed={promptAssumed}
+        aiUnsupported={promptUnsupported}
       />
 
       <main className={styles.mainLayout}>
@@ -1993,7 +2114,7 @@ export default function Home() {
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") applyPrompt();
+                if (e.key === "Enter") applyPromptText(promptText);
               }}
               placeholder="30x40 north facing 2BHK with a pooja room and car parking"
               disabled={promptBusy}
@@ -2001,16 +2122,68 @@ export default function Home() {
             />
             <button
               className={styles.promptGo}
-              onClick={applyPrompt}
+              onClick={() => applyPromptText(promptText)}
               disabled={promptBusy || promptText.trim().length === 0}
             >
               {promptBusy ? "Reading" : "Build"}
             </button>
+            {/* A photo of an existing plan, read into the same mix. Whatever is typed above rides
+                along as a note — "this is the ground floor" — so it can correct a misread. */}
+            <input
+              ref={planImageInputRef}
+              type="file"
+              accept={PLAN_IMAGE_TYPES.join(",")}
+              className={styles.promptFileInput}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                // Cleared before the await so picking the same file twice fires onChange again.
+                e.target.value = "";
+                if (file) applyPlanImage(file, promptText);
+              }}
+              aria-label="Upload a photo of a floor plan"
+            />
+            <button
+              className={styles.promptUpload}
+              onClick={() => planImageInputRef.current?.click()}
+              disabled={promptBusy}
+              title="Read a photo, scan or screenshot of an existing floor plan"
+            >
+              Plan photo
+            </button>
+            {/* A photo of the house from outside. Separate input rather than one with a mode flag:
+                the two readings are different enough to be different buttons, and the person
+                already knows which kind of picture they have. */}
+            <input
+              ref={facadeImageInputRef}
+              type="file"
+              accept={PLAN_IMAGE_TYPES.join(",")}
+              className={styles.promptFileInput}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) applyFacadePhoto(file, promptText);
+              }}
+              aria-label="Upload a photo of a house from outside"
+            />
+            <button
+              className={styles.promptUpload}
+              onClick={() => facadeImageInputRef.current?.click()}
+              disabled={promptBusy}
+              title="Read the facade of a house from a photo, and generate a plan and interior to go behind it"
+            >
+              House photo
+            </button>
           </div>
 
-          {(promptError || promptAssumed.length > 0 || promptUnsupported.length > 0) && (
+          {(promptError ||
+            planImageNotice ||
+            promptAssumed.length > 0 ||
+            promptUnsupported.length > 0) && (
             <div className={styles.promptNotice} role="status">
               {promptError && <div className={styles.promptError}>{promptError}</div>}
+              {planImageNotice && (
+                <div className={styles.promptAssumed}>{planImageNotice}</div>
+              )}
               {promptAssumed.length > 0 && (
                 <div className={styles.promptAssumed}>
                   You did not say: {promptAssumed.join("; ")}. Change it in the ribbon if that is

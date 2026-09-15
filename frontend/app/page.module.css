@@ -457,6 +457,39 @@
   cursor: default;
 }
 
+/* The real file input. Kept in the DOM and out of sight so the button beside it can be styled
+   like .promptGo; display:none would take it out of the accessibility tree with it. */
+.promptFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.promptUpload {
+  flex: none;
+  background: transparent;
+  color: #b5b0a6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.promptUpload:hover:not(:disabled) {
+  color: #e6e2d8;
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.promptUpload:disabled {
+  color: #6f6a60;
+  cursor: default;
+}
+
 /* What was assumed and what could not be built. Never collapsed into the plan itself: an ask
    that quietly vanishes is the defect in notes/architecture/client-side-fallback.md. */
 .promptNotice {

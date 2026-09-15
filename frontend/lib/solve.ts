@@ -235,6 +235,12 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     };
   }
 
+  // A size that arrived as a range rather than pinned — a dimension read off an uploaded drawing,
+  // see lib/aiPlanImage.ts. The offline grid cannot honour a range, so it takes the middle of it;
+  // without this it would ignore every number on the drawing and draw catalog-sized rooms.
+  const bandMidpoint = (lo?: number, hi?: number) =>
+    lo != null && hi != null ? Math.round((lo + hi) / 2) : undefined;
+
   // Parse room specifications
   const roomSpecs: {
     index: number;
@@ -269,8 +275,8 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     else if (name === "washroom") { defW = 72; defD = 90; }
     else if (name === "staff") { defW = 96; defD = 96; }
 
-    const wIn = isObj && r.custom_w_in ? r.custom_w_in : defW;
-    const dIn = isObj && r.custom_d_in ? r.custom_d_in : defD;
+    const wIn = (isObj && (r.custom_w_in || bandMidpoint(r.min_w_in, r.max_w_in))) || defW;
+    const dIn = (isObj && (r.custom_d_in || bandMidpoint(r.min_d_in, r.max_d_in))) || defD;
 
     return { index: idx, id, name, wIn, dIn };
   });

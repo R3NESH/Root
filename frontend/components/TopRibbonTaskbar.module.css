@@ -1485,6 +1485,50 @@
   transform: translateY(-1px);
 }
 
+/* A <label> carrying a file input reads as a pill. display:none on the input would take it out of
+   the accessibility tree, so it is hidden by size instead and the label remains its control. */
+.aiPill:has(.aiHiddenFile) {
+  display: inline-flex;
+  align-items: center;
+}
+
+.aiHiddenFile {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.aiPill:disabled {
+  color: #6f6a60;
+  cursor: default;
+  transform: none;
+}
+
+/* What was assumed, what was generated rather than read, and what could not be built. */
+.aiNotice {
+  width: 100%;
+  background: rgba(33, 32, 27, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.aiNoticeError {
+  color: #c98374;
+}
+
+.aiNoticeRead {
+  color: #b5b0a6;
+}
+
+.aiNoticeUnsupported {
+  color: #d0a24a;
+  margin-top: 4px;
+}
+
 .aiFeatureBadges {
   display: flex;
   align-items: center;

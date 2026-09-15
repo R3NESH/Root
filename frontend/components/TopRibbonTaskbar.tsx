@@ -6,6 +6,7 @@ import { FURNITURE_COLOR_SWATCHES, FURNITURE_CATALOG, FurnitureItemDef } from "@
 import { OPENINGS_CATALOG, OpeningItemDef } from "@/lib/openingsCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
 import { ComplianceReport } from "@/lib/compliance";
+import { PLAN_IMAGE_TYPES } from "@/lib/aiPlanImage";
 import { Facing, isRectangularPlot, maxCornerCutIn, PLOT_PRESETS, PlotDims } from "@/lib/plot";
 import { ROOM_COLORS, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { BuildingProgram, maxCountFor, ProgramKey, PROGRAMS } from "@/lib/programs";
@@ -161,6 +162,22 @@ interface TopRibbonTaskbarProps {
   isDoorsWindowsDrawerOpen?: boolean;
   onPromptToSimulate?: (prompt: string) => void;
   isSimulatingPrompt?: boolean;
+  /**
+   * The AI reading paths — backend/ai. These used to live in the prompt bar in app/page.tsx,
+   * which is positioned at the same `top: 14px` as the CAD toolbar in Scene.tsx and sits under it
+   * at a lower z-index, so none of it was ever reachable. They belong on this tab anyway.
+   *
+   * Each takes whatever is typed in the box above as a note that corrects the image without being
+   * trusted over it.
+   */
+  onReadPlanPhoto?: (file: File, note: string) => void;
+  onReadHousePhoto?: (file: File, note: string) => void;
+  onBuildFromText?: (prompt: string) => void;
+  /** What was assumed, what was generated rather than read, and what could not be built. */
+  aiNotice?: string | null;
+  aiError?: string | null;
+  aiAssumed?: string[];
+  aiUnsupported?: string[];
   isRaytracing?: boolean;
   onToggleRaytrace?: () => void;
   onOpenBOQModal?: () => void;
@@ -546,6 +563,13 @@ export default function TopRibbonTaskbar({
   isDoorsWindowsDrawerOpen = false,
   onPromptToSimulate,
   isSimulatingPrompt = false,
+  onReadPlanPhoto,
+  onReadHousePhoto,
+  onBuildFromText,
+  aiNotice = null,
+  aiError = null,
+  aiAssumed = [],
+  aiUnsupported = [],
   isRaytracing = false,
   onToggleRaytrace,
   onOpenBOQModal,
@@ -1448,6 +1472,77 @@ export default function TopRibbonTaskbar({
                   </button>
                 ))}
               </div>
+
+              {/* The three reading paths — backend/ai. Each sends the box above as a correcting
+                  note: "this is the ground floor", "the road is on the left". */}
+              <div className={styles.aiPillRow}>
+                <span className={styles.aiPillLabel}>Read from:</span>
+                <button
+                  type="button"
+                  className={styles.aiPill}
+                  disabled={isSimulatingPrompt || !aiPromptInput.trim()}
+                  onClick={() => onBuildFromText?.(aiPromptInput)}
+                  title="Read the sentence above into a room mix. CP-SAT places every room."
+                >
+                  Text
+                </button>
+                <label
+                  className={styles.aiPill}
+                  title="A photo, scan or screenshot of an existing floor plan. Room names and printed dimensions are read; the plan is then re-solved, not traced."
+                >
+                  Plan photo
+                  <input
+                    type="file"
+                    accept={PLAN_IMAGE_TYPES.join(",")}
+                    className={styles.aiHiddenFile}
+                    disabled={isSimulatingPrompt}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      // Cleared before the handler so picking the same file twice fires again.
+                      e.target.value = "";
+                      if (file) onReadPlanPhoto?.(file, aiPromptInput);
+                    }}
+                  />
+                </label>
+                <label
+                  className={styles.aiPill}
+                  title="A photo of a house from outside. The facade is read; the plan and interior are generated."
+                >
+                  House photo
+                  <input
+                    type="file"
+                    accept={PLAN_IMAGE_TYPES.join(",")}
+                    className={styles.aiHiddenFile}
+                    disabled={isSimulatingPrompt}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) onReadHousePhoto?.(file, aiPromptInput);
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Never collapsed into the plan itself: an ask that quietly vanishes, or a generated
+                  layout passed off as a reading of someone's house, is
+                  notes/architecture/client-side-fallback.md. */}
+              {(aiError || aiNotice || aiAssumed.length > 0 || aiUnsupported.length > 0) && (
+                <div className={styles.aiNotice} role="status">
+                  {aiError && <div className={styles.aiNoticeError}>{aiError}</div>}
+                  {aiNotice && <div className={styles.aiNoticeRead}>{aiNotice}</div>}
+                  {aiAssumed.length > 0 && (
+                    <div className={styles.aiNoticeRead}>
+                      You did not say: {aiAssumed.join("; ")}. Change it in the ribbon if that is
+                      wrong.
+                    </div>
+                  )}
+                  {aiUnsupported.length > 0 && (
+                    <div className={styles.aiNoticeUnsupported}>
+                      Not built, because this tool cannot: {aiUnsupported.join("; ")}.
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className={styles.aiFeatureBadges}>
                 <div className={styles.aiBadge}> &lt;100ms CP-SAT</div>

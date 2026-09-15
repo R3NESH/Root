@@ -105,7 +105,10 @@ import {
   FLOOR_MATERIALS,
   getFloorTexture,
   getRoomFloorMaterial,
+  getFacadeColorHex,
+  getFacadeTextureId,
   getRoomWallColorHex,
+  hasFacadeFinish,
   getWallColorHexStr,
   getRoomWallTextureId,
   resolveDoorColorHex,
@@ -324,6 +327,16 @@ function createNightSkyTexture(): THREE.CanvasTexture {
 // gradient, which is indistinguishable from the hemisphere light this replaces. Reflections
 // only read as reflections when the environment has edges.
 const SUN_DIR = new THREE.Vector3(60, 95, 45).normalize();
+
+/**
+ * Which BoxGeometry material group faces out of the building, per wall edge.
+ *
+ * Three.js orders a box's six groups +X, -X, +Y, -Y, +Z, -Z. The cardinal convention here is the
+ * solver's — +X east, +Z south, origin at the plot's north-west corner (lib/sceneDoorways.ts) — so
+ * a north wall's outward face is -Z and a south wall's is +Z. Used to put the facade finish on
+ * exactly one face of an exterior wall and leave the other five interior.
+ */
+const OUTWARD_FACE: Record<"N" | "S" | "E" | "W", number> = { E: 0, W: 1, S: 4, N: 5 };
 
 function createSkyEnvTexture(night: boolean): THREE.DataTexture {
   const W = 256;
@@ -3568,6 +3581,28 @@ export default function Scene({
         metalness: 0.02,
       });
 
+      // The facade: the outward face of this room's exterior walls. Built the same way as
+      // wallMaterial and differing only in colour and texture, so a facade finish changes what the
+      // outside is made of and nothing else about how it is lit. Null when nobody set one, which
+      // leaves every mesh below on the single interior material it has always used.
+      const facadeTextureId = getFacadeTextureId(materialConfigRef.current);
+      const facadeMaterial = !hasFacadeFinish(materialConfigRef.current)
+        ? null
+        : new THREE.MeshStandardMaterial({
+            color: getFacadeColorHex(materialConfigRef.current),
+            normalMap: getWallNormalMap(facadeTextureId, res, aniso),
+            normalScale: new THREE.Vector2(wallRelief, wallRelief),
+            roughness: getEffectiveWallRoughness(
+              facadeTextureId === "wood_slat"
+                ? 0.45
+                : facadeTextureId === "venetian_stucco"
+                ? 0.65
+                : 0.82,
+              materialConfigRef.current
+            ),
+            metalness: 0.02,
+          });
+
       // Door Frame & Entrance Materials (Customized via Door Colors & Color Wheel)
       const roomDoorColorHex = resolveDoorColorHex(
         materialConfigRef.current.roomDoorColors?.[room.name as RoomName] ||
@@ -4002,6 +4037,19 @@ export default function Scene({
           const seg_wd = isEW ? wd : segLen;
 
           const isMainEntrance = sIdx === entranceSegIdx;
+          // This segment's materials. A shared partition has no outward face and keeps the single
+          // interior material. An exterior segment gets a six-entry array with the facade on the
+          // one face that points out of the building — BoxGeometry groups run +X, -X, +Y, -Y, +Z,
+          // -Z, and the edge fixes which that is. Reusing the geometry already built around every
+          // door and window is the point: a separate facade skin laid over the wall would cover
+          // the openings cut out of it.
+          const segWallMat: THREE.Material | THREE.Material[] =
+            isShared || !facadeMaterial
+              ? wallMaterial
+              : Array.from({ length: 6 }, (_, face) =>
+                  face === OUTWARD_FACE[edge] ? facadeMaterial : wallMaterial
+                );
+
 
           const assignedDoor = doorwaysOnEdge.find((d) => doorOwnerSeg.get(d) === sIdx);
 
@@ -4080,7 +4128,7 @@ export default function Scene({
               // Chords overlap slightly so the joints between them do not show as hairlines.
               const chord = new THREE.Mesh(
                 new THREE.BoxGeometry(chordLen + 0.05, wallH, thickness),
-                wallMaterial
+                segWallMat
               );
               chord.position.set((ax + bx) / 2, wallH / 2, (az + bz) / 2);
               // A box's local +x maps to (cos y, 0, -sin y), so this is the yaw that lays it
@@ -4104,7 +4152,7 @@ export default function Scene({
             // failing to delete.
             if (isLoadBearing) {
               const beamH = 0.75;
-              const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), wallMaterial);
+              const beam = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, beamH, seg_wd), segWallMat);
               beam.position.set(seg_wx, wallH - beamH / 2, seg_wz);
               beam.castShadow = true;
               beam.userData = { ...wallUserData, isLintel: true };
@@ -4153,7 +4201,7 @@ export default function Scene({
               const rightW = Math.max(0.05, (seg_wx + seg_ww / 2) - (doorPos + doorW / 2));
 
               if (leftW > 0.08) {
-                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, wallH, seg_wd), wallMaterial);
+                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(leftW, wallH, seg_wd), segWallMat);
                 leftWall.position.set(seg_wx - seg_ww / 2 + leftW / 2, wallH / 2, seg_wz);
                 leftWall.castShadow = true;
                 leftWall.receiveShadow = true;
@@ -4166,7 +4214,7 @@ export default function Scene({
               }
 
               if (rightW > 0.08) {
-                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, wallH, seg_wd), wallMaterial);
+                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(rightW, wallH, seg_wd), segWallMat);
                 rightWall.position.set(seg_wx + seg_ww / 2 - rightW / 2, wallH / 2, seg_wz);
                 rightWall.castShadow = true;
                 rightWall.receiveShadow = true;
@@ -4178,7 +4226,7 @@ export default function Scene({
                 roomGroup.add(rightBase);
               }
 
-              const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, seg_wd), wallMaterial);
+              const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, seg_wd), segWallMat);
               lintel.position.set(doorPos, doorH + lintelH / 2, seg_wz);
               lintel.castShadow = true;
               lintel.userData = { ...wallUserData };
@@ -4320,7 +4368,7 @@ export default function Scene({
               const bottomD = Math.max(0.05, (seg_wz + seg_wd / 2) - (doorPos + doorW / 2));
 
               if (topD > 0.08) {
-                const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, topD), wallMaterial);
+                const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, topD), segWallMat);
                 topWall.position.set(seg_wx, wallH / 2, seg_wz - seg_wd / 2 + topD / 2);
                 topWall.castShadow = true;
                 topWall.receiveShadow = true;
@@ -4333,7 +4381,7 @@ export default function Scene({
               }
 
               if (bottomD > 0.08) {
-                const botWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, bottomD), wallMaterial);
+                const botWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, bottomD), segWallMat);
                 botWall.position.set(seg_wx, wallH / 2, seg_wz + seg_wd / 2 - bottomD / 2);
                 botWall.castShadow = true;
                 botWall.receiveShadow = true;
@@ -4345,7 +4393,7 @@ export default function Scene({
                 roomGroup.add(botBase);
               }
 
-              const lintel = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, lintelH, doorW), wallMaterial);
+              const lintel = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, lintelH, doorW), segWallMat);
               lintel.position.set(seg_wx, doorH + lintelH / 2, doorPos);
               lintel.castShadow = true;
               lintel.userData = { ...wallUserData };
@@ -4494,21 +4542,21 @@ export default function Scene({
             if (isEW) {
               const sideW = Math.max(0.2, (seg_ww - winW) / 2);
 
-              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), wallMaterial);
+              const leftWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), segWallMat);
               leftWall.position.set(seg_wx - seg_ww / 2 + sideW / 2, wallH / 2, seg_wz);
               leftWall.castShadow = true;
               leftWall.receiveShadow = true;
               leftWall.userData = { ...wallUserData };
               roomGroup.add(leftWall);
 
-              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), wallMaterial);
+              const rightWall = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallH, seg_wd), segWallMat);
               rightWall.position.set(seg_wx + seg_ww / 2 - sideW / 2, wallH / 2, seg_wz);
               rightWall.castShadow = true;
               rightWall.receiveShadow = true;
               rightWall.userData = { ...wallUserData };
               roomGroup.add(rightWall);
 
-              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, seg_wd), wallMaterial);
+              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(winW, sillH, seg_wd), segWallMat);
               sillWall.position.set(seg_wx, sillH / 2, seg_wz);
               sillWall.castShadow = true;
               sillWall.receiveShadow = true;
@@ -4519,7 +4567,7 @@ export default function Scene({
               baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
               roomGroup.add(baseboard);
 
-              const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, seg_wd), wallMaterial);
+              const topWall = new THREE.Mesh(new THREE.BoxGeometry(winW, topH, seg_wd), segWallMat);
               topWall.position.set(seg_wx, sillH + winH + topH / 2, seg_wz);
               topWall.castShadow = true;
               topWall.userData = { ...wallUserData };
@@ -4566,21 +4614,21 @@ export default function Scene({
             } else {
               const sideD = Math.max(0.2, (seg_wd - winW) / 2);
 
-              const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), wallMaterial);
+              const topWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), segWallMat);
               topWallSeg.position.set(seg_wx, wallH / 2, seg_wz - seg_wd / 2 + sideD / 2);
               topWallSeg.castShadow = true;
               topWallSeg.receiveShadow = true;
               topWallSeg.userData = { ...wallUserData };
               roomGroup.add(topWallSeg);
 
-              const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), wallMaterial);
+              const botWallSeg = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, wallH, sideD), segWallMat);
               botWallSeg.position.set(seg_wx, wallH / 2, seg_wz + seg_wd / 2 - sideD / 2);
               botWallSeg.castShadow = true;
               botWallSeg.receiveShadow = true;
               botWallSeg.userData = { ...wallUserData };
               roomGroup.add(botWallSeg);
 
-              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, sillH, winW), wallMaterial);
+              const sillWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, sillH, winW), segWallMat);
               sillWall.position.set(seg_wx, sillH / 2, seg_wz);
               sillWall.castShadow = true;
               sillWall.receiveShadow = true;
@@ -4591,7 +4639,7 @@ export default function Scene({
               baseboard.position.set(seg_wx, BASEBOARD_H_FT / 2, seg_wz);
               roomGroup.add(baseboard);
 
-              const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, topH, winW), wallMaterial);
+              const topWall = new THREE.Mesh(new THREE.BoxGeometry(seg_ww, topH, winW), segWallMat);
               topWall.position.set(seg_wx, sillH + winH + topH / 2, seg_wz);
               topWall.castShadow = true;
               topWall.userData = { ...wallUserData };
@@ -4696,7 +4744,7 @@ export default function Scene({
                 isEW
                   ? new THREE.BoxGeometry(runLen, pieceH, seg_wd)
                   : new THREE.BoxGeometry(seg_ww, pieceH, runLen),
-                wallMaterial
+                segWallMat
               );
               piece.position.set(isEW ? mid : seg_wx, y0 + pieceH / 2, isEW ? seg_wz : mid);
               piece.castShadow = true;
@@ -4726,7 +4774,7 @@ export default function Scene({
                     h: h.top - h.sill,
                   }))
                 ),
-                wallMaterial
+                segWallMat
               );
               shaped.position.set(seg_wx, wallH / 2, seg_wz);
               if (!isEW) shaped.rotation.y = -Math.PI / 2;

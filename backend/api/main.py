@@ -44,6 +44,24 @@ def _coerce_round_int(v):
     return v
 
 
+def _size_range(pin, lo_in, hi_in, lo_base, hi_base) -> tuple[int, int]:
+    """One room's allowed size on one axis, from three sources, most specific first.
+
+    `pin` is `custom_w_in`/`custom_d_in` — one exact size, which is what RoomCustomizer asks for.
+    `lo_in`/`hi_in` are `min_*_in`/`max_*_in`, a range instead: those fields were in RoomSpecIn
+    from the start and were read by nothing until ai/plan_from_image.py needed to say "about 12 ft,
+    from a drawing" rather than "exactly 12 ft". Neither source widens the catalog, because a range
+    that escaped it would undo the NBC 2016 minimums in solver/rooms.py.
+    """
+    if pin is not None:
+        return pin, pin
+    lo = max(lo_base, lo_in) if lo_in is not None else lo_base
+    hi = min(hi_base, hi_in) if hi_in is not None else hi_base
+    # A band that misses the catalog range entirely (a 4 ft bedroom) falls back to the catalog
+    # rather than inverting and making the model infeasible.
+    return (lo, hi) if lo <= hi else (lo_base, hi_base)
+
+
 class SetbackIn(BaseModel):
     front_in: int = Field(ge=0)
     rear_in: int = Field(ge=0)
@@ -393,10 +411,12 @@ def solve(req: SolveRequest) -> SolveResponse:
             r_name = item
             custom_w = None
             custom_d = None
+            band = None
         else:
             r_name = item.name
             custom_w = item.custom_w_in
             custom_d = item.custom_d_in
+            band = item
 
         # A bedroom in a cafe is a client bug, not a room. Rejecting it here keeps the mix
         # inside the programme's own vocabulary, which is what its hub, parent preferences and
@@ -406,10 +426,21 @@ def solve(req: SolveRequest) -> SolveResponse:
             continue
 
         base = ROOM_CATALOG[r_name]
-        min_w = custom_w if custom_w is not None else base.min_w_in
-        max_w = custom_w if custom_w is not None else base.max_w_in
-        min_d = custom_d if custom_d is not None else base.min_d_in
-        max_d = custom_d if custom_d is not None else base.max_d_in
+
+        min_w, max_w = _size_range(
+            custom_w,
+            getattr(band, "min_w_in", None),
+            getattr(band, "max_w_in", None),
+            base.min_w_in,
+            base.max_w_in,
+        )
+        min_d, max_d = _size_range(
+            custom_d,
+            getattr(band, "min_d_in", None),
+            getattr(band, "max_d_in", None),
+            base.min_d_in,
+            base.max_d_in,
+        )
 
         # Clamp to envelope dimensions if envelope is positive to guarantee feasibility
         if env.width_in > 0:
@@ -1045,6 +1076,151 @@ def ai_plan(req: AIPlanRequest) -> AIPlanResponse:
         unsupported=plan.unsupported,
         assumed_plot=plan.assumed_plot,
         assumed_facing=plan.assumed_facing,
+    )
+
+
+class AIPlanImageRequest(BaseModel):
+    image_base64: str
+    media_type: str
+    # Whatever the person typed alongside the upload. Read after the drawing, never over it.
+    note: str | None = None
+
+
+class AIPlanImageResponse(AIPlanResponse):
+    """`AIPlanResponse`, plus the one thing a drawing adds over a sentence.
+
+    The rooms inside `solve_request` are RoomSpecIn objects rather than bare names when the
+    drawing printed dimensions — a band around each printed number, not a pin. See
+    ai/plan_from_image.py for why a pin is the wrong thing to send.
+    """
+
+    # False means the image carried room names and nothing measurable, so this reduced to what
+    # typing "3bhk" already does. The caller has to say that rather than imply the photo was read
+    # for more than its labels.
+    read_dimensions: bool
+
+
+@app.post("/ai/plan-image", response_model=AIPlanImageResponse)
+def ai_plan_image(req: AIPlanImageRequest) -> AIPlanImageResponse:
+    """A photo of a floor plan in, a POST /solve body out.
+
+    Deliberately not a plan, and deliberately not a tracing of the uploaded one: this hands back
+    constraints, the caller posts them to /solve like any other client, and CP-SAT stays the only
+    thing that places a room. An uploaded plan that came back untouched would be a plan nothing
+    had checked — notes/decisions/vaastu-as-constraints.md.
+    """
+    from ai import parse_image, resolve_image
+    from ai.plan_from_image import BadImage
+    from ai.prompt_constraints import MissingCredential
+
+    try:
+        parsed = parse_image(req.image_base64, req.media_type, req.note)
+    except BadImage as exc:
+        # 400: the upload itself is wrong, and no retry against the model will fix it.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MissingCredential as exc:
+        # 503 and not 500: the service is fine, it has not been given a key.
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    read = resolve_image(parsed)
+    plan = read.plan
+    return AIPlanImageResponse(
+        solve_request={
+            "plot_w_in": round(plan.plot_w_ft * 12),
+            "plot_d_in": round(plan.plot_d_ft * 12),
+            "facing": plan.facing,
+            "floors": plan.floors,
+            "rooms": read.room_specs,
+            "near": plan.near,
+            "apply_vaastu": plan.apply_vaastu,
+        },
+        unsupported=plan.unsupported,
+        assumed_plot=plan.assumed_plot,
+        assumed_facing=plan.assumed_facing,
+        read_dimensions=read.read_dimensions,
+    )
+
+
+class AIFacadeImageRequest(BaseModel):
+    image_base64: str
+    media_type: str
+    # The plot the app already has. Never read from the photograph: a single shot carries no scale
+    # reference, so the programme is sized to the plot the person gave — ai/facade_from_image.py.
+    plot_w_ft: float = Field(gt=0)
+    plot_d_ft: float = Field(gt=0)
+    # The finish ids this build can actually render, sent by the client so nothing here holds a
+    # copy of a frontend catalog that would drift out of date.
+    palette: dict
+    note: str | None = None
+
+
+class AIFacadeImageResponse(BaseModel):
+    """A facade finish read from a photograph, plus a generated house to put behind it.
+
+    Two different kinds of claim, kept apart on purpose. `facade`, `glazing_style` and the storey
+    count inside `solve_request` are read from the image. `solve_request.rooms` and `interior` are
+    **generated** — a photograph from the street has no interior in it. The caller must carry that
+    distinction into the UI.
+    """
+
+    solve_request: dict
+    # Shaped for HouseMaterialConfig's facade fields. Keys the photograph could not answer are
+    # absent rather than blank, so they leave the app's current value alone.
+    facade: dict
+    # {room kind: {floor, wall_color, wall_texture, door_color}} — generated, not read.
+    interior: dict
+    glazing_style: str
+    style_label: str
+    # What the photograph showed that this tool cannot build — a sloped roof, a balcony, a porch.
+    # The caller is expected to show these; the build is finish-only on solver rectangles.
+    unsupported: list[str]
+
+
+@app.post("/ai/facade-image", response_model=AIFacadeImageResponse)
+def ai_facade_image(req: AIFacadeImageRequest) -> AIFacadeImageResponse:
+    """A photo of a house from outside in, a facade finish and a generated interior out.
+
+    The image plan_from_image.py refuses, handled honestly instead: the facade is read, the plan and
+    the interior are generated and said to be generated. CP-SAT still places every room.
+    """
+    from ai import Palette, parse_facade, resolve_facade
+    from ai.plan_from_image import BadImage
+    from ai.prompt_constraints import MissingCredential
+
+    try:
+        palette = Palette(**req.palette)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"bad palette: {exc}") from exc
+
+    try:
+        parsed = parse_facade(
+            req.image_base64,
+            req.media_type,
+            palette,
+            req.plot_w_ft,
+            req.plot_d_ft,
+            req.note,
+        )
+    except BadImage as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MissingCredential as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    read = resolve_facade(parsed, palette)
+    return AIFacadeImageResponse(
+        solve_request={
+            "plot_w_in": round(req.plot_w_ft * 12),
+            "plot_d_in": round(req.plot_d_ft * 12),
+            # Absent from the photograph. The caller keeps whatever facing it already had.
+            "floors": read.storeys,
+            "rooms": read.rooms,
+            "apply_vaastu": True,
+        },
+        facade=read.facade,
+        interior=read.interior,
+        glazing_style=read.glazing_style,
+        style_label=read.style_label,
+        unsupported=read.unsupported,
     )
 
 

@@ -10,6 +10,16 @@ import styles from "./RoomCustomizer.module.css";
 export interface CustomDim {
   wFt: number;
   dFt: number;
+  /**
+   * How far either side of `wFt`/`dFt` the solver may move, in feet. Absent means none: the size
+   * is pinned, which is what every stepper in this component asks for.
+   *
+   * Only lib/aiPlanImage.ts sets it. A dimension read off a photographed drawing is evidence at
+   * an unknown scale, not a specification, and pinning a whole house of them is how a plan comes
+   * back INFEASIBLE instead of a house. A zero on either axis means that axis was not printed and
+   * is left to the room catalog.
+   */
+  tolFt?: number;
 }
 
 interface RoomCustomizerProps {
@@ -144,8 +154,10 @@ export default function RoomCustomizer({
           const custom = customDims[item.id];
           const solved = rooms[item.index];
 
-          const currentW = custom ? custom.wFt : (solved ? Math.round(inchesToFeet(solved.w_in)) : 14);
-          const currentD = custom ? custom.dFt : (solved ? Math.round(inchesToFeet(solved.d_in)) : 14);
+          // A zero is an axis nobody gave — a drawing that printed one dimension and left the
+          // other to the eye — so it shows what the solver chose, not "0 ft". See CustomDim.
+          const currentW = custom && custom.wFt > 0 ? custom.wFt : (solved ? Math.round(inchesToFeet(solved.w_in)) : 14);
+          const currentD = custom && custom.dFt > 0 ? custom.dFt : (solved ? Math.round(inchesToFeet(solved.d_in)) : 14);
           const sqFt = currentW * currentD;
           const orientation = currentW > currentD ? "Horiz" : currentW < currentD ? "Vert" : "Square";
 

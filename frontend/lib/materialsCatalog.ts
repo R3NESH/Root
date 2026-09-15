@@ -68,6 +68,22 @@ export interface HouseMaterialConfig {
   wallGlazing?: Record<string, WallGlazing>;
   roomGlazing?: Partial<Record<RoomName, WallGlazing>>;
   globalGlazing?: WallGlazing;
+  /**
+   * The outward face of every exterior wall — the facade.
+   *
+   * Until this existed the outside of the house was painted with whatever colour the room behind
+   * the wall used, because Scene.tsx builds one wall material per room and every mesh on that
+   * room's walls took it, inward and outward face alike. A facade is a different surface from a
+   * bedroom wall and now says so.
+   *
+   * `facadeColor` takes a catalog id or a raw `#rrggbb` — getWallColorHexStr() has always accepted
+   * both, which is what lets a colour sampled from a photograph through without a palette entry.
+   * Absent means the old behaviour: the facade shows the interior colour.
+   */
+  facadeColor?: string;
+  facadeTexture?: string;
+  /** A two-tone or banded facade — plinth, string course, parapet band. See lib/wallBands.ts. */
+  facadeBands?: WallBandScheme;
   textureSmoothness?: number; // 0.0 (Matte Textured) to 1.0 (Silky Mirror Polish)
   floorGlossLevel?: number; // 0.0 (Matte) to 1.0 (High-Gloss Mirror Polish)
   wallSmoothness?: number; // 0.0 (Heavy Stucco/Brick Relief) to 1.0 (Smooth Satin/Venetian Silk)
@@ -1426,6 +1442,28 @@ export function getRoomWallColorHex(roomName: RoomName, config: HouseMaterialCon
  */
 export function getRoomWallTextureId(roomName: RoomName, config: HouseMaterialConfig): string {
   return config.roomWallTextures[roomName] || config.globalWallTexture;
+}
+
+/**
+ * Whether this house has a facade finish distinct from its interior walls.
+ *
+ * False is the answer for every house built before `facadeColor` existed and for every one where
+ * nobody set it, and it keeps exactly the old behaviour — see HouseMaterialConfig.facadeColor.
+ */
+export function hasFacadeFinish(config: HouseMaterialConfig): boolean {
+  return Boolean(config.facadeColor || config.facadeTexture);
+}
+
+/** The facade colour, falling back to the interior global so a texture alone still renders. */
+export function getFacadeColorHex(config: HouseMaterialConfig): number {
+  const hexStr = getWallColorHexStr(config.facadeColor || config.globalWallColor);
+  const parsed = parseInt(hexStr.replace("#", "0x"), 16);
+  return isNaN(parsed) ? 0xeceae5 : parsed;
+}
+
+/** The facade texture, falling back to the interior global so a colour alone still renders. */
+export function getFacadeTextureId(config: HouseMaterialConfig): string {
+  return config.facadeTexture || config.globalWallTexture;
 }
 
 /**
