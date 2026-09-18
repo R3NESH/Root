@@ -2442,8 +2442,12 @@ export default function Home() {
                     <div
                       style={{
                         position: "absolute",
-                        top: 76,
-                        left: 16,
+                        // Above the quick-action pill at bottom 24, which appears under exactly
+                        // the same condition as this panel. Top left is the 3D tool HUD and top
+                        // right is the wall inspector, so this is the one edge left free.
+                        bottom: 92,
+                        left: "50%",
+                        transform: "translateX(-50%)",
                         background: "rgba(19, 18, 16, 0.96)",
                         backdropFilter: "blur(16px)",
                         border: "1.5px solid #6f9aa8",
@@ -2452,7 +2456,11 @@ export default function Home() {
                         display: "flex",
                         alignItems: "center",
                         gap: "8px",
-                        zIndex: 26,
+                        whiteSpace: "nowrap",
+                        // Over the 3D tool HUD (45) and the wall inspector (42). At 26 this panel
+                        // rendered every time and sat invisible underneath the tool HUD, which is
+                        // why clicking a wall looked like it did nothing at all.
+                        zIndex: 50,
                         boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6)",
                         color: "#ffffff",
                         fontSize: "12px",
