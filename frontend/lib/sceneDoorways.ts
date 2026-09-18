@@ -4,7 +4,7 @@
 // were being redefined on every run of the render effect that held them.
 //
 // Edge letters are world-fixed cardinals, matching the solver's `openings[].edge` and the
-// coordinate convention in backend/vaastu/rules.py: +X is East, +Z is South, origin at the
+// coordinate convention in backend/zoning.py: +X is East, +Z is South, origin at the
 // plot's North-West corner.
 
 import { Facing } from "./plot";

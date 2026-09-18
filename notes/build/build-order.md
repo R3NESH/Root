@@ -16,7 +16,7 @@ Two weeks. **Each step has an explicit done-condition — do not advance without
 | [[step-2-solver-core\|2]] | CP-SAT: place 4–6 rooms in a fixed 30×40 envelope, print JSON | rooms never overlap and never exit the envelope, across 20 random room mixes |
 | [[step-3-wire-together\|3]] | Wire together: debounced POST, render returned rects | end-to-end on one plot |
 | [[step-4-drift-objective\|4]] | Drift objective. **Time the solve.** | rooms nudge rather than jump across 10 consecutive edits; solve stays under 500 ms |
-| [[step-5-vaastu\|5]] | Vaastu as constraints: kitchen SE, master bedroom SW, entrance N/E | still solves, still stable, still under 500 ms |
+| 5 | Directional zone rules as constraints, entrance N/E | still solves, still stable, still under 500 ms |
 
 > [!important] Test on a real plot
 > A real **30×40 north-facing plot in Kandi, Telangana** — not a synthetic one.
@@ -31,7 +31,7 @@ This outranks steps 3–5 in decision value. It blocks neither step 1 nor step 2
 
 > [!success] All five steps done, 2026-08-24
 > Every done-condition met except one, recorded explicitly: **entrance N/E** in
-> [[step-5-vaastu]], which needs `openings` to exist first. [[test-baseline]] 5 → 23 passing.
+> the direction-rules step, which needs `openings` to exist first. [[test-baseline]] 5 → 23 passing.
 > [[claim-most-likely-wrong]] settled — the claim held.
 >
 > **Not done, and this matters more than the code:** the plan says to test on a real 30×40

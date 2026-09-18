@@ -1,7 +1,7 @@
 # backend/ai
 
 Free text or a photographed drawing to solver constraints. The model does vocabulary; CP-SAT still
-decides everything about the plan — [[vaastu-as-constraints]].
+decides everything about the plan.
 
 `prompt_constraints.py` — `parse_prompt()` calls Claude with a Pydantic output format;
 `resolve()` validates the answer against `programs/registry.py` and moves anything the catalog
@@ -14,7 +14,7 @@ same validation and turns each printed number into a **band**, not a pin. Three 
 to do, each with a test in `tests/test_ai_image.py`:
 
 - **It does not trace.** The plan that comes back is a legal plan resembling the upload, not the
-  upload. Pinning a house of exact read dimensions against setbacks, Vaastu, connectivity and
+  upload. Pinning a house of exact read dimensions against setbacks, connectivity and
   daylight returns INFEASIBLE rather than a house, so the sizes go as `min_*_in`/`max_*_in` a foot
   either side. The caller must say this out loud — [[client-side-fallback]] with a camera attached.
 - **It does not read a photograph of a building.** An exterior shot does not contain the interior

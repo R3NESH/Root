@@ -72,11 +72,10 @@ The machine belongs in the `utility` anyway now that [[free-text-input]] put one
 `addRoomInteriorDetails()` cannot see the other rooms, so it cannot make that call. Noted rather
 than guessed.
 
-**Pooja altar.** Two tiers sized by two independent `fitSize` calls with different clearances,
-which in the catalog's smallest 3 ft pooja room returned a 1.4 ft base under a 1.2 ft tier — the
-tier only that wide because it had hit `fitSize`'s floor, not because anything chose it. A mandir
-stands against a wall, so it is sized off that wall now, and the tier is a proportion of the base
-and can never come out wider than the thing it stands on.
+**Altar (removed 2026-09-18).** Two tiers sized by two independent `fitSize` calls with different clearances,
+which in the catalog's smallest 3 ft room returned a 1.4 ft base under a 1.2 ft tier — the
+tier only that wide because it had hit `fitSize`'s floor, not because anything chose it. An altar
+stands against a wall, so it was sized off that wall; the piece itself was removed on 2026-09-18.
 
 ## What is still true of the other rooms
 

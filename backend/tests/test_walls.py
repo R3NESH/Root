@@ -21,7 +21,7 @@ MIX = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]
 @pytest.fixture(scope="module")
 def solved():
     result = solve_layout(
-        ENV_W_IN, ENV_D_IN, [ROOM_CATALOG[n] for n in MIX], apply_vaastu=True
+        ENV_W_IN, ENV_D_IN, [ROOM_CATALOG[n] for n in MIX], apply_zone_rules=True
     )
     assert result.rooms, result.status
     return result
@@ -152,7 +152,7 @@ def test_walls_are_derived_for_a_cafe_too():
     mix = ["entry", "queue", "counter", "seating", "prep", "pantry", "washroom"]
     result = solve_layout(
         ENV_W_IN, ENV_D_IN, [ROOM_CATALOG[n] for n in mix],
-        apply_vaastu=True, program=CAFE, facing="N",
+        apply_zone_rules=True, program=CAFE, facing="N",
     )
     assert result.rooms
     assert result.walls

@@ -27,7 +27,7 @@ Used for: the `seating` minimum of 12×12 ft (144 sq ft ≈ 8 covers) and the ma
 **60 % guest / 40 % prep, bar, staff and kitchen.** This shapes the café `zone_rules`:
 `seating`, `entry`, `queue` and `lounge` are held to the front bands (0.0–0.7 of depth from the
 shopfront); `prep`, `wash`, `pantry` and `staff` to the back (0.55–1.0). Posted up front as
-CP-SAT constraints, never scored afterwards — same discipline as [[vaastu-as-constraints]].
+CP-SAT constraints, never scored afterwards — same discipline as rules-as-constraints.
 
 > [!warning] What is enforced is the order, not the ratio
 > The bands guarantee back of house sits **behind** front of house, verified across all four

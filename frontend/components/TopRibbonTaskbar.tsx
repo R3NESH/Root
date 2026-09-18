@@ -7,7 +7,20 @@ import { OPENINGS_CATALOG, OpeningItemDef } from "@/lib/openingsCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
 import { ComplianceReport } from "@/lib/compliance";
 import { PLAN_IMAGE_TYPES } from "@/lib/aiPlanImage";
-import { Facing, isRectangularPlot, maxCornerCutIn, PLOT_PRESETS, PlotDims } from "@/lib/plot";
+import {
+  Facing,
+  MAX_DIM_IN,
+  MAX_PLOT_VERTICES,
+  MIN_DIM_IN,
+  PLOT_PRESETS,
+  PlotDims,
+  PlotPoint,
+  isRectangularPlot,
+  maxCornerCutIn,
+  outlineBoundsIn,
+  plotPolygonIn,
+  plotShapeProblem,
+} from "@/lib/plot";
 import { ROOM_COLORS, ROOM_LABELS, RoomName } from "@/lib/rooms";
 import { BuildingProgram, maxCountFor, ProgramKey, PROGRAMS } from "@/lib/programs";
 import { WALL_COLORS, getWallColorHexStr } from "@/lib/materialsCatalog";
@@ -584,10 +597,10 @@ export default function TopRibbonTaskbar({
   const depthFt = Math.round(inchesToFeet(plot.depthIn));
   const sqFt = widthFt * depthFt;
 
-  // Name the rules the solver actually posted. A cafe zones for service flow, not Vaastu, and
-  // saying otherwise is the dishonesty notes/decisions/vaastu-as-constraints.md forbids.
+  // Name the rules the solver actually posted. A residence posts none and a cafe zones for
+  // service flow, and claiming a rule that was never enforced is the dishonesty CLAUDE.md forbids.
   const rulesLabel = meta?.rules_label ?? program.rulesLabel;
-  const rulesRelaxed = meta?.rules_relaxed ?? meta?.vaastu_relaxed ?? false;
+  const rulesRelaxed = meta?.rules_relaxed ?? false;
 
   const handleStepPlot = (dim: "widthIn" | "depthIn", deltaFt: number) => {
     const minIn = feetToInches(10);
@@ -598,6 +611,125 @@ export default function TopRibbonTaskbar({
 
   const cornerCutFt = (index: number) =>
     Math.round(((plot.cornerCutsIn?.[index] ?? 0) / 12) * 10) / 10;
+
+  // --- plot outline, typed ------------------------------------------------------------------
+  //
+  // The 2D view drags these same corners. A surveyed parcel arrives as a list of measured
+  // dimensions rather than as a sketch, so both halves exist and both write the same two fields.
+
+  /** Inches to feet for display, to one decimal. Kept exact enough to round-trip a half foot. */
+  const exactFt = (inches: number) => Math.round((inches / 12) * 10) / 10;
+
+  /** The editable skeleton: corners before any edge is bowed. */
+  const outlineVerts: PlotPoint[] =
+    plot.vertsIn && plot.vertsIn.length >= 3
+      ? plot.vertsIn
+      : plotPolygonIn({ ...plot, edgeBulgeIn: undefined });
+  const outlineBulges = plot.edgeBulgeIn ?? [];
+  const shapeProblem = plotShapeProblem(plot);
+
+  const plotShapeSummary = isRectangularPlot(plot)
+    ? "Rectangular plot"
+    : plot.edgeBulgeIn?.some((b) => Math.abs(b) >= 1)
+    ? `Curved outline, ${plotPolygonIn(plot).length} corners`
+    : plot.vertsIn
+    ? `Drawn outline, ${outlineVerts.length} corners`
+    : "Splayed plot";
+
+  /** Write a new skeleton, keeping width and depth as the outline's own bounding box. */
+  const commitOutline = (verts: PlotPoint[], bulges: number[]) => {
+    const drawn = plotPolygonIn({ ...plot, vertsIn: verts, edgeBulgeIn: bulges });
+    const bounds = outlineBoundsIn(drawn);
+    onChangePlot({
+      ...plot,
+      widthIn: Math.max(1, bounds.widthIn),
+      depthIn: Math.max(1, bounds.depthIn),
+      // The outline supersedes the splays: two descriptions of one shape is one too many, and
+      // the splay steppers would otherwise re-cut a corner that had just been typed.
+      cornerCutsIn: undefined,
+      vertsIn: verts,
+      edgeBulgeIn: bulges.some((b) => Math.abs(b) >= 1) ? bulges : undefined,
+    });
+  };
+
+  const handleTypePlot = (dim: "widthIn" | "depthIn", raw: string) => {
+    const ft = Number(raw);
+    if (!Number.isFinite(ft)) return;
+    const inches = clampInches(Math.round(ft * 12), MIN_DIM_IN, MAX_DIM_IN);
+    // Typing a size is a statement about a rectangle, so it replaces any drawn outline rather
+    // than stretching one — a drawn plot has no single width to set.
+    onChangePlot({ ...plot, [dim]: inches, vertsIn: undefined, edgeBulgeIn: undefined });
+  };
+
+  const handleTypeVertex = (index: number, axis: 0 | 1, raw: string) => {
+    const ft = Number(raw);
+    if (!Number.isFinite(ft)) return;
+    const verts = outlineVerts.map((v, i) => {
+      if (i !== index) return v;
+      const next: PlotPoint = [v[0], v[1]];
+      next[axis] = Math.round(ft * 12);
+      return next;
+    });
+    commitOutline(verts, [...outlineBulges]);
+  };
+
+  const handleTypeBulge = (index: number, raw: string) => {
+    const inches = Number(raw);
+    if (!Number.isFinite(inches)) return;
+    const bulges = [...outlineBulges];
+    while (bulges.length < outlineVerts.length) bulges.push(0);
+    bulges[index] = Math.round(inches);
+    commitOutline([...outlineVerts], bulges);
+  };
+
+  const handleAddVertex = () => {
+    if (outlineVerts.length >= MAX_PLOT_VERTICES) return;
+    // Split the longest edge: the corner lands where there is most room for it, which is what
+    // someone adding one by hand is almost always after.
+    let longest = 0;
+    let longestLen = -1;
+    for (let i = 0; i < outlineVerts.length; i++) {
+      const a = outlineVerts[i];
+      const b = outlineVerts[(i + 1) % outlineVerts.length];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len > longestLen) {
+        longestLen = len;
+        longest = i;
+      }
+    }
+    const a = outlineVerts[longest];
+    const b = outlineVerts[(longest + 1) % outlineVerts.length];
+    const verts = [...outlineVerts];
+    verts.splice(longest + 1, 0, [
+      Math.round((a[0] + b[0]) / 2),
+      Math.round((a[1] + b[1]) / 2),
+    ]);
+    const bulges = [...outlineBulges];
+    while (bulges.length < outlineVerts.length) bulges.push(0);
+    const was = bulges[longest] ?? 0;
+    bulges.splice(longest, 1, Math.round(was / 2), Math.round(was / 2));
+    commitOutline(verts, bulges);
+  };
+
+  const handleRemoveVertex = (index: number) => {
+    if (outlineVerts.length <= 3) return;
+    commitOutline(
+      outlineVerts.filter((_, i) => i !== index),
+      outlineBulges.filter((_, i) => i !== index)
+    );
+  };
+
+  const handleResetOutline = () => {
+    const bounds = outlineBoundsIn(plotPolygonIn(plot));
+    onChangePlot({
+      ...plot,
+      widthIn: Math.max(1, bounds.widthIn),
+      depthIn: Math.max(1, bounds.depthIn),
+      cornerCutsIn: undefined,
+      vertsIn: undefined,
+      edgeBulgeIn: undefined,
+    });
+  };
 
   // A splay is cut symmetrically back along both edges of the corner, which is what a road
   // splay is and what keeps the outline convex — the one thing the solver requires of it.
@@ -889,7 +1021,19 @@ export default function TopRibbonTaskbar({
                     <button className={styles.stepperBtn} onClick={() => handleStepPlot("widthIn", -1)}>
                       -
                     </button>
-                    <span className={styles.dimValText}>{widthFt}&apos;</span>
+                    {/* Typed, not only stepped. A surveyed plot is 33'6", and reaching that a foot
+                        at a time from 30 is not a size control, it is a punishment. */}
+                    <input
+                      className={styles.dimValInput}
+                      type="number"
+                      min={MIN_DIM_IN / 12}
+                      max={MAX_DIM_IN / 12}
+                      step={0.5}
+                      value={exactFt(plot.widthIn)}
+                      onChange={(e) => handleTypePlot("widthIn", e.target.value)}
+                      title="Plot width in feet"
+                      aria-label="Plot width in feet"
+                    />
                     <button className={styles.stepperBtn} onClick={() => handleStepPlot("widthIn", 1)}>
                       +
                     </button>
@@ -899,12 +1043,27 @@ export default function TopRibbonTaskbar({
                     <button className={styles.stepperBtn} onClick={() => handleStepPlot("depthIn", -1)}>
                       -
                     </button>
-                    <span className={styles.dimValText}>{depthFt}&apos;</span>
+                    <input
+                      className={styles.dimValInput}
+                      type="number"
+                      min={MIN_DIM_IN / 12}
+                      max={MAX_DIM_IN / 12}
+                      step={0.5}
+                      value={exactFt(plot.depthIn)}
+                      onChange={(e) => handleTypePlot("depthIn", e.target.value)}
+                      title="Plot depth in feet"
+                      aria-label="Plot depth in feet"
+                    />
                     <button className={styles.stepperBtn} onClick={() => handleStepPlot("depthIn", 1)}>
                       +
                     </button>
                   </div>
                 </div>
+                {plot.vertsIn && (
+                  <div className={styles.facingInfoBadge} title="Width and depth are the drawn outline's bounding box while a shape is drawn.">
+                    From the drawn outline
+                  </div>
+                )}
               </RibbonPanel>
               {/* Group 4: Room Program */}
               <RibbonPanel label={program.key === "cafe" ? "Space Program" : "Room Program"}>
@@ -975,11 +1134,11 @@ export default function TopRibbonTaskbar({
                 </div>
               </RibbonPanel>
               {/* Architectural Model Blueprints */}
-              <RibbonPanel label={<>Vastu Models</>}>
+              <RibbonPanel label={<>Model Plans</>}>
                 <button
                   className={styles.modelBlueprintsBtn}
                   onClick={onOpenModelBlueprintsModal}
-                  title="Browse 100% Vastu Architectural Model Blueprints">
+                  title="Browse curated architectural model blueprints">
                   Architectural Model Blueprints...
                 </button>
               </RibbonPanel>
@@ -1013,9 +1172,89 @@ export default function TopRibbonTaskbar({
                     </div>
                   ))}
                 </div>
-                <div className={styles.facingInfoBadge}>
-                  {isRectangularPlot(plot) ? "Rectangular plot" : "Splayed plot"}
-                </div>
+                <div className={styles.facingInfoBadge}>{plotShapeSummary}</div>
+
+                {/* A surveyed parcel arrives as a list of measured corners, so they can be typed.
+                    The same corners are draggable in the 2D view — this is the other half of it. */}
+                {outlineVerts.length > 0 && (
+                  <div className={styles.vertexTable}>
+                    <div className={styles.vertexTableHead}>
+                      <span>#</span>
+                      <span>X ft</span>
+                      <span>Y ft</span>
+                      <span>Bow in</span>
+                      <span />
+                    </div>
+                    {outlineVerts.map(([vx, vy], i) => (
+                      <div className={styles.vertexRow} key={`v-${i}`}>
+                        <span className={styles.vertexIndex}>{i + 1}</span>
+                        <input
+                          className={styles.vertexInput}
+                          type="number"
+                          step={0.5}
+                          value={exactFt(vx)}
+                          onChange={(e) => handleTypeVertex(i, 0, e.target.value)}
+                          aria-label={`Corner ${i + 1} X in feet`}
+                        />
+                        <input
+                          className={styles.vertexInput}
+                          type="number"
+                          step={0.5}
+                          value={exactFt(vy)}
+                          onChange={(e) => handleTypeVertex(i, 1, e.target.value)}
+                          aria-label={`Corner ${i + 1} Y in feet`}
+                        />
+                        <input
+                          className={styles.vertexInput}
+                          type="number"
+                          step={1}
+                          value={Math.round(outlineBulges[i] ?? 0)}
+                          onChange={(e) => handleTypeBulge(i, e.target.value)}
+                          title="How far the edge leaving this corner bows outward, in inches. Negative caves inward, which the solver cannot pack."
+                          aria-label={`Bow of edge ${i + 1} in inches`}
+                        />
+                        <button
+                          className={styles.vertexDropBtn}
+                          disabled={outlineVerts.length <= 3}
+                          onClick={() => handleRemoveVertex(i)}
+                          title={
+                            outlineVerts.length <= 3
+                              ? "Three corners is the fewest a plot can have"
+                              : "Remove this corner"
+                          }
+                        >
+                          x
+                        </button>
+                      </div>
+                    ))}
+                    <div className={styles.vertexActions}>
+                      <button
+                        className={styles.stepperBtn}
+                        disabled={outlineVerts.length >= MAX_PLOT_VERTICES}
+                        onClick={handleAddVertex}
+                        title={
+                          outlineVerts.length >= MAX_PLOT_VERTICES
+                            ? `The solver takes at most ${MAX_PLOT_VERTICES} corners`
+                            : "Split the longest edge and add a corner there"
+                        }
+                      >
+                        + Corner
+                      </button>
+                      {!isRectangularPlot(plot) && (
+                        <button
+                          className={styles.stepperBtn}
+                          onClick={handleResetOutline}
+                          title="Throw the drawn outline away and go back to a plain rectangle"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    {shapeProblem && (
+                      <div className={styles.vertexProblem}>{shapeProblem}</div>
+                    )}
+                  </div>
+                )}
               </RibbonPanel>
               {/* Group 2: Road Facing */}
               <RibbonPanel label={<>Road Facing</>}>
@@ -1144,9 +1383,9 @@ export default function TopRibbonTaskbar({
                   ) : meta?.status === OFFLINE_ESTIMATE_STATUS ? (
                     <span
                       className={styles.solverStatusWarn}
-                      title={`The solver is unreachable, so these spaces are a rough grid. No ${rulesLabel} rule was checked and no doors were derived. Start the backend to get a real plan.`}
+                      title={`The solver is unreachable, so these spaces are a rough grid. No ${rulesLabel || "layout"} rule was checked and no doors were derived. Start the backend to get a real plan.`}
                     >
-                      ⚠ Offline estimate — {rulesLabel} not checked
+                      ⚠ Offline estimate — {rulesLabel || "rules"} not checked
                     </span>
                   ) : rulesRelaxed ? (
                     <span
@@ -1157,7 +1396,7 @@ export default function TopRibbonTaskbar({
                     </span>
                   ) : (
                     <span className={styles.solverStatusText}>
-                        {meta?.status ?? `${rulesLabel} Solved`}
+                        {meta?.status ?? (rulesLabel ? `${rulesLabel} Solved` : "Solved")}
                     </span>
                   )}
                   <span className={styles.solverSubText}>
@@ -1440,7 +1679,7 @@ export default function TopRibbonTaskbar({
                 <span className={styles.aiSparkleIcon}>FX</span>
                 <input
                   type="text"className={styles.aiPromptInput}
-                  placeholder="Describe your plot & house (e.g. '30x40 North facing 2BHK with pooja room')..."value={aiPromptInput}
+                  placeholder="Describe your plot & house (e.g. '30x40 North facing 2BHK with a store')..."value={aiPromptInput}
                   onChange={(e) => setAiPromptInput(e.target.value)}
                   disabled={isSimulatingPrompt}
                 />
@@ -1455,7 +1694,7 @@ export default function TopRibbonTaskbar({
               <div className={styles.aiPillRow}>
                 <span className={styles.aiPillLabel}>Quick Prompts:</span>
                 {[
-                  "30x40 North 2BHK Pooja",
+                  "30x40 North 2BHK Store",
                   "40x60 East 3BHK Luxury",
                   "20x30 South 1BHK Studio",
                   "50x80 North 4BHK Villa",
@@ -1546,7 +1785,6 @@ export default function TopRibbonTaskbar({
 
               <div className={styles.aiFeatureBadges}>
                 <div className={styles.aiBadge}> &lt;100ms CP-SAT</div>
-                <div className={styles.aiBadge}> Vaastu Validated</div>
                 <div className={styles.aiBadge}> 100% Reachable</div>
               </div>
             </div>

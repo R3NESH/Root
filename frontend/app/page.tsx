@@ -322,6 +322,8 @@ export default function Home() {
     setback: activeSetback,
     program: programKey,
     cornerCutsIn: plot.cornerCutsIn,
+    vertsIn: plot.vertsIn,
+    edgeBulgeIn: plot.edgeBulgeIn,
     floors: floorsCount,
     near: nearForSolver,
   });
@@ -397,7 +399,7 @@ export default function Home() {
         ]);
         setPlanImageNotice(
           plan.readDimensions
-            ? "Re-solved from your drawing, not traced from it. Room sizes are held within a foot of what was printed; setbacks, Vaastu and door reachability are enforced, so rooms will have moved."
+            ? "Re-solved from your drawing, not traced from it. Room sizes are held within a foot of what was printed; setbacks and door reachability are enforced, so rooms will have moved."
             : "The drawing's room labels were read, but no dimensions were printed clearly enough to use. Sizes come from the room catalog."
         );
         // A new mix is a new house. Drifting it towards where the last one's rooms sat is what the
@@ -833,7 +835,7 @@ export default function Home() {
       if (!promptText.trim()) return;
       setIsSimulatingPrompt(true);
 
-      // The prompt parser only speaks the residence vocabulary — "2bhk", "pooja", "dining".
+      // The prompt parser only speaks the residence vocabulary — "2bhk", "store", "dining".
       // Running it while the cafe programme is active sent hall, kitchen and bedroom to a
       // solver whose active programme rejects them all, which returns NO_INPUT and a blank
       // viewport. Switch the programme first, exactly as handleApplyModelBlueprint() does,
@@ -1827,8 +1829,19 @@ export default function Home() {
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedObjectInfo) {
-      if (selectedObjectInfo.isWall) {
-        handleToggleRemoveWall(selectedObjectInfo.roomIndex ?? 0, selectedObjectInfo.edge ?? "N");
+      // A drawn wall is an object in its own right: it is deleted, not demolished. This has to
+      // come before the isWall branch, because a drawn wall's mesh carries BOTH flags and the
+      // demolish path below would otherwise fall back to room 0's north wall and quietly take
+      // out an unrelated wall while leaving the drawn one standing. The ribbon's wall inspector
+      // already guards against the same fallback; this path did not.
+      if (selectedObjectInfo.isCustomWall) {
+        setCustomWalls((prev) => prev.filter((w) => w.id !== selectedObjectInfo.id));
+      } else if (selectedObjectInfo.isWall) {
+        // A solver wall is not removed, it is opened up — and only when we know which one. No
+        // room index or edge means the selection did not come from a solver wall, and guessing
+        // is what caused the bug above.
+        if (selectedObjectInfo.roomIndex == null || !selectedObjectInfo.edge) return;
+        handleToggleRemoveWall(selectedObjectInfo.roomIndex, selectedObjectInfo.edge);
         return;
       } else if (selectedObjectInfo.isWindow) {
         handleDeleteIndividualWindow(selectedObjectInfo.id);
@@ -2116,7 +2129,7 @@ export default function Home() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") applyPromptText(promptText);
               }}
-              placeholder="30x40 north facing 2BHK with a pooja room and car parking"
+              placeholder="30x40 north facing 2BHK with a store and car parking"
               disabled={promptBusy}
               aria-label="Describe the house you want"
             />
@@ -2210,6 +2223,7 @@ export default function Home() {
             <Blueprint2DView
               spaces={program.spaces}
               plot={plot}
+              onChangePlot={setPlot}
               facing={facing}
               setback={activeSetback}
               rooms={rooms}
@@ -2350,6 +2364,7 @@ export default function Home() {
                   onCopy={handleCopySelection}
                   onPaste={handlePasteSelection}
                   canPaste={clipboard?.kind === "wall"}
+                  onDelete={selectedWall.kind === "custom" ? handleDeleteSelected : undefined}
                   onClose={() => {
                     setSelectedObjectInfo(null);
                     setSelectedObjectId(null);

@@ -15,9 +15,8 @@ A programme owns:
 
 ## Two coordinate conventions, on purpose
 
-Vaastu is **absolute**: the kitchen goes south-east whichever way the plot faces, because the
-rule is about the sun, not about the road. `facing_relative_rules = False` for a residence, and
-`zone_rules` are read straight as world (x, z) fractions — the convention in vaastu/rules.py.
+Absolute rules are read straight as world (x, z) fractions — the convention in
+zoning.py — and a programme that uses them sets `facing_relative_rules = False`.
 
 A shop's rules are **relative to the street**: the entry, the queue and the till sit at the
 front and the kitchen at the back, and "front" is whichever edge the road is on. So a café sets
@@ -36,7 +35,7 @@ floor. Sources are listed in notes/programs/cafe-layout-standards.md.
 
 from dataclasses import dataclass
 
-from vaastu.rules import V1_RULES, QuadrantRule
+from zoning import QuadrantRule
 
 # A rule is (min, max) on the front axis and (min, max) on the lateral axis, as fractions.
 ZoneBox = tuple[float, float, float, float]
@@ -65,16 +64,16 @@ class Program:
     # equivalent, so it leaves this None.
     ensuite: tuple[str, str] | None = None
     # Spaces whose near edge must land on the building's street face, not merely in the front
-    # band. A shopfront is on the road; a Vaastu quadrant is about direction, not frontage.
+    # band. A shopfront is on the road; a zone quadrant is about direction, not frontage.
     street_edge_spaces: tuple[str, ...] = ()
 
 
 RESIDENTIAL = Program(
     key="residence",
     label="Residence",
-    blurb="Indian home. Vaastu quadrants posted as constraints, rooms opening onto a central hall.",
+    blurb="Indian home. Rooms opening onto a central hall.",
     spaces=(
-        "hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance",
+        "hall", "dining", "kitchen", "bedroom", "bathroom", "store", "entrance",
         "utility", "sitout", "parking",
     ),
     default_mix=("hall", "kitchen", "bedroom", "bedroom", "bathroom"),
@@ -84,7 +83,6 @@ RESIDENTIAL = Program(
         "bathroom": ("bedroom", "hall", "dining"),
         "store": ("kitchen", "hall"),
         "dining": ("hall", "kitchen"),
-        "pooja": ("hall", "dining"),
         "kitchen": ("hall", "dining"),
         "bedroom": ("hall", "dining"),
         "entrance": ("hall", "dining"),
@@ -100,31 +98,21 @@ RESIDENTIAL = Program(
         # which door it shares.
         "parking": ("sitout", "entrance", "hall"),
     },
-    # Not added: pooja next to the utility. It is plausibly a taboo of the same family as the
-    # two below, and no source was checked for it, so it is not asserted here.
-    forbidden_pairs=frozenset({("kitchen", "bathroom"), ("pooja", "bathroom")}),
-    # Read as absolute world fractions: (x_min, x_max, z_min, z_max). Mirrors vaastu.V1_RULES,
-    # which stays the source of truth — see resolve_rules().
-    zone_rules={
-        "kitchen": (0.5, 1.0, 0.5, 1.0),
-        "bedroom": (0.0, 0.5, 0.5, 1.0),
-        "pooja": (0.5, 1.0, 0.0, 0.5),
-    },
-    zone_descriptions={
-        "kitchen": "kitchen in the south-east",
-        "bedroom": "master bedroom in the south-west",
-        "pooja": "pooja room in the north-east",
-    },
-    rules_label="Vaastu",
+    forbidden_pairs=frozenset({("kitchen", "bathroom")}),
+    # A residence posts no directional zoning. Rooms are placed by adjacency, daylight and
+    # proportion alone; `street_edge_spaces` below is a fact about a driveway, not a direction.
+    zone_rules={},
+    zone_descriptions={},
+    rules_label="",
     entrance_space="entrance",
     entrance_edges=("N", "E", "W", "S"),
     facing_relative_rules=False,
     ensuite=("bathroom", "bedroom"),
     # A car porch behind the house is a porch no car can reach. This is a physical fact about
-    # a driveway, not a direction rule — but the mechanism that posts it is currently inside
-    # the Vaastu branch of solver/model.py, so a solve with Vaastu turned off, and the last two
-    # rungs of the relaxation ladder, will not pin it. That is the ladder doing its job on a
-    # plot that is too tight; it is not a claim that the porch is optional.
+    # a driveway, not a direction rule — but the mechanism that posts it is inside the zoning
+    # branch of solver/model.py, so the last two rungs of the relaxation ladder will not pin
+    # it. That is the ladder doing its job on a plot that is too tight; it is not a claim that
+    # the porch is optional.
     street_edge_spaces=("parking",),
 )
 
@@ -238,7 +226,7 @@ def _to_world(box: ZoneBox, street: str) -> ZoneBox:
     """Rotate (front, lateral) fractions into world (x, z) fractions.
 
     +X is East and +Z is South with the origin at the north-west corner — the convention in
-    vaastu/rules.py and frontend/lib/plot.ts. `front` runs inward from the street edge.
+    zoning.py and frontend/lib/plot.ts. `front` runs inward from the street edge.
     """
     f0, f1, l0, l1 = box
     if street == "N":  # road to the north, depth runs south
@@ -253,16 +241,14 @@ def _to_world(box: ZoneBox, street: str) -> ZoneBox:
 def resolve_rules(program: Program, facing: str = "N") -> dict[str, QuadrantRule]:
     """The programme's directional rules in world coordinates, ready to post.
 
-    A residence hands back vaastu.V1_RULES untouched — that module stays the source of truth for
-    Vaastu, so a rule added there is picked up here without being copied.
+    A programme whose rules are already absolute is read straight through; one whose rules are
+    written relative to the street is rotated per facing. A programme with no zone rules — the
+    residence — hands back an empty mapping and posts nothing.
     """
-    if not program.facing_relative_rules:
-        return dict(V1_RULES)
-
     street = primary_cardinal(facing)
     rules: dict[str, QuadrantRule] = {}
     for space, box in program.zone_rules.items():
-        x0, x1, z0, z1 = _to_world(box, street)
+        x0, x1, z0, z1 = _to_world(box, street) if program.facing_relative_rules else box
         rules[space] = QuadrantRule(
             room_name=space,
             x_min_frac=x0,
@@ -277,7 +263,7 @@ def resolve_rules(program: Program, facing: str = "N") -> dict[str, QuadrantRule
 def resolve_entrance_edges(program: Program, facing: str = "N") -> tuple[str, ...]:
     """Preferred edges for the front door, best first.
 
-    A house follows Vaastu's N-then-E preference regardless of the road. A shop opens onto the
+    A house keeps its own fixed edge preference regardless of the road. A shop opens onto the
     road, so the facing edge comes first and the rest are only fallbacks for a corner unit.
     """
     if not program.facing_relative_rules:

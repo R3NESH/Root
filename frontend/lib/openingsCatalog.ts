@@ -175,7 +175,7 @@ export const OPENINGS_CATALOG: OpeningItemDef[] = [
     widthIn: 36,
     heightIn: 36,
     sillIn: 48,
-    description: "3ft circular accent window for pooja and staircases.",
+    description: "3ft circular accent window for stairwells and landings.",
     tag: "Round 3ft",
     windowShape: "circle_porthole",
   },

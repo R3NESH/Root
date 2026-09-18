@@ -69,7 +69,6 @@ export default function ModelBlueprintsModal({
             bedroom: 2,
             bathroom: 1,
             dining: 0,
-            pooja: 0,
             store: 0,
           };
         const customDims = parsed.customDims || {};
@@ -88,7 +87,7 @@ export default function ModelBlueprintsModal({
           facing,
           builtUpAreaSqFt: parsed.builtUpAreaSqFt || Math.round(widthFt * depthFt * 0.75),
           totalSqFt: widthFt * depthFt,
-          rating: parsed.rating || parsed.vaastuRating || "Custom Imported Plan",
+          rating: parsed.rating || "Custom Imported Plan",
           description: parsed.description || "User-imported architectural blueprint model.",
           highlights: parsed.highlights || ["Custom Imported Plan", "Ready to Build in 2D & 3D"],
           counts,
@@ -173,7 +172,7 @@ export default function ModelBlueprintsModal({
             <div className={styles.modalSubtitle}>
               {program.key === "cafe"
                 ? "Curated cafe floor plans from a takeaway kiosk to a full-service restaurant, each laid out to trade clearances and checked against the solver's own zoning rules. Select any model to import into the 2D layout or 3D view."
-                : "Explore authentic, Vaastu-compliant architectural floor plans or import custom blueprints. Select any model to import directly into the 2D layout or 3D view."}
+                : "Explore curated architectural floor plans or import custom blueprints. Select any model to import directly into the 2D layout or 3D view."}
             </div>
           </div>
           <div className={styles.headerActions}>
@@ -284,7 +283,7 @@ export default function ModelBlueprintsModal({
                   <span className={styles.facingBadge}>
                     Facing {blueprint.facing === "N" ? "North" : blueprint.facing === "E" ? "East" : blueprint.facing === "S" ? "South" : "West"}
                   </span>
-                  <span className={styles.vaastuBadge}>{blueprint.rating}</span>
+                  <span className={styles.ratingBadge}>{blueprint.rating}</span>
                 </div>
 
                 {/* Description */}

@@ -292,7 +292,7 @@
   border-radius: 3px;
 }
 
-.vaastuBadge {
+.ratingBadge {
   background: rgba(184, 92, 34, 0.15);
   border: 1px solid rgba(184, 92, 34, 0.35);
   color: #d4703a;

@@ -10,7 +10,7 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 > Full review: [[project-status]]. How the project is run: [[workflow]].
 >
 > **50/50 tests pass.** Three blocking defects are closed
-> ([[vaastu-and-connectivity-drop-on-edit]], [[duplicated-geometry]], [[client-side-fallback]])
+> (the drag regression, [[duplicated-geometry]], [[client-side-fallback]])
 > and [[realism-gaps]] is implemented: 8 room kinds, daylight and proportion as constraints, a
 > parent tree with a master ensuite, and a roof. The output now reads as a house rather than a legal rectangle
 > packing, and **Auto-Furnish Interiors** can be switched off for the bare shell.
@@ -31,7 +31,7 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 
 ## Build steps — Phase 1, all done
 [[step-1-threejs-shell]] → [[step-2-solver-core]] → [[step-3-wire-together]] →
-[[step-4-drift-objective]] → [[step-5-vaastu]] (entrance gap now **closed** — see
+[[step-4-drift-objective]] → the direction-rules step (entrance gap now **closed** — see
 [[realism-gaps]]) → [[step-6-walkthrough]] (**unplanned**, no done-condition, source of both
 regressions, fixed 2026-08-25)
 
@@ -40,7 +40,7 @@ regressions, fixed 2026-08-25)
 - [[input-is-plot-dimensions]]
 - [[client-continuous-server-discrete]]
 - [[integer-inches]]
-- [[vaastu-as-constraints]]
+- rules-as-constraints
 - [[zero-keyboard-events]]
 - [[single-storey-first]]
 - [[project-phases]]
@@ -53,9 +53,9 @@ regressions, fixed 2026-08-25)
 - [[claim-most-likely-wrong]] — and the claim that it is not
 - [[rooms-do-not-form-a-house]] — the packing-vs-dwelling finding, and its fix
 - [[realism-gaps]] — what made the packing not a house, and the six families that fixed it
-- [[vaastu-and-connectivity-drop-on-edit]] — the drag regression, **fixed**
+- the drag regression — the drag regression, **fixed**
 - [[duplicated-geometry]] — renderer vs solver geometry, **closed**
-- [[client-side-fallback]] — the offline layout that claimed Vaastu, **closed 2026-08-31**
+- [[client-side-fallback]] — the offline layout that claimed rules it never posted, **closed 2026-08-31**
 
 ## UI
 - [[ui-principles]]

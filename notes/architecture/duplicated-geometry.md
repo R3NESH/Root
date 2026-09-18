@@ -44,13 +44,13 @@ never switched over to them.
 
 Concretely:
 
-- **The entrance is invisible.** `add_entrance()` picks a front door N→E→W→S per Vaastu and
+- **The entrance is invisible.** `add_entrance()` picks a front door N→E→W→S and
   reports it as `entrance_edge`. The renderer never reads it, so the entrance the solver
   chose is not the door the customer walks through in [[step-6-walkthrough]].
 - **Two sources of truth for the same house.** The backend's `reachable_count()` can report
   6/6 while the renderer, using a slightly different overlap test
   (`>= DOOR_WIDTH_FT - 0.2`), draws a different set of doors.
-- **[[step-5-vaastu]]'s one recorded gap is already closed on the backend** and still open in
+- **the direction-rules step's one recorded gap is already closed on the backend** and still open in
   the product, which is not what the vault currently says.
 
 ## Consequence

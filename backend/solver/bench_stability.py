@@ -53,18 +53,18 @@ def edit_sequence(base_w: int, n: int = 10) -> list[int]:
 
 def run(
     use_drift: bool,
-    apply_vaastu: bool,
+    apply_zone_rules: bool,
     mix: list[str] | None = None,
     env_w: int = ENV_W_IN,
     env_d: int = ENV_D_IN,
 ) -> tuple[list[int], list[float]]:
     rooms = [ROOM_CATALOG[n] for n in (mix or MIX)]
-    base = solve_layout(env_w, env_d, rooms, apply_vaastu=apply_vaastu)
+    base = solve_layout(env_w, env_d, rooms, apply_zone_rules=apply_zone_rules)
     prev = positions(base)
     drifts, times = [], []
     for edit_w in edit_sequence(env_w):
         result = solve_layout(
-            edit_w, env_d, rooms, prev=prev if use_drift else None, apply_vaastu=apply_vaastu
+            edit_w, env_d, rooms, prev=prev if use_drift else None, apply_zone_rules=apply_zone_rules
         )
         current = positions(result)
         drifts.append(displacement(prev, current))
@@ -89,14 +89,14 @@ def main() -> None:
           f"{ENV_W_IN // 12}x{ENV_D_IN // 12}ft envelope")
     print("=" * 68)
 
-    off_d, off_t = run(use_drift=False, apply_vaastu=False)
+    off_d, off_t = run(use_drift=False, apply_zone_rules=False)
     report("WITHOUT drift objective (the null hypothesis)", off_d, off_t)
 
-    on_d, on_t = run(use_drift=True, apply_vaastu=False)
+    on_d, on_t = run(use_drift=True, apply_zone_rules=False)
     report("WITH drift objective", on_d, on_t)
 
-    von_d, von_t = run(use_drift=True, apply_vaastu=True)
-    report("WITH drift + Vaastu (the predicted failure mode)", von_d, von_t)
+    von_d, von_t = run(use_drift=True, apply_zone_rules=True)
+    report("WITH drift + zone rules (the predicted failure mode)", von_d, von_t)
 
     print("\n" + "-" * 68)
     print(f"VERDICT: drift objective reduces total displacement "

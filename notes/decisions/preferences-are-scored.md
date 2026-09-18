@@ -9,10 +9,10 @@ date: 2026-09-06
 CP-SAT **objective**, not into the constraint set. Implemented as `near_terms()` in
 `backend/solver/realism.py`, weighted by `NEAR_WEIGHT`.
 
-**This is not a softening of [[vaastu-as-constraints]].** That decision stands unchanged, and
+**This is not a softening of rules-as-constraints.** That decision stands unchanged, and
 the two are about different kinds of statement:
 
-| | Vaastu, setbacks, daylight, connectivity | "put the kitchen near that bedroom" |
+| | Setbacks, daylight, connectivity | "put the kitchen near that bedroom" |
 |---|---|---|
 | What it is | a rule the plan meets or fails | one person's taste |
 | Where it lives | constraint, posted up front | objective term |
@@ -46,5 +46,5 @@ the term bought nothing and cost an API field, a solver parameter and an objecti
 room sizes *do* change across an edit — widening the kitchen makes a bedroom give up a foot —
 the change is forced by the geometry, and the size drift term did not prevent it either.
 
-**Links.** [[vaastu-as-constraints]] · [[layout-stability]] · [[rejected-approaches]] ·
+**Links.** rules-as-constraints · [[layout-stability]] · [[rejected-approaches]] ·
 [[realism-gaps]]

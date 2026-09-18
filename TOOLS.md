@@ -44,7 +44,7 @@ shelf, selection inspector. Four tabs — **Home**, **Structure**, **Blueprints*
 | Auto-furnish | "Auto-furnish rooms with sofas, beds, counters & fans" | Fit out every solved room in one click. |
 | Start from scratch | "Clear automated rooms and start with a 100% clean plot to draft your custom house" | Drops solver output, leaves a bare plot for freeform drafting. |
 | Reset layout | "Wipe current layout & reset to clean default" | Back to defaults. |
-| Blueprint browser | "Browse 100% Vastu Architectural Model Blueprints" | Opens the curated catalog. |
+| Blueprint browser | "Browse curated architectural model blueprints" | Opens the curated catalog. |
 | BOQ | "Engineering Bill of Quantities (BOQ) & Cost Estimation" | Opens the cost studio. |
 | Export | "Export the blueprint sheet: JSON model, SVG, high-res PNG, or print to PDF. No DXF yet." | Opens the export modal. |
 | Graphics | "Graphics & Performance Control (Press 'G')" | Opens the graphics studio. |
@@ -78,7 +78,6 @@ offers the residence set or the café set depending on the active programme.
 | Kitchen | "Counters, appliances & kitchen units" |
 | Office | "Desks, chairs & study units" |
 | Decor | "Plants, lighting, rugs & wall art" |
-| Mandir | "Pooja mandir & sacred objects" |
 | Divide | "Partitions, screens & room dividers" |
 
 ### Café panels
@@ -159,7 +158,6 @@ offers the residence set or the café set depending on the active programme.
 
 | Tool | Label |
 | :--- | :--- |
-| Vaastu mandala | "Toggle 9-Zone Vaastu Mandala Grid" |
 | Dimensions | "Toggle Dimension Lines & Strings" |
 | Room labels | "Toggle Room Names & Areas" |
 | Setbacks | "Toggle Setback Boundary & Offsets" |
@@ -171,7 +169,7 @@ offers the residence set or the café set depending on the active programme.
 | Zoom | "Zoom In" / "Zoom Out" |
 | Fit view | "Reset View Fit" |
 | Blank plot | "Start with a blank plot (clears automated solver rooms)" |
-| Load prebuilt | "Exit scratch mode and load a prebuilt Vastu floor plan model" |
+| Load prebuilt | "Exit scratch mode and load a prebuilt floor plan model" |
 | Blueprint browser | "Browse pre-designed architectural model blueprints or import custom plans" |
 | JSON import | "Import a blueprint JSON file directly into 2D Layout" |
 
@@ -243,7 +241,7 @@ Ribbon-hosted panel that appears when something is selected.
 | Blueprint sheet export | `BlueprintExportModal.tsx` | SVG, high-res PNG, print to PDF, JSON model. **No DXF** — the button says so. |
 | BOQ export | `BOQCostModal.tsx` | CSV and printable cost report |
 | 3D screenshot | ribbon | PNG from the active camera |
-| Project save / load | `frontend/lib/projectStorage.ts`, `frontend/app/page.tsx` | Full-design JSON; `localStorage` autosave under `vastu_builder_project_data_v1` |
+| Project save / load | `frontend/lib/projectStorage.ts`, `frontend/app/page.tsx` | Full-design JSON; `localStorage` autosave under `plot_to_plan_project_data_v1` |
 | CLI sheet export | `backend/prompt_to_plan.py` | `--svg`, `--json` |
 
 ## 11. Backend CLI Tools
@@ -252,7 +250,7 @@ Run from `backend/`, inside the venv.
 
 | Tool | Command | Purpose |
 | :--- | :--- | :--- |
-| Prompt-to-plan | `python prompt_to_plan.py "30x40 north facing 2bhk with pooja"` | Parse a plain-English brief, solve it, print an ASCII preview. Add `--svg plan.svg --json plan.json` for files. |
+| Prompt-to-plan | `python prompt_to_plan.py "30x40 north facing 2bhk with a store"` | Parse a plain-English brief, solve it, print an ASCII preview. Add `--svg plan.svg --json plan.json` for files. |
 | Solver demo | `python -m solver.demo` | Solve a default 4-6 room mix in a fixed 30x40 ft envelope and print the JSON. |
 | Realism benchmark | `python -m solver.bench_realism` | Feasibility, fill vs catalog ceiling, wet-room spread, through-private rooms and worst aspect across 7 scenarios. |
 | Stability benchmark | `python -m solver.bench_stability` | Layout drift across repeated edits. |

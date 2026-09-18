@@ -1,28 +1,21 @@
-"""Vaastu direction rules as CP-SAT constraints — notes/build/step-5-vaastu.md.
+"""Directional zone rules as CP-SAT constraints.
 
-notes/decisions/vaastu-as-constraints.md: constrain up front, never place-then-score. A plan that
-violates Vaastu is not a worse plan, it is a rejected plan (notes/market/vaastu-is-mandatory-demand.md).
+A programme may want a space in a particular part of the envelope — a cafe's queue near the
+door, its wash-up at the back. The rule is posted as a constraint up front rather than scored
+afterwards, because a layout that puts the wash-up in the shopfront is not a worse layout, it
+is the wrong one.
 
-v1 rule set: kitchen SE, master bedroom SW, pooja NE. Deliberately small — see
-notes/open-questions/q-competitor-defects.md, which may reveal that correct Vaastu placement is a
-lookup table and no moat at all.
-
-NOT IMPLEMENTED: "entrance N/E", named in the step-5 brief. There is no entrance in the model —
-doors live in `openings`, which is still empty per notes/architecture/output-schema.md. This rule
-has to wait for openings to exist; it is not silently satisfied by anything below.
-
-MASTER bedroom only: the SW rule applies to the FIRST bedroom in the room list, not every
-bedroom. Constraining two bedrooms into the same half-plane over-constrains the model for no
-Vaastu reason — see apply_rules() in solver/model.py.
+programs/registry.py owns which rules a programme carries; this module only knows how to
+express one. A programme with no zone rules posts none, which is the residence's case.
 
 ## Coordinate convention
 
 Scene axes, matching frontend/lib/plot.ts: +X is East, +Z is South, origin at the plot's
 North-West corner. So "south-east quadrant" means high X, high Z.
 
-Rules are expressed as a preferred quadrant per room kind. A room satisfies its rule when its
-CENTRE falls inside that quadrant — centre rather than corner, because a large room whose corner
-clips the quadrant is not meaningfully "in the south-east".
+Rules are expressed as a preferred quadrant per space. A room satisfies its rule when its
+CENTRE falls inside that quadrant — centre rather than corner, because a large room whose
+corner clips the quadrant is not meaningfully "in the south-east".
 """
 
 from dataclasses import dataclass
@@ -44,19 +37,6 @@ class QuadrantRule:
     z_min_frac: float
     z_max_frac: float
     description: str
-
-
-# Half-plane rules rather than tight quadrant boxes: on a small plot a strict quadrant makes the
-# model infeasible fast, and the Vaastu requirement is directional, not metric.
-V1_RULES: dict[str, QuadrantRule] = {
-    "kitchen": QuadrantRule("kitchen", 0.5, 1.0, 0.5, 1.0, "kitchen in the south-east"),
-    "bedroom": QuadrantRule("bedroom", 0.0, 0.5, 0.5, 1.0, "master bedroom in the south-west"),
-    "pooja": QuadrantRule("pooja", 0.5, 1.0, 0.0, 0.5, "pooja room in the north-east"),
-}
-
-
-def applies_to(room_name: str) -> QuadrantRule | None:
-    return V1_RULES.get(room_name)
 
 
 def add_quadrant_constraint(

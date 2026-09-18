@@ -554,15 +554,6 @@
   font-weight: 700;
 }
 
-.inspectorVaastuBadge {
-  background: rgba(184, 92, 34, 0.2);
-  border: 1px solid rgba(184, 92, 34, 0.4);
-  color: #d4703a;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 700;
-}
 
 /* Dimension Editor Section inside Inspector */
 .dimEditorSection {
@@ -925,4 +916,26 @@
   gap: 10px;
 }
 
+/* An outline the solver will not accept. Deliberately not a toast: it does not time out,
+   because the condition does not go away on its own. */
+.shapeProblemBanner {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 560px;
+  background: rgba(24, 22, 20, 0.97);
+  border: 1px solid rgba(184, 92, 34, 0.85);
+  border-left: 3px solid #b85c22;
+  padding: 9px 16px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #d8c9a0;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  z-index: 30;
+}
 
+.shapeProblemBanner strong {
+  color: #d98b52;
+}

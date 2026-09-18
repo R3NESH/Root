@@ -13,7 +13,6 @@ export interface BlueprintExportOptions {
   rooms: SolvedRoom[];
   meta: SolveMeta | null;
   theme?: "blueprint" | "dark" | "drafting";
-  showVaastu?: boolean;
   showFurniture?: boolean;
 }
 
@@ -29,41 +28,6 @@ export function formatFeetInches(inches: number): string {
 export function formatAreaSqFt(widthIn: number, depthIn: number): string {
   const sqFt = (widthIn * depthIn) / 144;
   return `${sqFt.toFixed(1)} sq.ft`;
-}
-
-export const VAASTU_ZONE_LABELS: Record<string, { tag: string; name: string; element: string }> = {
-  NE: { tag: "NE", name: "Ishanya (North-East)", element: "Water / Divine" },
-  E: { tag: "E", name: "Purva (East)", element: "Sun / Vitality" },
-  SE: { tag: "SE", name: "Agni (South-East)", element: "Fire / Energy" },
-  S: { tag: "S", name: "Dakshina (South)", element: "Mars / Strength" },
-  SW: { tag: "SW", name: "Nairutya (South-West)", element: "Earth / Stability" },
-  W: { tag: "W", name: "Pashchima (West)", element: "Water / Prosperity" },
-  NW: { tag: "NW", name: "Vayavya (North-West)", element: "Air / Movement" },
-  N: { tag: "N", name: "Uttara (North)", element: "Mercury / Wealth" },
-  C: { tag: "CENTER", name: "Brahma Sthana (Center)", element: "Space / Harmony" },
-};
-
-export function getRoomVaastuZone(
-  room: SolvedRoom,
-  plotWIn: number,
-  plotDIn: number
-): string {
-  const cx = room.x_in + room.w_in / 2;
-  const cy = room.y_in + room.d_in / 2;
-
-  const col = cx < plotWIn / 3 ? 0 : cx < (plotWIn * 2) / 3 ? 1 : 2;
-  const row = cy < plotDIn / 3 ? 0 : cy < (plotDIn * 2) / 3 ? 1 : 2;
-
-  if (row === 0 && col === 0) return "NW";
-  if (row === 0 && col === 1) return "N";
-  if (row === 0 && col === 2) return "NE";
-  if (row === 1 && col === 0) return "W";
-  if (row === 1 && col === 1) return "CENTER";
-  if (row === 1 && col === 2) return "E";
-  if (row === 2 && col === 0) return "SW";
-  if (row === 2 && col === 1) return "S";
-  if (row === 2 && col === 2) return "SE";
-  return "N";
 }
 
 /**
@@ -300,8 +264,6 @@ export function generateBlueprintSvg({
     const rd = room.d_in * scale;
 
     const label = ROOM_LABELS[room.name as RoomName] ?? room.name.toUpperCase();
-    const zone = getRoomVaastuZone(room, plot.widthIn, plot.depthIn);
-    const zoneInfo = VAASTU_ZONE_LABELS[zone];
 
     const wallThicknessPx = Math.max(2, 4.5 * scale);
 
@@ -322,8 +284,8 @@ export function generateBlueprintSvg({
         <!-- Room Dimensions -->
         <text x="0" y="4" fill="${colors.accent}" class="cad-dim" font-size="11" text-anchor="middle">${formatFeetInches(room.w_in)} × ${formatFeetInches(room.d_in)}</text>
 
-        <!-- Carpet Area & Vaastu Badge -->
-        <text x="0" y="18" fill="${colors.textSecondary}" class="cad-mono" font-size="9.5" text-anchor="middle">${formatAreaSqFt(room.w_in, room.d_in)} | ${zoneInfo?.tag ?? zone}</text>
+        <!-- Carpet Area -->
+        <text x="0" y="18" fill="${colors.textSecondary}" class="cad-mono" font-size="9.5" text-anchor="middle">${formatAreaSqFt(room.w_in, room.d_in)}</text>
       </g>
     `;
 
@@ -462,28 +424,25 @@ export function generateBlueprintSvg({
 
     <!-- SECTION 3: ROOM SCHEDULE TABLE -->
     <rect x="0" y="284" width="${TITLE_BLOCK_W}" height="24" fill="${colors.sheetBorder}44" stroke="${colors.tableBorder}" stroke-width="1" />
-    <text x="12" y="300" fill="${colors.accent}" class="cad-heading" font-size="10.5" letter-spacing="0.5">3. ROOM SCHEDULE &amp; VAASTU MATRIX</text>
+    <text x="12" y="300" fill="${colors.accent}" class="cad-heading" font-size="10.5" letter-spacing="0.5">3. ROOM SCHEDULE</text>
 
     <!-- Table Header -->
     <rect x="10" y="314" width="${TITLE_BLOCK_W - 20}" height="20" fill="${colors.tableHeaderBg}" stroke="${colors.tableBorder}" stroke-width="1" />
     <text x="16" y="328" fill="${colors.textPrimary}" class="cad-heading" font-size="9.5">ROOM</text>
     <text x="130" y="328" fill="${colors.textPrimary}" class="cad-heading" font-size="9.5">SIZE (W × D)</text>
-    <text x="235" y="328" fill="${colors.textPrimary}" class="cad-heading" font-size="9.5">AREA</text>
-    <text x="${TITLE_BLOCK_W - 20}" y="328" fill="${colors.textPrimary}" class="cad-heading" font-size="9.5" text-anchor="end">ZONE</text>
+    <text x="${TITLE_BLOCK_W - 20}" y="328" fill="${colors.textPrimary}" class="cad-heading" font-size="9.5" text-anchor="end">AREA</text>
 `;
 
   // Table Rows
   rooms.forEach((r, i) => {
     const rowY = 338 + i * 20;
     const label = ROOM_LABELS[r.name as RoomName] ?? r.name;
-    const zone = getRoomVaastuZone(r, plot.widthIn, plot.depthIn);
 
     svg += `
     <rect x="10" y="${rowY}" width="${TITLE_BLOCK_W - 20}" height="20" fill="${i % 2 === 0 ? colors.tableBg : colors.tableHeaderBg + "44"}" stroke="${colors.tableBorder}" stroke-width="0.5" />
     <text x="16" y="${rowY + 14}" fill="${colors.textPrimary}" class="cad-text" font-size="9.5">${label}</text>
     <text x="130" y="${rowY + 14}" fill="${colors.accent}" class="cad-dim" font-size="9.5">${formatFeetInches(r.w_in)} × ${formatFeetInches(r.d_in)}</text>
-    <text x="235" y="${rowY + 14}" fill="${colors.textSecondary}" class="cad-mono" font-size="9">${formatAreaSqFt(r.w_in, r.d_in)}</text>
-    <text x="${TITLE_BLOCK_W - 20}" y="${rowY + 14}" fill="${colors.textMuted}" class="cad-mono" font-size="9" text-anchor="end">${zone}</text>
+    <text x="${TITLE_BLOCK_W - 20}" y="${rowY + 14}" fill="${colors.textSecondary}" class="cad-mono" font-size="9" text-anchor="end">${formatAreaSqFt(r.w_in, r.d_in)}</text>
     `;
   });
 
@@ -514,9 +473,8 @@ export function generateBlueprintSvg({
     <g transform="translate(12, ${TITLE_BLOCK_H - 75})" class="cad-mono" font-size="9.5">
       <text x="0" y="0" fill="${colors.accent}" font-weight="bold">SOLVER ENGINE CERTIFICATION</text>
       <text x="0" y="14" fill="${colors.textSecondary}">Status: ${meta?.status ?? "OPTIMAL"} (${meta?.solve_ms ?? 120} ms)</text>
-      <text x="0" y="28" fill="${colors.textSecondary}">Vaastu Zones Active: ${meta?.vaastu_constraints_applied?.length ?? 0} Zones Enforced</text>
-      <text x="0" y="42" fill="${colors.textSecondary}">Rooms Reachable: ${meta?.rooms_reachable ?? rooms.length} / ${rooms.length} (100% Walkable)</text>
-      <text x="0" y="58" fill="${colors.textMuted}">Date: ${new Date().toISOString().split("T")[0]} | Sheet: 01 OF 01</text>
+      <text x="0" y="28" fill="${colors.textSecondary}">Rooms Reachable: ${meta?.rooms_reachable ?? rooms.length} / ${rooms.length} (100% Walkable)</text>
+      <text x="0" y="42" fill="${colors.textMuted}">Date: ${new Date().toISOString().split("T")[0]} | Sheet: 01 OF 01</text>
     </g>
   </g>
 </svg>

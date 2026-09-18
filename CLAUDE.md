@@ -161,12 +161,13 @@ Change frontend → run both. Every time.
 ## Hard rules
 
 - **Integer inches only** in solver. No float. See `notes/decisions/integer-inches.md`.
-- **Vaastu is constraint, not score.** Constrain up front. Never place-then-score.
-  Plan that break Vaastu is rejected plan, not worse plan.
+- **Zone rule is constraint, not score.** Constrain up front. Never place-then-score.
+  Plan that break posted rule is rejected plan, not worse plan.
+  Residence posts no zone rule. Café does. Never add Vaastu back unless user ask.
 - **Never drop connectivity.** House where room not reach other room is not house.
-  Relaxation ladder in `solver/model.py` may drop Vaastu, daylight, area. Never connectivity.
+  Relaxation ladder in `solver/model.py` may drop zoning, daylight, area. Never connectivity.
 - **Two solvers exist.** Real one is Python. `frontend/lib/solve.ts` has offline fallback that
-  fakes it. Fallback must never claim Vaastu it did not enforce.
+  fakes it. Fallback must never claim rule it did not enforce.
 - **Never `git push`** unless user say so. Commit local is fine. See `.agents/rules/git-push.md`.
 
 ## Vault convention

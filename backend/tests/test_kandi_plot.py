@@ -5,7 +5,6 @@ Validates the solver against real-world Indian municipal conditions:
 - Telangana municipal / TG-bPASS setback: 5 ft front (60 in), 3 ft rear/sides (36 in).
 - Buildable envelope: 24x32 ft (288x384 in = 768 sq ft).
 - Validates 2BHK and 3BHK Indian residential programs:
-  * Vaastu: Kitchen SE (Agneya), Master Bed SW (Nairutya), Pooja NE (Ishanya).
   * 100% room reachability (doors connecting star hierarchy).
   * Daylighting and ventilation (habitable windows, wet-room vents).
   * Compact footprint (void < 20%).
@@ -17,7 +16,6 @@ from fastapi.testclient import TestClient
 from api.main import app
 from solver.connectivity import reachable_count
 from solver.rooms import ROOM_CATALOG
-from vaastu.rules import V1_RULES, satisfied
 
 client = TestClient(app)
 
@@ -35,13 +33,13 @@ KANDI_PLOT = {
 }
 
 
-def test_kandi_2bhk_full_vaastu_and_connectivity():
-    """Standard Indian 2BHK with pooja and two baths on the Kandi plot."""
+def test_kandi_2bhk_full_layout_and_connectivity():
+    """Standard Indian 2BHK with a store and two baths on the Kandi plot."""
     mix = [
         "entrance",
         "hall",
         "kitchen",
-        "pooja",
+        "store",
         "bedroom",
         "bedroom",
         "bathroom",
@@ -80,32 +78,10 @@ def test_kandi_2bhk_full_vaastu_and_connectivity():
             bx1, by1 = b["x_in"] + b["w_in"], b["y_in"] + b["d_in"]
             assert not (a["x_in"] < bx1 and b["x_in"] < ax1 and a["y_in"] < by1 and b["y_in"] < ay1)
 
-    # 3. Vaastu compliance in envelope coordinates
-    # Master bedroom (first bedroom in list) in SW
-    # Kitchen in SE
-    # Pooja in NE
-    env_rooms = [
-        (r["name"], r["x_in"] - x0, r["y_in"] - z0, r["w_in"], r["d_in"])
-        for r in rooms
-    ]
-
-    # Kitchen SE
-    kitchen = next(r for r in env_rooms if r[0] == "kitchen")
-    assert satisfied(V1_RULES["kitchen"], kitchen[1], kitchen[2], kitchen[3], kitchen[4], w_env, d_env), (
-        f"Kitchen at x={kitchen[1]} y={kitchen[2]} violates SE Vaastu rule on Kandi plot"
-    )
-
-    # Master Bedroom SW
-    master_bed = next(r for r in env_rooms if r[0] == "bedroom")
-    assert satisfied(V1_RULES["bedroom"], master_bed[1], master_bed[2], master_bed[3], master_bed[4], w_env, d_env), (
-        f"Master Bedroom at x={master_bed[1]} y={master_bed[2]} violates SW Vaastu rule on Kandi plot"
-    )
-
-    # Pooja NE
-    pooja = next(r for r in env_rooms if r[0] == "pooja")
-    assert satisfied(V1_RULES["pooja"], pooja[1], pooja[2], pooja[3], pooja[4], w_env, d_env), (
-        f"Pooja at x={pooja[1]} y={pooja[2]} violates NE Vaastu rule on Kandi plot"
-    )
+    # 3. Every room sits inside the buildable envelope
+    for r in rooms:
+        assert x0 <= r["x_in"] and r["x_in"] + r["w_in"] <= x0 + w_env
+        assert z0 <= r["y_in"] and r["y_in"] + r["d_in"] <= z0 + d_env
 
     # 4. 100% Reachability & Door connectivity
     assert meta["rooms_reachable"] == len(mix)

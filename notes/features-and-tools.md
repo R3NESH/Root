@@ -37,10 +37,9 @@ A complete, chronological and categorized record of all engineering systems, arc
 | Feature / Tool | File Location | Description & Capabilities |
 | :--- | :--- | :--- |
 | **OR-Tools CP-SAT Layout Solver** | `backend/solver/model.py` | Mathematical rectangular room envelope packing solver. Guarantees 0-overlap, legal setback adherence, and envelope containment in $< 150\text{ ms}$. |
-| **$L_1$ (Manhattan) Drift Objective** | `backend/solver/model.py` | Keeps layouts stable when editing. Minimises total Manhattan displacement from the previous solution, weighted 100,000x against the area preference so size never buys a jump. A dragged room is released from its Vaastu quadrant, not locked in place. |
-| **Vaastu Shastra Cardinal Rules Engine** | `backend/vaastu/rules.py` | Three rules, posted as half-plane constraints before the search rather than scored after it: kitchen south-east, **first** bedroom south-west, pooja north-east. There is deliberately no living-room or bathroom rule — see `V1_RULES`. When the relaxation ladder cannot fit the program with these applied it drops them and the response sets `meta.vaastu_relaxed`. |
+| **$L_1$ (Manhattan) Drift Objective** | `backend/solver/model.py` | Keeps layouts stable when editing. Minimises total Manhattan displacement from the previous solution, weighted 100,000x against the area preference so size never buys a jump. A dragged room is released from its zone quadrant, not locked in place. |
 | **Topological Connectivity Graph** | `backend/solver/connectivity.py` | Enforces star topology & parent hierarchies ensuring 100% room reachability (Master Ensuite attached to Bedroom, Common Bath attached to Hall). |
-| **Daylight & Ventilation Constraints** | `backend/solver/realism.py` | Every **habitable or wet** room must touch the outside face of the built footprint — the bathroom for ventilation, the pooja room and stores exempt. Measured against the footprint, not the plot boundary. |
+| **Daylight & Ventilation Constraints** | `backend/solver/realism.py` | Every **habitable or wet** room must touch the outside face of the built footprint — the bathroom for ventilation, stores exempt. Measured against the footprint, not the plot boundary. |
 | **Aspect Ratio & Proportion Limits** | `backend/solver/realism.py` | Caps every room at $1.8:1$ in either direction (held x10 as integers), preventing corridor-shaped bedrooms. |
 | **Automatic Openings & Portals Extractor** | `backend/solver/connectivity.py` | Calculates shared wall intervals and exterior exposures, outputting exact coordinates for interior doors, main entrance, and exterior windows. |
 
@@ -129,7 +128,6 @@ A complete, chronological and categorized record of all engineering systems, arc
 | **Modular L-Kitchen & Appliances** | `frontend/lib/interiorDetails.ts` | White cabinetry, black induction cooktop, stainless steel chimney range hood & duct, undermount sink with chrome mixer faucet, and double-door refrigerator. |
 | **Modern 6-Seater Dining Suite** | `frontend/lib/interiorDetails.ts` | White dining table with 6 molded white shell chairs with thin angled chrome legs. |
 | **Deluxe Bathroom Suite** | `frontend/lib/interiorDetails.ts` | Deep soaking bathtub, floating vanity with vessel sink & mirror cabinet, wall-hung commode, glass shower enclosure, and **front-loading washing machine**. |
-| **Sacred Marble Pooja Mandir** | `frontend/lib/interiorDetails.ts` | White marble altar with gold finials, brass bells, and glowing diya flame. |
 | **Furniture Catalog Drawer** | `frontend/components/FurnitureDrawer.tsx` | Bottom drawer shelf to browse, filter, and drag-and-drop custom furniture items into the scene. |
 | **Interactive 3D Gizmos** | `frontend/components/Scene.tsx` | Move, rotate (45°/90° increments), scale, duplicate, and delete custom furniture pieces with collision guides. |
 
@@ -237,8 +235,8 @@ chatbot rejection in [[rejected-approaches]] on the owner's call — [[free-text
 
 | Capability | Description |
 | :--- | :--- |
-| **Prompt bar** | Sits over the viewport. *"30x40 north facing 2BHK with a pooja room and car parking"*. The tap path — room tray, compass dial, plot stepper — is unchanged and still reaches a plan with no keyboard ([[zero-keyboard-events]]). |
-| **Constraints, never geometry** | `POST /ai/plan` returns a `/solve` **body**, not a plan. Claude maps words onto the room vocabulary; CP-SAT places every room, so a language model can never hand back a layout that breaks Vaastu, setbacks or connectivity. |
+| **Prompt bar** | Sits over the viewport. *"30x40 north facing 2BHK with a store and car parking"*. The tap path — room tray, compass dial, plot stepper — is unchanged and still reaches a plan with no keyboard ([[zero-keyboard-events]]). |
+| **Constraints, never geometry** | `POST /ai/plan` returns a `/solve` **body**, not a plan. Claude maps words onto the room vocabulary; CP-SAT places every room, so a language model can never hand back a layout that breaks setbacks or connectivity. |
 | **Nothing silently dropped** | An ask the catalog cannot express — a swimming pool, a lift, a budget — comes back in `unsupported` and is shown. A plot size or facing that was never stated is presented as an assumption, not as the person's answer. |
 | **No offline path** | No credential, no answer: 503, and the person is told. A regex parser standing in for the model would be [[client-side-fallback]] wearing a different hat. |
 | **Requested pairs** | *"the guest bedroom near the kitchen"* becomes a scored objective term, not a constraint — the one preference in the solver that is scored, and why: [[preferences-are-scored]]. |
@@ -258,7 +256,7 @@ chatbot rejection in [[rejected-approaches]] on the owner's call — [[free-text
 - **BIM Core**: **Walls as first-class objects with persistent IDs, thicknesses, and single-hosted openings**
 - **Estimation Core**: **Real-time Bill of Quantities (BOQ) with Economy, Premium, and Luxury tiers**
 - **Supported Floor Plan Models**: **20 Curated Architectural Blueprints**
-- **Residential Room Kinds**: **11** — hall, dining, kitchen, bedroom, bathroom, pooja, store, entrance, utility, sit-out, car porch
+- **Residential Room Kinds**: **10** — hall, dining, kitchen, bedroom, bathroom, store, entrance, utility, sit-out, car porch
 - **Input Paths**: **2** — taps and drags, or a sentence ([[free-text-input]])
 - **Supported Material Finishes**: **15+ High-Definition PBR Procedural Shaders & Wall Paint Blending**
 - **Supported Graphic Modes**: **Hardware GPU Path Tracer, UPGRADE Studio Mode, DSR render scaling to 200%, 4096px procedural textures, 4096px PCF soft shadows, Day / Night, 3D Dollhouse Cutaway**

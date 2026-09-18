@@ -21,7 +21,7 @@ is a rewrite.
       "wall_thickness_in": null,
       "openings": [] }
   ],
-  "meta": { "solve_ms": 0, "vaastu_constraints_applied": [] }
+  "meta": { "solve_ms": 0, "rules_applied": [] }
 }
 ```
 

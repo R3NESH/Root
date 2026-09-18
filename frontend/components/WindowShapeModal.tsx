@@ -330,7 +330,6 @@ export default function WindowShapeModal({
     { id: "bedroom", label: "Bedroom" },
     { id: "kitchen", label: "Kitchen" },
     { id: "dining", label: "Dining" },
-    { id: "pooja", label: "Pooja Mandir" },
     { id: "bathroom", label: "Bathroom" },
   ];
 

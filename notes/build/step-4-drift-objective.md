@@ -33,7 +33,7 @@ Record actual numbers in the [[daily-log]], against [[test-baseline]].
 > | Done-condition | Result |
 > |---|---|
 > | rooms nudge rather than jump across 10 edits | **0 in total displacement** (was 2381 in, worst jump 96 ft) |
-> | solve stays under 500 ms | **76 ms worst case** with drift + Vaastu |
+> | solve stays under 500 ms | **76 ms worst case** with drift + zone rules |
 >
 > **`add_abs_equality` verified to exist and work** — the one method name in the whole brief
 > that [[cp-sat-api]] flagged as unchecked. It is real; the drift loop from [[layout-stability]]
@@ -43,7 +43,7 @@ Record actual numbers in the [[daily-log]], against [[test-baseline]].
 > [[claim-most-likely-wrong]], and the claim held.
 
 > [!warning] The predicted blow-up happened, and the fix has a subtlety worth keeping
-> Solve time hit **962 ms** (drift) and **1490 ms** (drift + Vaastu) before capping — the exact
+> Solve time hit **962 ms** (drift) and **1490 ms** (drift + zone rules) before capping — the exact
 > failure [[layout-stability]] predicted. Cause: CP-SAT *proving* the objective optimal, not
 > finding a good layout.
 >
@@ -59,4 +59,4 @@ Record actual numbers in the [[daily-log]], against [[test-baseline]].
 >
 > The ordering-based fallback [[layout-stability]] proposed was not needed.
 
-Prev: [[step-3-wire-together]] · Next: [[step-5-vaastu]] · Plan: [[build-order]]
+Prev: [[step-3-wire-together]] · Next: the direction-rules step · Plan: [[build-order]]

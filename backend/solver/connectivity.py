@@ -1,7 +1,7 @@
 """Make the solved rooms an actually walkable house.
 
-notes/solver/rooms-do-not-form-a-house.md is the finding that forced this: with Vaastu on, only
-37% of layouts had every room reachable through a real door, and the mean layout was 60% void.
+notes/solver/rooms-do-not-form-a-house.md is the finding that forced this: only 37% of layouts
+had every room reachable through a real door, and the mean layout was 60% void.
 The solver was satisfying non-overlap by scattering rectangles.
 
 ## The fix: a hall-centric star topology
@@ -25,7 +25,7 @@ from collections.abc import Sequence
 from ortools.sat.python import cp_model
 
 from programs import RESIDENTIAL, Program, resolve_entrance_edges, resolve_rules
-from vaastu.rules import QuadrantRule
+from zoning import QuadrantRule
 
 # 2'8" clear — a standard Indian internal door leaf. Anything narrower is not a doorway, and a
 # "shared wall" of 2 in (observed in real solver output) is a coincidence, not a connection.
@@ -52,7 +52,6 @@ PARENT_PREFERENCE: dict[str, tuple[str, ...]] = {
     "bathroom": ("bedroom", "hall", "dining"),
     "store": ("kitchen", "hall"),
     "dining": ("hall", "kitchen"),
-    "pooja": ("hall", "dining"),
     "kitchen": ("hall", "dining"),
     "bedroom": ("hall", "dining"),
     "entrance": ("hall", "dining"),
@@ -68,7 +67,7 @@ MAX_CHILDREN = 5
 # Hoisted to module scope because assign_parents() must respect it too: handing the kitchen a
 # bathroom as its parent asks add_room_separation() to forbid the very wall the door needs,
 # and the model goes INFEASIBLE in 13 ms with no diagnosis.
-FORBIDDEN_PAIRS = {("kitchen", "bathroom"), ("pooja", "bathroom")}
+FORBIDDEN_PAIRS = {("kitchen", "bathroom")}
 
 
 def _may_share_a_wall(a, b, forbidden=FORBIDDEN_PAIRS) -> bool:
@@ -76,16 +75,11 @@ def _may_share_a_wall(a, b, forbidden=FORBIDDEN_PAIRS) -> bool:
 
 
 def _quadrants_conflict(a, b, rules: dict[str, QuadrantRule]) -> bool:
-    """Do Vaastu rules pin these two rooms to regions that do not touch?
+    """Do the programme's zone rules pin these two rooms to regions that do not touch?
 
     Making one the parent of the other forces them to share a wall. If their quadrants are
-    disjoint on either axis, that is a contradiction the solver can only report as INFEASIBLE.
-
-    Measured: on the real buildable envelope of a 30x40 plot (24x30 ft), the fan-out cap pushed
-    the pooja room onto the kitchen as its parent — north-east and south-east, opposite corners
-    — and Vaastu went from three rules applied to zero, because the whole model became
-    infeasible and the ladder walked down to a rung with Vaastu switched off. On the plot size
-    this product is aimed at, and on the constraint the market treats as mandatory.
+    disjoint on either axis, that is a contradiction the solver can only report as INFEASIBLE,
+    and the ladder then walks down to a rung with zoning switched off entirely.
     """
     ra, rb = rules.get(a.name), rules.get(b.name)
     if ra is None or rb is None:
@@ -274,10 +268,10 @@ def add_room_separation(
     hub: int,
     program: Program = RESIDENTIAL,
 ) -> None:
-    """Forbid incompatible rooms from sharing a wall (e.g. Kitchen <-> Bathroom, Pooja <-> Bathroom).
+    """Forbid incompatible rooms from sharing a wall (e.g. Kitchen <-> Bathroom).
 
-    Sharing a common partition between Kitchen and Bathroom (or Pooja and Bathroom) is a strict
-    construction and cultural taboo in Indian architecture.
+    Sharing a common partition between a kitchen and a bathroom is a strict construction taboo
+    in Indian building.
     """
     forbidden = program.forbidden_pairs
     hub_kinds = (program.hub, *program.hub_fallbacks)
@@ -534,8 +528,8 @@ def add_entrance(
 ) -> str | None:
     """Cut the front door in the outermost wall of the programme's entrance space, else the hub.
 
-    Edge order is the programme's: a house prefers N then E per Vaastu, a shop opens onto the
-    road whichever edge that is. Returns the edge used, or None if no suitable room touches an
+    Edge order is the programme's: a house prefers N then E, a shop opens onto the road
+    whichever edge that is. Returns the edge used, or None if no suitable room touches an
     exterior wall.
     """
     fx0, fz0, fx1, fz1 = footprint(rooms)

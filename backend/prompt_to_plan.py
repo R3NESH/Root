@@ -1,11 +1,11 @@
 """Prompt-to-Plan: Natural language floor plan generator.
 
-Accepts customer prompts (e.g., '30x40 North facing 2BHK with pooja room'),
+Accepts customer prompts (e.g., '30x40 North facing 2BHK with a store'),
 extracts plot parameters and room requirements, solves the layout via CP-SAT,
 and produces full architectural specifications, ASCII previews, JSON, and SVG blueprints.
 
 Usage:
-    python prompt_to_plan.py "30x40 north facing 2bhk with pooja"
+    python prompt_to_plan.py "30x40 north facing 2bhk with a store"
     python prompt_to_plan.py "40x60 east facing 3bhk with dining and store" --svg plan.svg --json plan.json
 """
 
@@ -36,7 +36,6 @@ class ParsedPrompt:
     plot_d_ft: float
     facing: Facing
     room_names: list[str]
-    apply_vaastu: bool
     raw_prompt: str
 
 
@@ -90,9 +89,6 @@ def parse_prompt(prompt: str) -> ParsedPrompt:
         rooms = ["hall", "dining", "kitchen", "bedroom", "bedroom", "bedroom", "bedroom", "bathroom", "bathroom", "bathroom"]
 
     # Check for explicit room additions / modifications
-    if re.search(r"\b(pooja|puja|mandir|prayer)\b", text) and "pooja" not in rooms:
-        rooms.append("pooja")
-
     if re.search(r"\b(store|storage|pantry)\b", text) and "store" not in rooms:
         rooms.append("store")
 
@@ -102,17 +98,11 @@ def parse_prompt(prompt: str) -> ParsedPrompt:
     if re.search(r"\b(entrance|foyer)\b", text) and "entrance" not in rooms:
         rooms.insert(0, "entrance")
 
-    # 4. Vaastu compliance
-    apply_vaastu = True
-    if re.search(r"\b(no\s*vaastu|ignore\s*vaastu|without\s*vaastu|no\s*vastu)\b", text):
-        apply_vaastu = False
-
     return ParsedPrompt(
         plot_w_ft=w_val,
         plot_d_ft=d_val,
         facing=facing,
         room_names=rooms,
-        apply_vaastu=apply_vaastu,
         raw_prompt=prompt,
     )
 
@@ -153,7 +143,6 @@ def generate_svg_blueprint(
         "kitchen": "#FEE2E2",
         "bedroom": "#EDE9FE",
         "bathroom": "#E0F2FE",
-        "pooja": "#FEF9C3",
         "store": "#F3F4F6",
         "entrance": "#ECFDF5",
     }
@@ -314,7 +303,6 @@ def solve_from_prompt(
         env_w_in=env.width_in,
         env_d_in=env.depth_in,
         rooms=room_instances,
-        apply_vaastu=parsed.apply_vaastu,
     )
 
     placed_rooms = list(result.rooms)
@@ -342,8 +330,8 @@ def solve_from_prompt(
         "meta": {
             "status": result.status,
             "solve_ms": round(result.solve_ms, 2),
-            "vaastu_constraints_applied": result.vaastu_constraints_applied,
-            "vaastu_relaxed": result.vaastu_relaxed,
+            "rules_applied": result.rules_applied,
+            "rules_relaxed": result.rules_relaxed,
             "entrance_edge": entrance_edge,
             "rooms_reachable": rooms_reachable,
             "room_count": len(placed_rooms),
@@ -396,7 +384,7 @@ def main() -> None:
 
     prompt_text = args.prompt
     if not prompt_text:
-        print("Enter your house requirement prompt (e.g. '30x40 North facing 2BHK with pooja'):")
+        print("Enter your house requirement prompt (e.g. '30x40 North facing 2BHK with a store'):")
         prompt_text = input("> ").strip()
 
     if not prompt_text:
@@ -415,7 +403,6 @@ def main() -> None:
     print(f"Plot Size:    {data['plot']['w_ft']} ft x {data['plot']['d_ft']} ft ({data['plot']['area_sqft']} sqft)")
     print(f"Facing:       {data['plot']['facing']}")
     print(f"Envelope:     {data['envelope']['width_ft']} ft x {data['envelope']['depth_ft']} ft")
-    print(f"Vaastu:       {'Compliant (' + ', '.join(meta['vaastu_constraints_applied']) + ')' if meta['vaastu_constraints_applied'] else 'None'}")
     print(f"Reachability: {meta['rooms_reachable']}/{meta['room_count']} rooms connected")
     print("-" * 60)
     print(f"{'ROOM':<12} | {'DIMENSIONS':<14} | {'LOCATION (X, Y)':<18} | {'WALL':<6}")

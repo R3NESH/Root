@@ -5,15 +5,14 @@ from prompt_to_plan import parse_prompt, solve_from_prompt
 
 
 def test_parse_prompt_standard_2bhk():
-    parsed = parse_prompt("30x40 north facing 2bhk with pooja")
+    parsed = parse_prompt("30x40 north facing 2bhk with store")
     assert parsed.plot_w_ft == 30.0
     assert parsed.plot_d_ft == 40.0
     assert parsed.facing == "N"
-    assert "pooja" in parsed.room_names
+    assert "store" in parsed.room_names
     assert "hall" in parsed.room_names
     assert "kitchen" in parsed.room_names
     assert parsed.room_names.count("bedroom") == 2
-    assert parsed.apply_vaastu is True
 
 
 def test_parse_prompt_variations():
@@ -26,17 +25,16 @@ def test_parse_prompt_variations():
     assert "store" in p1.room_names
     assert "dining" in p1.room_names
 
-    # South facing 1BHK no vaastu
-    p2 = parse_prompt("20x30 south facing 1bhk without vaastu")
+    # South facing 1BHK
+    p2 = parse_prompt("20x30 south facing 1bhk")
     assert p2.plot_w_ft == 20.0
     assert p2.plot_d_ft == 30.0
     assert p2.facing == "S"
     assert p2.room_names.count("bedroom") == 1
-    assert p2.apply_vaastu is False
 
 
 def test_solve_from_prompt_e2e():
-    res = solve_from_prompt("30x40 north facing 2bhk with pooja")
+    res = solve_from_prompt("30x40 north facing 2bhk with store")
     data = res["data"]
     meta = data["meta"]
 

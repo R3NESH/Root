@@ -3,7 +3,7 @@
 What these lock down is the claim the programme pack makes: a cafe is not a house with the
 labels swapped. Its back of house sits behind its front of house, its door is on the road
 whichever way the plot faces, a customer WC never opens into food prep, and it never reports a
-Vaastu rule it did not post.
+zone rule it did not post.
 """
 
 import pytest
@@ -33,7 +33,7 @@ def cafe_mix(names=None):
 
 def solve_cafe(facing="N", names=None, **kw):
     return solve_layout(
-        ENV_W_IN, ENV_D_IN, cafe_mix(names), apply_vaastu=True, program=CAFE, facing=facing, **kw
+        ENV_W_IN, ENV_D_IN, cafe_mix(names), apply_zone_rules=True, program=CAFE, facing=facing, **kw
     )
 
 
@@ -86,7 +86,7 @@ def test_back_of_house_sits_behind_front_of_house(facing):
 
 @pytest.mark.parametrize("facing", ["N", "S", "E", "W"])
 def test_the_door_is_on_the_street(facing):
-    """A shop opens onto the road. A house follows Vaastu instead — see the residence test."""
+    """A shop opens onto the road. A house keeps its own edge order — see the residence test."""
     result = solve_cafe(facing=facing)
     assert result.entrance_edge == facing
 
@@ -116,15 +116,13 @@ def test_a_customer_wc_never_opens_onto_food_prep():
     assert not share_a_wall(by_name["washroom"], by_name["pantry"])
 
 
-def test_a_cafe_never_claims_vaastu():
-    """A plan that breaks Vaastu is a rejected plan, so a plan that never checked it must not
-    report it as applied — notes/decisions/vaastu-as-constraints.md."""
+def test_a_cafe_reports_only_the_zoning_it_posted():
+    """A plan that breaks its programme's zoning is a rejected plan, so a plan must never report
+    a rule it did not post."""
     result = solve_cafe()
     assert result.program == "cafe"
     assert result.rules_label == "Service flow"
-    for description in result.vaastu_constraints_applied:
-        assert "south-east" not in description
-        assert "north-east" not in description
+    assert set(result.rules_applied) <= set(CAFE.zone_descriptions.values())
 
 
 def test_the_seating_floor_is_the_circulation_hub():
@@ -136,16 +134,16 @@ def test_residence_is_untouched_by_the_programme_split():
     rooms = [ROOM_CATALOG[n] for n in RESIDENTIAL.default_mix]
     assert rooms[hub_index(rooms, RESIDENTIAL)].name == "hall"
 
-    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
     assert result.status in ("OPTIMAL", "FEASIBLE")
     assert result.program == "residence"
-    assert result.rules_label == "Vaastu"
+    assert result.rules_label == ""
     assert result.rooms_reachable == len(result.rooms)
 
 
-def test_residence_rules_ignore_facing_and_cafe_rules_follow_it():
-    """Vaastu is about the sun, service flow is about the road."""
-    assert resolve_rules(RESIDENTIAL, "N") == resolve_rules(RESIDENTIAL, "S")
+def test_a_residence_posts_no_zoning_and_cafe_rules_follow_the_road():
+    """A house is placed by adjacency and daylight alone; service flow is about the road."""
+    assert resolve_rules(RESIDENTIAL, "N") == {}
     assert resolve_rules(CAFE, "N") != resolve_rules(CAFE, "S")
 
 
@@ -205,7 +203,7 @@ def test_a_large_cafe_still_returns_a_layout_when_edited():
     prev = {i: (0, i * 12) for i in range(len(rooms))}
 
     result = solve_layout(
-        env_w, env_d, rooms, prev=prev, apply_vaastu=True, program=CAFE, facing="N"
+        env_w, env_d, rooms, prev=prev, apply_zone_rules=True, program=CAFE, facing="N"
     )
     assert result.status in ("OPTIMAL", "FEASIBLE"), result.status
     assert result.rooms_reachable == len(result.rooms)

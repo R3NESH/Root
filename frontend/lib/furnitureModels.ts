@@ -89,7 +89,6 @@ export const FURNITURE_MODELS: Record<string, ModelPart[]> = {
   wall_art_frame: [{ url: p("hanging_picture_frame_01") }],
   floor_mirror: [{ url: p("ornate_mirror_01") }],
   throw_pillows: [{ url: p("throw_pillows_01") }],
-  diya_lantern: [{ url: p("brass_diya_lantern") }],
   dining_table: [{ url: p("dining_table") }, ...DINING_CHAIRS],
 
   // Lounge grouping: sofa at the back, low round table in front, two chairs turned inward.

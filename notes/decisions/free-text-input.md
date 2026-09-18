@@ -35,8 +35,8 @@ nothing and taps nothing.
 words onto the room vocabulary and nothing else — no coordinates, no sizes, no adjacency it
 decided by itself. Every answer is validated against the catalog before it reaches the solver.
 
-This is what keeps [[vaastu-as-constraints]] intact. A language model cannot reject a plan for
-breaking Vaastu; the solver can, and still does, because the model never gets to place anything.
+This is what keeps rules-as-constraints intact. A language model cannot reject a plan for
+breaking a posted rule; the solver can, and still does, because the model never gets to place anything.
 
 **Nothing is silently dropped.** An ask the catalog cannot express — a swimming pool, a lift, a
 budget — comes back in `unsupported` and the UI shows it. A default the person never gave (plot
@@ -75,5 +75,5 @@ Balcony is **not** added. It is a sit-out on an upper floor, and placing it corr
 floor-aware catalog rules that do not exist — [[single-storey-first]] is still most of the way
 true.
 
-**Links.** [[rejected-approaches]] · [[zero-keyboard-events]] · [[vaastu-as-constraints]] ·
+**Links.** [[rejected-approaches]] · [[zero-keyboard-events]] · rules-as-constraints ·
 [[client-side-fallback]] · [[preferences-are-scored]] · [[q-does-anyone-pay]]

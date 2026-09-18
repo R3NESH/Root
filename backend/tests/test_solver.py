@@ -69,16 +69,14 @@ def test_duplicate_room_kinds_get_independent_positions():
 
 
 def test_kitchen_and_bathroom_never_share_a_wall():
-    rooms = [ROOM_CATALOG[n] for n in ["hall", "kitchen", "bedroom", "bedroom", "bathroom", "pooja"]]
-    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    rooms = [ROOM_CATALOG[n] for n in ["hall", "kitchen", "bedroom", "bedroom", "bathroom", "store"]]
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
     assert_valid_layout(result, ENV_W_IN, ENV_D_IN)
 
     kitchen = next(r for r in result.rooms if r.name == "kitchen")
     bathroom = next(r for r in result.rooms if r.name == "bathroom")
-    pooja = next(r for r in result.rooms if r.name == "pooja")
 
     assert not rooms_share_wall(kitchen, bathroom), "Kitchen and Bathroom must not share a wall"
-    assert not rooms_share_wall(pooja, bathroom), "Pooja and Bathroom must not share a wall"
 
 
 def test_20_random_room_mixes():

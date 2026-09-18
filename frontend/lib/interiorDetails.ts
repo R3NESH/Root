@@ -132,14 +132,12 @@ export interface RoomDoorInfo {
 // --------------------------------------------------------------------------------------
 
 let cachedMarbleNormal: THREE.CanvasTexture | null = null;
-let cachedMarblePooja: THREE.CanvasTexture | null = null;
 let cachedWoodFloor: THREE.CanvasTexture | null = null;
 let cachedTileKitchen: THREE.CanvasTexture | null = null;
 let cachedTileNormal: THREE.CanvasTexture | null = null;
 
-export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTexture {
-  if (isPooja && cachedMarblePooja) return cachedMarblePooja;
-  if (!isPooja && cachedMarbleNormal) return cachedMarbleNormal;
+export function getMarbleFloorTexture(): THREE.CanvasTexture {
+  if (cachedMarbleNormal) return cachedMarbleNormal;
 
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -147,10 +145,10 @@ export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTex
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.fillStyle = isPooja ? "#fcfaf2" : "#eceae5";
+  ctx.fillStyle = "#eceae5";
   ctx.fillRect(0, 0, 512, 512);
 
-  ctx.strokeStyle = isPooja ? "rgba(180, 150, 90, 0.15)" : "rgba(100, 116, 139, 0.16)";
+  ctx.strokeStyle = "rgba(100, 116, 139, 0.16)";
   ctx.lineWidth = 2.5;
 
   for (let i = 0; i < 9; i++) {
@@ -179,8 +177,7 @@ export function getMarbleFloorTexture(isPooja: boolean = false): THREE.CanvasTex
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(2, 2);
 
-  if (isPooja) cachedMarblePooja = texture;
-  else cachedMarbleNormal = texture;
+  cachedMarbleNormal = texture;
 
   return texture;
 }
@@ -1740,78 +1737,5 @@ export function addRoomInteriorDetails(
       group.add(drum);
     }
 
-  } else if (roomName === "pooja") {
-    // ---------------------------------------------------------
-    // POOJA ROOM: Sacred Marble Mandir Altar with Brass Decor
-    // ---------------------------------------------------------
-    const mandirMat = new THREE.MeshStandardMaterial({
-      color: 0xfcfaf2,
-      roughness: 0.15,
-      metalness: 0.08,
-    });
-    const goldMat = new THREE.MeshStandardMaterial({
-      color: 0xd4af37,
-      metalness: 0.95,
-      roughness: 0.15,
-    });
-    const flameMat = new THREE.MeshStandardMaterial({
-      color: 0xffa500,
-      emissive: 0xff4500,
-      emissiveIntensity: 1.2,
-      roughness: 0.1,
-    });
-
-    // A mandir stands against a wall, so it needs its own depth plus somewhere to stand or
-    // kneel — not clearance on all four sides. It is sized off the wall it is against.
-    //
-    // The two tiers used to be sized by two independent fitSize() calls with different
-    // clearances, which in the catalog's smallest 3 ft pooja room returned a 1.4 ft base under a
-    // 1.2 ft tier — the tier only that wide because it had hit fitSize()'s 1.2 ft floor, not
-    // because anything chose it. The tier is a proportion of the base now, so it can never come
-    // out wider than the thing it stands on.
-    const altarW = Math.min(2.8, rw - 0.8);
-    const altarD = Math.min(1.6, rd - 1.4);
-
-    const altarBase = new THREE.Mesh(createRoundedBox(altarW, 1.2, altarD, 0.08, 4), mandirMat);
-    altarBase.position.set(cx, 0.6, rz + 1.2);
-    altarBase.castShadow = true;
-
-    const altarTier = new THREE.Mesh(createRoundedBox(altarW * 0.72, 0.8, altarD * 0.75, 0.06, 4), mandirMat);
-    altarTier.position.set(cx, 1.6, rz + 1.2);
-
-    const diya = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.15, 0.15, 16), goldMat);
-    diya.position.set(cx, 2.08, rz + 1.2);
-
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 16), flameMat);
-    flame.position.set(cx, 2.25, rz + 1.2);
-
-    const flameLight = new THREE.PointLight(0xffaa44, 0.9, 10, 1.5);
-    flameLight.position.set(cx, 2.4, rz + 1.2);
-
-    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 16), goldMat);
-    bell.rotation.x = Math.PI;
-    bell.position.set(cx, 6.8, rz + 1.2);
-
-    const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb8860b });
-    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.1, 8), ropeMat);
-    rope.position.set(cx, 7.9, rz + 1.2);
-
-    const mandirId = `builtin_${roomIndex}_mandir`;
-    if (!deletedIds?.has(mandirId)) {
-      const mandirGroup = new THREE.Group();
-      mandirGroup.add(altarBase, altarTier, diya, flame, flameLight, bell, rope);
-      mandirGroup.userData = {
-        isFurniture: true,
-        isBuiltin: true,
-        id: mandirId,
-        name: "Sacred Pooja Mandir",
-        type: "pooja_mandir",
-        x: cx,
-        y: 0,
-        z: rz + 1.2,
-        rotationY: 0,
-      };
-      group.add(mandirGroup);
-    }
   }
 }

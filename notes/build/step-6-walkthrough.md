@@ -35,8 +35,8 @@ nothing. That finding is the most valuable thing this unplanned step produced.
 
 Two regressions, both invisible to the green test suite, both traceable to this step:
 
-1. [[vaastu-and-connectivity-drop-on-edit]] — drag-and-drop needed rooms to escape their Vaastu
-   quadrant, and the implementation switched off **both** Vaastu and connectivity for every
+1. the drag regression — drag-and-drop needed rooms to escape their zone
+   quadrant, and the implementation switched off **both** Zone rules and connectivity for every
    solve that carries `prev`, which is every solve after the first. **Blocking.**
 2. [[duplicated-geometry]] — the renderer grew its own door/wall geometry rather than consuming
    the `openings` the backend already computes, adding a third frontend/backend duplication and
@@ -61,4 +61,4 @@ the solver placed, on a touch device.* That single sentence would have caught bo
 and the input-modality gap.
 
 **Links.** [[build-order]] · [[project-phases]] · [[rooms-do-not-form-a-house]] ·
-[[vaastu-and-connectivity-drop-on-edit]] · [[duplicated-geometry]] · [[project-status]]
+the drag regression · [[duplicated-geometry]] · [[project-status]]

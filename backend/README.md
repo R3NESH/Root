@@ -8,9 +8,9 @@ Phase 1 complete. See [[project-phases]] for the Phase 1 / Phase 2 split, [[code
 for the module ↔ note convention this README follows, and [[project-status]] for current state.
 
 > [!success] Both blocking defects fixed 2026-08-25
-> Only a *dragged* room is released from its Vaastu quadrant, and connectivity is never dropped
-> — [[vaastu-and-connectivity-drop-on-edit]]. The API ships the solver's `openings`,
-> `wall_thickness_in`, `entrance_edge` and `rooms_reachable` — [[duplicated-geometry]].
+> Only a *dragged* room is released from its zone quadrant, and connectivity is never dropped.
+> The API ships the solver's `openings`, `wall_thickness_in`, `entrance_edge` and
+> `rooms_reachable` — [[duplicated-geometry]].
 
 ## Modules
 
@@ -19,11 +19,11 @@ for the module ↔ note convention this README follows, and [[project-status]] f
 | `solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — [[step-2-solver-core]], [[step-4-drift-objective]], plus the relaxation ladder |
 | `solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation, area objective |
 | `solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, openings, windows, entrance, footprint, reachability |
-| `vaastu/` | [[vaastu-as-constraints]] | **done** — [[step-5-vaastu]] |
+| `zoning.py` | directional zone rules as constraints | **done** — used by the café pack; the residence posts none |
 | `envelope/` | setbacks — hardcoded gap, see [[environment-notes]] | **done** — duplicates `frontend/lib/plot.ts`, see [[duplicated-geometry]] |
 | `api/` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
 | `solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — 8 room kinds, each carrying `habitable` / `wet` / `max_aspect_x10` |
-| `tests/` | [[test-baseline]] | **50/50 passing** (api 13, solver 6, stability 4, vaastu 13, realism 14) |
+| `tests/` | [[test-baseline]] | **173/173 passing** |
 
 ## Dev
 

@@ -27,7 +27,7 @@ Four tabs, wildly unbalanced:
 |---|---|
 | Home | Building Type, Plot Dimensions, Plot Shape, Road Facing, Bye-Law, Floor Level, Room Program, Interiors & Sizing, CAD Drafting, Render Fidelity, Specs — **11** |
 | Structure | Partition Walls, Curved Walls & Doors, Stairs, Doors, Window Styles, Window Spans, Fenestration Studio — **7** |
-| Blueprints | Vastu Models, Blueprint Mode, CAD Export Suite — **3** |
+| Blueprints | Model Plans, Blueprint Mode, CAD Export Suite — **3** |
 | AI Prompt | one deck |
 
 The panel-collapse mechanism in `TopRibbonTaskbar.tsx` was working exactly as designed — it keeps
@@ -44,7 +44,7 @@ window width.
 
 | Tab | Panels | The phase |
 |---|---|---|
-| **Home** | Building Type, Plot Dimensions, Room Program, Floor Level, Vastu Models | Start a plan and say what is in it |
+| **Home** | Building Type, Plot Dimensions, Room Program, Floor Level, Model Plans | Start a plan and say what is in it |
 | **Site** | Plot Shape, Road Facing, Bye-Law, Specs | The plot, and what the law allows on it |
 | **Draw** | CAD Drafting, Partition Walls, Curved Walls & Doors, Stairs | Putting geometry down by hand |
 | **Openings** | Doors, Window Styles, Window Spans, Fenestration Studio | Every hole in a wall |
@@ -68,7 +68,7 @@ anything meant reading every button.
 It is now clustered under headings, the same idea turned ninety degrees:
 
 **Rooms** (Living, Bedroom, Dining, Kitchen, Study, Bathroom) · **Build** (Stairs, Dividers) ·
-**Fit-out** (Lighting, Appliances) · **Dress** (Curtains, Decor, Mandir) ·
+**Fit-out** (Lighting, Appliances) · **Dress** (Curtains, Decor) ·
 **Project** (Finishes, Manage)
 
 A café's categories fall into the same five: covers and service are Rooms, back-of-house and the
@@ -82,7 +82,7 @@ codes — SOF, MND, SAN, APP, LUM, SFT, PNT, MOD — that had to be learned befo
 usable, and labels cut to fit a 62px column: *Servic*, *Divide*, *Bed*, *Covers*, *Back*.
 
 Each section now carries a drawn 16x16 glyph and its full word: Living, Bedroom, Dining, Kitchen,
-Study, Bathroom, Stairs, Dividers, Lighting, Appliances, Curtains, Decor, Mandir, Finishes,
+Study, Bathroom, Stairs, Dividers, Lighting, Appliances, Curtains, Decor, Finishes,
 Manage. The rail went from 62px to 84px to fit them, and labels wrap rather than truncate.
 
 > [!important] The glyph does not replace the word

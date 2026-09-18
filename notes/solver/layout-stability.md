@@ -43,7 +43,7 @@ if prev:
 > side. See [[claim-most-likely-wrong]] for the full table.
 
 > [!warning] The expected failure mode happened
-> Solve time did jump — **962 ms** with drift, **1490 ms** with drift + [[vaastu-as-constraints]],
+> Solve time did jump — **962 ms** with drift, **1490 ms** with drift + rules-as-constraints,
 > against a 500 ms budget. Cause: CP-SAT *proving* the objective optimal, not finding a good
 > layout.
 >

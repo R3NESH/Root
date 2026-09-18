@@ -23,8 +23,7 @@ export interface ModelBlueprint {
   builtUpAreaSqFt: number;
   totalSqFt: number;
   /**
-   * One-line quality claim shown on the card. Vaastu compliance for a residence, service-flow
-   * wording for a cafe — never Vaastu for a plan that never checked it.
+   * One-line quality claim shown on the card — never a claim the plan did not earn.
    */
   rating: string;
   description: string;
@@ -68,7 +67,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     floors: 2,
     builtUpAreaSqFt: 1240,
     totalSqFt: 1500,
-    rating: "Vaastu Compliant",
+    rating: "East-Facing Plan",
     description:
       "Built from a street elevation, not a plan: a G+1 whose stair core is expressed as a full-height glazed tower on the front, with the porch beside it and a balcony over it. Charcoal render, brick accent and black metal, as drawn. The room layout is the solver's own - an elevation cannot say where a bedroom goes.",
     highlights: [
@@ -77,7 +76,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       "3BHK over two storeys, parents' bedroom on the ground",
       "Terrace over the first floor, reachable from the stair",
     ],
-    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 3, pooja: 1, store: 1 },
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 3, store: 1 },
     customDims: {
       hall_0: { wFt: 15, dFt: 13 },
       dining_0: { wFt: 12, dFt: 10 },
@@ -88,7 +87,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom_0: { wFt: 7, dFt: 5 },
       bathroom_1: { wFt: 8, dFt: 5 },
       bathroom_2: { wFt: 7, dFt: 5 },
-      pooja_0: { wFt: 5, dFt: 4 },
       store_0: { wFt: 6, dFt: 5 },
     },
     // The facade the elevation actually shows. Only the stair core is glazed - that tower is the
@@ -98,8 +96,8 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       globalWallColor: "charcoal_slate",
       globalFloor: "scandi_grey_ash",
       globalDoorColor: "charcoal_slate",
-      roomFloors: { hall: "terrazzo_venice", pooja: "botticino_gold" },
-      roomWallColors: { hall: "terracotta", pooja: "champagne_gold" },
+      roomFloors: { hall: "terrazzo_venice" },
+      roomWallColors: { hall: "terracotta" },
       roomGlazing: {
         stairs: { styleId: "structural", wall: true, door: false, mullions: 3 },
       },
@@ -116,7 +114,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     floors: 2,
     builtUpAreaSqFt: 1150,
     totalSqFt: 1200,
-    rating: "Vaastu Compliant",
+    rating: "East-Facing Plan",
     description:
       "The standard Bengaluru and Hyderabad duplex on a 30×40 site: living, dining and kitchen on the ground with a parents' bedroom and its bathroom, and the master plus a second bedroom upstairs off the landing.",
     highlights: [
@@ -125,7 +123,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       "First: 12×14 master with ensuite, 10×10 second bedroom",
       "Stair core solved on both floors, not drawn by hand",
     ],
-    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 2, pooja: 1 },
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 3, bathroom: 2 },
     customDims: {
       hall_0: { wFt: 14, dFt: 12 },
       dining_0: { wFt: 11, dFt: 10 },
@@ -135,7 +133,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bedroom_2: { wFt: 10, dFt: 10 },
       bathroom_0: { wFt: 7, dFt: 5 },
       bathroom_1: { wFt: 7, dFt: 5 },
-      pooja_0: { wFt: 5, dFt: 4 },
     },
   },
   {
@@ -149,16 +146,15 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     floors: 2,
     builtUpAreaSqFt: 1330,
     totalSqFt: 1500,
-    rating: "Vaastu Compliant",
+    rating: "East-Facing Plan",
     description:
-      "An east-facing 30×50 duplex with the living room to the north-east and the kitchen north-west, the two positions Vaastu and cross-ventilation both want. Four bedrooms across two floors, with a dedicated pooja room off the hall.",
+      "An east-facing 30×50 duplex with the living room to the north-east and the kitchen north-west, the two positions cross-ventilation wants. Four bedrooms across two floors, with a store off the hall.",
     highlights: [
       "Living north-east, kitchen north-west on an east-facing plot",
-      "Dedicated pooja room, not a niche in the hall",
-      "Pooja room and store, both off the hall rather than in it",
+      "Store off the hall rather than inside it",
       "Three bedrooms upstairs, parents' room on the ground",
     ],
-    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, pooja: 1, store: 1 },
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, store: 1 },
     customDims: {
       hall_0: { wFt: 15, dFt: 13 },
       dining_0: { wFt: 12, dFt: 11 },
@@ -170,7 +166,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom_0: { wFt: 7, dFt: 5 },
       bathroom_1: { wFt: 8, dFt: 5 },
       bathroom_2: { wFt: 7, dFt: 5 },
-      pooja_0: { wFt: 5, dFt: 4 },
       store_0: { wFt: 6, dFt: 5 },
     },
   },
@@ -185,7 +180,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     floors: 2,
     builtUpAreaSqFt: 1760,
     totalSqFt: 2400,
-    rating: "Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
       "The villa end of the duplex range on a 40×60 site: a 16×18 living hall, an island kitchen, a guest bedroom on the ground and a 12×16 master suite upstairs with two more bedrooms.",
     highlights: [
@@ -194,7 +189,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       "12×16 master suite upstairs, 12×12 and 10×12 beyond it",
       "Guest bedroom and bathroom on the ground floor",
     ],
-    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, pooja: 1, store: 1 },
+    counts: { hall: 1, dining: 1, kitchen: 1, bedroom: 4, bathroom: 3, store: 1 },
     customDims: {
       hall_0: { wFt: 18, dFt: 16 },
       dining_0: { wFt: 14, dFt: 12 },
@@ -206,7 +201,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom_0: { wFt: 8, dFt: 5 },
       bathroom_1: { wFt: 8, dFt: 6 },
       bathroom_2: { wFt: 7, dFt: 5 },
-      pooja_0: { wFt: 6, dFt: 4 },
       store_0: { wFt: 7, dFt: 5 },
     },
   },
@@ -221,7 +215,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     floors: 2,
     builtUpAreaSqFt: 690,
     totalSqFt: 600,
-    rating: "Vaastu Compliant",
+    rating: "South-Facing Plan",
     description:
       "A 600 sq ft plot goes vertical or it goes nowhere. Living, kitchen and one bedroom on the ground, the second bedroom and its bathroom above — about 492 sq ft of footprint per floor once the setbacks are taken.",
     highlights: [
@@ -266,7 +260,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       dining: 1,
       bedroom: 2,
       bathroom: 2,
-      pooja: 0,
       store: 1,
       entrance: 0,
     },
@@ -303,9 +296,9 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 329,
     totalSqFt: 600,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
-      "Compact plan for tight urban plots. Front living room on the road side, Agneya kitchen, master bedroom off the rear.",
+      "Compact plan for tight urban plots. Front living room on the road side, south-east kitchen, master bedroom off the rear.",
     highlights: [
       "Open-concept Living & Dining",
       "Agni Kitchen in South-East",
@@ -318,7 +311,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       dining: 0,
       bedroom: 1,
       bathroom: 1,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
@@ -327,14 +319,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen_0: { wFt: 6, dFt: 12 },
       bedroom_0: { wFt: 10, dFt: 11 },
       bathroom_0: { wFt: 6, dFt: 7 },
-      pooja_0: { wFt: 6, dFt: 4 },
     },
     customPositions: {
       hall_0: { xFt: 0, yFt: 0 },
       kitchen_0: { xFt: 10, yFt: 0 },
       bedroom_0: { xFt: 0, yFt: 12 },
       bathroom_0: { xFt: 10, yFt: 12 },
-      pooja_0: { xFt: 10, yFt: 19 },
     },
   },
 
@@ -364,7 +354,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       dining: 0,
       bedroom: 2,
       bathroom: 1,
-      pooja: 0,
       store: 0,
       entrance: 0,
     },
@@ -395,7 +384,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 512,
     totalSqFt: 800,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
       "Engineered specifically for narrow frontages with deep lot profiles. Features a generous North-East living lounge, separate dining, South-East modular kitchen, and two private rear bedrooms.",
     highlights: [
@@ -410,13 +399,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 1,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 10, dFt: 14 },
-      pooja_0: { wFt: 6, dFt: 5 },
       dining_0: { wFt: 6, dFt: 9 },
       bedroom_1: { wFt: 9, dFt: 10 },
       kitchen_0: { wFt: 7, dFt: 10 },
@@ -425,7 +412,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       hall_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 10, yFt: 0 },
       dining_0: { xFt: 10, yFt: 5 },
       bedroom_1: { xFt: 0, yFt: 14 },
       kitchen_0: { xFt: 9, yFt: 14 },
@@ -460,7 +446,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 1,
-      pooja: 0,
       store: 0,
       entrance: 0,
     },
@@ -493,13 +478,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 840,
     totalSqFt: 1250,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
-      "A high-efficiency 3BHK residence on a 25×50 plot. Boasts an impressive living lounge, private pooja mandir, separate dining, and 3 full-sized bedrooms.",
+      "A high-efficiency 3BHK residence on a 25×50 plot. Boasts an impressive living lounge, separate dining, and 3 full-sized bedrooms.",
     highlights: [
       "3 Full-Sized Private Bedrooms",
       "North-Facing Light-Filled Hall",
-      "Dedicated Ishanya Pooja Mandir",
       "Generous Dining & Kitchen Hub",
     ],
     counts: {
@@ -508,13 +492,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 3,
       bathroom: 1,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 12, dFt: 16 },
-      pooja_0: { wFt: 8, dFt: 6 },
       dining_0: { wFt: 8, dFt: 10 },
       bedroom_1: { wFt: 11, dFt: 12 },
       kitchen_0: { wFt: 9, dFt: 12 },
@@ -524,7 +506,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       hall_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 12, yFt: 0 },
       dining_0: { xFt: 12, yFt: 6 },
       bedroom_1: { xFt: 0, yFt: 16 },
       kitchen_0: { xFt: 11, yFt: 16 },
@@ -534,10 +515,10 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
   },
 
-  // 6. 30x40 (1,200 sq ft) — 2BHK Classic Vaastu Home
+  // 6. 30x40 (1,200 sq ft) — 2BHK Classic Home
   {
     id: "30x40_2bhk_north",
-    name: "Classic 2BHK Vaastu Residence",
+    name: "Classic 2BHK Residence",
     type: "2BHK",
     plotSizeLabel: "30×40 (1,200 sq ft)",
     plotWidthFt: 30,
@@ -545,14 +526,14 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 748,
     totalSqFt: 1200,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
-      "The quintessential Indian family home plan. Spacious living hall with North-East entry, dedicated dining space, South-East modular kitchen, Ishanya Pooja mandir, and South-West Master Suite.",
+      "The quintessential Indian family home plan. Spacious living hall with North-East entry, dedicated dining space, modular kitchen, and a generous Master Suite.",
     highlights: [
       "North-East Main Entry",
       "South-West Master Bedroom",
       "South-East Agni Modular Kitchen",
-      "Formal Dining Hall & Pooja Mandir",
+      "Formal Dining Hall",
     ],
     counts: {
       hall: 1,
@@ -560,13 +541,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 2,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
       dining_0: { wFt: 10, dFt: 10 },
-      pooja_0: { wFt: 5, dFt: 6 },
       bathroom_1: { wFt: 5, dFt: 6 },
       hall_0: { wFt: 14, dFt: 16 },
       bedroom_0: { wFt: 14, dFt: 16 },
@@ -575,7 +554,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 0, yFt: 10 },
       bathroom_1: { xFt: 5, yFt: 10 },
       hall_0: { xFt: 10, yFt: 0 },
       bedroom_0: { xFt: 0, yFt: 16 },
@@ -610,7 +588,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 3,
       bathroom: 2,
-      pooja: 0,
       store: 1,
       entrance: 0,
     },
@@ -645,13 +622,13 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "S",
     builtUpAreaSqFt: 768,
     totalSqFt: 1200,
-    rating: "100% Vaastu Compliant",
+    rating: "South-Facing Plan",
     description:
       "Expertly configured for South-facing plots following traditional Agni entrance pada. Places the front living hall in the South-East, kitchen in Agni zone, and master suite securely in South-West.",
     highlights: [
       "South-East Auspicious Entrance",
       "South-West Master Retreat",
-      "North-East Light-Filled Pooja & Dining",
+      "North-East Light-Filled Dining",
       "Cross-Breeze Optimized Bedrooms",
     ],
     counts: {
@@ -660,13 +637,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 1,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
       bedroom_1: { wFt: 12, dFt: 14 },
-      pooja_0: { wFt: 6, dFt: 6 },
       bathroom_0: { wFt: 6, dFt: 6 },
       dining_0: { wFt: 12, dFt: 8 },
       bedroom_0: { wFt: 13, dFt: 18 },
@@ -675,7 +650,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       bedroom_1: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 12, yFt: 0 },
       bathroom_0: { xFt: 18, yFt: 0 },
       dining_0: { xFt: 12, yFt: 6 },
       bedroom_0: { xFt: 0, yFt: 14 },
@@ -697,10 +671,9 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     totalSqFt: 1200,
     rating: "West-Facing Master Plan",
     description:
-      "A harmonious West-facing plan aligned with Varuna devata. Welcomes guests through the North-West entry lounge, with serene North-East pooja and commanding South-West master suite.",
+      "A harmonious West-facing plan. Welcomes guests through the North-West entry lounge, with a commanding South-West master suite.",
     highlights: [
       "West-Facing Warm Living Lounge",
-      "North-East Sacred Pooja Mandir",
       "South-West Master Sanctuary",
       "Dual Full Bathrooms & Dining",
     ],
@@ -710,13 +683,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 2,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
       hall_0: { wFt: 13, dFt: 16 },
-      pooja_0: { wFt: 5, dFt: 6 },
       kitchen_0: { wFt: 6, dFt: 6 },
       dining_0: { wFt: 11, dFt: 10 },
       bedroom_0: { wFt: 13, dFt: 16 },
@@ -726,7 +697,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       hall_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 13, yFt: 0 },
       kitchen_0: { xFt: 18, yFt: 0 },
       dining_0: { xFt: 13, yFt: 6 },
       bedroom_0: { xFt: 0, yFt: 16 },
@@ -739,7 +709,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
   // 10. 30x50 (1,500 sq ft) — 3BHK Contemporary Villa
   {
     id: "30x50_3bhk_east",
-    name: "Contemporary 3BHK with Pooja & Dining",
+    name: "Contemporary 3BHK with Dining",
     type: "3BHK",
     plotSizeLabel: "30×50 (1,500 sq ft)",
     plotWidthFt: 30,
@@ -747,13 +717,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 1009,
     totalSqFt: 1500,
-    rating: "100% Vaastu Compliant",
+    rating: "East-Facing Plan",
     description:
-      "A grand 1,500 sq ft layout with elongated depth. Expansive living hall, formal dining, chef's kitchen with attached utility/store, luxurious master suite with ensuite bath, and sacred pooja mandir.",
+      "A grand 1,500 sq ft layout with elongated depth. Expansive living hall, formal dining, chef's kitchen with attached utility/store, and a luxurious master suite with ensuite bath.",
     highlights: [
       "Expansive 14×18 ft Living Salon",
       "Private Master Suite in South-West",
-      "Dedicated Ishanya Pooja Room",
       "Walk-in Pantry Store & Dining",
     ],
     counts: {
@@ -762,13 +731,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 3,
       bathroom: 2,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
     customDims: {
       dining_0: { wFt: 10, dFt: 12 },
-      pooja_0: { wFt: 5, dFt: 6 },
       store_0: { wFt: 5, dFt: 6 },
       hall_0: { wFt: 14, dFt: 18 },
       bedroom_1: { wFt: 14, dFt: 12 },
@@ -779,7 +746,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 0, yFt: 12 },
       store_0: { xFt: 5, yFt: 12 },
       hall_0: { xFt: 10, yFt: 0 },
       bedroom_1: { xFt: 0, yFt: 18 },
@@ -816,12 +782,10 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 2,
-      pooja: 1,
       store: 0,
       entrance: 0,
     },
     customDims: {
-      pooja_0: { wFt: 9, dFt: 6 },
       dining_0: { wFt: 9, dFt: 12 },
       hall_0: { wFt: 15, dFt: 18 },
       bedroom_1: { wFt: 14, dFt: 14 },
@@ -831,7 +795,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bathroom_1: { wFt: 5, dFt: 10 },
     },
     customPositions: {
-      pooja_0: { xFt: 0, yFt: 0 },
       dining_0: { xFt: 0, yFt: 6 },
       hall_0: { xFt: 9, yFt: 0 },
       bedroom_1: { xFt: 0, yFt: 18 },
@@ -853,13 +816,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "E",
     builtUpAreaSqFt: 1176,
     totalSqFt: 1750,
-    rating: "100% Vaastu / Thachu Shastra",
+    rating: "Kerala Nalukettu Plan",
     description:
-      "Inspired by classical Kerala Nalukettu architecture. Highlights a grand central gathering hall, traditional granary store, pooja sanctum, and airy veranda cross-ventilation.",
+      "Inspired by classical Kerala Nalukettu architecture. Highlights a grand central gathering hall, traditional granary store, and airy veranda cross-ventilation.",
     highlights: [
       "Nalukettu Central Gathering Hall",
       "Traditional Granary & Pantry Store",
-      "Ishanya Sanctum Pooja Room",
       "Thachu Shastra Auspicious Grid",
     ],
     counts: {
@@ -868,13 +830,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 2,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
     customDims: {
       dining_0: { wFt: 12, dFt: 14 },
-      pooja_0: { wFt: 6, dFt: 6 },
       store_0: { wFt: 6, dFt: 6 },
       hall_0: { wFt: 16, dFt: 20 },
       bedroom_1: { wFt: 15, dFt: 12 },
@@ -885,7 +845,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 0, yFt: 14 },
       store_0: { xFt: 6, yFt: 14 },
       hall_0: { xFt: 12, yFt: 0 },
       bedroom_1: { xFt: 0, yFt: 20 },
@@ -922,7 +881,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 1,
-      pooja: 0,
       store: 1,
       entrance: 0,
     },
@@ -957,14 +915,13 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1391,
     totalSqFt: 2400,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
       "An estate-class single-level bungalow with an impressive double-door entrance, formal living salon, banquet-ready dining, gourmet kitchen, pantry store, and three grand king-size bedroom suites with attached baths.",
     highlights: [
       "Palatial Living Salon (19×22 ft)",
       "3 King-Size En-suite Bedrooms",
       "Gourmet Kitchen + Walk-in Store",
-      "Sacred Ishanya Corner Pooja",
     ],
     counts: {
       hall: 1,
@@ -972,13 +929,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 3,
       bathroom: 3,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
     customDims: {
       dining_0: { wFt: 14, dFt: 16 },
-      pooja_0: { wFt: 6, dFt: 6 },
       store_0: { wFt: 8, dFt: 6 },
       hall_0: { wFt: 19, dFt: 22 },
       bedroom_1: { wFt: 16, dFt: 14 },
@@ -988,7 +943,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 0, yFt: 16 },
       store_0: { xFt: 6, yFt: 16 },
       hall_0: { xFt: 14, yFt: 0 },
       bedroom_1: { xFt: 0, yFt: 22 },
@@ -1011,12 +965,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     totalSqFt: 2400,
     rating: "East-Facing Royal Plan",
     description:
-      "A complete 4-bedroom luxury layout offering separate zones for entertaining, private family gatherings, culinary prep, traditional pooja, and 4 dedicated master suites.",
+      "A complete 4-bedroom luxury layout offering separate zones for entertaining, private family gatherings, culinary prep, and 4 dedicated master suites.",
     highlights: [
       "4 Deluxe Bedrooms",
       "East-Facing Auspicious Entrance",
       "Formal Dining & Modular Kitchen",
-      "Dedicated Pooja & Storage",
+      "Dedicated Storage",
     ],
     counts: {
       hall: 1,
@@ -1024,7 +978,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 4,
       bathroom: 3,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
@@ -1064,7 +1017,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       "Inspired by the palatial mansions of Karaikudi and Chettinad. Features pillared front verandah entrance (Thinnai), grand central courtyard hall, traditional granary, and royal master suites.",
     highlights: [
       "Classical Thinnai Front Living Hall",
-      "Pooja Sanctum in Auspicious Ishanya",
       "Grand Feasting Dining Hall",
       "Traditional Granary Store & Kitchen",
     ],
@@ -1074,13 +1026,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 3,
       bathroom: 2,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
     customDims: {
       bedroom_2: { wFt: 16, dFt: 14 },
-      pooja_0: { wFt: 8, dFt: 8 },
       store_0: { wFt: 9, dFt: 8 },
       dining_0: { wFt: 17, dFt: 10 },
       bedroom_1: { wFt: 16, dFt: 14 },
@@ -1090,7 +1040,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       bedroom_2: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 16, yFt: 0 },
       store_0: { xFt: 24, yFt: 0 },
       dining_0: { xFt: 16, yFt: 8 },
       bedroom_1: { xFt: 0, yFt: 14 },
@@ -1126,7 +1075,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 2,
       bathroom: 1,
-      pooja: 0,
       store: 1,
       entrance: 0,
     },
@@ -1161,14 +1109,13 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     facing: "N",
     builtUpAreaSqFt: 1969,
     totalSqFt: 4000,
-    rating: "100% Vaastu Compliant",
+    rating: "North-Facing Plan",
     description:
       "A magnificent luxury mansion designed for expansive 50×80 plots. Grand royal salon, banquet dining, chef's kitchen, presidential master wing with private bath, and 3 guest/children suites.",
     highlights: [
       "Royal Grand Salon (24×26 ft)",
       "Presidential Master Wing (20×24 ft)",
       "Chef's Kitchen with Pantry & Store",
-      "Traditional Ishanya Pooja Mandir",
     ],
     counts: {
       hall: 1,
@@ -1176,13 +1123,11 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 4,
       bathroom: 4,
-      pooja: 1,
       store: 1,
       entrance: 0,
     },
     customDims: {
       dining_0: { wFt: 18, dFt: 18 },
-      pooja_0: { wFt: 9, dFt: 8 },
       store_0: { wFt: 9, dFt: 8 },
       hall_0: { wFt: 24, dFt: 26 },
       bedroom_1: { wFt: 20, dFt: 18 },
@@ -1193,7 +1138,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
-      pooja_0: { xFt: 0, yFt: 18 },
       store_0: { xFt: 9, yFt: 18 },
       hall_0: { xFt: 18, yFt: 0 },
       bedroom_1: { xFt: 0, yFt: 26 },
@@ -1230,7 +1174,6 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       kitchen: 1,
       bedroom: 4,
       bathroom: 4,
-      pooja: 0,
       store: 0,
       entrance: 0,
     },

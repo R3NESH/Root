@@ -20,7 +20,7 @@ import { RoomEdgeCurves } from "@/lib/wallCurves";
 import { WallEdits } from "@/lib/wallEdits";
 import { WindowConfig } from "@/lib/windowCatalog";
 
-export const PROJECT_STORAGE_KEY = "vastu_builder_project_data_v1";
+export const PROJECT_STORAGE_KEY = "plot_to_plan_project_data_v1";
 
 export interface SavedProject {
   plot: PlotDims;

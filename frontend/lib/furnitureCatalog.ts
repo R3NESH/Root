@@ -47,7 +47,7 @@ function massingPiece(
 
 export type FurnitureCategory =
   // residence
-  | "living"| "bedroom"| "dining"| "kitchen"| "office"| "decor"| "sacred"// The fit-out half of the tool. An architect lays the rooms out; an interior designer dresses
+  | "living"| "bedroom"| "dining"| "kitchen"| "office"| "decor"// The fit-out half of the tool. An architect lays the rooms out; an interior designer dresses
   // them, and dressing needs trades of its own: sanitaryware, the appliances big enough that they
   // have to be drawn rather than assumed, the lighting layer, and soft furnishing.
   | "bath"| "appliance"| "lighting"| "soft"// Vertical circulation. Its own trade: a stair is chosen for the shape it folds a fixed climb
@@ -321,18 +321,6 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     icon: "FAB",
     dimensions: { widthFt: 7.5, depthFt: 5.5, heightFt: 0.05 },
     description: "High-pile luxury woven area rug with subtle geometric borders.",
-  },
-
-  // --------------------------------------------------------------------------------------
-  // 5. Sacred & Spiritual
-  // --------------------------------------------------------------------------------------
-  {
-    type: "pooja_mandir",
-    name: "Sacred Teakwood Pooja Mandir",
-    category: "sacred",
-    icon: "MND",
-    dimensions: { widthFt: 3.4, depthFt: 2.2, heightFt: 5.0 },
-    description: "Carved teakwood pooja mandir shrine with pyramid gopuram spire, brass kalash, and diya lamps.",
   },
 
   // --------------------------------------------------------------------------------------
@@ -1144,14 +1132,6 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     description: "Leaning full-length mirror. Doubles the light in a narrow room.",
   },
   {
-    type: "diya_lantern",
-    name: "Brass Diya Lantern",
-    category: "sacred",
-    icon: "DIY",
-    dimensions: { widthFt: 0.9, depthFt: 0.9, heightFt: 1.5 },
-    description: "Brass lamp for the mandir shelf or either side of the entrance.",
-  },
-  {
     type: "throw_pillows",
     name: "Throw Cushion Set",
     category: "soft",
@@ -1863,47 +1843,6 @@ export function createFurnitureMesh(
       break;
     }
 
-    // ----------------------------------------------------------------------------------
-    // 23. Sacred Pooja Mandir Temple
-    // ----------------------------------------------------------------------------------
-    case "pooja_mandir": {
-      const w = 3.4;
-      const d = 2.2;
-
-      // Base Platform
-      const base = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), darkWoodMat);
-      base.position.set(0, 0.6, 0);
-      root.add(base);
-
-      // Inner Sanctum Pillars
-      for (const px of [-w / 2 + 0.3, w / 2 - 0.3]) {
-        for (const pz of [-d / 2 + 0.3, d / 2 - 0.3]) {
-          const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 16), brassMat);
-          pillar.position.set(px, 2.4, pz);
-          root.add(pillar);
-        }
-      }
-
-      // Temple Canopy / Shikhara
-      const canopy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.3, d + 0.2), darkWoodMat);
-      canopy.position.set(0, 3.6, 0);
-      root.add(canopy);
-
-      const dome = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.4, 4), brassMat);
-      dome.position.set(0, 4.4, 0);
-      dome.rotation.y = Math.PI / 4;
-      root.add(dome);
-
-      // Brass Kalash Top
-      const kalash = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), brassMat);
-      kalash.position.set(0, 5.2, 0);
-      root.add(kalash);
-      break;
-    }
-
-    // ----------------------------------------------------------------------------------
-    // 24. Floor Area Rug
-    // ----------------------------------------------------------------------------------
     case "floor_rug": {
       const rug = new THREE.Mesh(
         new THREE.BoxGeometry(7.5, 0.04, 5.5),
@@ -3927,25 +3866,6 @@ export function createFurnitureMesh(
       );
       glass.position.set(0, 2.7, 0.12);
       root.add(frame, glass);
-      break;
-    }
-
-    case "diya_lantern": {
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.16, 18), brassMat);
-      base.position.y = 0.08;
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.85, 12), brassMat);
-      stem.position.y = 0.6;
-      const bowl = new THREE.Mesh(
-        new THREE.SphereGeometry(0.34, 18, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
-        brassMat
-      );
-      bowl.position.y = 1.2;
-      const flame = new THREE.Mesh(
-        new THREE.ConeGeometry(0.12, 0.3, 12),
-        new THREE.MeshStandardMaterial({ color: 0xffd27f, emissive: 0xffa63d, emissiveIntensity: 1.2, roughness: 0.3 })
-      );
-      flame.position.y = 1.4;
-      root.add(base, stem, bowl, flame);
       break;
     }
 

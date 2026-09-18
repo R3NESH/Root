@@ -7,8 +7,8 @@ add_no_overlap_2d. Envelope containment falls out of the interval end variables'
 Step 4 adds the drift objective (notes/solver/layout-stability.md): minimise displacement from
 the previous solution so the solver prefers the layout the user is already looking at.
 
-Step 5 adds Vaastu direction constraints (notes/decisions/vaastu-as-constraints.md), applied up
-front rather than scored afterwards.
+Step 5 adds a programme's directional zone constraints (zoning.py), applied up front
+rather than scored afterwards.
 """
 
 from collections.abc import Sequence
@@ -17,9 +17,8 @@ from dataclasses import dataclass, field, replace
 from ortools.sat.python import cp_model
 
 from programs import RESIDENTIAL, Program, primary_cardinal, resolve_rules
-from vaastu import add_quadrant_constraint
-from vaastu.rules import QuadrantRule
 
+from zoning import QuadrantRule, add_quadrant_constraint
 from .connectivity import (
     EXTERIOR_WALL_IN,
     INTERIOR_WALL_IN,
@@ -51,7 +50,7 @@ from .walls import Wall, derive_walls
 
 # Cold solve budget. Measured 2026-08-25 across a 3BHK and a twelve-room program: raising this
 # from 2 s to 5 s moved envelope fill by about one point on the common case and never changed
-# reachability or Vaastu. Three extra seconds of blank screen bought nothing anyone can see.
+# reachability or zoning. Three extra seconds of blank screen bought nothing anyone can see.
 SOLVE_TIME_LIMIT_SECONDS = 2.0
 
 # Interactive budget, for a solve that already has previous positions to drift from. 0.4 s is
@@ -98,17 +97,17 @@ class SolveResult:
     status: str
     rooms: list[PlacedRoom]
     solve_ms: float
-    vaastu_constraints_applied: list[str] = field(default_factory=list)
+    rules_applied: list[str] = field(default_factory=list)
     entrance_edge: str | None = None
     rooms_reachable: int = 0
-    # True when Vaastu was asked for, some room in the mix has a rule, and the relaxation ladder
-    # still handed back a layout with none of them posted. An empty
-    # `vaastu_constraints_applied` on its own cannot say this: a hall-and-bathroom house has no
-    # rule to apply and is not a relaxed one. Callers need the difference — a plan that breaks
-    # Vaastu is a rejected plan, not a worse one (notes/decisions/vaastu-as-constraints.md).
-    vaastu_relaxed: bool = False
-    # Which building programme was packed, and what its directional rules are called. A cafe
-    # posts a service-flow zoning, not Vaastu, and must not be reported as if it did.
+    # True when zone rules were asked for, some room in the mix has a rule, and the relaxation
+    # ladder still handed back a layout with none of them posted. An empty `rules_applied` on
+    # its own cannot say this: a mix with no rule to apply is not a relaxed one. Callers need
+    # the difference — a plan that breaks its programme's zoning is a rejected plan, not a
+    # worse one.
+    rules_relaxed: bool = False
+    # Which building programme was packed, and what its directional rules are called. A
+    # programme that posts no zoning must not be reported as if it did.
     program: str = RESIDENTIAL.key
     rules_label: str = RESIDENTIAL.rules_label
     # Walls as objects, and what they cost to build. Derived post-solve from the placed rooms and
@@ -136,7 +135,7 @@ def _rule_targets(rooms: list[Room], rules: dict[str, QuadrantRule]) -> dict[int
     """Which room index carries which directional rule.
 
     First room of a kind only: constraining two bedrooms into the same half-plane
-    over-constrains the model for no Vaastu reason, and pinning every one of four cafe tables
+    over-constrains the model for no zoning reason, and pinning every one of four cafe table
     zones to the same band does the same.
     """
     targets: dict[int, str] = {}
@@ -155,10 +154,10 @@ def _build_and_solve(
     env_d_in: int,
     rooms: list[Room],
     prev: dict[int, tuple[int, int]] | None,
-    apply_vaastu: bool,
+    apply_zone_rules: bool,
     connect_rooms: bool,
     time_limit: float,
-    vaastu_exempt: frozenset[int] = frozenset(),
+    zone_exempt: frozenset[int] = frozenset(),
     require_daylight: bool = True,
     maximise_area: bool = True,
     program: Program = RESIDENTIAL,
@@ -270,7 +269,7 @@ def _build_and_solve(
     add_aspect_constraints(model, var_dicts, rooms)
 
     applied: list[str] = []
-    if apply_vaastu:
+    if apply_zone_rules:
         if program.street_edge_spaces:
             # Only the ground floor meets the street. A first-floor room held to the street edge
             # is a rule applied to a boundary it does not touch.
@@ -286,9 +285,9 @@ def _build_and_solve(
             )
         for i, description in _rule_targets(rooms, rules).items():
             # A room the user dragged is released from its quadrant — but only that room.
-            # notes/solver/vaastu-and-connectivity-drop-on-edit.md: releasing the whole rule set
-            # because `prev` was supplied is what silently un-Vaastu'd every edit.
-            if i in vaastu_exempt:
+            # Releasing the whole rule set because `prev` was supplied is what silently
+            # un-zoned every edit.
+            if i in zone_exempt:
                 continue
             room, x, y, w, d = placements[i]
             rule = rules.get(room.name)
@@ -350,7 +349,7 @@ def solve_layout(
     env_d_in: int,
     rooms: list[Room],
     prev: dict[int, tuple[int, int]] | None = None,
-    apply_vaastu: bool = False,
+    apply_zone_rules: bool = False,
     connect_rooms: bool = True,
     moved_index: int | None = None,
     program: Program = RESIDENTIAL,
@@ -381,10 +380,10 @@ def solve_layout(
 
     time_limit = interactive_budget(len(rooms)) if prev else SOLVE_TIME_LIMIT_SECONDS
 
-    # Only the room the user actually dragged is released from its Vaastu quadrant. Having
+    # Only the room the user actually dragged is released from its zone quadrant. Having
     # `prev` at all means "we have previous positions", which is true on every solve after the
-    # first — see notes/solver/vaastu-and-connectivity-drop-on-edit.md for what that cost.
-    vaastu_exempt = frozenset({moved_index}) if moved_index is not None else frozenset()
+    # first, and releasing every rule on that basis silently un-zoned each edit.
+    zone_exempt = frozenset({moved_index}) if moved_index is not None else frozenset()
 
     # The relaxation ladder. Each rung drops the least important thing still standing.
     #
@@ -393,10 +392,10 @@ def solve_layout(
     # ladder shed it as a last resort and produced exactly that: 1 of 8 rooms reachable, from a
     # solve reported as OPTIMAL. If nothing on this ladder fits, INFEASIBLE is the honest answer
     # and the UI can say "too many rooms for this plot", which is at least actionable.
-    def attempt(rs, vaastu, daylight, area):
+    def attempt(rs, zoned, daylight, area):
         return _build_and_solve(
-            env_w_in, env_d_in, rs, prev, vaastu, connect_rooms, time_limit,
-            vaastu_exempt, require_daylight=daylight, maximise_area=area,
+            env_w_in, env_d_in, rs, prev, zoned, connect_rooms, time_limit,
+            zone_exempt, require_daylight=daylight, maximise_area=area,
             program=program, facing=facing, halfplanes=halfplanes, aligned=aligned,
             # The last rung drops the area preference to buy speed on a mix that is barely
             # fitting. The pair preference goes with it, for the same reason and at the same
@@ -424,17 +423,17 @@ def solve_layout(
     ]
 
     ladder = [
-        # rooms,          vaastu,       daylight, area   — what this rung gives up
-        (rooms,           apply_vaastu, True,     True),   # nothing
-        (flexible_rooms,  apply_vaastu, True,     True),   # custom sizes
-        (flexible_rooms,  apply_vaastu, False,    True),   # daylight
-        (flexible_rooms,  False,        False,    True),   # Vaastu
+        # rooms,          zoning,       daylight, area   — what this rung gives up
+        (rooms,           apply_zone_rules, True,     True),   # nothing
+        (flexible_rooms,  apply_zone_rules, True,     True),   # custom sizes
+        (flexible_rooms,  apply_zone_rules, False,    True),   # daylight
+        (flexible_rooms,  False,        False,    True),   # zone rules
         (flexible_rooms,  False,        False,    False),  # the area preference, for speed
     ]
 
     status = solver = placements = applied = None
-    for rs, vaastu, daylight, area in ladder:
-        status, solver, placements, applied = attempt(rs, vaastu, daylight, area)
+    for rs, zoned, daylight, area in ladder:
+        status, solver, placements, applied = attempt(rs, zoned, daylight, area)
         if ok(status):
             break
 
@@ -521,7 +520,7 @@ def solve_layout(
     expected_rules = {
         i
         for i in _rule_targets(rooms, resolve_rules(program, facing))
-        if i not in vaastu_exempt
+        if i not in zone_exempt
     }
 
     # Per floor, then re-indexed: derive_walls pairs rooms that share a run, and two rooms on
@@ -546,10 +545,10 @@ def solve_layout(
         solve_ms=solve_ms,
         walls=walls,
         quantities=take_off(placed, walls),
-        vaastu_constraints_applied=applied,
+        rules_applied=applied,
         entrance_edge=entrance_edge,
         rooms_reachable=reachable_count(placed, openings, hub, aligned),
-        vaastu_relaxed=bool(apply_vaastu and expected_rules and not applied),
+        rules_relaxed=bool(apply_zone_rules and expected_rules and not applied),
         program=program.key,
         rules_label=program.rules_label,
     )

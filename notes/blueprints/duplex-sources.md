@@ -17,7 +17,7 @@ invented:
 |---|---|---|
 | 30×40 | G+1 split: living 12×14, parents' bedroom + bath on the ground; master 12×14 with ensuite and a 10×10 second bedroom above | [PlanMyPlot 30×40](https://www.planmyplot.com/house-plans/30x40-house-plan) |
 | 30×40 | 3BHK duplex programme on a 1,200 sq ft site | [Happho plan 028](https://happho.com/sample-floor-plan/30x40-duplex-3-bedroom-house-plan-028/) |
-| 30×50 | East-facing 3–4BHK duplex with pooja room; living to the north-east, kitchen north-west | [MakeMyHouse 30×50](https://www.makemyhouse.com/architectural-design/30x50-1500sqft-home-design/1059/122), [Happho plan 042](https://happho.com/sample-floor-plan/30x50-vastu-3-bhk-house-plan-east-facing-042/) |
+| 30×50 | East-facing 3–4BHK duplex; living to the north-east, kitchen north-west | [MakeMyHouse 30×50](https://www.makemyhouse.com/architectural-design/30x50-1500sqft-home-design/1059/122), [Happho plan 042](https://happho.com/sample-floor-plan/30x50-vastu-3-bhk-house-plan-east-facing-042/) |
 | 40×60 | Villa-scale duplex: 16×18 living, 10×14 island kitchen, 12×16 master, 12×12 and 10×12 beyond | [PlanMyPlot 40×60](https://www.planmyplot.com/house-plans/40x60-house-plan) |
 | 20×30 | 600 sq ft site, ~492 sq ft of footprint per floor after setbacks, 2BHK over G+1 | [HouseYog 20×30](https://www.houseyog.com/20x30-house-plans) |
 
@@ -34,7 +34,7 @@ while the solver stops at each room's catalogue maximum. Quoting their number ov
 would be a claim the plan does not deliver.
 
 Verified at the time of writing: all four solve, every room reachable through the stair core, and
-none of them needed the Vaastu rung of the relaxation ladder.
+none of them needed the zoning rung of the relaxation ladder.
 
 | Plan | Status | Carpet, ground | Carpet, first |
 |---|---|---|---|
@@ -50,7 +50,7 @@ on the ground floor's footprint.
 
 `duplex_30x50_glazed_stair_tower` came from a rendered street elevation the user supplied — a
 BungalowMakers design, watermarked, plot marker "B-09". No floor plan was available for it: the
-published pages for their 30×50 duplex give the programme (3BHK, pooja, kitchen, parking, garden,
+published pages for their 30×50 duplex give the programme (3BHK, kitchen, parking, garden,
 east-facing, 1,500 sq ft per floor) and no room dimensions, and the specific design did not turn
 up in search.
 

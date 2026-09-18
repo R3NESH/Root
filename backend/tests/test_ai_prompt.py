@@ -29,7 +29,6 @@ def _answer(**overrides) -> PlanRequest:
         floors=1,
         rooms=["hall", "kitchen", "bedroom"],
         near=[],
-        apply_vaastu=True,
         unsupported=[],
     )
     base.update(overrides)

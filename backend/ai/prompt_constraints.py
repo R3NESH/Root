@@ -5,9 +5,8 @@ The model's job here is vocabulary, not design. It maps what a person said — "
 that solver/model.py already enforces, and says so plainly when an ask has no such mapping.
 
 **It never emits geometry.** No coordinates, no room sizes, no adjacency it decided on its own.
-CP-SAT places the rooms and stays the only thing that can prove a plan legal, which is what
-notes/decisions/vaastu-as-constraints.md requires: a plan that breaks Vaastu is a rejected
-plan, and a language model cannot do the rejecting.
+CP-SAT places the rooms and stays the only thing that can prove a plan legal: a plan that
+breaks a constraint is a rejected plan, and a language model cannot do the rejecting.
 
 **Nothing is silently dropped.** An ask the catalog cannot express comes back in `unsupported`
 and the caller is expected to show it. A swimming pool that quietly vanishes is the same class
@@ -67,7 +66,7 @@ class PlanRequest(BaseModel):
         description=(
             "One entry per room, repeated for counts: a 3BHK is three 'bedroom' entries. Use "
             "ONLY these names: hall (living room, drawing room), dining, kitchen, bedroom, "
-            "bathroom (toilet, washroom, attached bath), pooja (puja, prayer, mandir), store "
+            "bathroom (toilet, washroom, attached bath), store "
             "(storage, box room), entrance (foyer, entry lobby), utility (wash area, washing "
             "area, laundry), sitout (veranda, verandah, balcony, patio, portico), parking "
             "(car porch, car park, garage, car shed). A BHK count means bedrooms only: a 2BHK "
@@ -80,12 +79,6 @@ class PlanRequest(BaseModel):
             "Pairs the person wants close together, as two 0-based indices into the `rooms` "
             "list you just produced — [[2, 4]] means rooms[2] and rooms[4]. Only a pair they "
             "actually asked for. Empty list if they asked for none."
-        )
-    )
-    apply_vaastu: bool = Field(
-        description=(
-            "True unless the person said they do not want Vaastu. Default true: it is the "
-            "normal expectation for an Indian house."
         )
     )
     unsupported: list[str] = Field(
@@ -125,7 +118,6 @@ class ResolvedPlan:
     floors: int
     rooms: list[str]
     near: list[list[int]]
-    apply_vaastu: bool
     unsupported: list[str] = field(default_factory=list)
     # True when the model left a field empty and the default above was used instead. The caller
     # has to ask rather than present a 30x40 north-facing plot as though it had been stated.
@@ -180,7 +172,6 @@ def resolve(parsed: PlanRequest) -> ResolvedPlan:
         floors=floors,
         rooms=rooms,
         near=near,
-        apply_vaastu=parsed.apply_vaastu,
         unsupported=unsupported,
         assumed_plot=assumed_plot,
         assumed_facing=assumed_facing,

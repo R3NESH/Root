@@ -54,7 +54,6 @@ interface AIFacadeResponseBody {
     plot_d_in: number;
     floors: number;
     rooms: string[];
-    apply_vaastu: boolean;
   };
   facade: FacadeFields;
   interior: Record<string, RoomFinishBody>;

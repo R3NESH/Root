@@ -8,7 +8,13 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from envelope import DEFAULT_SETBACK, buildable_envelope, buildable_polygon, is_convex
-from envelope.polygon import HalfPlane, inset, outward_halfplanes, signed_area2
+from envelope.polygon import (
+    MAX_VERTICES,
+    HalfPlane,
+    inset,
+    outward_halfplanes,
+    signed_area2,
+)
 
 client = TestClient(app)
 
@@ -16,6 +22,48 @@ W_IN, D_IN = 360, 480  # a 30 x 40 ft plot
 RECT = [(0, 0), (W_IN, 0), (W_IN, D_IN), (0, D_IN)]
 # 6 ft cut off the north-east corner: the ordinary corner-plot splay.
 SPLAYED = [(0, 0), (W_IN - 72, 0), (W_IN, 72), (W_IN, D_IN), (0, D_IN)]
+
+
+def _hull(points):
+    """Monotone-chain convex hull over integer points, collinear points dropped.
+
+    The same construction frontend/lib/plot.ts uses to turn a curve into chords. It is repeated
+    here rather than imported because the backend must not depend on the client agreeing to be
+    well behaved — these tests assert the backend accepts what a correct producer sends.
+    """
+    pts = sorted(set(points))
+    if len(pts) <= 2:
+        return pts
+
+    def half(seq):
+        out = []
+        for q in seq:
+            while len(out) >= 2:
+                (ax, ay), (bx, by) = out[-2], out[-1]
+                if (bx - ax) * (q[1] - ay) - (by - ay) * (q[0] - ax) > 0:
+                    break
+                out.pop()
+            out.append(q)
+        return out
+
+    return half(pts)[:-1] + half(list(reversed(pts)))[:-1]
+
+
+def bowed_road_edge(chords: int, bulge_in: int = 72):
+    """The 30x40 plot with its north edge bowed outward as `chords` straight segments.
+
+    A plot on the outside of a bend. The bow is convex, which is the only curvature a
+    half-plane intersection can express at all — see envelope/polygon.py.
+    """
+    from math import pi, sin
+
+    pts = [
+        (round(i / chords * W_IN), round(-bulge_in * sin(pi * i / chords)))
+        for i in range(chords + 1)
+    ]
+    pts += [(W_IN, D_IN), (0, D_IN)]
+    lift = -min(y for _, y in pts)
+    return _hull([(x, y + lift) for x, y in pts])
 
 
 def test_convexity_check():
@@ -118,3 +166,76 @@ def test_a_rejected_outline_still_solves_as_a_rectangle():
     assert body["meta"]["status"] in ("OPTIMAL", "FEASIBLE")
     assert body["meta"]["envelope_polygon_in"] is None
     assert body["meta"]["envelope_w_in"] == buildable_envelope(W_IN, D_IN, "N", DEFAULT_SETBACK).width_in
+
+
+# --- curved plot edges -----------------------------------------------------------------
+#
+# A curve reaches the solver as chords. Two things bound how many: MAX_VERTICES, and integer
+# inches, which is the tighter of the two. Rounding a sampled curve onto the inch lattice
+# reverses chord turns once the chords get short, and is_convex() then rejects the whole
+# outline — measured at 22 chords for a 6 ft bow. Hulling the rounded points fixes it by
+# construction, and these lock that in.
+
+
+def test_a_finely_sampled_curve_rounds_itself_non_convex():
+    """The reason the producer hulls. Without it, a fine tessellation is simply rejected."""
+    from math import pi, sin
+
+    raw = [
+        (round(i / 32 * W_IN), round(-72 * sin(pi * i / 32)))
+        for i in range(33)
+    ]
+    raw += [(W_IN, D_IN), (0, D_IN)]
+    lift = -min(y for _, y in raw)
+    raw = [(x, y + lift) for x, y in raw]
+
+    assert not is_convex(raw), "expected integer rounding to break convexity at 32 chords"
+    assert is_convex(bowed_road_edge(32)), "the hull must repair it"
+
+
+def test_hulling_collapses_a_fine_curve_under_the_vertex_cap():
+    """64 chords is more than MAX_VERTICES, and must not need to be refused.
+
+    Rounding makes most of a fine tessellation collinear, so the hull drops it. The cap is
+    therefore a cap on real corners, not on how smoothly the user may draw.
+    """
+    assert len(bowed_road_edge(64)) <= MAX_VERTICES
+    assert len(bowed_road_edge(64)) > len(bowed_road_edge(4))
+
+
+def test_a_bowed_road_edge_grows_the_plot_it_bows_out_of():
+    """A bow outward is more land, so the buildable area may not shrink below the rectangle's."""
+    flat = buildable_polygon(RECT, "N", DEFAULT_SETBACK)
+    bowed = buildable_polygon(bowed_road_edge(16), "N", DEFAULT_SETBACK)
+    assert flat is not None and bowed is not None
+    assert bowed.depth_in >= flat.depth_in
+
+
+def test_solve_keeps_every_room_inside_a_curved_plot():
+    poly = bowed_road_edge(16)
+    body = _solve(poly)
+    assert body["meta"]["status"] in ("OPTIMAL", "FEASIBLE")
+    assert body["rooms"]
+
+    env = buildable_polygon(poly, "N", DEFAULT_SETBACK)
+    assert env is not None
+    planes = [inset(pl, 36) for pl in outward_halfplanes(poly)]
+    for room in body["rooms"]:
+        corners = [
+            (room["x_in"], room["y_in"]),
+            (room["x_in"] + room["w_in"], room["y_in"]),
+            (room["x_in"], room["y_in"] + room["d_in"]),
+            (room["x_in"] + room["w_in"], room["y_in"] + room["d_in"]),
+        ]
+        for plane in planes:
+            for cx, cy in corners:
+                assert plane.a * cx + plane.b * cy <= plane.c, (room["name"], plane)
+
+
+def test_an_outline_past_the_vertex_cap_is_refused_not_crashed():
+    many = [(round(180 + 180 * __import__("math").cos(i * 2 * __import__("math").pi / 40)),
+             round(240 + 240 * __import__("math").sin(i * 2 * __import__("math").pi / 40)))
+            for i in range(40)]
+    many = _hull(many)
+    if len(many) > MAX_VERTICES:
+        assert buildable_polygon(many, "N", DEFAULT_SETBACK) is None

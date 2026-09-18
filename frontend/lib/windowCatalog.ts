@@ -153,7 +153,7 @@ export const WINDOW_SHAPES: WindowShapeDef[] = [
     tag: "Architectural Accent",
     description: "Circular round focal window with crosshair framing for a modern nautical or zen look.",
     aspectRatio: "Circular (1:1)",
-    recommendedFor: "Pooja Room, Staircase, Foyer",
+    recommendedFor: "Staircase, Foyer",
   },
   {
     id: "corner_glass",

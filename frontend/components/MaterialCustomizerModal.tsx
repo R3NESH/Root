@@ -28,7 +28,7 @@ export default function MaterialCustomizerModal({
   onClose,
   config,
   onChangeConfig,
-  activeRooms = ["hall", "kitchen", "bedroom", "pooja", "bathroom"],
+  activeRooms = ["hall", "kitchen", "bedroom", "bathroom"],
 }: MaterialCustomizerModalProps) {
   const [selectedTarget, setSelectedTarget] = useState<"global" | RoomName>("global");
   const [activeTab, setActiveTab] = useState<"floor" | "wall" | "doors" | "smoothness" | "presets">("floor");
@@ -181,14 +181,12 @@ export default function MaterialCustomizerModal({
         hall: randomFloor(),
         kitchen: randomFloor(),
         bedroom: randomFloor(),
-        pooja: randomFloor(),
         bathroom: randomFloor(),
       },
       roomWallColors: {
         hall: randomColor(),
         kitchen: randomColor(),
         bedroom: randomColor(),
-        pooja: randomColor(),
         bathroom: randomColor(),
       },
       roomWallTextures: {

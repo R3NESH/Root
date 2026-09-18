@@ -2,7 +2,7 @@
 
 All sizes are in inches — see notes/decisions/integer-inches.md.
 
-The v1 catalog held five kinds (hall, kitchen, bedroom, bathroom, pooja). That is enough to
+The v1 catalog held four kinds (hall, kitchen, bedroom, bathroom). That is enough to
 test a packer and not enough to describe a house — see notes/solver/realism-gaps.md, which
 added six more. Four of those (parking porch, sit-out, staircase, utility) were removed again
 on 2026-08-25; the reasons are in notes/decisions/rejected-approaches.md. Three came back on
@@ -81,7 +81,6 @@ ROOM_CATALOG: dict[str, Room] = {
     # the walkway stop coexisting.
     "kitchen": Room("kitchen", ft(7), ft(11), ft(8), ft(10), wet=True),
     # --- service: no daylight requirement ---------------------------------------------
-    "pooja": Room("pooja", ft(3), ft(5), ft(3), ft(5), habitable=False),
     # 4x6 clears the NBC 1.5 m2 floor and is a real Indian bathroom. A 5 ft minimum was carried
     # briefly because test_every_room_gets_a_window_or_a_vent_where_it_can failed at 4 ft - but
     # the cause was connectivity gating VENTS on a WINDOW-sized wall, not the room being too

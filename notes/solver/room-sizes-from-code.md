@@ -80,7 +80,7 @@ The `void` column arrived later and is a separate finding: see [[compact-footpri
 
 ## The two that did not move are a different bug
 
-Both remaining failures are **INFEASIBLE with every constraint switched off**, including Vaastu,
+Both remaining failures are **INFEASIBLE with every constraint switched off**, including zoning,
 connectivity, daylight and the area objective. Raw rectangle packing cannot do it, so no
 constraint is to blame — the envelope is simply too small, and the envelope is too small because
 [[environment-notes|setbacks are hardcoded]] at 5 ft front and rear, 3 ft each side regardless of

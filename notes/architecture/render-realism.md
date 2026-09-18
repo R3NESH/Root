@@ -100,7 +100,6 @@ than the thing they looked like:
   as twin bypassing panels only on custom drawn walls, because the solver-room
   path owns the interactive door from [[step-6-walkthrough]].
 - `study_desk`, `vanity_table`, `tv_unit`, `refrigerator`, `kitchen_island` and
-  `pooja_mandir` have no honest CC0 match and still render as primitives.
 
 **Links.** [[codebase-map]] · [[furniture-models]] · [[realism-gaps]] ·
 [[project-status]] · [[step-1-threejs-shell]]

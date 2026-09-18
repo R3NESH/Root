@@ -15,7 +15,7 @@ date: 2026-08-24
 > |---|---|---|---|
 > | **Without** drift objective | 2381 in | **1153 in (96 ft)** | 59 |
 > | **With** drift objective | **0 in** | 0 in | 66 |
-> | With drift **+ Vaastu** | **0 in** | 0 in | 76 |
+> | With drift **+ zone rules** | **0 in** | 0 in | 76 |
 >
 > A 96-foot jump is a room teleporting clean across the house and out the other side. That is
 > exactly the failure [[layout-stability]] predicted, and it happens on a five-room plan — not
@@ -30,8 +30,8 @@ solved it. "We fixed a real problem" and "nobody else fixed it" are different cl
 
 ## The predicted failure mode also happened — and was fixed
 
-[[layout-stability]] warned solve time could jump to seconds once Vaastu stacked on the drift
-objective. It did: **962 ms with drift alone, 1490 ms with drift + Vaastu**, against a 500 ms
+[[layout-stability]] warned solve time could jump to seconds once zone rules stacked on the drift
+objective. It did: **962 ms with drift alone, 1490 ms with drift + zone rules**, against a 500 ms
 budget.
 
 The cause was CP-SAT *proving* the drift objective optimal, not finding a good layout — a good

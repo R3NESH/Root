@@ -13,8 +13,8 @@ See [[project-phases]] for why this is stated explicitly: it is a correction to 
 brief, not a restatement of it.
 
 The engine is a constraint solver (Google OR-Tools CP-SAT) that places rooms as non-overlapping
-rectangles inside a setback-derived buildable envelope, with Vaastu direction rules encoded as
-constraints rather than checked afterwards. See [[cp-sat-api]] and [[vaastu-as-constraints]].
+rectangles inside a setback-derived buildable envelope, with directional zone rules encoded as
+constraints rather than checked afterwards. See [[cp-sat-api]] and rules-as-constraints.
 Those rectangles get extruded into a real 3D massing model — see [[step-3-wire-together]].
 
 Market is India and only India: [[india-only]].

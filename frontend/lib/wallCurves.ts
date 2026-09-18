@@ -3,8 +3,8 @@
 // A bay window, a bowed entrance wall, an apsidal end. The solver still packs rectangles — a
 // curve is not something CP-SAT's no-overlap can be given (backend/solver/model.py) — so the
 // curve lives on the *face* of a wall the solver already placed, as a bulge measured from the
-// straight run it replaces. The room's footprint, its area, its adjacencies and its Vaastu
-// quadrant are all exactly what they were.
+// straight run it replaces. The room's footprint, its area and its adjacencies are all exactly
+// what they were.
 //
 // The curve is a quadratic Bézier rather than a true circular arc. For the bulges a wall can
 // take (capped below at a fraction of the run) the two are within a fraction of an inch of each

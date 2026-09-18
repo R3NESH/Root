@@ -4,12 +4,11 @@ The same contract as prompt_constraints.py, against a different kind of input: t
 what is *printed on the drawing* — room labels, dimension strings, the north arrow — and fills
 in the constraint vocabulary the solver already enforces. It still emits no geometry. No
 coordinates, no placement, no adjacency it decided on its own; CP-SAT places the rooms and stays
-the only thing that can prove a plan legal, which is what notes/decisions/vaastu-as-constraints.md
-requires.
+the only thing that can prove a plan legal.
 
 **The output is not a tracing.** The plan that comes back is a legal plan resembling the one in
 the photo, not the one in the photo. Room sizes read off the drawing are passed as a *band*
-around the printed number, not as a pin: a pinned set of exact sizes plus setbacks, Vaastu,
+around the printed number, not as a pin: a pinned set of exact sizes plus setbacks,
 connectivity and daylight is how you get INFEASIBLE instead of a house. The caller has to say
 this out loud to the person who uploaded the photo — presenting a re-solved plan as their own
 plan is the defect in notes/architecture/client-side-fallback.md with a camera attached.
@@ -86,8 +85,8 @@ What to read, and only what to read:
 
 - Room labels. A room goes in `rooms` only if the drawing labels it. Map the label onto the \
 allowed names: BED ROOM and M.BED are bedroom, DRAWING and LIVING are hall, TOILET and W.C. are \
-bathroom, PUJA and DEVARA MANE are pooja, SIT OUT and VERANDAH are sitout, CAR PARK and PORCH \
-are parking, WASH AREA is utility.
+bathroom, SIT OUT and VERANDAH are sitout, CAR PARK and PORCH are parking, WASH AREA is \
+utility. A label with no allowed name goes in `unsupported`, never forced onto a near match.
 - The dimension string printed beside each label, into `room_sizes`.
 - The overall plot dimensions, from the boundary dimension line or the title block.
 - The north arrow, or text like EAST FACING. `facing` is the direction the ROAD lies in from the \

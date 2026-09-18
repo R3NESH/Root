@@ -38,7 +38,7 @@ The module README is the graph node standing in for the code.
 | `backend/solver/walls.py` | Walls as Objects | **done** — Derives every wall once from the placed rooms with an id, endpoints, thickness and the openings it hosts. A shared partition is one wall, not one per room. Implements [[walls-as-objects]] |
 | `backend/solver/quantities.py` | Bill of Quantities | **done** — Carpet and built-up area, masonry, bricks, mortar, plaster and a door/window schedule counted off the walls. Quantities only; rates are the caller's |
 | `backend/solver/bench_realism.py` | Realism Benchmark | **done** — Feasibility, fill vs catalog ceiling, wet-room spread, through-private rooms and worst aspect across 7 real plot/mix scenarios. The instrument [[room-sizes-from-code]] was measured with |
-| `backend/programs/registry.py` | Building Programme Packs | **done** — Residence (Vaastu) and Café (service-flow zoning) as data; hub, parent tree, forbidden pairs and directional rules per building type |
+| `backend/programs/registry.py` | Building Programme Packs | **done** — Residence and Café (service-flow zoning) as data; hub, parent tree, forbidden pairs and directional rules per building type |
 | `backend/ai/prompt_constraints.py` | Free-Text Input | **done** 2026-09-06 — Claude maps a sentence onto the room vocabulary, `resolve()` validates the answer against the catalog and moves what it cannot express into `unsupported`. Constraints only; CP-SAT still places every room. No offline path — [[free-text-input]] |
 | `frontend/lib/aiPlan.ts` | Free-Text Client (TS) | **done** 2026-09-06 — Calls `POST /ai/plan`, re-expresses the model's room pairs as ids so they survive the app rebuilding its mix, and surfaces `unsupported` and the assumed plot/facing rather than swallowing them |
 | `backend/ai/plan_from_image.py` | Plan-Photo Input | **done** 2026-09-12 — Claude reads a photographed floor plan into the same schema plus the dimensions printed on it. Each read dimension becomes a band, not a pin, so the plan is re-solved rather than traced; an image that is not a floor plan returns no rooms — [[free-text-input]] |
@@ -87,11 +87,11 @@ The module README is the graph node standing in for the code.
 | `frontend/lib/interiorDetails.ts` | [[step-6-walkthrough]] | **done** — procedural PBR textures, furniture, door-aware placement |
 | `frontend/app/page.tsx` | composition root; CAD ribbon, 3D viewport, 2D blueprint modes | **done** |
 | `frontend/app/globals.css` | [[chrome-is-monochrome]] — design tokens: ink/surface ramps, 7-step type scale, 2px spacing scale, 3-step radius | **done** — chrome is monochrome, colour reserved for data |
-| `backend/solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — placement, drift, Vaastu, relaxation ladder clamped bounds |
+| `backend/solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — placement, drift, zoning, relaxation ladder clamped bounds |
 | `backend/solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation against the built footprint, area objective |
 | `backend/solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, entrance priority, `derive_openings`, `derive_windows` |
 | `backend/solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — **8 room kinds**, each carrying `habitable` / `wet` / `max_aspect_x10` |
-| `backend/vaastu/rules.py` | [[vaastu-as-constraints]] | **done** — corrected Ishanya NE pooja quadrant coordinates |
+| `backend/zoning.py` | directional zone rules | **done** — quadrant constraints; the café pack uses them, the residence posts none |
 | `backend/api/main.py` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
 | `backend/tests/` | [[test-baseline]] | **50/50 passing** (100%) |
 

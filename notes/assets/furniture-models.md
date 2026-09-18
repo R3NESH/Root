@@ -83,7 +83,7 @@ The swap is additive and failure-tolerant:
 ## Not yet mapped
 
 `study_desk`, `vanity_table`, `tv_unit`, `refrigerator`, `kitchen_island`,
-`pooja_mandir`, `bed_single`, `dining_round` and the café-specific pieces still
+`bed_single`, `dining_round` and the café-specific pieces still
 render procedurally. No CC0 model in the set is an honest match; a wrong model
 reads worse than a clean box.
 

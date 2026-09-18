@@ -67,22 +67,22 @@ def test_drift_solve_stays_within_budget():
     assert worst_ms < SOLVE_BUDGET_MS, f"slowest drift solve {worst_ms:.1f}ms exceeds {SOLVE_BUDGET_MS}ms"
 
 
-def test_drift_and_vaastu_together_stay_within_budget():
-    # The failure mode notes/solver/layout-stability.md predicts: Vaastu constraints stacked on
+def test_drift_and_zone_rules_together_stay_within_budget():
+    # The failure mode notes/solver/layout-stability.md predicts: zone constraints stacked on
     # the drift objective blowing the time budget.
     rooms = _rooms()
-    base = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    base = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
     assert base.status in ("OPTIMAL", "FEASIBLE")
     prev = _positions(base)
 
     worst_ms = 0.0
     for env_w in _edit_sequence():
-        result = solve_layout(env_w, ENV_D_IN, rooms, prev=prev, apply_vaastu=True)
+        result = solve_layout(env_w, ENV_D_IN, rooms, prev=prev, apply_zone_rules=True)
         assert result.status in ("OPTIMAL", "FEASIBLE")
         worst_ms = max(worst_ms, result.solve_ms)
         prev = _positions(result)
 
-    assert worst_ms < SOLVE_BUDGET_MS, f"slowest drift+vaastu solve {worst_ms:.1f}ms exceeds {SOLVE_BUDGET_MS}ms"
+    assert worst_ms < SOLVE_BUDGET_MS, f"slowest drift+zoning solve {worst_ms:.1f}ms exceeds {SOLVE_BUDGET_MS}ms"
 
 
 def test_interactive_time_limit_enforces_the_budget():

@@ -114,18 +114,17 @@ class SolveRequest(BaseModel):
     # core is added to every floor — see notes/decisions/single-storey-first.md.
     floors: int = 1
     prev: list[PrevRoom] | None = None
-    apply_vaastu: bool = True
+    apply_zone_rules: bool = True
     # Which building programme to pack — "residence" (default) or "cafe". An old client that
     # sends nothing keeps the behaviour it has always had; see programs/registry.py.
     program: str = RESIDENTIAL.key
-    # Index of the room the user just dragged. Only that room is released from its Vaastu
-    # quadrant — notes/solver/vaastu-and-connectivity-drop-on-edit.md.
+    # Index of the room the user just dragged. Only that room is released from its zone
+    # quadrant; releasing every rule on an edit is what silently un-zoned each drag.
     moved_index: int | None = None
     # Pairs of rooms the caller would like close together, as indices into `rooms` above:
     # [[0, 3], [1, 2]]. A preference, scored rather than constrained — see
-    # solver/realism.py near_terms() for why this one is the exception to
-    # notes/decisions/vaastu-as-constraints.md. Pairs naming an unknown room, a room on another
-    # storey, or a room twice are dropped.
+    # solver/realism.py near_terms() for why this one is scored and a zone rule is not. Pairs
+    # naming an unknown room, a room on another storey, or a room twice are dropped.
     near: list[list[int]] | None = None
 
     @field_validator("plot_w_in", "plot_d_in", "moved_index", mode="before")
@@ -199,7 +198,7 @@ class QuantitiesOut(BaseModel):
 class SolveMeta(BaseModel):
     status: str
     solve_ms: float
-    vaastu_constraints_applied: list[str]
+    rules_applied: list[str]
     envelope_origin_x_in: int
     envelope_origin_z_in: int
     envelope_w_in: int
@@ -215,18 +214,15 @@ class SolveMeta(BaseModel):
     floors_solved: int = 1
     entrance_edge: str | None = None
     rooms_reachable: int = 0
-    # Which programme was packed and what its directional rules are called. `rules_applied` is
-    # the generic carrier; `vaastu_constraints_applied` stays for older clients and is only
-    # populated for a residence, because a cafe posts service-flow zoning and claiming Vaastu it
-    # never enforced is the dishonesty notes/decisions/vaastu-as-constraints.md forbids.
+    # Which programme was packed and what its directional rules are called. A programme that
+    # posts no zoning — the residence does not — leaves `rules_label` empty and `rules_applied`
+    # empty, and the UI must not claim a rule the solver never enforced.
     program: str = RESIDENTIAL.key
     rules_label: str = RESIDENTIAL.rules_label
-    rules_applied: list[str] = []
-    rules_relaxed: bool = False
-    # The relaxation ladder handed back a layout with no Vaastu rule posted, even though the mix
+    # The relaxation ladder handed back a layout with no zone rule posted, even though the mix
     # has rules and the caller asked for them. The UI must say so rather than present it as a
-    # normal plan — notes/decisions/vaastu-as-constraints.md.
-    vaastu_relaxed: bool = False
+    # normal plan.
+    rules_relaxed: bool = False
     # Only populated when nothing was placed. The names to remove for the mix to pack, verified
     # by re-solving rather than estimated. Empty when even the probe found nothing that fits.
     drop_to_fit: list[str] = []
@@ -252,12 +248,12 @@ def _drop_to_fit(
     rooms: list[Room],
     program: Program,
     facing: str,
-    apply_vaastu: bool,
+    apply_zone_rules: bool,
 ) -> list[str]:
     """Names to remove for `rooms` to pack into the envelope, largest space first.
 
     INFEASIBLE is an honest answer and a dead end: the ladder in solver/model.py has already
-    given up Vaastu, daylight and the area preference, so there is nothing left to relax and the
+    given up zoning, daylight and the area preference, so there is nothing left to relax and the
     only thing the caller can do is carry fewer spaces. Saying which ones turns the dead end
     into a next step.
 
@@ -287,7 +283,7 @@ def _drop_to_fit(
 
         probe = solve_layout(
             env_w_in, env_d_in, remaining,
-            apply_vaastu=apply_vaastu, program=program, facing=facing,
+            apply_zone_rules=apply_zone_rules, program=program, facing=facing,
         )
         if probe.rooms:
             return dropped
@@ -467,7 +463,7 @@ def solve(req: SolveRequest) -> SolveResponse:
                 # room kind and comes from the catalog. Leaving these to the dataclass defaults
                 # made every room habitable and dry, which is not a labelling slip: it is what
                 # add_daylight_constraints() and derive_windows() key off, so a bathroom got a
-                # full window and the pooja room was forced onto an exterior wall it is exempt
+                # full window and a store was forced onto an exterior wall it is exempt
                 # from — solver/rooms.py, solver/realism.py.
                 habitable=base.habitable,
                 wet=base.wet,
@@ -482,7 +478,7 @@ def solve(req: SolveRequest) -> SolveResponse:
             meta=SolveMeta(
                 status="NO_INPUT" if not rooms else "EMPTY_ENVELOPE",
                 solve_ms=0.0,
-                vaastu_constraints_applied=[],
+                rules_applied=[],
                 envelope_origin_x_in=env.origin_x_in,
                 envelope_origin_z_in=env.origin_z_in,
                 envelope_w_in=env.width_in,
@@ -516,7 +512,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         env.depth_in,
         rooms,
         prev=prev,
-        apply_vaastu=req.apply_vaastu,
+        apply_zone_rules=req.apply_zone_rules,
         moved_index=req.moved_index,
         program=program,
         facing=facing,
@@ -524,12 +520,11 @@ def solve(req: SolveRequest) -> SolveResponse:
         aligned=aligned,
         near=near,
     )
-    is_residence = program.key == RESIDENTIAL.key
 
     # Nothing placed and nothing left to relax: work out what would fit, so the caller gets a
     # next step instead of a blank plan.
     drop_to_fit = (
-        _drop_to_fit(env.width_in, env.depth_in, rooms, program, facing, req.apply_vaastu)
+        _drop_to_fit(env.width_in, env.depth_in, rooms, program, facing, req.apply_zone_rules)
         if not result.rooms
         else []
     )
@@ -604,7 +599,7 @@ def solve(req: SolveRequest) -> SolveResponse:
         meta=SolveMeta(
             status=result.status,
             solve_ms=round(result.solve_ms, 2),
-            vaastu_constraints_applied=result.vaastu_constraints_applied if is_residence else [],
+            rules_applied=result.rules_applied,
             envelope_origin_x_in=env.origin_x_in,
             envelope_origin_z_in=env.origin_z_in,
             envelope_w_in=env.width_in,
@@ -616,11 +611,9 @@ def solve(req: SolveRequest) -> SolveResponse:
             ),
             entrance_edge=result.entrance_edge,
             rooms_reachable=result.rooms_reachable,
-            vaastu_relaxed=result.vaastu_relaxed and is_residence,
             program=result.program,
             rules_label=result.rules_label,
-            rules_applied=result.vaastu_constraints_applied,
-            rules_relaxed=result.vaastu_relaxed,
+            rules_relaxed=result.rules_relaxed,
             drop_to_fit=drop_to_fit,
         ),
     )
@@ -1071,7 +1064,6 @@ def ai_plan(req: AIPlanRequest) -> AIPlanResponse:
             "floors": plan.floors,
             "rooms": plan.rooms,
             "near": plan.near,
-            "apply_vaastu": plan.apply_vaastu,
         },
         unsupported=plan.unsupported,
         assumed_plot=plan.assumed_plot,
@@ -1107,7 +1099,7 @@ def ai_plan_image(req: AIPlanImageRequest) -> AIPlanImageResponse:
     Deliberately not a plan, and deliberately not a tracing of the uploaded one: this hands back
     constraints, the caller posts them to /solve like any other client, and CP-SAT stays the only
     thing that places a room. An uploaded plan that came back untouched would be a plan nothing
-    had checked — notes/decisions/vaastu-as-constraints.md.
+    had checked.
     """
     from ai import parse_image, resolve_image
     from ai.plan_from_image import BadImage
@@ -1132,7 +1124,6 @@ def ai_plan_image(req: AIPlanImageRequest) -> AIPlanImageResponse:
             "floors": plan.floors,
             "rooms": read.room_specs,
             "near": plan.near,
-            "apply_vaastu": plan.apply_vaastu,
         },
         unsupported=plan.unsupported,
         assumed_plot=plan.assumed_plot,
@@ -1214,7 +1205,7 @@ def ai_facade_image(req: AIFacadeImageRequest) -> AIFacadeImageResponse:
             # Absent from the photograph. The caller keeps whatever facing it already had.
             "floors": read.storeys,
             "rooms": read.rooms,
-            "apply_vaastu": True,
+            "apply_zone_rules": True,
         },
         facade=read.facade,
         interior=read.interior,

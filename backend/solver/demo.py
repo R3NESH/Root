@@ -19,7 +19,7 @@ DEFAULT_MIX = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]
 
 def main() -> None:
     rooms = [ROOM_CATALOG[name] for name in DEFAULT_MIX]
-    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
 
     payload = {
         "plot": {"w_in": ENV_W_IN, "d_in": ENV_D_IN, "facing": "N"},
@@ -39,7 +39,7 @@ def main() -> None:
         "meta": {
             "status": result.status,
             "solve_ms": round(result.solve_ms, 2),
-            "vaastu_constraints_applied": result.vaastu_constraints_applied,
+            "rules_applied": result.rules_applied,
         },
     }
     print(json.dumps(payload, indent=2))

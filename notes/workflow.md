@@ -42,7 +42,7 @@ what was turned down and why, so it is not quietly retried later.
 [[build-order]] is a table where every step has a condition written **before** the work starts —
 "rooms never overlap and never exit the envelope, across 20 random room mixes", not "step 2
 done". Do not advance without meeting it. Where a condition is *not* met, it is recorded rather
-than dropped: [[step-5-vaastu]]'s missing entrance N/E is written into the plan, the daily note
+than dropped: the direction-rules step's missing entrance N/E is written into the plan, the daily note
 and [[codebase-map]] rather than silently skipped.
 
 ## 5. The test baseline is a ratchet
@@ -53,7 +53,7 @@ failing test, read from the runner's final output rather than from an impression
 
 This has already earned its keep twice — it caught a latency fix that had quietly broken
 correctness (0.4 s cap → `UNKNOWN` on hard 6-room packings), and its own blind spot is what let
-[[vaastu-and-connectivity-drop-on-edit]] through.
+the drag regression through.
 
 ## 6. Measure; do not reason
 
@@ -96,8 +96,8 @@ Worth recording honestly, because every current defect traces to one of these:
 | Break | Consequence |
 |---|---|
 | [[step-6-walkthrough]] was built with **no plan note and no done-condition** | Two regressions shipped; ~2,600 lines with no design note behind them |
-| Seven commits landed in 48 minutes with no baseline re-run between them | [[vaastu-and-connectivity-drop-on-edit]] went unnoticed for a day |
-| Module READMEs were not updated as modules landed | `backend/README.md` still said `vaastu/`, `api/`, `envelope/` "not started" and "5/5 passing" long after all three were done |
+| Seven commits landed in 48 minutes with no baseline re-run between them | the drag regression went unnoticed for a day |
+| Module READMEs were not updated as modules landed | `backend/README.md` still said `zoning.py`, `api/`, `envelope/` "not started" and "5/5 passing" long after all three were done |
 | A finding linked `[[step-6-walkthrough]]` before that note existed | Dangling link in the graph — now resolved |
 | The green suite was treated as sufficient evidence | The two properties that broke were the two nothing asserted |
 
@@ -110,7 +110,7 @@ process is the one that produced both blocking defects.
 function implement?" is a query rather than a memory exercise. It independently confirmed two
 things this workflow asserts: [[test-baseline]] is structurally central (13 edges, top five in
 the whole corpus), and the two highest-betweenness *concept* nodes are both defects —
-[[vaastu-and-connectivity-drop-on-edit]] and [[duplicated-geometry]]. A bug that bridges five
+the drag regression and [[duplicated-geometry]]. A bug that bridges five
 communities is a bug that touched five parts of the system.
 
 **Links.** [[Home]] · [[project-status]] · [[HANDOFF]] · [[build-order]] · [[test-baseline]] ·

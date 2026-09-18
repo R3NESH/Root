@@ -3,7 +3,7 @@
 //
 // A programme is what kind of building the solver is packing. It decides which spaces the UI
 // offers, what the default mix is, and what the directional rules posted before the solve are
-// called — Vaastu quadrants for a residence, service-flow zoning for a cafe. The backend is the
+// called — a residence posts none, a cafe posts service-flow zoning. The backend is the
 // authority on the rules themselves; this file only needs to know what to show and what to send.
 
 import { FurnitureCategory } from "./furnitureCatalog";
@@ -39,16 +39,16 @@ export const RESIDENCE_PROGRAM: BuildingProgram = {
   key: "residence",
   label: "Residence",
   icon: "HSE",
-  blurb: "Indian home. Vaastu quadrants posted as constraints, rooms opening onto a central hall.",
+  blurb: "Indian home. Rooms opening onto a central hall.",
   spaces: [
-    "hall", "dining", "kitchen", "bedroom", "bathroom", "pooja", "store", "entrance",
+    "hall", "dining", "kitchen", "bedroom", "bathroom", "store", "entrance",
     "utility", "sitout", "parking",
   ],
   defaultMix: ["hall", "kitchen", "bedroom", "bedroom", "bathroom"],
   // One car porch and one sit-out. A house with two front porches is a data entry mistake, and
   // both eat street frontage the rooms need — backend/programs/registry.py street_edge_spaces.
   maxPerSpace: { parking: 1, sitout: 1, utility: 1 },
-  rulesLabel: "Vaastu",
+  rulesLabel: "",
   railCaption: "Interior",
   furnitureCategories: [
     "living",
@@ -61,7 +61,6 @@ export const RESIDENCE_PROGRAM: BuildingProgram = {
     "lighting",
     "soft",
     "decor",
-    "sacred",
     "walls",
   ],
   plotHint: "30x40 to 50x80 ft plots",

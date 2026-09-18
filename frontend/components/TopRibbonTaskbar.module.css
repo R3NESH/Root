@@ -1731,3 +1731,108 @@
   cursor: pointer;
   white-space: nowrap;
 }
+
+/* Typed plot dimensions. Sits where .dimValText used to, so the stepper row keeps its rhythm. */
+.dimValInput {
+  width: 46px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(216, 201, 160, 0.22);
+  border-radius: 3px;
+  color: #eceae5;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dimValInput:focus {
+  outline: none;
+  border-color: rgba(111, 154, 168, 0.8);
+}
+
+/* The measured-corner table. A surveyed parcel is a list of numbers before it is a shape. */
+.vertexTable {
+  margin-top: 6px;
+  border-top: 1px solid rgba(216, 201, 160, 0.16);
+  padding-top: 5px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.vertexTableHead,
+.vertexRow {
+  display: grid;
+  grid-template-columns: 16px 1fr 1fr 1fr 18px;
+  gap: 3px;
+  align-items: center;
+}
+
+.vertexTableHead {
+  font-size: 8.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #8a8578;
+  margin-bottom: 3px;
+}
+
+.vertexRow {
+  margin-bottom: 2px;
+}
+
+.vertexIndex {
+  font-size: 9px;
+  color: #8a8578;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.vertexInput {
+  width: 100%;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(216, 201, 160, 0.18);
+  border-radius: 3px;
+  color: #eceae5;
+  font-size: 10px;
+  text-align: center;
+  padding: 2px 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vertexInput:focus {
+  outline: none;
+  border-color: rgba(111, 154, 168, 0.8);
+}
+
+.vertexDropBtn {
+  background: transparent;
+  border: 1px solid rgba(184, 92, 34, 0.4);
+  border-radius: 3px;
+  color: #b85c22;
+  font-size: 9px;
+  line-height: 1;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.vertexDropBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.vertexActions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* The solver's refusal, said out loud rather than swallowed by the rectangle fallback. */
+.vertexProblem {
+  margin-top: 5px;
+  font-size: 9.5px;
+  line-height: 1.45;
+  color: #d98b52;
+  border-left: 2px solid rgba(184, 92, 34, 0.7);
+  padding-left: 6px;
+}

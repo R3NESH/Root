@@ -27,9 +27,20 @@ from .envelope import Facing, Setback, edge_setbacks_in
 
 Point = tuple[int, int]
 
-# A polygon with more corners than this is not a plot, it is a mistake or an attempt to smuggle a
-# curve past a solver that cannot take one.
-MAX_VERTICES = 12
+# A curved plot edge reaches the solver as chords, so the cap has to leave room for enough of
+# them to stop the curve reading as a polygon. 32 is measured, not guessed: on a 40x50 plot with
+# a 6 ft bow in the road edge, each extra edge is one linear constraint per room per floor and
+# the cold solve time did not move at all between a 4-edge rectangle and a 26-edge bow - the 2 s
+# budget in solver/model.py is the binding constraint either way, not the edge count.
+#
+# The producer caps itself well below this. Integer-inch vertices are the real ceiling: sampling
+# a curve and rounding onto the inch lattice reverses chord turns once the chords get short (a
+# 6 ft bow breaks convexity at 22 chords), so frontend/lib/plot.ts runs the rounded points
+# through a convex hull, which both guarantees is_convex() and collapses the near-collinear
+# points a fine tessellation produces. 64 chords come out as 26 vertices.
+#
+# Beyond that a polygon is not a plot, it is a mistake.
+MAX_VERTICES = 32
 
 
 @dataclass(frozen=True)

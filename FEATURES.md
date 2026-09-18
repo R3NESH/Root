@@ -47,13 +47,13 @@ Google OR-Tools CP-SAT. Integer inches throughout — see [[integer-inches]].
 | Feature | File | Description |
 | :--- | :--- | :--- |
 | Rectangular packing solver | `backend/solver/model.py` | Places every room as a non-overlapping rectangle inside the buildable envelope. Zero overlap, legal setbacks and containment guaranteed by construction, not by post-check. |
-| Relaxation ladder | `backend/solver/model.py` | On infeasibility drops, in order: Vaastu, daylight, then area preference. **Connectivity is never dropped.** The response reports which rules were relaxed. |
-| L1 drift objective | `backend/solver/model.py` | Minimises total Manhattan displacement from the previous solution so an edit does not reshuffle the house. Weighted 100,000x against area preference. A dragged room is released from its Vaastu quadrant; every other room stays constrained. |
+| Relaxation ladder | `backend/solver/model.py` | On infeasibility drops, in order: zoning, daylight, then area preference. **Connectivity is never dropped.** The response reports which rules were relaxed. |
+| L1 drift objective | `backend/solver/model.py` | Minimises total Manhattan displacement from the previous solution so an edit does not reshuffle the house. Weighted 100,000x against area preference. A dragged room is released from its zone quadrant; every other room stays constrained. |
 | Compact footprint objective | `backend/solver/model.py` | Linear half-perimeter penalty. Cut inner void from 28% to 5-7% and stopped loose pavilion layouts. |
-| Vaastu rules engine | `backend/vaastu/rules.py` | Three half-plane constraints posted **before** the search: kitchen south-east (Agneya), first bedroom south-west (Nairutya), pooja north-east (Ishanya). Vaastu is a constraint, never a score. |
+| Zone rules engine | `backend/zoning.py` | Directional half-plane constraints posted **before** the search, per programme. A zone rule is a constraint, never a score. The residence posts none; the café posts its service-flow bands. |
 | Connectivity graph | `backend/solver/connectivity.py` | Star topology with parent hierarchies — master ensuite hangs off the bedroom, common bath off the hall. 100% room reachability enforced. |
 | Openings extractor | `backend/solver/connectivity.py` | Computes shared-wall intervals and exterior exposure, emitting exact coordinates for interior doors, the main entrance and exterior windows. 32 in door leaf (`DOOR_WIDTH_IN`). |
-| Daylight & ventilation | `backend/solver/realism.py` | Every habitable **and wet** room must touch the exterior face of the built footprint. Pooja and store exempt. Measured against the footprint, not the plot boundary. |
+| Daylight & ventilation | `backend/solver/realism.py` | Every habitable **and wet** room must touch the exterior face of the built footprint. Stores exempt. Measured against the footprint, not the plot boundary. |
 | Aspect-ratio limits | `backend/solver/realism.py` | Per-kind proportion caps prevent corridor-shaped rooms. Worst observed 2.4:1. |
 | NBC 2016 room catalog | `backend/solver/rooms.py` | Real Indian statutory minimums — hall 10x12, kitchen 7x8, bath 4x6 — replacing artificial test sizes. |
 | Buildable envelope | `backend/envelope/envelope.py` | Applies per-edge setbacks from plot dimensions and road facing. TG-bPASS defaults: 5 ft road, 3 ft rear and sides. |
@@ -73,16 +73,16 @@ Google OR-Tools CP-SAT. Integer inches throughout — see [[integer-inches]].
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Programme registry | `backend/programs/registry.py` | Building types as data — hub room, parent tree, forbidden pairs and directional rules per programme. Two shipped: **Residence** (Vaastu) and **Café** (service-flow zoning). Unknown keys fall back to Residence rather than erroring. |
+| Programme registry | `backend/programs/registry.py` | Building types as data — hub room, parent tree, forbidden pairs and directional rules per programme. Two shipped: **Residence** (no directional zoning) and **Café** (service-flow zoning). Unknown keys fall back to Residence rather than erroring. |
 | Programme mirror (TS) | `frontend/lib/programs.ts` | Space vocabulary, default mix and per-space ceilings the ribbon offers for the active programme. |
-| Room vocabulary | `frontend/lib/rooms.ts` | 19 room kinds. Residence: hall, dining, kitchen, bedroom, bathroom, pooja, store, entrance. Café: seating, lounge, entry, queue, counter, prep, pantry, wash, washroom, staff. |
+| Room vocabulary | `frontend/lib/rooms.ts` | 18 room kinds. Residence: hall, dining, kitchen, bedroom, bathroom, store, entrance. Café: seating, lounge, entry, queue, counter, prep, pantry, wash, washroom, staff. |
 | Café procedural fit-out | `frontend/lib/cafeInteriors.ts` | Seating grid at ADA/trade clearances, service counter with order-to-pickup split, commercial kitchen, queue line, WC. |
 
 ## 4. Natural-Language Input
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Prompt-to-plan parser | `backend/prompt_to_plan.py` | Parses prompts like `"30x40 north facing 2bhk with pooja room"` into plot dimensions, facing and a room mix, then solves. |
+| Prompt-to-plan parser | `backend/prompt_to_plan.py` | Parses prompts like `"30x40 north facing 2bhk with a store"` into plot dimensions, facing and a room mix, then solves. |
 | CLI | `backend/prompt_to_plan.py` | `python prompt_to_plan.py "40x60 east facing 3bhk with dining and store" --svg plan.svg --json plan.json`. Emits ASCII preview, JSON and an SVG blueprint. |
 | AI Prompt ribbon tab | `frontend/components/TopRibbonTaskbar.tsx` | In-app prompt entry that posts to `/solve-prompt`. |
 
@@ -184,7 +184,7 @@ FastAPI. `backend/api/main.py`.
 | :--- | :--- | :--- |
 | Furniture catalog | `frontend/lib/furnitureCatalog.ts` | 70 pieces — 43 residential (living, bedroom, dining, kitchen, office, decor, sacred, walls) and 27 café (seating, service, decor, signage, back-of-house, outdoor). The left rail offers whichever set the active programme names. |
 | Real furniture models | `frontend/lib/furnitureModels.ts` | Maps catalog and built-in types onto 15 CC0 Poly Haven models, swapped in after the layout builds. Additive — an unmapped type or a failed load keeps its procedural geometry. Models are metric; only a unit conversion is applied, never a fit-to-declared-box that would distort them. |
-| Auto fit-out | `frontend/lib/interiorDetails.ts` | Every room type furnished on solve — Scandinavian living room, king bedroom with study workstation, modular L-kitchen with chimney and appliances, 6-seater dining, deluxe bath with washing machine, marble pooja mandir with lit diya. |
+| Auto fit-out | `frontend/lib/interiorDetails.ts` | Every room type furnished on solve — Scandinavian living room, king bedroom with study workstation, modular L-kitchen with chimney and appliances, 6-seater dining, deluxe bath with washing machine. |
 | Replace object | `frontend/components/ReplaceObjectModal.tsx` | Swap any placed piece for another catalog item in place. |
 
 ## 14. AI Furniture Synthesis
@@ -241,7 +241,7 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Blueprint export engine | `frontend/lib/blueprintExport.ts` | Vector architectural sheets with title block, room schedule, dimension annotations and CAD callouts. Three themes: blueprint, dark, drafting. Optional Vaastu and furniture layers. Feet-and-inches formatting. |
+| Blueprint export engine | `frontend/lib/blueprintExport.ts` | Vector architectural sheets with title block, room schedule, dimension annotations and CAD callouts. Three themes: blueprint, dark, drafting. Optional furniture layer. Feet-and-inches formatting. |
 | Export modal | `frontend/components/BlueprintExportModal.tsx` | 300 DPI SVG and PNG output with north arrow and area summary. |
 | 3D screenshot | `frontend/components/TopRibbonTaskbar.tsx` | High-resolution capture from the active camera. |
 | BOQ export | `frontend/lib/boqEngine.ts` | CSV export and printable cost report. |
@@ -251,7 +251,7 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Browser-local autosave | `frontend/lib/projectStorage.ts` | Whole design in `localStorage` under `vastu_builder_project_data_v1` — plot, facing, programme, room counts, custom dimensions, drawn walls, room zones, placed objects, materials, openings, window config. Every field optional on read, so an older save still loads. No database and no accounts by design — [[environment-notes]]. |
+| Browser-local autosave | `frontend/lib/projectStorage.ts` | Whole design in `localStorage` under `plot_to_plan_project_data_v1` — plot, facing, programme, room counts, custom dimensions, drawn walls, room zones, placed objects, materials, openings, window config. Every field optional on read, so an older save still loads. No database and no accounts by design — [[environment-notes]]. |
 | Project JSON import/export | `frontend/app/page.tsx` | Full layout out to a file and back in. |
 
 ## 21. Keyboard & Input Reference
@@ -284,13 +284,13 @@ requires the keyboard — [[zero-keyboard-events]].
 
 A grid-based layout engine that runs in the browser when `NEXT_PUBLIC_SOLVER_URL` is unset or the
 API fails. It reports `OFFLINE_ESTIMATE` with an empty rule list and the ribbon shows a warning,
-**never** a Vaastu claim it did not enforce. It does not fall through on a non-`ok` response.
+**never** a rule claim it did not enforce. It does not fall through on a non-`ok` response.
 
 ## 23. Test & Verification Surface
 
 | Surface | Command | State |
 | :--- | :--- | :--- |
-| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | 93 passing, ~198 s. Covers API, solver, Vaastu, realism, walls, programmes, prompt parsing, stability and the real Kandi plot. |
+| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | 173 passing, ~250 s. Covers API, solver, zoning, realism, walls, programmes, prompt parsing, stability and the real Kandi plot. |
 | Frontend types | `cd frontend && npx tsc --noEmit` | 0 errors |
 | Frontend build | `cd frontend && npm run build` | 0 warnings |
 | Frontend tests | — | **None exist.** `tsc` and `build` are the whole safety net. |

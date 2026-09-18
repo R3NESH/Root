@@ -24,13 +24,13 @@ ENV_D_IN = 600  # 50 ft
 FULL_HOUSE = [
     "hall", "dining", "kitchen",
     "bedroom", "bedroom", "bathroom", "bathroom",
-    "pooja", "store",
+    "utility", "store",
 ]
 
 
 def _solve(mix, w=ENV_W_IN, d=ENV_D_IN, **kw):
     rooms = [ROOM_CATALOG[n] for n in mix]
-    result = solve_layout(w, d, rooms, apply_vaastu=True, **kw)
+    result = solve_layout(w, d, rooms, apply_zone_rules=True, **kw)
     assert result.status in ("OPTIMAL", "FEASIBLE"), f"{mix} -> {result.status}"
     return rooms, result
 
@@ -82,7 +82,7 @@ def test_the_house_fills_most_of_what_the_catalog_allows():
     # Deliberately the standard six-room mix rather than FULL_HOUSE: a large programme can run
     # out the cold budget and return FEASIBLE, so its fill varies run to run and the assertion
     # would be measuring the time limit rather than the objective.
-    mix = ["hall", "kitchen", "bedroom", "bedroom", "bathroom", "pooja"]
+    mix = ["hall", "kitchen", "bedroom", "bedroom", "bathroom", "store"]
     rooms, result = _solve(mix, w=360, d=480)
     # This used to assert OPTIMAL, as a guard so the fill floor below could not silently become a
     # measurement of the time limit. COMPACT_WEIGHT (solver/realism.py) put this mix past the cold
@@ -98,8 +98,8 @@ def test_the_house_fills_most_of_what_the_catalog_allows():
     fill = sum(r.w_in * r.d_in for r in result.rooms) / (360 * 480)
     ceiling = catalog_fill_ceiling(rooms, 360, 480)
     # Measured across four mixes on two plot sizes: seven of eight reach the ceiling exactly.
-    # This one lands at 92% because the pooja room's north-east rule and a tight 30x40 cannot
-    # both be satisfied at full size. 90% is the floor, not the target.
+    # This one lands at 92% because a tight 30x40 cannot carry every room at full size.
+    # 90% is the floor, not the target.
     assert fill / ceiling >= 0.90, f"fill {fill:.1%} of a {ceiling:.1%} ceiling"
 
 
@@ -195,7 +195,7 @@ def test_realistic_mixes_stay_reachable_and_proportioned():
     for _ in range(12):
         mix = ["hall"] + [rng.choice(kinds) for _ in range(rng.randint(4, 7))]
         rooms = [ROOM_CATALOG[n] for n in mix]
-        result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+        result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
         if result.status not in ("OPTIMAL", "FEASIBLE"):
             continue
         assert result.rooms_reachable == len(result.rooms), f"{mix} not walkable"
@@ -209,7 +209,7 @@ def test_small_custom_dimensions_solve_without_inverting_ladder_bounds():
     # must not cause inverted CP-SAT domain bounds (min > max) on the relaxation ladder.
     store_custom = Room("store", 36, 36, 36, 36, habitable=False)
     mix = [ROOM_CATALOG["hall"], ROOM_CATALOG["kitchen"], ROOM_CATALOG["bedroom"], store_custom]
-    result = solve_layout(ENV_W_IN, ENV_D_IN, mix, apply_vaastu=True)
+    result = solve_layout(ENV_W_IN, ENV_D_IN, mix, apply_zone_rules=True)
     assert result.status in ("OPTIMAL", "FEASIBLE")
     placed_store = next(r for r in result.rooms if r.name == "store")
     assert placed_store.w_in == 36 and placed_store.d_in == 36
@@ -219,25 +219,12 @@ def test_entrance_foyer_receives_main_front_door():
     # When a dedicated entrance foyer is present, the front door should be placed on it.
     mix = ["entrance", "hall", "kitchen", "bedroom", "bathroom"]
     rooms = [ROOM_CATALOG[n] for n in mix]
-    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
+    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_zone_rules=True)
     assert result.status in ("OPTIMAL", "FEASIBLE")
     entrance_room = next(r for r in result.rooms if r.name == "entrance")
     assert any(o["kind"] == "entrance" for o in entrance_room.openings), (
         "dedicated entrance room should carry the front door opening"
     )
-
-
-def test_pooja_placed_in_northeast_quadrant():
-    # Pooja must be placed in Ishanya / North-East (+X, -Z in scene space => high X, low Z)
-    mix = ["hall", "kitchen", "bedroom", "pooja", "bathroom"]
-    rooms = [ROOM_CATALOG[n] for n in mix]
-    result = solve_layout(ENV_W_IN, ENV_D_IN, rooms, apply_vaastu=True)
-    assert result.status in ("OPTIMAL", "FEASIBLE")
-    pooja_room = next(r for r in result.rooms if r.name == "pooja")
-    centre_x = pooja_room.x_in + pooja_room.w_in / 2
-    centre_z = pooja_room.y_in + pooja_room.d_in / 2
-    assert centre_x >= ENV_W_IN * 0.5, f"pooja centre_x {centre_x} not in East half (>= {ENV_W_IN * 0.5})"
-    assert centre_z <= ENV_D_IN * 0.5, f"pooja centre_z {centre_z} not in North half (<= {ENV_D_IN * 0.5})"
 
 
 
@@ -273,17 +260,17 @@ def test_a_requested_pair_lands_closer_than_it_otherwise_would():
     )
 
 
-def test_a_requested_pair_costs_neither_vaastu_nor_reachability():
+def test_a_requested_pair_costs_neither_a_rule_nor_reachability():
     """A preference may cost room area. It may not cost a rule or a door.
 
-    notes/decisions/vaastu-as-constraints.md — a plan that breaks Vaastu is a rejected plan,
-    not a worse one. The pair term sits in the objective precisely so that it can never trade
-    one away, and this is the test that says so.
+    A plan that breaks a posted rule is a rejected plan, not a worse one. The pair term sits in
+    the objective precisely so that it can never trade one away, and this is the test that says
+    so.
     """
     _, loose = _solve(NEAR_MIX)
     _, pulled = _solve(NEAR_MIX, near=[NEAR_PAIR])
-    assert pulled.vaastu_constraints_applied == loose.vaastu_constraints_applied
-    assert not pulled.vaastu_relaxed
+    assert pulled.rules_applied == loose.rules_applied
+    assert not pulled.rules_relaxed
     assert pulled.rooms_reachable == len(pulled.rooms)
 
 

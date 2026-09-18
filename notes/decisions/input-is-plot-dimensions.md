@@ -14,7 +14,7 @@ choice from the person whose house it is.
 Plot dimensions are also the market's native unit — 20×30, 30×40, 30×50, 40×60, 50×80 ft.
 
 **Consequences.** Drives [[ui-principles]] — preset plot cards, drag handles, a compass dial for
-facing. Facing is what makes [[vaastu-as-constraints]] meaningful at all.
+facing. Facing is what makes rules-as-constraints meaningful at all.
 
 **Open.** [[q-telangana-parcel-geometry]] — if cadastral parcel geometry exists, map-pick could
 replace typing entirely.

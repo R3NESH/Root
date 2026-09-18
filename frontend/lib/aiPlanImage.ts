@@ -34,7 +34,6 @@ export interface AIPlanFromImage {
   /** Dimensions read off the drawing, keyed by the `bedroom_0`-style id the app uses. */
   customDims: Record<string, CustomDim>;
   near: NearPairIds[];
-  applyVaastu: boolean;
   unsupported: string[];
   assumedPlot: boolean;
   assumedFacing: boolean;
@@ -58,7 +57,6 @@ interface AIPlanImageResponseBody {
     floors: number;
     rooms: RoomSpecBody[];
     near: number[][];
-    apply_vaastu: boolean;
   };
   unsupported: string[];
   assumed_plot: boolean;
@@ -203,7 +201,6 @@ export async function requestAIPlanFromImage(
     counts,
     customDims,
     near,
-    applyVaastu: req.apply_vaastu,
     unsupported: body.unsupported,
     assumedPlot: body.assumed_plot,
     assumedFacing: body.assumed_facing,

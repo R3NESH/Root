@@ -3,9 +3,8 @@
 Building programmes: what kind of building the solver is packing.
 
 Implements [[program-packs]] and, for the café pack, the figures collected in
-[[cafe-layout-standards]]. Vaastu for the residence pack stays where it was, in
-`backend/vaastu/` — this module reads it rather than copying it, so
-[[vaastu-as-constraints]] is still the one place that decides what Vaastu means.
+[[cafe-layout-standards]]. Directional zone rules are expressed by `backend/zoning.py`; this
+module decides which programme carries which. The residence carries none.
 
 ## Why this exists
 
@@ -16,21 +15,21 @@ The engine was house-specific in exactly four places:
 | `ROOM_CATALOG` was a house | one vocabulary, `Program.spaces` selects a subset |
 | `HUB_ROOM = "hall"` | `Program.hub`, with `hub_fallbacks` |
 | `PARENT_PREFERENCE` | `Program.parent_preference` |
-| `V1_RULES` posted for everything | `resolve_rules(program, facing)` |
+| one rule set posted for everything | `resolve_rules(program, facing)` |
 
 None of that is a second solver. `solver/model.py` builds the same CP-SAT model either way;
 the pack decides which constraints go into it.
 
 ## The one real difference between the two packs
 
-Vaastu is **absolute** — the kitchen goes south-east whichever way the plot faces, because the
-rule is about the sun. A shop's zoning is **relative to the road** — the entry, the queue and
-the till are at the front, and "front" is whichever edge the street is on. `Program` carries
-`facing_relative_rules` to say which, and `resolve_rules()` rotates the relative ones into the
-world (x, z) fractions `vaastu.add_quadrant_constraint()` expects.
+A residence posts **no** directional zoning: its rooms are placed by adjacency, daylight and
+proportion alone. A shop's zoning is **relative to the road** — the entry, the queue and the
+till are at the front, and "front" is whichever edge the street is on. `Program` carries
+`facing_relative_rules` to say whether its rules are already absolute or need rotating, and
+`resolve_rules()` produces the world (x, z) fractions `zoning.add_quadrant_constraint()` expects.
 
 `street_edge_spaces` exists because a quadrant rule constrains a room's **centre**. That is
-enough for "kitchen in the south-east" and not enough for a shopfront: an entry whose centre is
+enough for a band and not enough for a shopfront: an entry whose centre is
 in the front third can still sit an inch behind the seating floor, and then the front door gets
 cut into a side wall. See `realism.add_street_edge_constraints()`.
 

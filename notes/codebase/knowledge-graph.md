@@ -61,7 +61,7 @@ graphify                       # full rebuild from the repo root
 graphify --update              # re-extract only changed files
 graphify query "<question>"    # answer from the graph instead of rebuilding
 graphify explain "solve_layout"
-graphify path "Vaastu as constraints" "assign_parents"
+graphify path "rooms do not form a house" "assign_parents"
 ```
 
 > [!warning] `notes/build/` is excluded by default — and it is the most load-bearing folder here
@@ -113,13 +113,13 @@ The god nodes are an honest read of where the weight sits:
 `solve_layout()` at 47 edges with a betweenness of 0.24 confirms what
 [[realism-gaps]] already implied: it is the single point every constraint family passes
 through. That is worth watching — it is also the function that carried
-[[vaastu-and-connectivity-drop-on-edit]].
+the drag regression.
 
 A design note appearing in the top five is the [[workflow]] convention working: the graph found
 [[test-baseline]] to be structurally central, not just rhetorically central.
 
 The two highest-betweenness *concept* nodes are both defects —
-[[vaastu-and-connectivity-drop-on-edit]] (0.136) and [[duplicated-geometry]] (0.115). A bug that
+the drag regression (0.136) and [[duplicated-geometry]] (0.115). A bug that
 bridges five communities is a bug that touched five parts of the system, which is a reasonable
 definition of "this was the important one".
 

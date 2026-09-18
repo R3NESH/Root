@@ -27,8 +27,8 @@ Next.js 16 + TypeScript + Three.js. Owns everything continuous — see
 350 ms debounce, per [[step-3-wire-together]] and [[client-continuous-server-discrete]].
 
 > [!success] Both defects fixed 2026-08-25
-> - `useSolve.ts` sends `moved_index`, so only a dragged room is released from its Vaastu
->   quadrant — [[vaastu-and-connectivity-drop-on-edit]].
+> - `useSolve.ts` sends `moved_index`, so only a dragged room is released from its zone
+>   quadrant.
 > - `Scene.tsx` consumes the API's `openings` and `wall_thickness_in`; 99 lines of duplicated
 >   door derivation are gone — [[duplicated-geometry]].
 
@@ -45,7 +45,7 @@ Next.js 16 + TypeScript + Three.js. Owns everything continuous — see
 > true when `solve.ts` grew `solveClientSide()`. Fixed 2026-08-31 ([[client-side-fallback]]):
 > it now reports `OFFLINE_ESTIMATE` with an empty rule list and `rooms_reachable: 1`, and
 > `requestSolve()` only falls back on a *thrown* fetch — a 422 or 500 surfaces as an error
-> instead of becoming a plan. The ribbon shows "⚠ Offline estimate — Vaastu not checked".
+> instead of becoming a plan. The ribbon shows "⚠ Offline estimate — rules not checked".
 >
 > What is **not** fixed: `NEXT_PUBLIC_SOLVER_URL` is still unset in the deploy, so a Netlify
 > visitor gets the grid — now correctly labelled, but still a grid. That needs a hosted

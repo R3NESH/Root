@@ -151,11 +151,6 @@ def test_tiny_plot_reports_empty_envelope():
     assert body["meta"]["status"] == "EMPTY_ENVELOPE"
 
 
-def test_vaastu_applied_by_default():
-    body = client.post("/solve", json=BASE).json()
-    assert body["meta"]["vaastu_constraints_applied"], "Vaastu should be on by default"
-
-
 def test_facing_changes_the_envelope_origin():
     north = client.post("/solve", json=BASE).json()["meta"]
     east = client.post("/solve", json={**BASE, "facing": "E"}).json()["meta"]
@@ -171,13 +166,13 @@ def test_room_semantics_survive_the_api_boundary():
     solve() rebuilds each Room from ROOM_CATALOG plus the caller's dimensions. It used to pass
     only the name and the four bounds, so the dataclass defaults (habitable=True, wet=False)
     silently overwrote the catalog for every room. That is not cosmetic: add_daylight_constraints()
-    then forces the pooja room and stores onto an exterior wall, and derive_windows() cuts a
-    habitable window where a high vent belongs.
+    then forces stores onto an exterior wall, and derive_windows() cuts a habitable window where
+    a high vent belongs.
 
     test_realism.py builds its Rooms straight from ROOM_CATALOG, so it asserts the intended
     behaviour on objects this endpoint never produces. This is that gap.
     """
-    req = {**BASE, "rooms": ["hall", "kitchen", "bedroom", "bathroom", "pooja", "store"]}
+    req = {**BASE, "rooms": ["hall", "kitchen", "bedroom", "bathroom", "utility", "store"]}
     body = client.post("/solve", json=req).json()
     assert body["meta"]["status"] in ("OPTIMAL", "FEASIBLE")
 
@@ -199,7 +194,7 @@ def test_custom_dimensions_do_not_drop_room_semantics():
 
 
 def test_solve_prompt_endpoint():
-    req = {"prompt": "30x40 north facing 2bhk with pooja"}
+    req = {"prompt": "30x40 north facing 2bhk with a store"}
     r = client.post("/solve-prompt", json=req)
     assert r.status_code == 200
     data = r.json()

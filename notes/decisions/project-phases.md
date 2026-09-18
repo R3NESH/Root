@@ -31,7 +31,7 @@ step 1 and step 3 render.
 **Once Phase 1 is solid.** Scope moves to multi-storey buildings: G+1, G+2, and beyond.
 
 **Important rules and regulations get hardcoded as solver constraints** — the same philosophy
-[[vaastu-as-constraints]] already established for Vaastu: constrain up front so every generated
+rules-as-constraints already established: constrain up front so every generated
 plan is compliant by construction, rather than placing rooms and checking compliance afterward.
 
 The regulations named so far:
@@ -57,8 +57,8 @@ new constraint code and new fields (stair objects, egress-path metadata) that we
 ## What does not change
 
 - [[india-only]] — market fact, phase-agnostic.
-- [[vaastu-as-constraints]] ships in Phase 1 (step 5 of [[build-order]]); it is not deferred to
-  Phase 2 — Vaastu and building-code regulations are two different constraint families that
+- rules-as-constraints ships in Phase 1 (step 5 of [[build-order]]); it is not deferred to
+  Phase 2 — directional zoning and building-code regulations are two different constraint families that
   happen to use the same technique.
 - [[layout-stability]] and [[claim-most-likely-wrong]] — measured in Phase 1, apply unchanged to
   Phase 2's larger models, likely under more strain (more rooms × more floors × more constraints).

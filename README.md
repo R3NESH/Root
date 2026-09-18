@@ -7,7 +7,7 @@ a legal, buildable floor plan out.
 
 > **Status (2026-08-31): Phase 1 is built. 48/48 backend tests pass.**
 > The app generates a 3D house from plot dimensions and facing, with a first-person walkthrough.
-> The offline fallback used to report `"Vastu Solved (Optimal)"` over a layout that enforced
+> The offline fallback used to report `"Solved (Optimal)"` over a layout that enforced
 > nothing — fixed; it now reports `OFFLINE_ESTIMATE` and the UI says so.
 >
 > Read [notes/project-status.md](notes/project-status.md) for the current state and

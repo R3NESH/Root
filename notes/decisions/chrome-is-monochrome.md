@@ -7,7 +7,7 @@ date: 2026-09-04
 
 **Decision.** The application chrome is a near-monochrome warm-graphite ramp with one
 terracotta accent reserved for active state. Saturated colour is spent only on *data*:
-room fills, Vaastu zones, material swatches, blueprint linework. Every dimension, count
+room fills, zone bands, material swatches, blueprint linework. Every dimension, count
 and coordinate is set in IBM Plex Mono with `tabular-nums`.
 
 Tokens live in `frontend/app/globals.css`: a seven-step type scale, a nine-step 2px

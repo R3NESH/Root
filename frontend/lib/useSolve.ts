@@ -5,7 +5,7 @@
 // Persistent stable instance-ID position tracking: adding/removing rooms never shifts existing room placements.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, Setback } from "./plot";
+import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, PlotPoint, Setback } from "./plot";
 import { ProgramKey } from "./programs";
 import { RoomName } from "./rooms";
 import { PrevRoomIn, Quantities, requestSolve, RoomSpecIn, SolveMeta, SolvedRoom, SolvedWall } from "./solve";
@@ -22,6 +22,9 @@ interface UseSolveArgs {
   program?: ProgramKey;
   /** Corner splays in inches, clockwise from north-west. Undefined on a rectangular plot. */
   cornerCutsIn?: [number, number, number, number];
+  /** A drawn outline and its bowed edges — lib/plot.ts. Both override the splays above. */
+  vertsIn?: PlotPoint[];
+  edgeBulgeIn?: number[];
   /** Storeys to pack, ground included. */
   floors?: number;
   /**
@@ -37,7 +40,7 @@ function getRoomId(r: RoomName | RoomSpecIn, index: number): string {
   return r.id || `${r.name}_${index}`;
 }
 
-export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program, cornerCutsIn, floors, near }: UseSolveArgs) {
+export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, program, cornerCutsIn, vertsIn, edgeBulgeIn, floors, near }: UseSolveArgs) {
   const [rooms, setRooms] = useState<SolvedRoom[]>([]);
   const [meta, setMeta] = useState<SolveMeta | null>(null);
   // Walls as objects and their bill of quantities. Absent from an older backend and from the
@@ -84,6 +87,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
             plotWIn,
             plotDIn,
             cornerCutsIn,
+            vertsIn,
+            edgeBulgeIn,
             floors,
             facing,
             rooms: roomList,
@@ -125,7 +130,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
       clearTimeout(timer);
       controller.abort();
     };
-  }, [plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, program, near, positionRevision]);
+  }, [plotWIn, plotDIn, cornerCutsIn, vertsIn, edgeBulgeIn, floors, facing, roomList, setback, program, near, positionRevision]);
 
   // Immediate optimistic room drag-and-drop repositioning
   const moveRoom = useCallback(
@@ -172,6 +177,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
           plotWIn,
           plotDIn,
           cornerCutsIn,
+          vertsIn,
+          edgeBulgeIn,
           floors,
           facing,
           rooms: roomList,
@@ -201,7 +208,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, near]
+    [meta, plotWIn, plotDIn, cornerCutsIn, vertsIn, edgeBulgeIn, floors, facing, roomList, setback, near]
   );
 
   // Immediate optimistic room crop resizing (width, depth, and position)
@@ -264,6 +271,8 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
           plotWIn,
           plotDIn,
           cornerCutsIn,
+          vertsIn,
+          edgeBulgeIn,
           floors,
           facing,
           rooms: nextRoomList,
@@ -293,7 +302,7 @@ export function useSolve({ plotWIn, plotDIn, facing, rooms: roomList, setback, p
         setPending(false);
       }
     },
-    [meta, plotWIn, plotDIn, cornerCutsIn, floors, facing, roomList, setback, near]
+    [meta, plotWIn, plotDIn, cornerCutsIn, vertsIn, edgeBulgeIn, floors, facing, roomList, setback, near]
   );
 
   const resetPositions = useCallback(() => {

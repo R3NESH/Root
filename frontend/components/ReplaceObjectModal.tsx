@@ -35,7 +35,6 @@ export default function ReplaceObjectModal({
     { id: "dining", label: "Dining & Kitchen", icon: "DIN" },
     { id: "office", label: "Office & Study", icon: "DSK" },
     { id: "decor", label: "Decor & Lighting", icon: "PLT" },
-    { id: "sacred", label: "Sacred Mandir", icon: "MND" },
     { id: "all", label: "All Items", icon: "BOX" },
   ];
 

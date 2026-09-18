@@ -321,7 +321,7 @@ def test_a_resolved_facade_reading_solves():
             "facing": "N",
             "floors": read.storeys,
             "rooms": read.rooms,
-            "apply_vaastu": True,
+            "apply_zone_rules": True,
         },
     )
     assert r.status_code == 200

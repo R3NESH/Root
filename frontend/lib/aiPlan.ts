@@ -31,7 +31,6 @@ export interface AIPlan {
    * at the wrong rooms by the time anything used them. Ids survive the reordering.
    */
   near: NearPairIds[];
-  applyVaastu: boolean;
   unsupported: string[];
   assumedPlot: boolean;
   assumedFacing: boolean;
@@ -45,7 +44,6 @@ interface AIPlanResponseBody {
     floors: number;
     rooms: string[];
     near: number[][];
-    apply_vaastu: boolean;
   };
   unsupported: string[];
   assumed_plot: boolean;
@@ -116,7 +114,6 @@ export async function requestAIPlan(prompt: string, program: ProgramKey = "resid
     floors: req.floors,
     counts,
     near,
-    applyVaastu: req.apply_vaastu,
     unsupported: body.unsupported,
     assumedPlot: body.assumed_plot,
     assumedFacing: body.assumed_facing,

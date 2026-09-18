@@ -1332,7 +1332,7 @@ export default function Scene({
       return null;
     }
 
-    // High-Precision 3D Volume Room Picker: Picks ANY room (Pooja, Bath, Bed, Hall)
+    // High-Precision 3D Volume Room Picker: Picks ANY room (Store, Bath, Bed, Hall)
     // whether clicking the floor, furniture, altar, walls, or floating badge!
     function pickRoom(ev: PointerEvent): number | null {
       if (modeRef.current === "walkthrough") return null;

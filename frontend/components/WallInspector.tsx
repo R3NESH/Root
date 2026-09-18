@@ -50,6 +50,11 @@ interface WallInspectorProps {
   onPaste?: () => void;
   /** False when the clipboard is empty or holds something that is not a wall. */
   canPaste?: boolean;
+  /**
+   * Delete this wall outright. Only a wall the user drew has this: a solver wall cannot be
+   * deleted, only opened up, and that control lives in the ribbon's wall inspector.
+   */
+  onDelete?: () => void;
   onClose: () => void;
 }
 
@@ -124,6 +129,14 @@ const CHIP: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const DANGER: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  background: "rgba(184, 92, 34, 0.16)",
+  borderColor: "rgba(184, 92, 34, 0.5)",
+  color: "#d98b52",
+};
+
 const CHIP_ON: React.CSSProperties = {
   ...CHIP,
   background: "rgba(111, 154, 168, 0.2)",
@@ -164,6 +177,7 @@ export default function WallInspector({
   onCopy,
   onPaste,
   canPaste,
+  onDelete,
   onClose,
 }: WallInspectorProps) {
   const runIn = runFt * 12;
@@ -220,6 +234,16 @@ export default function WallInspector({
           ✕
         </button>
       </div>
+
+      {onDelete && (
+        <button
+          style={{ ...CHIP, ...DANGER, marginBottom: 9 }}
+          onClick={onDelete}
+          title="Delete this drawn wall"
+        >
+          Delete wall
+        </button>
+      )}
 
       {onCopy && onPaste && (
         <div style={{ display: "flex", gap: 4, marginBottom: 9 }}>

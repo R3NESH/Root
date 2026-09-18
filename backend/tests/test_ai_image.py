@@ -33,7 +33,6 @@ def _answer(**overrides) -> ImagePlanRequest:
         rooms=["hall", "kitchen", "bedroom"],
         room_sizes=[[12.0, 10.0], [8.0, 7.0], [11.0, 10.0]],
         near=[],
-        apply_vaastu=True,
         unsupported=[],
     )
     base.update(overrides)
@@ -274,7 +273,6 @@ def test_a_resolved_reading_solves():
         "plot_d_in": round(plan.plot_d_ft * 12),
         "facing": plan.facing,
         "rooms": read.room_specs,
-        "apply_vaastu": plan.apply_vaastu,
     }
 
     r = TestClient(app).post("/solve", json=body)

@@ -56,7 +56,7 @@ SCENARIOS: list[tuple[str, str, list[str]]] = [
     ("2BHK", "40x60", ["hall", "kitchen", "bedroom", "bedroom", "bathroom"]),
     ("3BHK", "40x60", ["hall", "dining", "kitchen", "bedroom", "bedroom", "bedroom", "bathroom", "bathroom"]),
     ("4BHK", "50x80", ["hall", "dining", "kitchen", "bedroom", "bedroom", "bedroom", "bedroom",
-                       "bathroom", "bathroom", "store", "pooja"]),
+                       "bathroom", "bathroom", "store", "utility"]),
 ]
 
 # Setbacks match envelope.DEFAULT_SETBACK: 5 ft front and rear, 3 ft each side, on a plot whose
@@ -132,7 +132,7 @@ def worst_aspect(placed) -> float:
 def measure(label: str, plot: str, names: list[str]) -> dict:
     env_w, env_d = envelope_for(plot)
     rooms = [ROOM_CATALOG[n] for n in names]
-    result = solve_layout(env_w, env_d, rooms, apply_vaastu=True)
+    result = solve_layout(env_w, env_d, rooms, apply_zone_rules=True)
 
     row = {
         "mix": label,
@@ -147,7 +147,7 @@ def measure(label: str, plot: str, names: list[str]) -> dict:
         "through": through_private(rooms),
         "aspect": 0.0,
         "reachable": result.rooms_reachable,
-        "vaastu_relaxed": result.vaastu_relaxed,
+        "rules_relaxed": result.rules_relaxed,
         "ms": result.solve_ms,
     }
     if not result.rooms:
@@ -203,8 +203,8 @@ def main() -> None:
         print(f"  through-private rooms  {sum(r['through'] for r in solved)} across all scenarios")
         print(f"  worst aspect           {max(r['aspect'] for r in solved):.2f} (per-kind cap is 1.8 for habitable)")
     print(f"  connectivity            {'HELD' if not unreachable else 'BROKEN: ' + str(unreachable)}")
-    relaxed = [r for r in solved if r["vaastu_relaxed"]]
-    print(f"  vaastu relaxed          {len(relaxed)}/{len(solved)}"
+    relaxed = [r for r in solved if r["rules_relaxed"]]
+    print(f"  zone rules relaxed     {len(relaxed)}/{len(solved)}"
           + (f"   {', '.join(f'{r['mix']} on {r['plot']}' for r in relaxed)}" if relaxed else ""))
     print("=" * 108)
 

@@ -44,7 +44,7 @@ COMPACT_WEIGHT = 120
 # Pulling one requested pair of rooms together, per doubled inch of Manhattan distance between
 # their centres. See near_terms() for why the distance is doubled.
 #
-# 60 is measured. Swept on the six-room Vaastu mix (hall, kitchen, bedroom x2, bathroom, pooja)
+# 60 is measured. Swept on a six-room mix (hall, kitchen, bedroom x2, bathroom, store)
 # in a 30x40 north-facing envelope, one requested kitchen<->bedroom pair, three cold runs each.
 # Weight 0 is the same solve with no pair requested, and is the baseline both other columns are
 # read against:
@@ -102,7 +102,7 @@ def add_daylight_constraints(
 
     Wet rooms are held to the same rule even though they are not habitable: a bathroom with no
     exterior wall cannot be ventilated, and a plan that puts one in the middle of the house is
-    asking for a shaft nobody costed. Stores, stairs and the pooja room are genuinely exempt.
+    asking for a shaft nobody costed. Stores and stairs are genuinely exempt.
 
     Returns the indices actually constrained, so callers can report them.
     """
@@ -168,9 +168,9 @@ def near_terms(
     "Put the guest bedroom near the kitchen" is a preference, not a bye-law. There is no
     threshold at which two rooms become near, and forcing them to share a wall would make an
     ordinary ask INFEASIBLE on a plot with room to spare. So this is scored rather than
-    constrained — which is the opposite of what Vaastu gets, and deliberately so: Vaastu is a
-    rule the plan either meets or fails (notes/decisions/vaastu-as-constraints.md), while this
-    is one person's taste and a plan that honours it less well is still a house.
+    constrained — which is the opposite of what a zone rule gets, and deliberately so: a zone
+    rule is one the plan either meets or fails, while this is one person's taste and a plan
+    that honours it less well is still a house.
 
     Centres are carried doubled. A centre is `x + w/2` and half an inch is not an integer
     (notes/decisions/integer-inches.md), so the model works with `2x + w` throughout and

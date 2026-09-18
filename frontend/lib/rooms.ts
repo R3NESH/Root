@@ -12,7 +12,6 @@ export type RoomName =
   | "kitchen"
   | "bedroom"
   | "bathroom"
-  | "pooja"
   | "store"
   | "entrance"
   | "utility"
@@ -45,7 +44,6 @@ export const ROOM_NAMES: RoomName[] = [
   "kitchen",
   "bedroom",
   "bathroom",
-  "pooja",
   "store",
   "entrance",
   "utility",
@@ -69,7 +67,6 @@ export const ROOM_LABELS: Record<RoomName, string> = {
   kitchen: "Kitchen",
   bedroom: "Bedroom",
   bathroom: "Bath",
-  pooja: "Pooja",
   store: "Store",
   entrance: "Entrance",
   utility: "Utility",
@@ -95,7 +92,6 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   kitchen: 0xd9694a,
   bedroom: 0x4a7fd9,
   bathroom: 0x8a6fc4,
-  pooja: 0xd9b64a,
   store: 0x8d8577,
   entrance: 0xe8912d,
   utility: 0x7f9aa6,

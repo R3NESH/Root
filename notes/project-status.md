@@ -39,13 +39,42 @@ with every number below re-measured on 2026-09-07 rather than carried over from
 - **Architectural Blueprints Catalog.** 20 models across North, East, South, West facings, Kerala Courtyard, Chettinad Heritage, Scandinavian Modernist, Japanese Zen, and Parisian Penthouses.
 - **Walls as Objects & BIM Engine.** Single-wall shared partitions with hosted opening attachments, eliminating double-counted doors and floating room borders.
 - **Bill of Quantities (BOQ) & Cost Takeoff.** Real-time civil, masonry, finishes, MEP, and labor estimation across Economy, Standard, and Luxury tiers.
-- **Real-World Kandi, Telangana Plot Validated.** 30×40 North-facing plot solved under TG-bPASS setbacks (5 ft road, 3 ft rear/sides) across 2BHK and 3BHK programs with Vaastu (Agneya kitchen, Nairutya master bed, Ishanya pooja), 100% door reachability, and tight compact footprint (`test_kandi_plot.py`).
+- **Real-World Kandi, Telangana Plot Validated.** 30×40 North-facing plot solved under TG-bPASS setbacks (5 ft road, 3 ft rear/sides) across 2BHK and 3BHK programs with 100% door reachability, and tight compact footprint (`test_kandi_plot.py`).
 - **Solver core & Realism.** 93 unit tests green. Compact footprint term prevents loose pavilion layouts. NBC 2016 sizing ensures standard Indian plots (20×30, 25×40, 30×40) solve reliably.
 - **The 3D product.** Orbit view, first-person walkthrough with mobile on-screen D-pad and action buttons, minimap, drag-and-drop rooms, CAD drafting, 2D blueprint export, material customization, custom wall paint bands, and real Poly Haven 3D models.
 - **Walkthrough Collision Engine & Interactive Doors.** Axis-separated sliding capsule collision ($R = 0.72\text{ ft}$) prevents phasing through walls, closed doors, and furniture (custom and built-ins). Interactive hinged doors start closed, block passage, and swing open/closed smoothly via `E` key, direct mouse click, or mobile touch button with on-screen HUD prompt.
 - **Architectural Spatial FOV.** Walkthrough camera FOV expanded from 45° to 68° (75° sprint), eliminating cramped tunnel vision and congestion.
 - **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
 - **Full Features & Subsystems Inventory.** Complete log of all features, tools, and graphics engines in [[features-and-tools]].
+
+## Vaastu and the pooja room removed — 2026-09-18
+
+At the user's instruction, every Vaastu rule and the pooja room were taken out of the product.
+This reverses the locked decision in [HANDOFF.md](../HANDOFF.md) §3.5, which HANDOFF.md still
+records as the original brief; HANDOFF.md is never edited.
+
+- `backend/vaastu/` deleted. Its generic machinery — `QuadrantRule`,
+  `add_quadrant_constraint()`, `satisfied()` — moved to `backend/zoning.py`, which the café
+  programme still uses. The residence now posts **no** directional rule at all.
+- `pooja` gone from `ROOM_CATALOG`, the parent tree, the forbidden pairs, the room vocabulary,
+  the 20 curated blueprints, the material presets and the AI room vocabulary.
+- The pooja mandir and diya lantern furniture, the whole `sacred` tool-rail category, the
+  auto-placed altar, the 9-zone mandala overlay, the per-room zone badge and the blueprint
+  export's zone matrix are all removed.
+- API: `apply_vaastu` → `apply_zone_rules`, `vaastu_constraints_applied` → `rules_applied`,
+  `vaastu_relaxed` → `rules_relaxed`. `rules_label` is now `""` for a residence.
+- `PROJECT_STORAGE_KEY` changed from `vastu_builder_project_data_v1` to
+  `plot_to_plan_project_data_v1`. **Any locally saved project from before this change will not
+  load.**
+- Three vault notes deleted: `vaastu-as-constraints`, `step-5-vaastu`,
+  `vaastu-and-connectivity-drop-on-edit`. Incoming links were rewritten, not left dangling.
+
+> [!warning] The cited demand evidence still stands and now contradicts the product
+> HANDOFF.md §2 cites a NoBroker survey of 12,546 respondents — 73% check Vaastu before buying,
+> 77% in Hyderabad. That was the reason Vaastu was a constraint rather than a score. Nothing has
+> been measured since that contradicts it. The removal was a direct instruction, not a finding.
+
+Backend **173/173 passing**. Frontend `tsc --noEmit` 0 errors, `next build` clean.
 
 ## What is broken or unfinished
 
@@ -66,7 +95,7 @@ with every number below re-measured on 2026-09-07 rather than carried over from
 
 | Was | Now |
 |---|---|
-| Vaastu + connectivity dropped after the first solve | only the *dragged* room is released; connectivity never dropped |
+| Zone rules + connectivity dropped after the first solve | only the *dragged* room is released; connectivity never dropped |
 | Renderer ignored solver `openings`; 4.5 in vs 5 in walls | renderer consumes them; 99 lines of duplication deleted |
 | Entrance in 38% of layouts | **90%**, and it reaches the renderer |
 | Envelope fill ~60% of ceiling, rooms at minimum size | **92-100%** of ceiling |

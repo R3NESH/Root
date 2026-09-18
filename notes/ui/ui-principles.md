@@ -21,11 +21,11 @@ Hard constraint on the whole surface: [[zero-keyboard-events]].
    they came. Show three plans from three objective weightings. Humans choose well and specify
    badly. This deletes roughly half the questionnaire.
 4. **Steppers** (`− 2 BHK +`), never text inputs.
-5. **Room tray** — drag chips (Bedroom / Kitchen / Bath / Pooja / Hall) into the plot; the solver
+5. **Room tray** — drag chips (Bedroom / Kitchen / Bath / Store / Hall) into the plot; the solver
    snaps them legal. User supplies intent, machine supplies correctness. Build after the spine
    works.
 6. **Compass dial** for facing — direction is spatial, so a rotating ring beats a dropdown, and
-   [[vaastu-as-constraints]] makes it meaningful. Facing is half the input
+   rules-as-constraints makes it meaningful. Facing is half the input
    ([[input-is-plot-dimensions]]).
 
 > [!missing] The prototype does not exist

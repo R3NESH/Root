@@ -13,7 +13,7 @@ confused with each other.
 CP-SAT places rooms with `add_no_overlap_2d` over integer intervals — see
 `backend/solver/model.py` and [[integer-inches]]. There is no arc primitive to give it. Every
 downstream rule reads a room as one rectangle: adjacency and separation in `connectivity.py`,
-daylight against the built footprint, the Vaastu quadrant test, `derive_walls`, the take-off.
+daylight against the built footprint, the zone quadrant test, `derive_walls`, the take-off.
 
 So a curve is **a property of a wall face**, not of the plan. A room keeps the rectangle the
 solver packed; the face of one of its walls bows out from the straight run by a bulge in inches.
@@ -59,7 +59,7 @@ rectangles.
 - The setback for a splayed edge is chosen from whichever cardinal its outward normal faces more
   squarely. A real bye-law reads the road each edge abuts. Same order of approximation as the
   hardcoded setbacks in [[environment-notes]].
-- Vaastu quadrants are still computed on the envelope's bounding box, not the polygon.
+- zone quadrants are still computed on the envelope's bounding box, not the polygon.
 - The inset rounds *up*, so the buildable area errs on the legal side.
 - The offline fallback in `frontend/lib/solve.ts` has no half-planes. On a splayed plot it packs
   the largest rectangle that misses every splay — smaller than the real answer, never larger. It

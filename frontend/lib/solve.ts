@@ -1,6 +1,16 @@
 // API client — notes/build/step-3-wire-together.md: fetch from FastAPI solver backend.
 
-import { DEFAULT_SETBACK, edgeSetbacksIn, Facing, plotPolygonIn, Setback } from "./plot";
+import {
+  DEFAULT_SETBACK,
+  Facing,
+  PlotDims,
+  PlotPoint,
+  Setback,
+  edgeSetbacksIn,
+  isRectangularPlot,
+  outlineBoundsIn,
+  plotPolygonIn,
+} from "./plot";
 import { ProgramKey } from "./programs";
 import { RoomName, withCounts } from "./rooms";
 
@@ -47,7 +57,6 @@ export interface RoomOpening {
 export interface SolveMeta {
   status: string;
   solve_ms: number;
-  vaastu_constraints_applied: string[];
   envelope_origin_x_in: number;
   envelope_origin_z_in: number;
   envelope_w_in: number;
@@ -65,13 +74,9 @@ export interface SolveMeta {
   drop_to_fit?: string[];
   entrance_edge: "N" | "S" | "E" | "W" | null;
   rooms_reachable: number;
-  // The solver's relaxation ladder handed back a layout with no Vaastu rule posted, even though
-  // the mix has rules. Distinct from an empty `vaastu_constraints_applied`, which is also the
-  // correct answer for a mix that has no ruled room in it at all.
-  vaastu_relaxed?: boolean;
-  // Which programme was packed and what its directional rules are called. A cafe posts
-  // service-flow zoning, not Vaastu, so `rules_applied` is the generic carrier and
-  // `vaastu_constraints_applied` stays empty for it — backend/programs/registry.py.
+  // Which programme was packed and what its directional rules are called. A residence posts
+  // no zoning at all and leaves both empty; a cafe posts service-flow zoning —
+  // backend/programs/registry.py.
   program?: string;
   rules_label?: string;
   rules_applied?: string[];
@@ -150,11 +155,15 @@ export interface SolveRequestArgs {
   // Corner splays in inches, clockwise from north-west. Sent to the solver as a convex outline;
   // absent or all-zero means a rectangular plot and nothing changes.
   cornerCutsIn?: [number, number, number, number];
+  // An outline drawn by hand, and how far each of its edges bows outward — lib/plot.ts. Both
+  // are optional and both override the splays above when present.
+  vertsIn?: PlotPoint[];
+  edgeBulgeIn?: number[];
   /** Storeys to pack, ground included. Omitted or 1 is the single-storey house. */
   floors?: number;
   prev?: PrevRoomIn[];
-  // Index of the room the user just dragged — only that room is released from its Vaastu
-  // quadrant. See notes/solver/vaastu-and-connectivity-drop-on-edit.md.
+  // Index of the room the user just dragged — only that room is released from its zone
+  // quadrant; releasing every rule on an edit is what silently un-zoned each drag.
   movedIndex?: number;
   // Which building programme to pack. Omitted means "residence", which is what every caller
   // meant before there was a second one.
@@ -182,12 +191,12 @@ function toCardinalEdge(facing: Facing): "N" | "S" | "E" | "W" {
  * Offline placeholder layout — NOT a solver.
  *
  * Runs in the browser only when the backend is unreachable. It drops rooms onto a fixed 2- or
- * 3-column grid: no CP-SAT, no Vaastu constraint, no adjacency, no daylight rule, no door graph.
+ * 3-column grid: no CP-SAT, no zone constraint, no adjacency, no daylight rule, no door graph.
  * It exists so the viewport has something to draw, not so the user has a plan.
  *
  * It must never report a guarantee it did not enforce — notes/architecture/client-side-fallback.md
- * and the "fallback must never claim Vaastu it did not enforce" rule in CLAUDE.md. That is why
- * `status`, `vaastu_constraints_applied` and `rooms_reachable` below say what they say.
+ * and the "fallback must never claim a rule it did not enforce" rule in CLAUDE.md. That is why
+ * `status`, `rules_applied` and `rooms_reachable` below say what they say.
  */
 export function solveClientSide(args: SolveRequestArgs): SolveResponse {
   // edgeSetbacksIn returns FIXED WORLD ORIENTATION — [N, E, S, W] — not front/rear/left/right.
@@ -219,7 +228,6 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       meta: {
         status: "Empty Plot",
         solve_ms: 1,
-        vaastu_constraints_applied: [],
         rules_applied: [],
         rules_relaxed: false,
         program: args.program ?? "residence",
@@ -230,7 +238,6 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
         unknown_room_names: [],
         entrance_edge: cardinalFacing,
         rooms_reachable: 0,
-        vaastu_relaxed: false,
       },
     };
   }
@@ -261,7 +268,6 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
     else if (name === "dining") { defW = 132; defD = 132; }
     else if (name === "bedroom") { defW = 144; defD = 156; }
     else if (name === "bathroom") { defW = 72; defD = 84; }
-    else if (name === "pooja") { defW = 60; defD = 60; }
     else if (name === "store") { defW = 60; defD = 72; }
     else if (name === "entrance") { defW = 84; defD = 72; }
     else if (name === "seating") { defW = 216; defD = 192; }
@@ -418,7 +424,7 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       w_in: Math.round(rw),
       d_in: Math.round(rd),
       wall_thickness_in: 9.0,
-      habitable: ["hall", "bedroom", "dining", "pooja", "entrance"].includes(spec.name),
+      habitable: ["hall", "bedroom", "dining", "entrance"].includes(spec.name),
       wet: ["bathroom", "kitchen"].includes(spec.name),
       open_sided: ["sitout", "parking"].includes(spec.name),
       openings,
@@ -428,14 +434,13 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
   return {
     rooms: solvedRooms,
     meta: {
-      // This engine posts no Vaastu constraint, runs no adjacency check and derives no door
+      // This engine posts no zone constraint, runs no adjacency check and derives no door
       // graph, so it may not report any of them as satisfied — notes/architecture/client-side-fallback.md.
       status: OFFLINE_ESTIMATE_STATUS,
       solve_ms: 8,
       // This engine packs one floor whatever was asked for. Saying so is the whole contract of
       // notes/architecture/client-side-fallback.md: fail loudly rather than invent.
       floors_solved: 1,
-      vaastu_constraints_applied: [],
       envelope_origin_x_in: envOriginX,
       envelope_origin_z_in: envOriginZ,
       envelope_w_in: envW,
@@ -445,7 +450,6 @@ export function solveClientSide(args: SolveRequestArgs): SolveResponse {
       // Every opening below leaves `to_room` undefined, so the door graph is empty and the only
       // room reachable from the start is the start room itself.
       rooms_reachable: solvedRooms.length > 0 ? 1 : 0,
-      vaastu_relaxed: true,
       // Same honesty for the second programme: no service-flow zoning was posted either.
       program: args.program ?? "residence",
       rules_applied: [],
@@ -464,17 +468,28 @@ export async function requestSolve(
   // road setback landed on the side boundary and the 3 ft side setback on the frontage.
   const setback = args.setback ?? DEFAULT_SETBACK;
 
-  const cuts = args.cornerCutsIn;
-  const polygon =
-    cuts && cuts.some((c) => c > 0)
-      ? plotPolygonIn({ widthIn: args.plotWIn, depthIn: args.plotDIn, cornerCutsIn: cuts }).map(
-          ([x, y]) => [Math.round(x), Math.round(y)]
-        )
-      : undefined;
+  // The outline the solver is asked to hold rooms inside. Any of the three ways a plot can stop
+  // being a rectangle — splayed corners, drawn vertices, bowed edges — produces one here, and a
+  // plain rectangle produces none so the backend keeps its fast path.
+  const shaped: PlotDims = {
+    widthIn: args.plotWIn,
+    depthIn: args.plotDIn,
+    cornerCutsIn: args.cornerCutsIn,
+    vertsIn: args.vertsIn,
+    edgeBulgeIn: args.edgeBulgeIn,
+  };
+  const polygon = isRectangularPlot(shaped)
+    ? undefined
+    : plotPolygonIn(shaped).map(([x, y]) => [Math.round(x), Math.round(y)]);
+
+  // Bowing an edge outward grows the plot, so the bounding box the backend is told about has to
+  // be the outline's, not the box the user typed. Sending the smaller one would let the solver
+  // clamp a room's domain to less ground than the plot actually has.
+  const bounds = polygon ? outlineBoundsIn(polygon as PlotPoint[]) : null;
 
   const payload = {
-    plot_w_in: Math.round(args.plotWIn),
-    plot_d_in: Math.round(args.plotDIn),
+    plot_w_in: Math.round(bounds ? Math.max(bounds.widthIn, args.plotWIn) : args.plotWIn),
+    plot_d_in: Math.round(bounds ? Math.max(bounds.depthIn, args.plotDIn) : args.plotDIn),
     plot_polygon_in: polygon,
     floors: args.floors && args.floors > 1 ? Math.round(args.floors) : undefined,
     facing: args.facing,
@@ -503,7 +518,6 @@ export async function requestSolve(
     })),
     moved_index: args.movedIndex != null ? Math.round(args.movedIndex) : undefined,
     near: args.near && args.near.length > 0 ? args.near : undefined,
-    apply_vaastu: true,
     program: args.program ?? "residence",
   };
 
@@ -548,7 +562,6 @@ export interface ParsedPromptClient {
   plotDIn: number;
   facing: Facing;
   counts: Record<RoomName, number>;
-  applyVaastu: boolean;
   rawPrompt: string;
 }
 
@@ -606,21 +619,15 @@ export function parsePromptClient(prompt: string): ParsedPromptClient {
     counts.dining = 1;
   }
 
-  if (/\b(pooja|puja|mandir|prayer)\b/i.test(text)) counts.pooja = 1;
   if (/\b(store|storage|pantry)\b/i.test(text)) counts.store = 1;
   if (/\b(dining)\b/i.test(text)) counts.dining = 1;
   if (/\b(entrance|foyer)\b/i.test(text)) counts.entrance = 1;
-
-  const applyVaastu = !/\b(no\s*vaastu|ignore\s*vaastu|without\s*vaastu|no\s*vastu)\b/i.test(
-    text
-  );
 
   return {
     plotWIn: Math.round(wFt * 12),
     plotDIn: Math.round(dFt * 12),
     facing,
     counts,
-    applyVaastu,
     rawPrompt: prompt,
   };
 }

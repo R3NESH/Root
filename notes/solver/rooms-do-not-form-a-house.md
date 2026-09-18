@@ -11,7 +11,7 @@ escape the envelope?" — and the answer to that was correctly "no".
 
 ## The measurement
 
-24 random room mixes across four plot sizes, Vaastu on, requiring a **32 in (2'8") clear door**
+24 random room mixes across four plot sizes, zone rules on, requiring a **32 in (2'8") clear door**
 to count two rooms as connected:
 
 | Metric | Result |
@@ -20,34 +20,34 @@ to count two rooms as connected:
 | Mean share of the buildable envelope left **empty** | **60%** |
 | Worst case | **1 of 6 rooms reachable** |
 
-A concrete failure: `['hall','bedroom','pooja','pooja','bathroom']` → 1 of 5 rooms reachable,
+A concrete failure: `['hall','bedroom','store','store','bathroom']` → 1 of 5 rooms reachable,
 79% of the envelope void.
 
 Even a layout that *is* connected can be connected by nothing usable. In one 6-room solve the
-kitchen and pooja shared exactly **2 inches** of wall — a shared edge, but not a doorway.
+kitchen and store shared exactly **2 inches** of wall — a shared edge, but not a doorway.
 
 ## Why
 
-[[cp-sat-api]] applies exactly two families of constraint: `add_no_overlap_2d`, and the Vaastu
-quadrant half-planes from [[vaastu-as-constraints]]. **Nothing requires rooms to touch, to tile
+[[cp-sat-api]] applies exactly two families of constraint: `add_no_overlap_2d`, and the zone
+quadrant half-planes from rules-as-constraints. **Nothing requires rooms to touch, to tile
 the envelope, or to be mutually reachable.** Non-overlap is satisfied perfectly by scattering
 rectangles with voids between them, and that is what the solver does — correctly, per its
 constraints.
 
-### The specific culprit is Vaastu, and that is measured
+### The specific culprit is the zone rules, and that is measured
 
-Same 24 mixes, same door width, only the Vaastu flag changed:
+Same 24 mixes, same door width, only the zone-rule flag changed:
 
 | Configuration | Rooms all reachable |
 |---|---|
-| Vaastu **off** | **16 of 19 — 84%** |
-| Vaastu **on** | **7 of 19 — 37%** |
+| zone rules **off** | **16 of 19 — 84%** |
+| zone rules **on** | **7 of 19 — 37%** |
 
 The quadrant half-planes pin kitchen to the south-east and master bedroom to the south-west —
 **opposite corners** — so the solver satisfies them by pushing rooms outward and hollowing out
-the middle. Vaastu compliance and walkability are in direct tension under the current encoding.
+the middle. zone compliance and walkability are in direct tension under the current encoding.
 
-This cannot be fixed by dropping Vaastu: it is the market's hard requirement. The encoding has
+Dropping the rules was not on the table at the time. The encoding has
 to change instead.
 
 ### A fill constraint alone does NOT fix it

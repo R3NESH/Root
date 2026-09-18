@@ -1,7 +1,19 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
-import { PlotDims, Facing, Setback, edgeSetbacksIn, frontCardinalIndex, plotPolygonIn } from "@/lib/plot";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import {
+  PlotDims,
+  PlotPoint,
+  Facing,
+  Setback,
+  MAX_EDGE_BULGE_IN,
+  MAX_PLOT_VERTICES,
+  edgeSetbacksIn,
+  frontCardinalIndex,
+  outlineBoundsIn,
+  plotPolygonIn,
+  plotShapeProblem,
+} from "@/lib/plot";
 import {
   clampBulgeFt,
   curvedEdgePoints,
@@ -14,12 +26,7 @@ import { inchesToFeet } from "@/lib/units";
 import { ROOM_COLORS, ROOM_LABELS, ROOM_NAMES, RoomName, findAdjacentRoomEdge } from "@/lib/rooms";
 import { CustomDim } from "./RoomCustomizer";
 import { ModelBlueprint } from "@/lib/modelBlueprints";
-import {
-  formatFeetInches,
-  formatAreaSqFt,
-  getRoomVaastuZone,
-  VAASTU_ZONE_LABELS,
-} from "@/lib/blueprintExport";
+import { formatFeetInches, formatAreaSqFt } from "@/lib/blueprintExport";
 import {
   WindowConfig,
   WindowShapeId,
@@ -57,6 +64,8 @@ interface Blueprint2DViewProps {
   /** Spaces the active building programme offers. Defaults to the whole vocabulary. */
   spaces?: RoomName[];
   plot: PlotDims;
+  /** Absent hides the outline editor: the plot is then read-only on this surface. */
+  onChangePlot?: (next: PlotDims) => void;
   facing: Facing;
   setback: Setback;
   rooms: SolvedRoom[];
@@ -100,6 +109,7 @@ interface Blueprint2DViewProps {
 
 export default function Blueprint2DView({
   plot,
+  onChangePlot,
   facing,
   setback,
   rooms,
@@ -138,7 +148,6 @@ export default function Blueprint2DView({
   // Layer visibility state
   const [showDimensions, setShowDimensions] = useState(true);
   const [showSetbacks, setShowSetbacks] = useState(true);
-  const [showVaastuGrid, setShowVaastuGrid] = useState(true);
   const [showBadges, setShowBadges] = useState(true);
 
   // Selection states
@@ -154,6 +163,13 @@ export default function Blueprint2DView({
   const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Drag-to-Move & Auto-Crop Room State
+  // Plot outline editing. `editingOutline` gates the handles so they cannot be caught by a
+  // stray click while rooms are being arranged; `draggingVertex` is the corner under the cursor
+  // and `draggingBulge` the midpoint handle that bows an edge.
+  const [editingOutline, setEditingOutline] = useState(false);
+  const [draggingVertex, setDraggingVertex] = useState<number | null>(null);
+  const [draggingBulge, setDraggingBulge] = useState<number | null>(null);
+
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOffsetIn, setDragOffsetIn] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const dragStartMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -263,7 +279,6 @@ export default function Blueprint2DView({
             bedroom: 2,
             bathroom: 1,
             dining: 0,
-            pooja: 0,
             store: 0,
           };
         const customDimsVal = parsed.customDims || {};
@@ -280,7 +295,7 @@ export default function Blueprint2DView({
           facing: facingVal,
           builtUpAreaSqFt: parsed.builtUpAreaSqFt || Math.round(widthFt * depthFt * 0.75),
           totalSqFt: widthFt * depthFt,
-          rating: parsed.rating || parsed.vaastuRating || "Custom Imported Plan",
+          rating: parsed.rating || "Custom Imported Plan",
           description: parsed.description || "User-imported architectural blueprint model.",
           highlights: parsed.highlights || ["Custom Imported Plan", "Ready to Build in 2D & 3D"],
           counts: countsVal,
@@ -308,9 +323,18 @@ export default function Blueprint2DView({
   const envW = Math.max(0, plot.widthIn - setbackW - setbackE);
   const envD = Math.max(0, plot.depthIn - setbackN - setbackS);
 
-  const baseScale = Math.min(drawW / Math.max(plot.widthIn, 1), drawH / Math.max(plot.depthIn, 1));
-  const originX = PADDING + (drawW - plot.widthIn * baseScale) / 2;
-  const originY = PADDING + (drawH - plot.depthIn * baseScale) / 2;
+  // The drawn outline, and the box it actually occupies. Bowing an edge outward makes the plot
+  // larger than the width and depth the user typed, so the sheet is scaled to the outline rather
+  // than to those two numbers — otherwise a bowed plot is drawn off the edge of the paper.
+  const plotOutline = plotPolygonIn(plot);
+  const outlineBounds = outlineBoundsIn(plotOutline);
+  const sheetWIn = Math.max(outlineBounds.widthIn, plot.widthIn, 1);
+  const sheetDIn = Math.max(outlineBounds.depthIn, plot.depthIn, 1);
+  const shapeProblem = plotShapeProblem(plot);
+
+  const baseScale = Math.min(drawW / sheetWIn, drawH / sheetDIn);
+  const originX = PADDING + (drawW - sheetWIn * baseScale) / 2;
+  const originY = PADDING + (drawH - sheetDIn * baseScale) / 2;
 
   const toPxX = (xIn: number) => originX + xIn * baseScale;
   const toPxY = (yIn: number) => originY + yIn * baseScale;
@@ -449,6 +473,103 @@ export default function Blueprint2DView({
   }, [onChangeCadTool]);
 
   // Mouse pan & drag handlers
+  // --- plot outline editing --------------------------------------------------------------
+  //
+  // The outline the user drags is the STRAIGHT one — its corners and its per-edge bow — not the
+  // tessellated curve `plotPolygonIn` hands to the renderer. Dragging a chord of a curve would
+  // turn one bowed edge into forty straight ones on the first nudge.
+
+  /** The editable skeleton: corners before any edge is bowed. */
+  const outlineVerts: PlotPoint[] = useMemo(() => {
+    if (plot.vertsIn && plot.vertsIn.length >= 3) return plot.vertsIn;
+    // A plot that has never been drawn is edited from the rectangle (and splays) it already is,
+    // so the first drag continues the shape rather than replacing it.
+    return plotPolygonIn({ ...plot, edgeBulgeIn: undefined });
+  }, [plot]);
+
+  const outlineBulges = plot.edgeBulgeIn ?? [];
+
+  /** Commit a new skeleton, keeping width and depth as the outline's own bounding box. */
+  const commitOutline = useCallback(
+    (verts: PlotPoint[], bulges: number[]) => {
+      if (!onChangePlot) return;
+      const drawn = plotPolygonIn({ ...plot, vertsIn: verts, edgeBulgeIn: bulges });
+      const bounds = outlineBoundsIn(drawn);
+      onChangePlot({
+        ...plot,
+        widthIn: Math.max(1, bounds.widthIn),
+        depthIn: Math.max(1, bounds.depthIn),
+        // The outline supersedes the splays. Keeping both would leave two descriptions of one
+        // shape, and the splay steppers would silently re-cut a corner the user had dragged.
+        cornerCutsIn: undefined,
+        vertsIn: verts,
+        edgeBulgeIn: bulges.some((b) => Math.abs(b) >= 1) ? bulges : undefined,
+      });
+    },
+    [onChangePlot, plot]
+  );
+
+  /** Where an edge's bow handle sits, in inches: the midpoint pushed out by the current bulge. */
+  const bulgeHandleIn = useCallback(
+    (i: number): PlotPoint => {
+      const from = outlineVerts[i];
+      const to = outlineVerts[(i + 1) % outlineVerts.length];
+      const dx = to[0] - from[0];
+      const dy = to[1] - from[1];
+      const len = Math.hypot(dx, dy) || 1;
+      // Outward normal for a clockwise-on-screen outline, matching lib/plot.ts.
+      const nx = -dy / len;
+      const ny = dx / len;
+      const b = outlineBulges[i] ?? 0;
+      return [(from[0] + to[0]) / 2 + nx * b, (from[1] + to[1]) / 2 + ny * b];
+    },
+    [outlineVerts, outlineBulges]
+  );
+
+  const handleAddVertex = useCallback(
+    (edgeIndex: number) => {
+      if (outlineVerts.length >= MAX_PLOT_VERTICES) return;
+      const from = outlineVerts[edgeIndex];
+      const to = outlineVerts[(edgeIndex + 1) % outlineVerts.length];
+      const mid: PlotPoint = [
+        Math.round((from[0] + to[0]) / 2),
+        Math.round((from[1] + to[1]) / 2),
+      ];
+      const verts = [...outlineVerts];
+      verts.splice(edgeIndex + 1, 0, mid);
+      // Splitting an edge splits its bow with it, so the shape does not jump on insert.
+      const bulges = [...outlineBulges];
+      const was = bulges[edgeIndex] ?? 0;
+      bulges.splice(edgeIndex, 1, Math.round(was / 2), Math.round(was / 2));
+      commitOutline(verts, bulges);
+    },
+    [outlineVerts, outlineBulges, commitOutline]
+  );
+
+  const handleRemoveVertex = useCallback(
+    (index: number) => {
+      // Three corners is the least that is still a plot — backend/envelope/polygon.py.
+      if (outlineVerts.length <= 3) return;
+      const verts = outlineVerts.filter((_, i) => i !== index);
+      const bulges = outlineBulges.filter((_, i) => i !== index);
+      commitOutline(verts, bulges);
+    },
+    [outlineVerts, outlineBulges, commitOutline]
+  );
+
+  const handleResetOutline = useCallback(() => {
+    if (!onChangePlot) return;
+    const bounds = outlineBoundsIn(plotPolygonIn(plot));
+    onChangePlot({
+      ...plot,
+      widthIn: Math.max(1, bounds.widthIn),
+      depthIn: Math.max(1, bounds.depthIn),
+      cornerCutsIn: undefined,
+      vertsIn: undefined,
+      edgeBulgeIn: undefined,
+    });
+  }, [onChangePlot, plot]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const coords = getSvgInchesCoords(e);
@@ -637,6 +758,36 @@ export default function Blueprint2DView({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const coords = getSvgInchesCoords(e);
+
+    // 0z. Plot outline drag. Checked first: a corner handle sits over whatever is behind it, and
+    // the outline is the thing the user grabbed.
+    if (draggingVertex !== null) {
+      const verts = outlineVerts.map((v, i) =>
+        i === draggingVertex ? ([Math.round(coords.xIn), Math.round(coords.yIn)] as PlotPoint) : v
+      );
+      commitOutline(verts, [...outlineBulges]);
+      return;
+    }
+    if (draggingBulge !== null) {
+      const from = outlineVerts[draggingBulge];
+      const to = outlineVerts[(draggingBulge + 1) % outlineVerts.length];
+      const dx = to[0] - from[0];
+      const dy = to[1] - from[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      // Project the cursor onto the edge's outward normal: how far past the straight run it is.
+      const offset =
+        (coords.xIn - (from[0] + to[0]) / 2) * nx + (coords.yIn - (from[1] + to[1]) / 2) * ny;
+      const bulges = [...outlineBulges];
+      while (bulges.length < outlineVerts.length) bulges.push(0);
+      bulges[draggingBulge] = Math.max(
+        -MAX_EDGE_BULGE_IN,
+        Math.min(MAX_EDGE_BULGE_IN, Math.round(offset))
+      );
+      commitOutline([...outlineVerts], bulges);
+      return;
+    }
 
     // 0a. CAD Wall Drafting Live Rubberband Preview
     if (activeCadTool === "draw_wall" && draftWallStart) {
@@ -910,6 +1061,11 @@ export default function Blueprint2DView({
   };
 
   const handleMouseUp = () => {
+    if (draggingVertex !== null || draggingBulge !== null) {
+      setDraggingVertex(null);
+      setDraggingBulge(null);
+      return;
+    }
     if (isDraggingRoomRef.current && draggingIndex !== null) {
       const room = rooms[draggingIndex];
       if (room) {
@@ -1524,13 +1680,24 @@ export default function Blueprint2DView({
           >
             Setbacks
           </button>
-          <button
-            className={`${styles.toolButton} ${showVaastuGrid ? styles.toolButtonActive : ""}`}
-            onClick={() => setShowVaastuGrid((p) => !p)}
-            title="Toggle 9-Zone Vaastu Mandala Grid"
-          >
-            Vaastu Grid
-          </button>
+          {onChangePlot && (
+            <button
+              className={`${styles.toolButton} ${editingOutline ? styles.toolButtonActive : ""}`}
+              onClick={() => setEditingOutline((p) => !p)}
+              title="Reshape the plot: drag a corner to move it, drag an edge's dot to bow it, double-click a dot to add a corner, right-click a corner to remove it"
+            >
+              Plot Shape
+            </button>
+          )}
+          {editingOutline && onChangePlot && (plot.vertsIn || plot.edgeBulgeIn) && (
+            <button
+              className={styles.toolButton}
+              onClick={handleResetOutline}
+              title="Throw the drawn outline away and go back to a plain rectangle"
+            >
+              Reset Shape
+            </button>
+          )}
           <button
             className={`${styles.toolButton} ${showBadges ? styles.toolButtonActive : ""}`}
             onClick={() => setShowBadges((p) => !p)}
@@ -1613,6 +1780,14 @@ export default function Blueprint2DView({
       {cropToast && (
         <div className={styles.cropToastOverlay}>
           <span>{cropToast}</span>
+        </div>
+      )}
+
+      {/* An outline the solver will refuse. It falls back to the plot's bounding rectangle and
+          says nothing, so this is the only place the user finds out — lib/plot.ts. */}
+      {shapeProblem && (
+        <div className={styles.shapeProblemBanner}>
+          <strong>This plot shape cannot be solved.</strong> {shapeProblem}
         </div>
       )}
 
@@ -1765,7 +1940,7 @@ export default function Blueprint2DView({
               cursor: "pointer",
             }}
             onClick={onOpenModelBlueprintsModal}
-            title="Exit scratch mode and load a prebuilt Vastu floor plan model"
+            title="Exit scratch mode and load a prebuilt floor plan model"
           >
             Prebuilt Plans
           </button>
@@ -2017,70 +2192,96 @@ export default function Blueprint2DView({
         <g
           transform={`translate(${VIEW_W / 2 + pan.x}, ${VIEW_H / 2 + pan.y}) scale(${zoom}) translate(${-VIEW_W / 2}, ${-VIEW_H / 2})`}
         >
-          {/* 9-Zone Vaastu Purusha Mandala Overlay */}
-          {showVaastuGrid && (
-            <g opacity="0.3">
-              {[0, 1, 2].map((r) =>
-                [0, 1, 2].map((c) => {
-                  const gx = plotPxX + (plotPxW / 3) * c;
-                  const gy = plotPxY + (plotPxH / 3) * r;
-                  const gw = plotPxW / 3;
-                  const gh = plotPxH / 3;
-
-                  let zoneKey = "CENTER";
-                  if (r === 0 && c === 0) zoneKey = "NW";
-                  if (r === 0 && c === 1) zoneKey = "N";
-                  if (r === 0 && c === 2) zoneKey = "NE";
-                  if (r === 1 && c === 0) zoneKey = "W";
-                  if (r === 1 && c === 1) zoneKey = "C";
-                  if (r === 1 && c === 2) zoneKey = "E";
-                  if (r === 2 && c === 0) zoneKey = "SW";
-                  if (r === 2 && c === 1) zoneKey = "S";
-                  if (r === 2 && c === 2) zoneKey = "SE";
-
-                  const zoneInfo = VAASTU_ZONE_LABELS[zoneKey];
-
-                  return (
-                    <g key={`${r}-${c}`}>
-                      <rect
-                        x={gx}
-                        y={gy}
-                        width={gw}
-                        height={gh}
-                        fill={zoneKey === "C" ? "#fbbf240a" : "none"}
-                        stroke="#6f9aa8"
-                        strokeWidth="0.8"
-                        strokeDasharray="4,4"
-                      />
-                      <text
-                        x={gx + gw / 2}
-                        y={gy + gh / 2}
-                        fill="#6f9aa8"
-                        fontSize="10"
-                        fontFamily="monospace"
-                        textAnchor="middle"
-                        opacity="0.7"
-                      >
-                        {zoneInfo?.name ?? zoneKey}
-                      </text>
-                    </g>
-                  );
-                })
-              )}
-            </g>
-          )}
-
-          {/* Plot Boundary Outline. A splayed or trapezoidal plot is drawn from its real
+          {/* Plot Boundary Outline. A splayed, drawn or bowed plot is drawn from its real
               outline; a rectangle produces the same four corners it always did. */}
           <polygon
-            points={plotPolygonIn(plot)
-              .map(([x, y]) => `${toPxX(x)},${toPxY(y)}`)
-              .join(" ")}
+            points={plotOutline.map(([x, y]) => `${toPxX(x)},${toPxY(y)}`).join(" ")}
             fill="none"
-            stroke="#eceae5"
+            stroke={shapeProblem ? "#b85c22" : "#eceae5"}
             strokeWidth="2.5"
             strokeDasharray="14,5"
           />
+
+          {/* Outline editing handles. The straight skeleton is shown behind the real outline so
+              it is clear what a drag actually moves: a corner, or one edge's bow. */}
+          {editingOutline && onChangePlot && (
+            <g>
+              <polygon
+                points={outlineVerts.map(([x, y]) => `${toPxX(x)},${toPxY(y)}`).join(" ")}
+                fill="none"
+                stroke="#6f9aa8"
+                strokeWidth="1"
+                strokeDasharray="4,4"
+                opacity="0.7"
+              />
+
+              {outlineVerts.map((_, i) => {
+                const [bx, by] = bulgeHandleIn(i);
+                const bowed = Math.abs(outlineBulges[i] ?? 0) >= 1;
+                return (
+                  <g key={`bulge-${i}`}>
+                    <line
+                      x1={toPxX((outlineVerts[i][0] + outlineVerts[(i + 1) % outlineVerts.length][0]) / 2)}
+                      y1={toPxY((outlineVerts[i][1] + outlineVerts[(i + 1) % outlineVerts.length][1]) / 2)}
+                      x2={toPxX(bx)}
+                      y2={toPxY(by)}
+                      stroke="#6f9aa8"
+                      strokeWidth="0.8"
+                      opacity="0.5"
+                    />
+                    <circle
+                      cx={toPxX(bx)}
+                      cy={toPxY(by)}
+                      r="5"
+                      fill={bowed ? "#6f9aa8" : "#131210"}
+                      stroke="#6f9aa8"
+                      strokeWidth="1.5"
+                      style={{ cursor: "ns-resize" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setDraggingBulge(i);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        handleAddVertex(i);
+                      }}
+                    >
+                      <title>
+                        Drag to bow this edge outward. Double-click to add a corner here.
+                      </title>
+                    </circle>
+                  </g>
+                );
+              })}
+
+              {outlineVerts.map(([x, y], i) => (
+                <rect
+                  key={`vert-${i}`}
+                  x={toPxX(x) - 5}
+                  y={toPxY(y) - 5}
+                  width="10"
+                  height="10"
+                  fill={draggingVertex === i ? "#d98b52" : "#eceae5"}
+                  stroke="#131210"
+                  strokeWidth="1.5"
+                  style={{ cursor: "move" }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setDraggingVertex(i);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRemoveVertex(i);
+                  }}
+                >
+                  <title>
+                    Corner {i + 1}. Drag to move. Right-click to remove.
+                  </title>
+                </rect>
+              ))}
+            </g>
+          )}
 
           {/* Road Frontage Indicator */}
           {frontIdx === 0 && (
@@ -2166,8 +2367,6 @@ export default function Blueprint2DView({
             const isSelected = idx === selectedRoomIndex;
             const isCropActive = isDraggingThis && dragCropP?.isCropped;
             const label = ROOM_LABELS[room.name as RoomName] ?? room.name;
-            const zone = getRoomVaastuZone(room, plot.widthIn, plot.depthIn);
-            const zoneInfo = VAASTU_ZONE_LABELS[zone];
 
             const wallThicknessPx = Math.max(2, (room.wall_thickness_in ?? 4.5) * baseScale);
 
@@ -2566,7 +2765,7 @@ export default function Blueprint2DView({
                       fontFamily="monospace"
                       textAnchor="middle"
                     >
-                      {formatAreaSqFt(room.w_in, room.d_in)} | {zoneInfo?.tag ?? zone}
+                      {formatAreaSqFt(room.w_in, room.d_in)}
                     </text>
                   </g>
                 )}
@@ -3255,14 +3454,6 @@ export default function Blueprint2DView({
                 <span className={styles.inspectorLabel}>Floor Area:</span>
                 <span className={styles.inspectorValue}>
                   {formatAreaSqFt(selectedRoom.w_in, selectedRoom.d_in)}
-                </span>
-              </div>
-
-              <div className={styles.inspectorRow}>
-                <span className={styles.inspectorLabel}>Vaastu Zone:</span>
-                <span className={styles.inspectorVaastuBadge}>
-                  {VAASTU_ZONE_LABELS[getRoomVaastuZone(selectedRoom, plot.widthIn, plot.depthIn)]
-                    ?.name ?? getRoomVaastuZone(selectedRoom, plot.widthIn, plot.depthIn)}
                 </span>
               </div>
 
