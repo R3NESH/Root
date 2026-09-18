@@ -2289,6 +2289,7 @@ export default function Home() {
                 rooms={rooms}
                 customOpenings={customOpenings}
                 customWalls={customWalls}
+                selectedWallIds={selectedRunWallIds}
                 customRoomZones={customRoomZones}
                 activeFloor={activeFloor}
                 onChangeActiveFloor={setActiveFloor}

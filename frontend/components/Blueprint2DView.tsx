@@ -41,6 +41,7 @@ import {
   CadTool,
   WALL_TYPE_CONFIGS,
   WallJoinStyle,
+  SELECTED_WALL_STROKE,
   getWallLengthIn,
 } from "@/lib/customArchitecture";
 import {
@@ -3432,7 +3433,7 @@ export default function Blueprint2DView({
                 {isCurved ? (
                   <path
                     d={`M ${wx1} ${wy1} Q ${ctrlX} ${ctrlY} ${wx2} ${wy2}`}
-                    stroke={isSelected ? "#b85c22" : strokeColor}
+                    stroke={isSelected ? SELECTED_WALL_STROKE : strokeColor}
                     strokeWidth={strokeW}
                     fill="none"
                     strokeLinecap="round"
@@ -3444,7 +3445,7 @@ export default function Blueprint2DView({
                     y1={wy1}
                     x2={wx2}
                     y2={wy2}
-                    stroke={isSelected ? "#b85c22" : strokeColor}
+                    stroke={isSelected ? SELECTED_WALL_STROKE : strokeColor}
                     strokeWidth={strokeW}
                     strokeLinecap="round"
                     strokeDasharray={isCurrentFloor ? undefined : "6,6"}

@@ -24,6 +24,14 @@ export type CustomWallType =
 /** How one wall of a combined run meets the next. See lib/wallJoins.ts. */
 export type WallJoinStyle = "miter" | "round" | "chamfer";
 
+/**
+ * A picked wall, in the blueprint and in 3D. One colour in one place so a wall cannot read as
+ * selected in one view and not the other. Brighter than every wall colour below, which are all
+ * muted, so it stays legible on glass and on curved walls as well as on plain masonry.
+ */
+export const SELECTED_WALL_STROKE = "#38bdf8";
+export const SELECTED_WALL_COLOR_HEX = 0x38bdf8;
+
 export type CustomFloorMaterial =
   | "marble"
   | "wood"

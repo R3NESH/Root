@@ -145,6 +145,7 @@ import {
   CustomWallType,
   CadTool,
   getCurvedWallArcPoints,
+  SELECTED_WALL_COLOR_HEX,
 } from "@/lib/customArchitecture";
 import { resolveChainWalls } from "@/lib/wallJoins";
 
@@ -209,6 +210,8 @@ interface SceneProps {
   customObjects?: PlacedCustomObject[];
   customOpenings?: Record<string, RoomOpening[]>;
   customWalls?: CustomDrawnWall[];
+  /** Drawn walls picked for combining. They are drawn blue, and so is the rest of their run. */
+  selectedWallIds?: string[];
   customRoomZones?: CustomRoomZone[];
   activeFloor?: number;
   onChangeActiveFloor?: (floor: number) => void;
@@ -509,6 +512,7 @@ export default function Scene({
   customObjects = [],
   customOpenings = {},
   customWalls = [],
+  selectedWallIds = [],
   customRoomZones = [],
   activeFloor = 0,
   onChangeActiveFloor,
@@ -5454,6 +5458,22 @@ export default function Scene({
         roughness: 0.6,
       });
 
+      // A picked wall, and the rest of the run it belongs to. It replaces the wall's own material
+      // rather than adding a marker on top, because a wall is read as a surface: tinting it says
+      // "this one" at any angle, where a ring on the floor only reads from above.
+      const selectedWallMat = new THREE.MeshStandardMaterial({
+        color: SELECTED_WALL_COLOR_HEX,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.35,
+        roughness: 0.5,
+      });
+      const pickedWallIds = new Set(selectedWallIds);
+      // Corner pieces are derived: they carry the run id but no id the selection could hold, so
+      // the run is matched rather than the wall.
+      const pickedChainIds = new Set(
+        customWalls.filter((w) => pickedWallIds.has(w.id) && w.chainId).map((w) => w.chainId)
+      );
+
       // Walls as built, not as drawn: a combined run arrives here already trimmed back to its
       // corners, with the arc or the flat between them standing as a wall of its own.
       for (const wall of resolveChainWalls(customWalls)) {
@@ -5474,12 +5494,16 @@ export default function Scene({
           (wall.curveBulgeIn && Math.abs(wall.curveBulgeIn) > 1)
         );
 
-        const wallMat =
-          wall.wallType === "glass" || wall.wallType === "curved_glass"
-            ? glassWallMat
-            : wall.wallType === "slat" || wall.wallType === "curved_slat"
-            ? woodSlatMat
-            : defaultWallMat;
+        const isPickedWall =
+          pickedWallIds.has(wall.id) || (wall.chainId != null && pickedChainIds.has(wall.chainId));
+
+        const wallMat = isPickedWall
+          ? selectedWallMat
+          : wall.wallType === "glass" || wall.wallType === "curved_glass"
+          ? glassWallMat
+          : wall.wallType === "slat" || wall.wallType === "curved_slat"
+          ? woodSlatMat
+          : defaultWallMat;
 
         const wallGroup = new THREE.Group();
 
@@ -5862,6 +5886,7 @@ export default function Scene({
     setback,
     rooms,
     customWalls,
+    selectedWallIds,
     customRoomZones,
     furnished,
     customObjects,
