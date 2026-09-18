@@ -1540,7 +1540,10 @@ export default function Scene({
       raycaster.setFromCamera(pointerNdc, camera);
 
       // 0a. CAD Tool 1: 3D Freehand Wall Drawing
-      if (activeCadToolRef.current === "draw_wall" && ev.button === 0) {
+      // Shift is not a drafting modifier — it never was, a shift-click here just placed a point
+      // like any other. Letting it fall through makes shift mean "select" everywhere in 3D, so a
+      // run can be picked up straight after drawing it without first hunting for the Select tool.
+      if (activeCadToolRef.current === "draw_wall" && ev.button === 0 && !ev.shiftKey) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();
@@ -1914,7 +1917,12 @@ export default function Scene({
       // If layout is unlocked, allow dragging plot resize handles, custom objects, and room blocks
       if (!isLayoutLockedRef.current) {
         // 0. Check custom wall endpoint bubble handles (Orange Bubbles on Custom Walls!)
-        const hitCustomWallHandle = pickCustomWallHandle(ev);
+        // Shift means "add this wall to the selection", so it must not grab a handle. Every drawn
+        // wall carries a bubble at each end, and walls that are joined meet end to end — so the
+        // corner, which is exactly where someone clicks to pick up a run, is the one place two
+        // bubbles always sit. Without this, shift-clicking near a corner dragged the wall instead
+        // of selecting it.
+        const hitCustomWallHandle = ev.shiftKey ? null : pickCustomWallHandle(ev);
         if (hitCustomWallHandle && ev.button === 0) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();

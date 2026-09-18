@@ -621,7 +621,10 @@ export default function Blueprint2DView({
     );
 
     // CAD Tool 1: Draw Custom Wall
-    if (activeCadTool === "draw_wall") {
+    // Shift means "select" here as it does in 3D. The canvas sees mousedown before a wall sees
+    // its own click, so without this a shift-click aimed at picking a wall dropped a draft point
+    // underneath it and started drawing a new wall on top of the selection.
+    if (activeCadTool === "draw_wall" && !e.shiftKey) {
       if (!draftWallStart) {
         setDraftWallStart({ xIn: snapX, yIn: snapY });
       } else {
