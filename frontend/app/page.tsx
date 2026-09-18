@@ -2417,9 +2417,17 @@ export default function Home() {
                   // Read back off the walls rather than trusting the ids: clearing the design
                   // leaves the picked ids behind, and a wall that is gone is not selected.
                   const picked = customWalls.filter((w) => selectedRunWallIds.includes(w.id));
+                  // A wall of the solved plan. It is a wall, it is clicked, and it can never join
+                  // a run — so saying nothing leaves the feature looking broken rather than
+                  // inapplicable, which is the single thing most likely to be clicked first.
+                  const clickedSolvedWall = Boolean(
+                    selectedObjectInfo?.isWall && !selectedObjectInfo?.isCustomWall
+                  );
                   // With nothing picked the panel still offers to join the walls by itself, which
                   // is the only way to reach that from here: there is nothing to click first.
-                  if (picked.length === 0 && customWalls.length < 2) return null;
+                  if (picked.length === 0 && customWalls.length < 2 && !clickedSolvedWall) {
+                    return null;
+                  }
 
                   const chainId = commonChainId(customWalls, picked.map((w) => w.id));
                   const runWalls = chainId ? chainWalls(customWalls, chainId) : [];
@@ -2573,6 +2581,12 @@ export default function Home() {
                             Combine into run
                           </button>
                         </>
+                      ) : clickedSolvedWall && picked.length === 0 ? (
+                        <span style={{ fontSize: "10.5px", color: "#d98b52", maxWidth: "340px" }}>
+                          That is a wall of the solved plan — the edge of a room, not a wall you
+                          drew. Only walls placed with <strong>Draw Wall</strong> can be combined
+                          into a run.
+                        </span>
                       ) : (
                         <>
                           <span style={{ fontWeight: 800, color: "#8ab3bf" }}>Walls</span>
