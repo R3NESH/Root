@@ -140,7 +140,11 @@ const DANGER: React.CSSProperties = {
 const CHIP_ON: React.CSSProperties = {
   ...CHIP,
   background: "rgba(111, 154, 168, 0.2)",
-  borderColor: "rgba(111, 154, 168, 0.55)",
+  // The whole shorthand, not just its colour. A chip switches between this and CHIP on every
+  // click, and overriding `borderColor` over CHIP's `border` means the longhand disappears on
+  // the way back while the shorthand stays — which React reports as a styling bug, because the
+  // border it leaves behind is whichever of the two the browser applied last.
+  border: "1px solid rgba(111, 154, 168, 0.55)",
   color: "#9dc3d1",
 };
 
