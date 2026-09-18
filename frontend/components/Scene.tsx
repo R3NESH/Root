@@ -146,6 +146,7 @@ import {
   CadTool,
   getCurvedWallArcPoints,
 } from "@/lib/customArchitecture";
+import { resolveChainWalls } from "@/lib/wallJoins";
 
 export interface SelectedObjectInfo {
   id: string;
@@ -5445,7 +5446,9 @@ export default function Scene({
         roughness: 0.6,
       });
 
-      for (const wall of customWalls) {
+      // Walls as built, not as drawn: a combined run arrives here already trimmed back to its
+      // corners, with the arc or the flat between them standing as a wall of its own.
+      for (const wall of resolveChainWalls(customWalls)) {
         const elevFt = (wall.floor ?? 0) * (WALL_HEIGHT_FT + 0.8);
         const x1 = inchesToFeet(wall.startXIn);
         const z1 = inchesToFeet(wall.startYIn);

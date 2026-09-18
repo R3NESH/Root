@@ -40,8 +40,21 @@ import {
   CustomWallType,
   CadTool,
   WALL_TYPE_CONFIGS,
+  WallJoinStyle,
   getWallLengthIn,
 } from "@/lib/customArchitecture";
+import {
+  JOIN_STYLES,
+  MAX_JOIN_RADIUS_IN,
+  MIN_JOIN_RADIUS_IN,
+  DEFAULT_JOIN_RADIUS_IN,
+  breakChain,
+  chainWalls,
+  combineWalls,
+  commonChainId,
+  resolveChainWalls,
+  setChainJoin,
+} from "@/lib/wallJoins";
 import {
   drawH,
   drawW,
@@ -244,8 +257,33 @@ export default function Blueprint2DView({
     lengthIn: number;
     angleDeg: number;
   } | null>(null);
-  const [selectedCustomWallId, setSelectedCustomWallId] = useState<string | null>(null);
+  // Several walls at once, because combining them into one run needs more than one picked. The
+  // single-wall controls below still key off `selectedCustomWallId`, which is only a wall when
+  // exactly one is picked — a run of several answers to the run panel instead.
+  const [selectedCustomWallIds, setSelectedCustomWallIds] = useState<string[]>([]);
+  const selectedCustomWallId = selectedCustomWallIds.length === 1 ? selectedCustomWallIds[0] : null;
+  const setSelectedCustomWallId = (id: string | null) =>
+    setSelectedCustomWallIds(id === null ? [] : [id]);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [selectedCustomZoneId, setSelectedCustomZoneId] = useState<string | null>(null);
+
+  /** The walls as built — a combined run already trimmed, with its corner pieces. */
+  const builtWalls = useMemo(() => resolveChainWalls(customWalls), [customWalls]);
+
+  /** Runs with a wall picked in them, so every link of a run lights up together. */
+  const selectedChainIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const w of customWalls) {
+      if (w.chainId && selectedCustomWallIds.includes(w.id)) ids.add(w.chainId);
+    }
+    return ids;
+  }, [customWalls, selectedCustomWallIds]);
+
+  /** The run the whole selection belongs to, or null when it is loose walls. */
+  const selectedChainId = useMemo(
+    () => commonChainId(customWalls, selectedCustomWallIds),
+    [customWalls, selectedCustomWallIds]
+  );
   const [hoveredWallInfo, setHoveredWallInfo] = useState<{
     wallId?: string;
     roomIndex?: number;
@@ -2126,6 +2164,186 @@ export default function Blueprint2DView({
         );
       })()}
 
+      {/* ── Combining walls into one run, and the shape of its corners ── */}
+      {selectedCustomWallIds.length > 0 &&
+        (() => {
+          const runWalls = selectedChainId ? chainWalls(customWalls, selectedChainId) : [];
+          const style: WallJoinStyle = runWalls[0]?.joinStyle ?? "miter";
+          const radiusIn = runWalls[0]?.joinRadiusIn ?? DEFAULT_JOIN_RADIUS_IN;
+          const applyRadius = (next: number) => {
+            if (!selectedChainId) return;
+            onChangeCustomWalls?.(setChainJoin(customWalls, selectedChainId, style, next));
+          };
+
+          return (
+            <div
+              style={{
+                position: "absolute",
+                top: 176,
+                left: 24,
+                background: "rgba(19, 18, 16, 0.96)",
+                backdropFilter: "blur(16px)",
+                border: "1.5px solid #6f9aa8",
+                padding: "7px 12px",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                zIndex: 26,
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6)",
+                color: "#ffffff",
+                fontSize: "12px",
+              }}
+            >
+              {selectedChainId ? (
+                <>
+                  <span style={{ fontWeight: 800, color: "#8ab3bf" }}>
+                    Run ({runWalls.length} walls, {Math.max(0, runWalls.length - 1)} corners)
+                  </span>
+
+                  <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>Corner:</span>
+                  <select
+                    value={style}
+                    onChange={(e) =>
+                      onChangeCustomWalls?.(
+                        setChainJoin(
+                          customWalls,
+                          selectedChainId,
+                          e.target.value as WallJoinStyle,
+                          radiusIn
+                        )
+                      )
+                    }
+                    title={JOIN_STYLES.find((s) => s.id === style)?.description}
+                    style={{
+                      background: "rgba(26, 25, 22, 0.9)",
+                      color: "#6f9aa8",
+                      border: "1px solid #6f9aa8",
+                      borderRadius: "6px",
+                      padding: "3px 6px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {JOIN_STYLES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* A square corner has no radius to set, so there is nothing to show. */}
+                  {style !== "miter" && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        background: "rgba(0,0,0,0.35)",
+                        padding: "2px 6px",
+                        borderRadius: "6px",
+                      }}
+                    >
+                      <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>Radius:</span>
+                      <button
+                        style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                        onClick={() => applyRadius(radiusIn - 6)}
+                        disabled={radiusIn <= MIN_JOIN_RADIUS_IN}
+                        title="Tighter corner"
+                      >
+                        -
+                      </button>
+                      <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "30px", textAlign: "center", color: "#6f9aa8" }}>
+                        {radiusIn}&quot;
+                      </span>
+                      <button
+                        style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                        onClick={() => applyRadius(radiusIn + 6)}
+                        disabled={radiusIn >= MAX_JOIN_RADIUS_IN}
+                        title="Wider corner"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    style={{
+                      background: "rgba(255, 255, 255, 0.08)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      color: "#b5b0a6",
+                      borderRadius: "6px",
+                      padding: "3px 8px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      onChangeCustomWalls?.(breakChain(customWalls, selectedChainId));
+                      setJoinError(null);
+                    }}
+                    title="Split this run back into separate walls"
+                  >
+                    Break apart
+                  </button>
+                </>
+              ) : selectedCustomWallIds.length >= 2 ? (
+                <>
+                  <span style={{ fontWeight: 800, color: "#8ab3bf" }}>
+                    {selectedCustomWallIds.length} walls selected
+                  </span>
+                  <button
+                    style={{
+                      background: "#3d5c69",
+                      border: "1px solid #6f9aa8",
+                      color: "#ffffff",
+                      borderRadius: "6px",
+                      padding: "3px 8px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      const result = combineWalls(customWalls, selectedCustomWallIds);
+                      if ("error" in result) {
+                        setJoinError(result.error);
+                        return;
+                      }
+                      setJoinError(null);
+                      onChangeCustomWalls?.(result.walls);
+                    }}
+                    title="Join these walls into one run with shaped corners"
+                  >
+                    Combine into run
+                  </button>
+                </>
+              ) : (
+                <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
+                  Shift-click another wall to combine them into one run.
+                </span>
+              )}
+
+              {joinError && (
+                <span style={{ fontSize: "10.5px", color: "#bf5a42", maxWidth: "260px" }}>
+                  {joinError}
+                </span>
+              )}
+
+              <button
+                style={{ background: "transparent", border: "none", color: "#8e8a82", fontSize: "12px", cursor: "pointer", padding: "0 4px" }}
+                onClick={() => {
+                  setSelectedCustomWallIds([]);
+                  setJoinError(null);
+                }}
+                title="Deselect"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })()}
+
       {/* CAD Drafting Real-Time Hint Banner */}
       {activeCadTool === "draw_wall" && (
         <div className={styles.draftingStatusOverlay}>
@@ -3142,7 +3360,7 @@ export default function Blueprint2DView({
           })}
 
           {/* ── Custom Drawn Walls (Build From Scratch Mode) ── */}
-          {customWalls
+          {builtWalls
             .filter((wall) => (wall.floor ?? 0) === activeFloor || (activeFloor > 0 && (wall.floor ?? 0) < activeFloor))
             .map((wall) => {
             const isCurrentFloor = (wall.floor ?? 0) === activeFloor;
@@ -3150,7 +3368,9 @@ export default function Blueprint2DView({
             const wy1 = toPxY(wall.startYIn);
             const wx2 = toPxX(wall.endXIn);
             const wy2 = toPxY(wall.endYIn);
-            const isSelected = selectedCustomWallId === wall.id;
+            const isSelected =
+              selectedCustomWallIds.includes(wall.id) ||
+              (wall.chainId != null && selectedChainIds.has(wall.chainId));
             const strokeW = Math.max(3, wall.thicknessIn * baseScale);
             const strokeColor = !isCurrentFloor
               ? "#475569"
@@ -3189,7 +3409,20 @@ export default function Blueprint2DView({
                 onClick={(e) => {
                   if (!isCurrentFloor) return;
                   e.stopPropagation();
-                  setSelectedCustomWallId(wall.id);
+                  setJoinError(null);
+                  // A combined run answers as one wall, so clicking any link of it — or the
+                  // corner piece between two links, which is not a wall the user drew — picks
+                  // up the whole run. Shift adds to the selection instead of replacing it.
+                  const picked = wall.chainId
+                    ? chainWalls(customWalls, wall.chainId).map((w) => w.id)
+                    : [wall.id];
+                  setSelectedCustomWallIds((prev) =>
+                    e.shiftKey
+                      ? prev.some((id) => picked.includes(id))
+                        ? prev.filter((id) => !picked.includes(id))
+                        : [...prev, ...picked]
+                      : picked
+                  );
                   setSelectedCustomZoneId(null);
                 }}
                 style={{ cursor: isCurrentFloor ? "pointer" : "default" }}
