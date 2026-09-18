@@ -49,6 +49,7 @@ import {
   MAX_JOIN_RADIUS_IN,
   MIN_JOIN_RADIUS_IN,
   DEFAULT_JOIN_RADIUS_IN,
+  autoJoinWalls,
   breakChain,
   chainWalls,
   combineWalls,
@@ -2166,7 +2167,7 @@ export default function Blueprint2DView({
       })()}
 
       {/* ── Combining walls into one run, and the shape of its corners ── */}
-      {selectedCustomWallIds.length > 0 &&
+      {(selectedCustomWallIds.length > 0 || customWalls.length >= 2) &&
         (() => {
           const runWalls = selectedChainId ? chainWalls(customWalls, selectedChainId) : [];
           const style: WallJoinStyle = runWalls[0]?.joinStyle ?? "miter";
@@ -2320,9 +2321,37 @@ export default function Blueprint2DView({
                   </button>
                 </>
               ) : (
-                <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
-                  Shift-click another wall to combine them into one run.
-                </span>
+                <>
+                  <span style={{ fontWeight: 800, color: "#8ab3bf" }}>Walls</span>
+                  <button
+                    style={{
+                      background: "#3d5c69",
+                      border: "1px solid #6f9aa8",
+                      color: "#ffffff",
+                      borderRadius: "6px",
+                      padding: "3px 8px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      const result = autoJoinWalls(customWalls);
+                      if (result.runs === 0) {
+                        setJoinError("No loose walls meet end to end. A T junction or a closed loop is left alone.");
+                        return;
+                      }
+                      setJoinError(null);
+                      onChangeCustomWalls?.(result.walls);
+                      setSelectedCustomWallIds(result.firstRunIds);
+                    }}
+                    title="Find every run the walls already make and join each one"
+                  >
+                    Auto join
+                  </button>
+                  <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
+                    or shift-click walls to combine them yourself.
+                  </span>
+                </>
               )}
 
               {joinError && (

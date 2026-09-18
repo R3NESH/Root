@@ -200,6 +200,91 @@ export function combineWalls(
   return { walls: walls.map((w) => stamped.get(w.id) ?? w) };
 }
 
+/**
+ * Every run the walls already imply, joined without the user picking anything.
+ *
+ * Only an unambiguous join is made. Two wall ends meeting at a point is a corner and is joined;
+ * three ends meeting at a point is a T, and which two of them continue the run is a question this
+ * cannot answer, so a junction joins nothing. A closed loop is left alone for the same reason
+ * `orderChain` refuses one — there is no free end to start the walk from.
+ *
+ * Walls already in a run are left as they are. Auto-joining is for the walls that are still loose.
+ */
+export function autoJoinWalls(
+  walls: CustomDrawnWall[]
+): { walls: CustomDrawnWall[]; runs: number; firstRunIds: string[] } {
+  const loose = walls.filter((w) => !w.chainId);
+  if (loose.length < 2) return { walls, runs: 0, firstRunIds: [] };
+
+  // Every end of every loose wall, so they can be clustered by where they land.
+  const ends: { wall: CustomDrawnWall; x: number; y: number }[] = [];
+  for (const w of loose) {
+    ends.push({ wall: w, x: w.startXIn, y: w.startYIn });
+    ends.push({ wall: w, x: w.endXIn, y: w.endYIn });
+  }
+
+  // A cluster holding exactly two ends, from two different walls on one floor, is a corner. Each
+  // wall has two ends, so this gives every wall at most two links and the components below come
+  // out as paths or rings — never a branch.
+  const claimed = new Array<boolean>(ends.length).fill(false);
+  const links = new Map<string, Set<string>>();
+  for (let i = 0; i < ends.length; i++) {
+    if (claimed[i]) continue;
+    claimed[i] = true;
+    const cluster = [i];
+    for (let j = i + 1; j < ends.length; j++) {
+      if (claimed[j]) continue;
+      if (!near(ends[i].x, ends[i].y, ends[j].x, ends[j].y)) continue;
+      claimed[j] = true;
+      cluster.push(j);
+    }
+    if (cluster.length !== 2) continue;
+
+    const a = ends[cluster[0]].wall;
+    const b = ends[cluster[1]].wall;
+    // A wall doubling back on itself is one wall, not a run of two.
+    if (a.id === b.id) continue;
+    if ((a.floor ?? 0) !== (b.floor ?? 0)) continue;
+    if (!links.has(a.id)) links.set(a.id, new Set());
+    if (!links.has(b.id)) links.set(b.id, new Set());
+    links.get(a.id)?.add(b.id);
+    links.get(b.id)?.add(a.id);
+  }
+
+  const seen = new Set<string>();
+  let next = walls;
+  let runs = 0;
+  let firstRunIds: string[] = [];
+
+  for (const wall of loose) {
+    if (seen.has(wall.id) || !links.has(wall.id)) continue;
+
+    const group: string[] = [];
+    const queue = [wall.id];
+    seen.add(wall.id);
+    while (queue.length > 0) {
+      const id = queue.pop();
+      if (id === undefined) break;
+      group.push(id);
+      for (const other of links.get(id) ?? []) {
+        if (seen.has(other)) continue;
+        seen.add(other);
+        queue.push(other);
+      }
+    }
+    if (group.length < 2) continue;
+
+    // A ring comes back as an error rather than a run. Skipping it is the whole handling.
+    const result = combineWalls(next, group);
+    if ("error" in result) continue;
+    next = result.walls;
+    runs++;
+    if (firstRunIds.length === 0) firstRunIds = group;
+  }
+
+  return { walls: next, runs, firstRunIds };
+}
+
 /** Back to loose walls. They keep the ends the combine snapped them to. */
 export function breakChain(walls: CustomDrawnWall[], chainId: string): CustomDrawnWall[] {
   return walls.map((w) => {

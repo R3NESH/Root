@@ -90,6 +90,7 @@ import {
   MAX_JOIN_RADIUS_IN,
   MIN_JOIN_RADIUS_IN,
   DEFAULT_JOIN_RADIUS_IN,
+  autoJoinWalls,
   breakChain,
   chainWalls,
   combineWalls,
@@ -2416,7 +2417,9 @@ export default function Home() {
                   // Read back off the walls rather than trusting the ids: clearing the design
                   // leaves the picked ids behind, and a wall that is gone is not selected.
                   const picked = customWalls.filter((w) => selectedRunWallIds.includes(w.id));
-                  if (picked.length === 0) return null;
+                  // With nothing picked the panel still offers to join the walls by itself, which
+                  // is the only way to reach that from here: there is nothing to click first.
+                  if (picked.length === 0 && customWalls.length < 2) return null;
 
                   const chainId = commonChainId(customWalls, picked.map((w) => w.id));
                   const runWalls = chainId ? chainWalls(customWalls, chainId) : [];
@@ -2571,9 +2574,37 @@ export default function Home() {
                           </button>
                         </>
                       ) : (
-                        <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
-                          Shift-click another wall to combine them into one run.
-                        </span>
+                        <>
+                          <span style={{ fontWeight: 800, color: "#8ab3bf" }}>Walls</span>
+                          <button
+                            style={{
+                              background: "#3d5c69",
+                              border: "1px solid #6f9aa8",
+                              color: "#ffffff",
+                              borderRadius: "6px",
+                              padding: "3px 8px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                            onClick={() => {
+                              const result = autoJoinWalls(customWalls);
+                              if (result.runs === 0) {
+                                setRunJoinError("No loose walls meet end to end. A T junction or a closed loop is left alone.");
+                                return;
+                              }
+                              setRunJoinError(null);
+                              setCustomWalls(result.walls);
+                              setSelectedRunWallIds(result.firstRunIds);
+                            }}
+                            title="Find every run the walls already make and join each one"
+                          >
+                            Auto join
+                          </button>
+                          <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
+                            or shift-click walls to combine them yourself.
+                          </span>
+                        </>
                       )}
 
                       {runJoinError && (
