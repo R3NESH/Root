@@ -79,11 +79,23 @@ import {
   CustomWallType,
   CadTool,
   WALL_TYPE_CONFIGS,
+  WallJoinStyle,
 } from "@/lib/customArchitecture";
 import { DesignSnapshot, describeDesignChange, useDesignHistory } from "@/lib/designHistory";
 import { OFFLINE_ESTIMATE_STATUS } from "@/lib/solve";
 import { assessCompliance, DEFAULT_ROAD_WIDTH_M } from "@/lib/compliance";
 import { MAX_BULGE_IN, RoomEdgeCurves } from "@/lib/wallCurves";
+import {
+  JOIN_STYLES,
+  MAX_JOIN_RADIUS_IN,
+  MIN_JOIN_RADIUS_IN,
+  DEFAULT_JOIN_RADIUS_IN,
+  breakChain,
+  chainWalls,
+  combineWalls,
+  commonChainId,
+  setChainJoin,
+} from "@/lib/wallJoins";
 import { clearProject, loadProject, programOfSavedProject, saveProject } from "@/lib/projectStorage";
 import styles from "./page.module.css";
 
@@ -135,6 +147,13 @@ export default function Home() {
   const [placingRotationY, setPlacingRotationY] = useState<number>(0);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [selectedObjectInfo, setSelectedObjectInfo] = useState<SelectedObjectInfo | null>(null);
+  /**
+   * Drawn walls picked in 3D for combining. Separate from `selectedObjectInfo`, which holds one
+   * object and is what everything else in orbit mode reads: combining needs several at once, and
+   * teaching the whole picker about multiple selection to serve one panel is not worth it.
+   */
+  const [selectedRunWallIds, setSelectedRunWallIds] = useState<string[]>([]);
+  const [runJoinError, setRunJoinError] = useState<string | null>(null);
   const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
   const [isRoomDimensionsOpen, setIsRoomDimensionsOpen] = useState(false);
   const [activeFloor, setActiveFloor] = useState<number>(0);
@@ -2331,6 +2350,24 @@ export default function Home() {
                 onSelectObject={(info) => {
                   setSelectedObjectInfo(info);
                   setSelectedObjectId(info ? info.id : null);
+                  setRunJoinError(null);
+                  // A drawn wall can also be picked up for combining. A run answers as one, so
+                  // clicking any of its walls — or a corner piece, which is not a wall the user
+                  // drew and carries only the run id — takes the whole run.
+                  if (!info?.isCustomWall) {
+                    setSelectedRunWallIds([]);
+                    return;
+                  }
+                  const picked = info.chainId
+                    ? chainWalls(customWalls, info.chainId).map((w) => w.id)
+                    : [info.id];
+                  setSelectedRunWallIds((prev) =>
+                    info.addToSelection
+                      ? prev.some((id) => picked.includes(id))
+                        ? prev.filter((id) => !picked.includes(id))
+                        : [...prev, ...picked]
+                      : picked
+                  );
                 }}
                 onUpdateCustomObject={(updated) => {
                   setCustomObjects((prev) =>
@@ -2371,6 +2408,192 @@ export default function Home() {
                   }}
                 />
               )}
+
+              {/* Combining drawn walls into one run, and the shape of its corners, in 3D. */}
+              {mode === "orbit" &&
+                (() => {
+                  // Read back off the walls rather than trusting the ids: clearing the design
+                  // leaves the picked ids behind, and a wall that is gone is not selected.
+                  const picked = customWalls.filter((w) => selectedRunWallIds.includes(w.id));
+                  if (picked.length === 0) return null;
+
+                  const chainId = commonChainId(customWalls, picked.map((w) => w.id));
+                  const runWalls = chainId ? chainWalls(customWalls, chainId) : [];
+                  const style: WallJoinStyle = runWalls[0]?.joinStyle ?? "miter";
+                  const radiusIn = runWalls[0]?.joinRadiusIn ?? DEFAULT_JOIN_RADIUS_IN;
+                  const applyRadius = (next: number) => {
+                    if (!chainId) return;
+                    setCustomWalls(setChainJoin(customWalls, chainId, style, next));
+                  };
+
+                  return (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 76,
+                        left: 16,
+                        background: "rgba(19, 18, 16, 0.96)",
+                        backdropFilter: "blur(16px)",
+                        border: "1.5px solid #6f9aa8",
+                        padding: "7px 12px",
+                        borderRadius: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        zIndex: 26,
+                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6)",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {chainId ? (
+                        <>
+                          <span style={{ fontWeight: 800, color: "#8ab3bf" }}>
+                            Run ({runWalls.length} walls, {Math.max(0, runWalls.length - 1)} corners)
+                          </span>
+
+                          <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>Corner:</span>
+                          <select
+                            value={style}
+                            onChange={(e) =>
+                              setCustomWalls(
+                                setChainJoin(
+                                  customWalls,
+                                  chainId,
+                                  e.target.value as WallJoinStyle,
+                                  radiusIn
+                                )
+                              )
+                            }
+                            title={JOIN_STYLES.find((s) => s.id === style)?.description}
+                            style={{
+                              background: "rgba(26, 25, 22, 0.9)",
+                              color: "#6f9aa8",
+                              border: "1px solid #6f9aa8",
+                              borderRadius: "6px",
+                              padding: "3px 6px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {JOIN_STYLES.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* A square corner has no radius to set. */}
+                          {style !== "miter" && (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                background: "rgba(0,0,0,0.35)",
+                                padding: "2px 6px",
+                                borderRadius: "6px",
+                              }}
+                            >
+                              <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>Radius:</span>
+                              <button
+                                style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                                onClick={() => applyRadius(radiusIn - 6)}
+                                disabled={radiusIn <= MIN_JOIN_RADIUS_IN}
+                                title="Tighter corner"
+                              >
+                                -
+                              </button>
+                              <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "30px", textAlign: "center", color: "#6f9aa8" }}>
+                                {radiusIn}&quot;
+                              </span>
+                              <button
+                                style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer", fontWeight: 800 }}
+                                onClick={() => applyRadius(radiusIn + 6)}
+                                disabled={radiusIn >= MAX_JOIN_RADIUS_IN}
+                                title="Wider corner"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+
+                          <button
+                            style={{
+                              background: "rgba(255, 255, 255, 0.08)",
+                              border: "1px solid rgba(255,255,255,0.2)",
+                              color: "#b5b0a6",
+                              borderRadius: "6px",
+                              padding: "3px 8px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                            onClick={() => {
+                              setCustomWalls(breakChain(customWalls, chainId));
+                              setRunJoinError(null);
+                            }}
+                            title="Split this run back into separate walls"
+                          >
+                            Break apart
+                          </button>
+                        </>
+                      ) : picked.length >= 2 ? (
+                        <>
+                          <span style={{ fontWeight: 800, color: "#8ab3bf" }}>
+                            {picked.length} walls selected
+                          </span>
+                          <button
+                            style={{
+                              background: "#3d5c69",
+                              border: "1px solid #6f9aa8",
+                              color: "#ffffff",
+                              borderRadius: "6px",
+                              padding: "3px 8px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                            onClick={() => {
+                              const result = combineWalls(customWalls, picked.map((w) => w.id));
+                              if ("error" in result) {
+                                setRunJoinError(result.error);
+                                return;
+                              }
+                              setRunJoinError(null);
+                              setCustomWalls(result.walls);
+                            }}
+                            title="Join these walls into one run with shaped corners"
+                          >
+                            Combine into run
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: "10.5px", color: "#8e8a82" }}>
+                          Shift-click another wall to combine them into one run.
+                        </span>
+                      )}
+
+                      {runJoinError && (
+                        <span style={{ fontSize: "10.5px", color: "#bf5a42", maxWidth: "260px" }}>
+                          {runJoinError}
+                        </span>
+                      )}
+
+                      <button
+                        style={{ background: "transparent", border: "none", color: "#8e8a82", fontSize: "12px", cursor: "pointer", padding: "0 4px" }}
+                        onClick={() => {
+                          setSelectedRunWallIds([]);
+                          setRunJoinError(null);
+                        }}
+                        title="Deselect"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })()}
 
               {mode === "orbit" && (
                 <>

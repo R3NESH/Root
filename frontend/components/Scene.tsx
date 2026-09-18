@@ -157,6 +157,10 @@ export interface SelectedObjectInfo {
   isWall?: boolean;
   /** A wall the user drew, not one the solver placed: it has an id but no room index or edge. */
   isCustomWall?: boolean;
+  /** The combined run this wall belongs to, if any. Corner pieces carry it and nothing else. */
+  chainId?: string;
+  /** Shift was held: the caller should add to what is already picked rather than replace it. */
+  addToSelection?: boolean;
   isWallRemoved?: boolean;
   windowShape?: WindowShapeId;
   windowFrameFinish?: WindowFrameFinishId;
@@ -1452,6 +1456,10 @@ export default function Scene({
                 isWindow,
                 isWall,
                 isCustomWall,
+                chainId: curr.userData.chainId,
+                // Absent when the pick came from the walkthrough crosshair rather than a click,
+                // which is right: there is no keyboard modifier on a crosshair.
+                addToSelection: Boolean(ev?.shiftKey),
                 isWallRemoved,
                 windowShape: curr.userData.shape,
                 windowFrameFinish: curr.userData.frameFinish,
@@ -5502,7 +5510,7 @@ export default function Scene({
             segMesh.rotation.y = segAngle;
             segMesh.castShadow = true;
             segMesh.receiveShadow = true;
-            segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Curved Wall` };
+            segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true, name: `${wall.wallType} Curved Wall` };
             wallGroup.add(segMesh);
 
             // If slat wall, add vertical slats
@@ -5562,6 +5570,7 @@ export default function Scene({
             solid.userData = {
               isCustomWall: true,
               id: wall.id,
+              chainId: wall.chainId,
               isWall: true,
               isShapedWall: true,
               name: `${wall.wallType} Wall`,
@@ -5578,7 +5587,7 @@ export default function Scene({
               wallMesh.position.set(0, heightFt / 2, 0);
               wallMesh.castShadow = true;
               wallMesh.receiveShadow = true;
-              wallMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Wall` };
+              wallMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true, name: `${wall.wallType} Wall` };
               wallGroup.add(wallMesh);
             }
           } else {
@@ -5605,7 +5614,7 @@ export default function Scene({
                 segMesh.position.set(segCenterFt, heightFt / 2, 0);
                 segMesh.castShadow = true;
                 segMesh.receiveShadow = true;
-                segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(segMesh);
               }
 
@@ -5623,7 +5632,7 @@ export default function Scene({
                 );
                 lintelMesh.position.set(opCenterFt, heightFt - lintelHeightFt / 2, 0);
                 lintelMesh.castShadow = true;
-                lintelMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                lintelMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(lintelMesh);
               }
 
@@ -5636,7 +5645,7 @@ export default function Scene({
                 );
                 sillMesh.position.set(opCenterFt, sillHeightFt / 2, 0);
                 sillMesh.castShadow = true;
-                sillMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                sillMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(sillMesh);
               }
 
@@ -5780,7 +5789,7 @@ export default function Scene({
               segMesh.position.set(segCenterFt, heightFt / 2, 0);
               segMesh.castShadow = true;
               segMesh.receiveShadow = true;
-              segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+              segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
               wallGroup.add(segMesh);
             }
           }
