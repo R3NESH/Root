@@ -11,6 +11,7 @@ import WalkthroughOverlay from "@/components/WalkthroughOverlay";
 import Blueprint2DView from "@/components/Blueprint2DView";
 import BlueprintExportModal from "@/components/BlueprintExportModal";
 import RoomDimensionsModal from "@/components/RoomDimensionsModal";
+import PlotShapeModal from "@/components/PlotShapeModal";
 import {
   buildableDepthIn,
   buildableWidthIn,
@@ -49,6 +50,8 @@ import LeftToolRail from "@/components/LeftToolRail";
 import AIFurnitureStudioModal from "@/components/AIFurnitureStudioModal";
 import GraphicsControlModal from "@/components/GraphicsControlModal";
 import BOQCostModal from "@/components/BOQCostModal";
+import DesignScheduleModal from "@/components/DesignScheduleModal";
+import { BuiltinFurnitureRecord } from "@/lib/designSchedule";
 import CustomWallBlendModal from "@/components/CustomWallBlendModal";
 
 import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
@@ -162,7 +165,12 @@ export default function Home() {
   const [isUpgraded, setIsUpgraded] = useState(true);
   const [isRaytracing, setIsRaytracing] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  // The automatic fit-out only exists as meshes; Scene measures it and hands the list back so
+  // the FF&E schedule can count it. See Scene's onFurnitureInventory.
+  const [builtinInventory, setBuiltinInventory] = useState<BuiltinFurnitureRecord[]>([]);
   const [isCustomWallBlendModalOpen, setIsCustomWallBlendModalOpen] = useState(false);
+  const [isPlotShapeModalOpen, setIsPlotShapeModalOpen] = useState(false);
 
   const handleSpawnAIFurniture = useCallback((placedObj: PlacedCustomObject) => {
     setCustomObjects((prev) => [...prev, placedObj]);
@@ -1949,6 +1957,7 @@ export default function Home() {
         setIsReplaceModalOpen(false);
         setIsRoomDimensionsOpen(false);
         setIsBOQModalOpen(false);
+        setIsScheduleModalOpen(false);
         setIsCustomWallBlendModalOpen(false);
       } else if (e.code === "Delete" || e.code === "Backspace") {
         if (selectedObjectId || selectedObjectInfo) {
@@ -2036,7 +2045,9 @@ export default function Home() {
         onOpenRoomDimensionsModal={() => setIsRoomDimensionsOpen(true)}
         onOpenGraphicsModal={() => setIsGraphicsModalOpen(true)}
         onOpenBOQModal={() => setIsBOQModalOpen(true)}
+        onOpenScheduleModal={() => setIsScheduleModalOpen(true)}
         onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
+        onOpenPlotShapeModal={() => setIsPlotShapeModalOpen(true)}
 
         placingItemType={placingItemType}
         onSelectPlaceItem={(type) => {
@@ -2302,6 +2313,7 @@ export default function Home() {
                 onToggleLayoutLock={handleToggleLayoutLock}
                 customObjects={customObjects}
                 deletedBuiltinIds={deletedBuiltinIds}
+                onFurnitureInventory={setBuiltinInventory}
                 placingItemType={placingItemType}
                 placingRotationY={placingRotationY}
                 selectedObjectId={selectedObjectId}
@@ -2491,7 +2503,22 @@ export default function Home() {
         facing={facing}
         rooms={rooms}
         roomEdgeCurves={roomEdgeCurves}
+      /> {/* FF&E and Finish Schedule — the interior designer's deliverable */}
+      <DesignScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        rooms={rooms}
+        builtins={builtinInventory}
+        customObjects={customObjects}
+        materialConfig={materialConfig}
       /> {/* Custom Wall Partitions & Permutations Studio Modal */}
+      <PlotShapeModal
+        isOpen={isPlotShapeModalOpen}
+        onClose={() => setIsPlotShapeModalOpen(false)}
+        plot={plot}
+        onApply={setPlot}
+      />
+
       <CustomWallBlendModal
         isOpen={isCustomWallBlendModalOpen}
         onClose={() => setIsCustomWallBlendModalOpen(false)}

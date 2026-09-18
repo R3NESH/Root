@@ -133,7 +133,9 @@ const DANGER: React.CSSProperties = {
   display: "block",
   width: "100%",
   background: "rgba(184, 92, 34, 0.16)",
-  borderColor: "rgba(184, 92, 34, 0.5)",
+  // The whole `border` shorthand, not `borderColor`. This is spread over CHIP, which sets the
+  // shorthand, and React warns on every render when a longhand and its shorthand disagree.
+  border: "1px solid rgba(184, 92, 34, 0.5)",
   color: "#d98b52",
 };
 

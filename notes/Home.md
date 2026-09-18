@@ -20,7 +20,8 @@ Canonical source of truth is [[HANDOFF]] at the repo root. Every note here point
 
 ## Start here
 - [[project-status]] — **current state, re-measured 2026-08-30**
-- [[features-and-tools]] — **comprehensive inventory of all features & tools implemented**
+- [FEATURES.md](../FEATURES.md) — **every shipped capability, by subsystem, with the file that owns it**
+- [TOOLS.md](../TOOLS.md) — **every instrument you can pick up and operate**
 - [[workflow]] — how this project is run, and where that broke down
 - [[HANDOFF]] — the full brief, unedited, plus a dated addendum (§13)
 - [[project-phases]] — **read this first**: Phase 1 (3D model, single storey) vs Phase 2+ (multi-level, fire exits/egress/staircase rules hardcoded)

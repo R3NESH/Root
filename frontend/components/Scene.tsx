@@ -91,6 +91,7 @@ import {
   FURNITURE_CATALOG,
   PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
+import { BuiltinFurnitureRecord } from "@/lib/designSchedule";
 import { loadGlbModel, loadGlbFromFile } from "@/lib/modelLoader";
 import { mountRealModels } from "@/lib/furnitureModels";
 import { addSiteLandscape } from "@/lib/siteLandscape";
@@ -216,6 +217,12 @@ interface SceneProps {
   onChangeCustomOpenings?: (openings: Record<string, RoomOpening[]>) => void;
   onStartFromScratch?: () => void;
   deletedBuiltinIds?: string[];
+  /**
+   * Every piece the automatic fit-out placed, measured off the built scene. The FF&E schedule
+   * needs it: `addRoomInteriorDetails()` writes meshes, not data, so this is the only place the
+   * built-in furniture can be counted. Fires once per rebuild, and only when the list changed.
+   */
+  onFurnitureInventory?: (records: BuiltinFurnitureRecord[]) => void;
   placingItemType?: string | null;
   placingRotationY?: number;
   selectedObjectId?: string | null;
@@ -515,6 +522,7 @@ export default function Scene({
   onChangeCustomRoomZones,
   onChangeCustomOpenings,
   onStartFromScratch,
+  onFurnitureInventory,
   deletedBuiltinIds = [],
   placingItemType = null,
   placingRotationY = 0,
@@ -699,6 +707,10 @@ export default function Scene({
   const setbackRef = useRef(setback);
   const onPlotChangeRef = useRef(onPlotChange);
   const onPlayerUpdateRef = useRef(onPlayerUpdate);
+  const onFurnitureInventoryRef = useRef(onFurnitureInventory);
+  // Signature of the last inventory emitted. Without it the callback feeds state in the parent,
+  // the parent re-renders, this effect runs again and the two never settle.
+  const furnitureInventorySigRef = useRef<string>("");
   const onToggleLightsRef = useRef(onToggleLights);
   const onRoomMoveRef = useRef(onRoomMove);
   const onRoomResizeRef = useRef(onRoomResize);
@@ -783,6 +795,7 @@ export default function Scene({
     setbackRef.current = setback;
     onPlotChangeRef.current = onPlotChange;
     onPlayerUpdateRef.current = onPlayerUpdate;
+    onFurnitureInventoryRef.current = onFurnitureInventory;
     onToggleLightsRef.current = onToggleLights;
     onRoomMoveRef.current = onRoomMove;
     onRoomResizeRef.current = onRoomResize;
@@ -839,6 +852,7 @@ export default function Scene({
     setback,
     onPlotChange,
     onPlayerUpdate,
+    onFurnitureInventory,
     onToggleLights,
     onRoomMove,
     onRoomResize,
@@ -5114,11 +5128,32 @@ export default function Scene({
     }
 
     // Built-in room furniture (major pieces: beds, wardrobes, dining tables, sofas)
-    for (const rg of roomGroupsRef.current.values()) {
+    // The same walk also takes the FF&E inventory off the scene, because this is where every
+    // built-in piece is already in hand with its room index.
+    const furnitureInventory: BuiltinFurnitureRecord[] = [];
+    for (const [roomIdx, rg] of roomGroupsRef.current.entries()) {
       rg.traverse((child) => {
         if (child.userData && child.userData.isFurniture && !child.userData.isCustomObject) {
           // Skip windows, curtains, thresholds, fans, lights
           if (child.userData.isWindow || child.userData.type === "window" || child.userData.isThreshold) return;
+
+          if (child.userData.isBuiltin && child.userData.name) {
+            // Whole-group box, unlike the walking-band box below: a schedule wants the piece's
+            // real overall size, overhangs included, because that is what has to fit through a
+            // door and what a joiner is quoted against.
+            const full = new THREE.Box3().setFromObject(child);
+            if (!full.isEmpty()) {
+              furnitureInventory.push({
+                id: String(child.userData.id ?? child.id),
+                name: String(child.userData.name),
+                type: String(child.userData.type ?? ""),
+                roomIndex: roomIdx,
+                widthFt: full.max.x - full.min.x,
+                depthFt: full.max.z - full.min.z,
+                heightFt: full.max.y - full.min.y,
+              });
+            }
+          }
           // Footprint taken from the parts that actually stand in the walking band, not from the
           // whole group's box. A group box also swallows whatever overhangs the piece — a kitchen
           // chimney and its duct, a faucet spout, a canopy — and the player then collides with
@@ -5151,6 +5186,17 @@ export default function Scene({
           }
         }
       });
+    }
+
+    // One emission per rebuild, and only on a real change — see furnitureInventorySigRef.
+    if (onFurnitureInventoryRef.current) {
+      const sig = furnitureInventory
+        .map((f) => `${f.id}|${f.roomIndex}|${f.widthFt.toFixed(2)}|${f.depthFt.toFixed(2)}`)
+        .join(",");
+      if (sig !== furnitureInventorySigRef.current) {
+        furnitureInventorySigRef.current = sig;
+        onFurnitureInventoryRef.current(furnitureInventory);
+      }
     }
 
     // Custom drawn walls

@@ -1,6 +1,6 @@
 ---
 tags: [features, moc, documentation]
-date: 2026-09-05
+date: 2026-09-19
 status: current
 ---
 
@@ -8,8 +8,13 @@ status: current
 
 Every shipped capability, grouped by subsystem, with the file that owns it.
 
-Verified against the working tree on 2026-09-05. Counts were read out of the source, not carried
-over from earlier notes. Supersedes [[features-and-tools]] (last accurate 2026-08-30).
+Verified against the working tree on 2026-09-19. Counts were read out of the source, not carried
+over from earlier notes.
+
+This file and [TOOLS.md](TOOLS.md) are the only two inventories. A third,
+`notes/features-and-tools.md`, was deleted on 2026-09-19: it had been superseded since
+2026-09-05 but still carried `status: complete` and was still what [[Home]] and [[project-status]]
+pointed readers at. Two inventories that disagree are worse than one that is merely incomplete.
 
 **Contents**
 
@@ -57,6 +62,8 @@ Google OR-Tools CP-SAT. Integer inches throughout — see [[integer-inches]].
 | Aspect-ratio limits | `backend/solver/realism.py` | Per-kind proportion caps prevent corridor-shaped rooms. Worst observed 2.4:1. |
 | NBC 2016 room catalog | `backend/solver/rooms.py` | Real Indian statutory minimums — hall 10x12, kitchen 7x8, bath 4x6 — replacing artificial test sizes. |
 | Buildable envelope | `backend/envelope/envelope.py` | Applies per-edge setbacks from plot dimensions and road facing. TG-bPASS defaults: 5 ft road, 3 ft rear and sides. |
+| Convex polygon plots | `backend/envelope/polygon.py` | A plot that is not a rectangle becomes one integer half-plane per edge, `a·x + b·y <= c`, inset by that edge's setback. Containment is then one linear constraint per room per edge — no polygon intersection at solve time. Up to 32 corners (`MAX_VERTICES`, raised from 12 on 2026-09-19). **Convex only**, which is what half-plane intersection means, not a gap — [[plot-shapes-are-convex]]. |
+| Multi-storey packing | `backend/api/main.py` `assign_floors()` | Spreads the mix over up to `MAX_FLOORS = 3` storeys, ground first. Connectivity, separation and daylight are posted per floor, because a bedroom is not reachable from a hall one storey below it. `meta.floors_solved` reports what was actually packed. |
 | Realism benchmark | `backend/solver/bench_realism.py` | Measures feasibility, fill vs catalog ceiling, wet-room spread, through-private rooms and worst aspect across 7 real plot/mix scenarios. |
 | Stability benchmark | `backend/solver/bench_stability.py` | Measures layout drift across repeated edits. |
 
@@ -100,7 +107,17 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Plot picker | `frontend/components/PlotPicker.tsx` | Preset cards plus steppers, never text inputs — [[zero-keyboard-events]]. Clamped to legal min/max dimensions. |
+| Plot picker | `frontend/components/PlotPicker.tsx` | Preset cards plus steppers — [[zero-keyboard-events]]. Clamped to legal min/max dimensions. |
+| Typed plot dimensions | `frontend/components/TopRibbonTaskbar.tsx` | **Home** tab, "Plot Dimensions" panel. Width and depth as number inputs alongside the steppers. A surveyed plot is 33'6\" and reaching that a foot at a time is not a size control. The tap path is untouched, so [[zero-keyboard-events]] still holds for anyone who does not type. |
+| Plot Shape studio | `frontend/components/PlotShapeModal.tsx` | Describe the plot by **walking its boundary**: one row per side — how long it runs, which way it turns at the corner after it, how far it bows. Live preview, enclosed area, and a closure check. Nothing is written to the plot until Apply. |
+| Boundary traverse model | `frontend/lib/plotTraverse.ts` | The geometry behind that studio. Converts between an outline's corners and a list of sides, derives each side's compass face from the winding, and reports how far a walk misses its own starting corner. Turns are floats, not integer degrees — a length is measured, a turn is derived, and rounding one opened a 5 in gap in a preset. |
+| Plot shape presets | `frontend/lib/plotTraverse.ts` | Rectangle, cut corner, tapered, curved front — the shapes Indian plots actually come in. Each closes to within an inch on every plot size tested, so picking one never leaves a gap to fix. |
+| Closure check | `frontend/lib/plotTraverse.ts` `closureErrorIn()` | A traverse whose turns do not sum to 360° does not return to where it started. The gap is drawn dashed in the preview and stated in feet, with a "Close the loop" action, rather than being silently absorbed by moving a corner the user did not touch. |
+| Corner splays | `frontend/lib/plot.ts` | Four symmetric corner cuts, clockwise from north-west — the ordinary corner-plot and bend-plot shapes. Superseded by a drawn outline when there is one. |
+| Drawn plot outlines | `frontend/lib/plot.ts` | `PlotDims.vertsIn` carries hand-placed corners; `edgeBulgeIn` bows each edge outward. Both override the splays. Width and depth then mean the outline's bounding box. |
+| Curved plot edges | `frontend/lib/plot.ts` | Each bowed edge is tessellated as a quadratic Bézier into chords, because chords are all CP-SAT can be given. The chord budget is shared between bowed edges so a second bow cannot push the outline past the corner cap. |
+| Integer-rounding repair | `frontend/lib/plot.ts` `convexHull()` | Rounding a sampled curve onto the inch lattice reverses the turn between short chords, and the solver then refuses the whole outline — measured: a 6 ft bow breaks at 22 chords. The hull of the rounded points is convex by construction. Applied **only** when the un-bowed outline was already convex and every bow points outward, so a dent the user drew on purpose is never silently straightened. |
+| Unsolvable-shape warning | `frontend/lib/plot.ts` `plotShapeProblem()` | `buildable_polygon()` returns `None` for an outline it will not take and the API falls back to the bounding rectangle, silently. This names which of the three reasons applies — too few corners, past the cap, or concave — and the 2D view shows it as a banner that does not time out. |
 | Compass dial | `frontend/components/CompassDial.tsx` | Rotating ring for road facing. A spatial question gets a spatial control, not a dropdown. |
 | Room tray | `frontend/components/RoomTray.tsx` | One stepper row per room kind, max 4 each. The user supplies intent; the solver supplies correctness. |
 | Room customizer | `frontend/components/RoomCustomizer.tsx` | Per-room target width and depth in feet, fed back as a solver preference. |
@@ -218,6 +235,8 @@ FastAPI. `backend/api/main.py`.
 | Floor level pills | Ground / 1F / 2F / Roof switching inside the 2D view. |
 | Snapping engine | Vertex, edge and midline snap while drafting. |
 | Inspector | Per-element properties for the selected wall or opening. |
+| Plot shape editor | "Plot Shape" toggle. Drag a corner to move it, drag an edge's dot to bow it, double-click a dot to add a corner, right-click a corner to remove one. The straight skeleton is drawn behind the real outline so it is clear what a drag moves. "Reset Shape" returns to a plain rectangle. |
+| Outline-aware sheet scaling | The sheet is scaled to the drawn outline's bounding box rather than to the typed width and depth. Bowing an edge outward makes the plot larger than those two numbers, and without this a bowed plot is drawn off the edge of the paper. |
 
 ## 17. First-Person Walkthrough
 
@@ -242,6 +261,9 @@ FastAPI. `backend/api/main.py`.
 | Feature | File | Description |
 | :--- | :--- | :--- |
 | Blueprint export engine | `frontend/lib/blueprintExport.ts` | Vector architectural sheets with title block, room schedule, dimension annotations and CAD callouts. Three themes: blueprint, dark, drafting. Optional furniture layer. Feet-and-inches formatting. |
+| FF&E schedule | `frontend/lib/designSchedule.ts` | Every piece of furniture, fixture and equipment, room by room, with quantity, measured size in feet-inches **and** millimetres, finish, and whether it came from the automatic fit-out, the catalog or the AI modeller. Identical pieces in a room group into one line with a count. Sizes are taken off the built scene, not the catalog, so a dining set the fit-out shrank to leave a walkway is scheduled at the size it was built — [[schedule-is-measured-not-declared]]. |
+| Finish schedule | `frontend/lib/designSchedule.ts` | Per room: floor, wall paint, wall texture, door finish, carpet area and gross paint area, with band, glazing and wet-area notes. Resolved room-then-building out of `HouseMaterialConfig`, the same order the renderer resolves. |
+| Schedule export | `frontend/lib/designSchedule.ts` | Both tables to one CSV, or to a printable spec sheet. |
 | Export modal | `frontend/components/BlueprintExportModal.tsx` | 300 DPI SVG and PNG output with north arrow and area summary. |
 | 3D screenshot | `frontend/components/TopRibbonTaskbar.tsx` | High-resolution capture from the active camera. |
 | BOQ export | `frontend/lib/boqEngine.ts` | CSV export and printable cost report. |
@@ -290,7 +312,7 @@ API fails. It reports `OFFLINE_ESTIMATE` with an empty rule list and the ribbon 
 
 | Surface | Command | State |
 | :--- | :--- | :--- |
-| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | 173 passing, ~250 s. Covers API, solver, zoning, realism, walls, programmes, prompt parsing, stability and the real Kandi plot. |
+| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | **178 passing**, ~257 s. Covers API, solver, zoning, realism, walls, programmes, polygon and curved plots, prompt parsing, stability and the real Kandi plot. |
 | Frontend types | `cd frontend && npx tsc --noEmit` | 0 errors |
 | Frontend build | `cd frontend && npm run build` | 0 warnings |
 | Frontend tests | — | **None exist.** `tsc` and `build` are the whole safety net. |
@@ -299,11 +321,14 @@ API fails. It reports `OFFLINE_ESTIMATE` with an empty rule list and the ribbon 
 
 Recorded so this file is not a brochure. Full detail in [[project-status]].
 
-- **Single storey.** The multi-floor switcher is renderer geometry; the solver places one floor.
+- **Three storeys, not one.** This file said "single storey" until 2026-09-19; it was wrong. `assign_floors()` spreads the mix over up to `MAX_FLOORS = 3` and posts connectivity and daylight per floor. What is *not* solved is the Terrace level, which stays a drafting surface.
+- **Plots must be convex.** An L-shaped plot, a dented one, or the inside of a cul-de-sac cannot be expressed at all — half-plane intersection is convex by definition. The UI says so rather than quietly packing the bounding rectangle — [[plot-shapes-are-convex]].
+- **An inward-bowed plot edge is drawable and unsolvable.** Same reason, same warning.
 - **No hosted backend.** A deployed visitor gets the offline fallback, not CP-SAT.
 - **Setbacks hardcoded** to TG-bPASS defaults.
 - **No DWG and no IFC.** Export is SVG, PNG, CSV and JSON only.
 - **`Scene.tsx` and `Blueprint2DView.tsx` are ~4,000-line components.**
-- **A twelve-room programme** returns FEASIBLE rather than OPTIMAL inside the 2 s cold budget.
+- **A five-room programme** already returns FEASIBLE rather than OPTIMAL inside the 2 s cold budget on a 40x50 plot. This file said twelve; measured on 2026-09-19 it starts at five, and the plot outline's edge count is not what costs the time — the budget is.
+- **The offline fallback ignores the plot outline entirely.** It packs an axis-aligned grid, reports `OFFLINE_ESTIMATE` and claims nothing — [[client-side-fallback]].
 - **`test_stability.py` is wall-clock flaky** under CPU load, by design.
 - **The AI furniture endpoint ignores the uploaded image.**

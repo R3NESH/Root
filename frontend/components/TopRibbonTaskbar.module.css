@@ -1734,7 +1734,10 @@
 
 /* Typed plot dimensions. Sits where .dimValText used to, so the stepper row keeps its rhythm. */
 .dimValInput {
+  /* Fixed for the same reason as .vertexInput — see the note there. */
   width: 46px;
+  appearance: textfield;
+  -moz-appearance: textfield;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(216, 201, 160, 0.22);
   border-radius: 3px;
@@ -1746,89 +1749,40 @@
   font-variant-numeric: tabular-nums;
 }
 
+.dimValInput::-webkit-outer-spin-button,
+.dimValInput::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 .dimValInput:focus {
   outline: none;
   border-color: rgba(111, 154, 168, 0.8);
 }
 
-/* The measured-corner table. A surveyed parcel is a list of numbers before it is a shape. */
-.vertexTable {
-  margin-top: 6px;
-  border-top: 1px solid rgba(216, 201, 160, 0.16);
-  padding-top: 5px;
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-.vertexTableHead,
-.vertexRow {
-  display: grid;
-  grid-template-columns: 16px 1fr 1fr 1fr 18px;
-  gap: 3px;
-  align-items: center;
-}
-
-.vertexTableHead {
-  font-size: 8.5px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: #8a8578;
-  margin-bottom: 3px;
-}
-
-.vertexRow {
-  margin-bottom: 2px;
-}
-
-.vertexIndex {
-  font-size: 9px;
-  color: #8a8578;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.vertexInput {
-  width: 100%;
-  min-width: 0;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(216, 201, 160, 0.18);
+/* Opens the Plot Shape studio. Fixed width for the same max-content reason as the inputs
+   below: .ribbonGroup cannot shrink below its content, so anything auto-sized here widens the
+   whole panel and RibbonRow starts collapsing the tab. */
+.shapeStudioBtn {
+  width: 182px;
+  margin-top: 5px;
+  background: rgba(111, 154, 168, 0.14);
+  border: 1px solid rgba(111, 154, 168, 0.5);
   border-radius: 3px;
-  color: #eceae5;
-  font-size: 10px;
-  text-align: center;
-  padding: 2px 1px;
-  font-variant-numeric: tabular-nums;
-}
-
-.vertexInput:focus {
-  outline: none;
-  border-color: rgba(111, 154, 168, 0.8);
-}
-
-.vertexDropBtn {
-  background: transparent;
-  border: 1px solid rgba(184, 92, 34, 0.4);
-  border-radius: 3px;
-  color: #b85c22;
-  font-size: 9px;
-  line-height: 1;
-  padding: 3px 0;
+  color: #9dc3d1;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 5px 8px;
   cursor: pointer;
 }
 
-.vertexDropBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.vertexActions {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
+.shapeStudioBtn:hover {
+  background: rgba(111, 154, 168, 0.24);
 }
 
 /* The solver's refusal, said out loud rather than swallowed by the rectangle fallback. */
 .vertexProblem {
+  width: 182px;
   margin-top: 5px;
   font-size: 9.5px;
   line-height: 1.45;

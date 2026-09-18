@@ -45,7 +45,42 @@ with every number below re-measured on 2026-09-07 rather than carried over from
 - **Walkthrough Collision Engine & Interactive Doors.** Axis-separated sliding capsule collision ($R = 0.72\text{ ft}$) prevents phasing through walls, closed doors, and furniture (custom and built-ins). Interactive hinged doors start closed, block passage, and swing open/closed smoothly via `E` key, direct mouse click, or mobile touch button with on-screen HUD prompt.
 - **Architectural Spatial FOV.** Walkthrough camera FOV expanded from 45° to 68° (75° sprint), eliminating cramped tunnel vision and congestion.
 - **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
-- **Full Features & Subsystems Inventory.** Complete log of all features, tools, and graphics engines in [[features-and-tools]].
+- **Full Features & Subsystems Inventory.** Capabilities in [FEATURES.md](../FEATURES.md), the things you click in [TOOLS.md](../TOOLS.md). Both re-verified 2026-09-19; the stale third inventory was deleted the same day.
+
+## FF&E and finish schedule — 2026-09-19
+
+The product could draw an interior and could not *specify* one. It now emits the two tables an
+interior designer keeps by hand.
+
+- **FF&E schedule.** Every piece, room by room: quantity, size in feet-inches **and** mm, finish,
+  and whether it came from the automatic fit-out, the catalog or the AI modeller. Identical
+  pieces in a room collapse to one line with a count.
+- **Finish schedule.** Per room: floor, wall paint, wall texture, door finish, carpet area, gross
+  paint area, plus band, glazing and wet-area notes.
+- **Sizes are measured, not declared** — [[schedule-is-measured-not-declared]]. The fit-out
+  shrinks a dining set to save a walkway ([[furniture-clearances]]) and places a `dining_table`
+  that has no catalog row at all, so `Scene.tsx` boxes each built-in group and hands the list up
+  through a new `onFurnitureInventory` callback. That callback is the only way the built-in
+  fit-out exists as data rather than as meshes.
+- One CSV for both tables, plus a printable spec sheet. Ribbon button beside BOQ.
+
+`tsc --noEmit` 0 errors, `next build` clean. The pure half — `buildDesignSchedule()` — was also
+run in Node against a fabricated five-room plan with `three` stubbed, checking that piece counts
+survive grouping, that repeated rooms get numbered, that the uncatalogued dining set keeps a
+size, that duplicates group, that a piece outside every room is flagged rather than dropped, and
+that a wet room carries its note. That harness lives in the scratchpad, not the repo: the
+frontend still has no test runner.
+
+> [!warning] The measured half has not been seen in a browser
+> `onFurnitureInventory` fires out of the scene build. Nothing in `tsc` or `next build` proves
+> a `Box3` was ever taken, so the FF&E table's row count and sizes are unverified against a real
+> render. This is the same gap as every session since 2026-09-04.
+
+> [!note] Why this, and what was skipped
+> Chosen against a coming interior-designer review. Also on that list and **not** built: interior
+> elevations (the drawing a designer actually produces — there are none), a reflected ceiling
+> plan, surfaced clearance warnings, and DXF/DWG export. The tool still speaks solver in places
+> a designer does not care about.
 
 ## Vaastu and the pooja room removed — 2026-09-18
 
@@ -75,6 +110,56 @@ records as the original brief; HANDOFF.md is never edited.
 > been measured since that contradicts it. The removal was a direct instruction, not a finding.
 
 Backend **173/173 passing**. Frontend `tsc --noEmit` 0 errors, `next build` clean.
+
+## Custom and curved plot shapes — 2026-09-18
+
+The plot is no longer a rectangle with optional corner splays. Its outline can be drawn.
+
+- **Drag it.** The 2D view has a *Plot Shape* mode: drag a corner, drag an edge's dot to bow it,
+  double-click a dot to add a corner, right-click a corner to remove one.
+- **Or type it.** The Site tab carries a corner table — X, Y and the bow of the edge leaving each
+  corner — plus typed plot width and depth, which were step-only before. A surveyed parcel
+  arrives as measurements, not as a sketch.
+- **Convex only, and it says so.** See [[plot-shapes-are-convex]] for why that is arithmetic
+  rather than a missing feature, and what the integer-inch ceiling on curve tessellation is.
+- `MAX_VERTICES` 12 → 32, after measuring that edge count costs nothing against the solve budget.
+- The 3D ground and the blueprint sheet needed no change: both already drew from
+  `plotPolygonIn(plot)`.
+
+Verified end to end: the outlines the UI produces, posted to the real `/solve`, with every placed
+room checked against the plot's own inset half-planes.
+
+| outline | corners | solver | rooms inside |
+|---|---|---|---|
+| rectangle 30×40 | 4 | FEASIBLE | all |
+| splayed NE 6 ft | 5 | FEASIBLE | all |
+| road edge bowed 6 ft | 24 | FEASIBLE | all |
+| all four edges bowed 4 ft | 24 | FEASIBLE | all |
+| drawn trapezoid | 4 | OPTIMAL | all |
+| drawn 5-gon with one bow | 17 | FEASIBLE | all |
+| dented inward | 26 | refused → rectangle | UI warns |
+
+> [!warning] A five-room mix never reached OPTIMAL in any of these
+> Every curved-plot run above returned FEASIBLE at ~2040 ms against the 2 s cold budget,
+> including the plain rectangle. The budget, not the plot shape, is what is binding. This page
+> previously recorded that as a twelve-room problem; it starts at five.
+
+> [!warning] Not seen rendered
+> `tsc --noEmit` is clean and `next build` passes, and the geometry is verified numerically
+> through the real solver. No agent has looked at the outline editor in a browser — there is
+> still no browser driver in the repo.
+
+## The drawn-wall delete bug — 2026-09-18
+
+`handleDeleteSelected` in `frontend/app/page.tsx` routed **any** selection carrying `isWall`
+through `handleToggleRemoveWall(roomIndex ?? 0, edge ?? "N")`. A drawn wall's mesh carries both
+`isCustomWall` and `isWall` and has neither a room index nor an edge, so deleting a drawn wall
+demolished **room 0's north wall** and left the drawn wall standing.
+
+The ribbon's wall inspector had already been patched for exactly this and carries a comment
+naming it. The keyboard Delete, the 3D HUD delete button and Scene's delete trigger all share
+`handleDeleteSelected` and had not been. Fixed: drawn walls are removed from `customWalls`, the
+solver-wall branch no longer guesses a target, and `WallInspector` gained a Delete button.
 
 ## What is broken or unfinished
 

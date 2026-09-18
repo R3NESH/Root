@@ -194,7 +194,10 @@ interface TopRibbonTaskbarProps {
   isRaytracing?: boolean;
   onToggleRaytrace?: () => void;
   onOpenBOQModal?: () => void;
+  onOpenScheduleModal?: () => void;
   onOpenCustomWallBlendModal?: () => void;
+  /** Opens the Plot Shape studio. */
+  onOpenPlotShapeModal?: () => void;
 }
 
 const WALL_ITEMS = FURNITURE_CATALOG.filter((i) => i.category === "walls");
@@ -227,6 +230,7 @@ const ICONS: Record<string, string[]> = {
   redo: ["M12.5 8.5H6a3 3 0 0 0 0 6h3", "M9.5 5.5l3 3-3 3"],
   reset: ["M13 8a5 5 0 1 1-1.6-3.7", "M13 3v3h-3"],
   boq: ["M4 2.5h5l3 3v8H4z", "M9 2.5v3h3", "M6 9h4M6 11h4"],
+  schedule: ["M2.5 3h11v10h-11z", "M2.5 6h11", "M6 6v7", "M9.5 6v7"],
   graphics: ["M2.5 11.5a5.5 5.5 0 0 1 11 0", "M8 11.5 11 7.5"],
   raytrace: ["M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4", "M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14", "M3.8 3.8l1 1M11.2 11.2l1 1M12.2 3.8l-1 1M4.8 11.2l-1 1"],
   upgrade: ["M8 2.5 9.4 6.6 13.5 8l-4.1 1.4L8 13.5 6.6 9.4 2.5 8l4.1-1.4z"],
@@ -586,7 +590,9 @@ export default function TopRibbonTaskbar({
   isRaytracing = false,
   onToggleRaytrace,
   onOpenBOQModal,
+  onOpenScheduleModal,
   onOpenCustomWallBlendModal,
+  onOpenPlotShapeModal,
 }: TopRibbonTaskbarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("architecture");
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
@@ -603,10 +609,10 @@ export default function TopRibbonTaskbar({
   const rulesRelaxed = meta?.rules_relaxed ?? false;
 
   const handleStepPlot = (dim: "widthIn" | "depthIn", deltaFt: number) => {
-    const minIn = feetToInches(10);
-    const maxIn = feetToInches(100);
-    const next = clampInches(plot[dim] + feetToInches(deltaFt), minIn, maxIn);
-    onChangePlot({ ...plot, [dim]: next });
+    const next = clampInches(plot[dim] + feetToInches(deltaFt), MIN_DIM_IN, MAX_DIM_IN);
+    // Stepping a dimension states a rectangle, exactly as typing one does, so it drops any drawn
+    // outline rather than leaving widthIn disagreeing with the shape on screen.
+    onChangePlot({ ...plot, [dim]: next, vertsIn: undefined, edgeBulgeIn: undefined });
   };
 
   const cornerCutFt = (index: number) =>
@@ -620,12 +626,11 @@ export default function TopRibbonTaskbar({
   /** Inches to feet for display, to one decimal. Kept exact enough to round-trip a half foot. */
   const exactFt = (inches: number) => Math.round((inches / 12) * 10) / 10;
 
-  /** The editable skeleton: corners before any edge is bowed. */
+  /** Corners before any edge is bowed — read only, purely to count them for the summary. */
   const outlineVerts: PlotPoint[] =
     plot.vertsIn && plot.vertsIn.length >= 3
       ? plot.vertsIn
       : plotPolygonIn({ ...plot, edgeBulgeIn: undefined });
-  const outlineBulges = plot.edgeBulgeIn ?? [];
   const shapeProblem = plotShapeProblem(plot);
 
   const plotShapeSummary = isRectangularPlot(plot)
@@ -636,21 +641,6 @@ export default function TopRibbonTaskbar({
     ? `Drawn outline, ${outlineVerts.length} corners`
     : "Splayed plot";
 
-  /** Write a new skeleton, keeping width and depth as the outline's own bounding box. */
-  const commitOutline = (verts: PlotPoint[], bulges: number[]) => {
-    const drawn = plotPolygonIn({ ...plot, vertsIn: verts, edgeBulgeIn: bulges });
-    const bounds = outlineBoundsIn(drawn);
-    onChangePlot({
-      ...plot,
-      widthIn: Math.max(1, bounds.widthIn),
-      depthIn: Math.max(1, bounds.depthIn),
-      // The outline supersedes the splays: two descriptions of one shape is one too many, and
-      // the splay steppers would otherwise re-cut a corner that had just been typed.
-      cornerCutsIn: undefined,
-      vertsIn: verts,
-      edgeBulgeIn: bulges.some((b) => Math.abs(b) >= 1) ? bulges : undefined,
-    });
-  };
 
   const handleTypePlot = (dim: "widthIn" | "depthIn", raw: string) => {
     const ft = Number(raw);
@@ -661,75 +651,10 @@ export default function TopRibbonTaskbar({
     onChangePlot({ ...plot, [dim]: inches, vertsIn: undefined, edgeBulgeIn: undefined });
   };
 
-  const handleTypeVertex = (index: number, axis: 0 | 1, raw: string) => {
-    const ft = Number(raw);
-    if (!Number.isFinite(ft)) return;
-    const verts = outlineVerts.map((v, i) => {
-      if (i !== index) return v;
-      const next: PlotPoint = [v[0], v[1]];
-      next[axis] = Math.round(ft * 12);
-      return next;
-    });
-    commitOutline(verts, [...outlineBulges]);
-  };
 
-  const handleTypeBulge = (index: number, raw: string) => {
-    const inches = Number(raw);
-    if (!Number.isFinite(inches)) return;
-    const bulges = [...outlineBulges];
-    while (bulges.length < outlineVerts.length) bulges.push(0);
-    bulges[index] = Math.round(inches);
-    commitOutline([...outlineVerts], bulges);
-  };
 
-  const handleAddVertex = () => {
-    if (outlineVerts.length >= MAX_PLOT_VERTICES) return;
-    // Split the longest edge: the corner lands where there is most room for it, which is what
-    // someone adding one by hand is almost always after.
-    let longest = 0;
-    let longestLen = -1;
-    for (let i = 0; i < outlineVerts.length; i++) {
-      const a = outlineVerts[i];
-      const b = outlineVerts[(i + 1) % outlineVerts.length];
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len > longestLen) {
-        longestLen = len;
-        longest = i;
-      }
-    }
-    const a = outlineVerts[longest];
-    const b = outlineVerts[(longest + 1) % outlineVerts.length];
-    const verts = [...outlineVerts];
-    verts.splice(longest + 1, 0, [
-      Math.round((a[0] + b[0]) / 2),
-      Math.round((a[1] + b[1]) / 2),
-    ]);
-    const bulges = [...outlineBulges];
-    while (bulges.length < outlineVerts.length) bulges.push(0);
-    const was = bulges[longest] ?? 0;
-    bulges.splice(longest, 1, Math.round(was / 2), Math.round(was / 2));
-    commitOutline(verts, bulges);
-  };
 
-  const handleRemoveVertex = (index: number) => {
-    if (outlineVerts.length <= 3) return;
-    commitOutline(
-      outlineVerts.filter((_, i) => i !== index),
-      outlineBulges.filter((_, i) => i !== index)
-    );
-  };
 
-  const handleResetOutline = () => {
-    const bounds = outlineBoundsIn(plotPolygonIn(plot));
-    onChangePlot({
-      ...plot,
-      widthIn: Math.max(1, bounds.widthIn),
-      depthIn: Math.max(1, bounds.depthIn),
-      cornerCutsIn: undefined,
-      vertsIn: undefined,
-      edgeBulgeIn: undefined,
-    });
-  };
 
   // A splay is cut symmetrically back along both edges of the corner, which is what a road
   // splay is and what keeps the outline convex — the one thing the solver requires of it.
@@ -857,6 +782,18 @@ export default function TopRibbonTaskbar({
                     title: "Engineering Bill of Quantities (BOQ) & Cost Estimation",
                     icon: ICONS.boq,
                     onClick: onOpenBOQModal,
+                    group: 1,
+                  },
+                ]
+              : []),
+            ...(onOpenScheduleModal
+              ? [
+                  {
+                    id: "schedule",
+                    label: "FF&E Schedule",
+                    title: "FF&E and Finish Schedule — every piece and surface, room by room, in feet-inches and mm",
+                    icon: ICONS.schedule,
+                    onClick: onOpenScheduleModal,
                     group: 1,
                   },
                 ]
@@ -1015,6 +952,7 @@ export default function TopRibbonTaskbar({
                     );
                   })}
                 </div>
+                <div className={styles.stackedGroup}>
                 <div className={styles.dimensionSteppersRow}>
                   <div className={styles.dimStepper}>
                     <span className={styles.dimLabel}>W</span>
@@ -1064,6 +1002,7 @@ export default function TopRibbonTaskbar({
                     From the drawn outline
                   </div>
                 )}
+                </div>
               </RibbonPanel>
               {/* Group 4: Room Program */}
               <RibbonPanel label={program.key === "cafe" ? "Space Program" : "Room Program"}>
@@ -1150,6 +1089,7 @@ export default function TopRibbonTaskbar({
             <RibbonRow>
               {/* Plot Shape: corner splays */}
               <RibbonPanel label={<>Plot Shape</>}>
+                <div className={styles.stackedGroup}>
                 <div className={styles.cornerGrid}>
                   {CORNER_LABELS.map((corner, i) => (
                     <div key={corner} className={styles.dimStepper}>
@@ -1174,87 +1114,19 @@ export default function TopRibbonTaskbar({
                 </div>
                 <div className={styles.facingInfoBadge}>{plotShapeSummary}</div>
 
-                {/* A surveyed parcel arrives as a list of measured corners, so they can be typed.
-                    The same corners are draggable in the 2D view — this is the other half of it. */}
-                {outlineVerts.length > 0 && (
-                  <div className={styles.vertexTable}>
-                    <div className={styles.vertexTableHead}>
-                      <span>#</span>
-                      <span>X ft</span>
-                      <span>Y ft</span>
-                      <span>Bow in</span>
-                      <span />
-                    </div>
-                    {outlineVerts.map(([vx, vy], i) => (
-                      <div className={styles.vertexRow} key={`v-${i}`}>
-                        <span className={styles.vertexIndex}>{i + 1}</span>
-                        <input
-                          className={styles.vertexInput}
-                          type="number"
-                          step={0.5}
-                          value={exactFt(vx)}
-                          onChange={(e) => handleTypeVertex(i, 0, e.target.value)}
-                          aria-label={`Corner ${i + 1} X in feet`}
-                        />
-                        <input
-                          className={styles.vertexInput}
-                          type="number"
-                          step={0.5}
-                          value={exactFt(vy)}
-                          onChange={(e) => handleTypeVertex(i, 1, e.target.value)}
-                          aria-label={`Corner ${i + 1} Y in feet`}
-                        />
-                        <input
-                          className={styles.vertexInput}
-                          type="number"
-                          step={1}
-                          value={Math.round(outlineBulges[i] ?? 0)}
-                          onChange={(e) => handleTypeBulge(i, e.target.value)}
-                          title="How far the edge leaving this corner bows outward, in inches. Negative caves inward, which the solver cannot pack."
-                          aria-label={`Bow of edge ${i + 1} in inches`}
-                        />
-                        <button
-                          className={styles.vertexDropBtn}
-                          disabled={outlineVerts.length <= 3}
-                          onClick={() => handleRemoveVertex(i)}
-                          title={
-                            outlineVerts.length <= 3
-                              ? "Three corners is the fewest a plot can have"
-                              : "Remove this corner"
-                          }
-                        >
-                          x
-                        </button>
-                      </div>
-                    ))}
-                    <div className={styles.vertexActions}>
-                      <button
-                        className={styles.stepperBtn}
-                        disabled={outlineVerts.length >= MAX_PLOT_VERTICES}
-                        onClick={handleAddVertex}
-                        title={
-                          outlineVerts.length >= MAX_PLOT_VERTICES
-                            ? `The solver takes at most ${MAX_PLOT_VERTICES} corners`
-                            : "Split the longest edge and add a corner there"
-                        }
-                      >
-                        + Corner
-                      </button>
-                      {!isRectangularPlot(plot) && (
-                        <button
-                          className={styles.stepperBtn}
-                          onClick={handleResetOutline}
-                          title="Throw the drawn outline away and go back to a plain rectangle"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                    {shapeProblem && (
-                      <div className={styles.vertexProblem}>{shapeProblem}</div>
-                    )}
-                  </div>
-                )}
+                {/* The corner table this replaced asked for each corner's X and Y, which is
+                    the one way nobody describes a plot, and could not be edited a field at a
+                    time without passing through degenerate shapes. Sides and turns live in the
+                    Plot Shape studio now — lib/plotTraverse.ts. */}
+                <button
+                  className={styles.shapeStudioBtn}
+                  onClick={onOpenPlotShapeModal}
+                  title="Open the Plot Shape studio: side lengths, corner turns and curved edges, with a live preview"
+                >
+                  Edit plot shape...
+                </button>
+                {shapeProblem && <div className={styles.vertexProblem}>{shapeProblem}</div>}
+                </div>
               </RibbonPanel>
               {/* Group 2: Road Facing */}
               <RibbonPanel label={<>Road Facing</>}>

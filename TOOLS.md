@@ -1,6 +1,6 @@
 ---
 tags: [tools, moc, documentation]
-date: 2026-09-05
+date: 2026-09-19
 status: current
 ---
 
@@ -11,7 +11,10 @@ Every instrument a person can pick up and operate, grouped by where it lives.
 A **tool** here is something you invoke: a button, a mode, a studio, a script. The capabilities
 they drive are in [FEATURES.md](FEATURES.md).
 
-Verified against the working tree on 2026-09-05. Labels are quoted from the source.
+Verified against the working tree on 2026-09-19. Labels are quoted from the source.
+
+This file and [FEATURES.md](FEATURES.md) are the only two inventories; `notes/features-and-tools.md`
+was deleted on 2026-09-19 as a stale third — see FEATURES.md for why.
 
 **Contents**
 
@@ -34,7 +37,9 @@ Verified against the working tree on 2026-09-05. Labels are quoted from the sour
 ## 1. Top Ribbon Taskbar
 
 `frontend/components/TopRibbonTaskbar.tsx`. Flat CAD ribbon: application bar, tab strip, panel
-shelf, selection inspector. Four tabs — **Home**, **Structure**, **Blueprints**, **AI Prompt**.
+shelf, selection inspector. Six tabs — **Home**, **Site**, **Draw**, **Openings**, **View**,
+**AI Prompt**. (This file said four — Home, Structure, Blueprints, AI Prompt — until 2026-09-19;
+those names had not matched `RIBBON_TABS` for some time.)
 
 | Tool | Label in app | What it does |
 | :--- | :--- | :--- |
@@ -46,6 +51,7 @@ shelf, selection inspector. Four tabs — **Home**, **Structure**, **Blueprints*
 | Reset layout | "Wipe current layout & reset to clean default" | Back to defaults. |
 | Blueprint browser | "Browse curated architectural model blueprints" | Opens the curated catalog. |
 | BOQ | "Engineering Bill of Quantities (BOQ) & Cost Estimation" | Opens the cost studio. |
+| FF&E Schedule | "FF&E and Finish Schedule — every piece and surface, room by room, in feet-inches and mm" | Opens the schedule studio. |
 | Export | "Export the blueprint sheet: JSON model, SVG, high-res PNG, or print to PDF. No DXF yet." | Opens the export modal. |
 | Graphics | "Graphics & Performance Control (Press 'G')" | Opens the graphics studio. |
 | Path tracer | "Toggle Real-Time GPU Path Tracer & Global Illumination (Press 'P')" | Progressive raytraced render. |
@@ -150,6 +156,8 @@ offers the residence set or the café set depending on the active programme.
 | Fine width | "Increase / Decrease width by 2 inches" |
 | Room rotate | "Rotate Room Clockwise (+90°)" / "Anticlockwise (-90°)" |
 | Auto-crop | "Auto-Crop room dimensions when dragging across map boundaries (Press 'C' to toggle)" |
+| Plot shape | "Reshape the plot: drag a corner to move it, drag an edge's dot to bow it, double-click a dot to add a corner, right-click a corner to remove it" |
+| Reset plot shape | "Throw the drawn outline away and go back to a plain rectangle" |
 | Delete wall | "Delete this wall" |
 | Clear walls | "Clear all custom drawn walls" |
 | Deselect | "Deselect" |
@@ -184,6 +192,7 @@ Ribbon-hosted panel that appears when something is selected.
 | Scale | "Scale Up (+10%)" / "Scale Down (-10%)" |
 | Replace | "Replace with another object" |
 | Delete | "Delete selected object" / "Delete selected window" |
+| Delete drawn wall | "Delete this drawn wall" — in the 3D wall panel (`WallInspector.tsx`), shown only for a wall the user drew. A solver wall cannot be deleted, only opened up; that is the ribbon's "Delete Wall (Open Concept)" instead. |
 | Deselect | "Deselect" |
 
 ## 6. Studios & Modals
@@ -196,7 +205,9 @@ Ribbon-hosted panel that appears when something is selected.
 | Custom Wall Blend Studio | `CustomWallBlendModal.tsx` | 2-6 paint bands per wall, axis swap, per-band colour, designer palettes, random permutation. |
 | Room Dimensions Studio | `RoomDimensionsModal.tsx` | Per-room width and depth table with live editing. |
 | BOQ & Cost Studio | `BOQCostModal.tsx` | Quantity and cost breakdown by category, three quality tiers, CSV export, printable report. |
+| FF&E & Finish Schedule Studio | `DesignScheduleModal.tsx` | The interior package: an FF&E table and a finish table, filterable by room, with whole-house totals, CSV export and a printable spec sheet. |
 | Blueprint Catalog | `ModelBlueprintsModal.tsx` | 20 residential models and 8 café plans, filtered by facing and plot size. |
+| Plot Shape Studio | `PlotShapeModal.tsx` | Walk the boundary: one row per side with its length, the turn at the corner after it, and its bow. Four shape presets, live preview, enclosed area, closure check with a "Close the loop" fix. Applies nothing until Apply. |
 | Blueprint Export Studio | `BlueprintExportModal.tsx` | 300 DPI SVG/PNG sheets, title block, north arrow, area summary, three themes. |
 | AI Furniture Studio | `AIFurnitureStudioModal.tsx` | Upload an image, edit the prompt, generate a parametric 3D piece, spawn it into the scene. |
 | Replace Object | `ReplaceObjectModal.tsx` | Swap a placed piece for another catalog item in place. |
@@ -213,6 +224,9 @@ Ribbon-hosted panel that appears when something is selected.
 | Panel | File | Purpose |
 | :--- | :--- | :--- |
 | Plot picker | `PlotPicker.tsx` | Preset plot cards plus width/depth steppers, clamped to legal dimensions. |
+| Plot dimensions | `TopRibbonTaskbar.tsx` | **Home** tab, "Plot Dimensions" panel. Presets, steppers, **and** typed width/depth in feet. Typing or stepping a dimension states a rectangle, so it drops any drawn outline rather than leaving the numbers disagreeing with the shape on screen. |
+| Plot shape opener | `TopRibbonTaskbar.tsx` | **Site** tab, "Plot Shape" panel. "Edit plot shape..." opens the studio. The panel itself keeps only the corner splay steppers and a one-line summary of the current shape. |
+| Corner splay steppers | `TopRibbonTaskbar.tsx` | Site tab, "Plot Shape" panel. Four symmetric corner cuts. Superseded by a drawn outline once there is one. |
 | Compass dial | `CompassDial.tsx` | Rotating ring to set road facing. |
 | Room tray | `RoomTray.tsx` | One stepper per room kind, max 4 each. |
 | Room customizer | `RoomCustomizer.tsx` | Target width and depth per room, fed to the solver as a preference. |
@@ -240,6 +254,7 @@ Ribbon-hosted panel that appears when something is selected.
 | :--- | :--- | :--- |
 | Blueprint sheet export | `BlueprintExportModal.tsx` | SVG, high-res PNG, print to PDF, JSON model. **No DXF** — the button says so. |
 | BOQ export | `BOQCostModal.tsx` | CSV and printable cost report |
+| Schedule export | `DesignScheduleModal.tsx` | FF&E and finish tables to one CSV, or a printable spec sheet |
 | 3D screenshot | ribbon | PNG from the active camera |
 | Project save / load | `frontend/lib/projectStorage.ts`, `frontend/app/page.tsx` | Full-design JSON; `localStorage` autosave under `plot_to_plan_project_data_v1` |
 | CLI sheet export | `backend/prompt_to_plan.py` | `--svg`, `--json` |
@@ -265,8 +280,8 @@ Run from `backend/`, inside the venv.
 | Type check | `cd frontend && npx tsc --noEmit` | The only real frontend check. |
 | Production build | `cd frontend && npm run build` | Second half of the frontend safety net. |
 | Lint | `cd frontend && npm run lint` | ESLint. |
-| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | 93 tests. `test_stability.py` is wall-clock flaky under load, by design. |
-| Knowledge graph | `graphify --update` from the repo root | Rebuilds the code+notes graph. **Gotcha:** graphify skips any folder named `build/`; `notes/build/` here is design documentation, so lift `"build"` out of `_SKIP_DIRS` or the whole Phase 1 plan vanishes silently. |
+| Backend tests | `cd backend && .venv/Scripts/python.exe -m pytest -q` | **178 tests**, ~257 s. `test_stability.py` is wall-clock flaky under load, by design. |
+| Knowledge graph | `graphify update .` from the repo root | Rebuilds the code+notes graph. `--update` was the old spelling and is now rejected as an unknown command. **Gotcha:** graphify skips any folder named `build/`; `notes/build/` here is design documentation, so lift `"build"` out of `_SKIP_DIRS` or the whole Phase 1 plan vanishes silently. |
 
 ## 13. Keyboard Tool Bindings
 
