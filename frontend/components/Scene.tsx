@@ -146,7 +146,9 @@ import {
   CustomWallType,
   CadTool,
   getCurvedWallArcPoints,
+  SELECTED_WALL_COLOR_HEX,
 } from "@/lib/customArchitecture";
+import { resolveChainWalls } from "@/lib/wallJoins";
 
 export interface SelectedObjectInfo {
   id: string;
@@ -157,6 +159,10 @@ export interface SelectedObjectInfo {
   isWall?: boolean;
   /** A wall the user drew, not one the solver placed: it has an id but no room index or edge. */
   isCustomWall?: boolean;
+  /** The combined run this wall belongs to, if any. Corner pieces carry it and nothing else. */
+  chainId?: string;
+  /** Shift was held: the caller should add to what is already picked rather than replace it. */
+  addToSelection?: boolean;
   isWallRemoved?: boolean;
   windowShape?: WindowShapeId;
   windowFrameFinish?: WindowFrameFinishId;
@@ -205,6 +211,8 @@ interface SceneProps {
   customObjects?: PlacedCustomObject[];
   customOpenings?: Record<string, RoomOpening[]>;
   customWalls?: CustomDrawnWall[];
+  /** Drawn walls picked for combining. They are drawn blue, and so is the rest of their run. */
+  selectedWallIds?: string[];
   customRoomZones?: CustomRoomZone[];
   activeFloor?: number;
   onChangeActiveFloor?: (floor: number) => void;
@@ -511,6 +519,7 @@ export default function Scene({
   customObjects = [],
   customOpenings = {},
   customWalls = [],
+  selectedWallIds = [],
   customRoomZones = [],
   activeFloor = 0,
   onChangeActiveFloor,
@@ -1465,6 +1474,10 @@ export default function Scene({
                 isWindow,
                 isWall,
                 isCustomWall,
+                chainId: curr.userData.chainId,
+                // Absent when the pick came from the walkthrough crosshair rather than a click,
+                // which is right: there is no keyboard modifier on a crosshair.
+                addToSelection: Boolean(ev?.shiftKey),
                 isWallRemoved,
                 windowShape: curr.userData.shape,
                 windowFrameFinish: curr.userData.frameFinish,
@@ -1541,7 +1554,10 @@ export default function Scene({
       raycaster.setFromCamera(pointerNdc, camera);
 
       // 0a. CAD Tool 1: 3D Freehand Wall Drawing
-      if (activeCadToolRef.current === "draw_wall" && ev.button === 0) {
+      // Shift is not a drafting modifier — it never was, a shift-click here just placed a point
+      // like any other. Letting it fall through makes shift mean "select" everywhere in 3D, so a
+      // run can be picked up straight after drawing it without first hunting for the Select tool.
+      if (activeCadToolRef.current === "draw_wall" && ev.button === 0 && !ev.shiftKey) {
         if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();
@@ -1915,7 +1931,12 @@ export default function Scene({
       // If layout is unlocked, allow dragging plot resize handles, custom objects, and room blocks
       if (!isLayoutLockedRef.current) {
         // 0. Check custom wall endpoint bubble handles (Orange Bubbles on Custom Walls!)
-        const hitCustomWallHandle = pickCustomWallHandle(ev);
+        // Shift means "add this wall to the selection", so it must not grab a handle. Every drawn
+        // wall carries a bubble at each end, and walls that are joined meet end to end — so the
+        // corner, which is exactly where someone clicks to pick up a run, is the one place two
+        // bubbles always sit. Without this, shift-clicking near a corner dragged the wall instead
+        // of selecting it.
+        const hitCustomWallHandle = ev.shiftKey ? null : pickCustomWallHandle(ev);
         if (hitCustomWallHandle && ev.button === 0) {
           ev.stopPropagation();
           ev.stopImmediatePropagation();
@@ -5491,7 +5512,25 @@ export default function Scene({
         roughness: 0.6,
       });
 
-      for (const wall of customWalls) {
+      // A picked wall, and the rest of the run it belongs to. It replaces the wall's own material
+      // rather than adding a marker on top, because a wall is read as a surface: tinting it says
+      // "this one" at any angle, where a ring on the floor only reads from above.
+      const selectedWallMat = new THREE.MeshStandardMaterial({
+        color: SELECTED_WALL_COLOR_HEX,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.35,
+        roughness: 0.5,
+      });
+      const pickedWallIds = new Set(selectedWallIds);
+      // Corner pieces are derived: they carry the run id but no id the selection could hold, so
+      // the run is matched rather than the wall.
+      const pickedChainIds = new Set(
+        customWalls.filter((w) => pickedWallIds.has(w.id) && w.chainId).map((w) => w.chainId)
+      );
+
+      // Walls as built, not as drawn: a combined run arrives here already trimmed back to its
+      // corners, with the arc or the flat between them standing as a wall of its own.
+      for (const wall of resolveChainWalls(customWalls)) {
         const elevFt = (wall.floor ?? 0) * (WALL_HEIGHT_FT + 0.8);
         const x1 = inchesToFeet(wall.startXIn);
         const z1 = inchesToFeet(wall.startYIn);
@@ -5509,12 +5548,16 @@ export default function Scene({
           (wall.curveBulgeIn && Math.abs(wall.curveBulgeIn) > 1)
         );
 
-        const wallMat =
-          wall.wallType === "glass" || wall.wallType === "curved_glass"
-            ? glassWallMat
-            : wall.wallType === "slat" || wall.wallType === "curved_slat"
-            ? woodSlatMat
-            : defaultWallMat;
+        const isPickedWall =
+          pickedWallIds.has(wall.id) || (wall.chainId != null && pickedChainIds.has(wall.chainId));
+
+        const wallMat = isPickedWall
+          ? selectedWallMat
+          : wall.wallType === "glass" || wall.wallType === "curved_glass"
+          ? glassWallMat
+          : wall.wallType === "slat" || wall.wallType === "curved_slat"
+          ? woodSlatMat
+          : defaultWallMat;
 
         const wallGroup = new THREE.Group();
 
@@ -5545,7 +5588,7 @@ export default function Scene({
             segMesh.rotation.y = segAngle;
             segMesh.castShadow = true;
             segMesh.receiveShadow = true;
-            segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Curved Wall` };
+            segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true, name: `${wall.wallType} Curved Wall` };
             wallGroup.add(segMesh);
 
             // If slat wall, add vertical slats
@@ -5605,6 +5648,7 @@ export default function Scene({
             solid.userData = {
               isCustomWall: true,
               id: wall.id,
+              chainId: wall.chainId,
               isWall: true,
               isShapedWall: true,
               name: `${wall.wallType} Wall`,
@@ -5621,7 +5665,7 @@ export default function Scene({
               wallMesh.position.set(0, heightFt / 2, 0);
               wallMesh.castShadow = true;
               wallMesh.receiveShadow = true;
-              wallMesh.userData = { isCustomWall: true, id: wall.id, isWall: true, name: `${wall.wallType} Wall` };
+              wallMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true, name: `${wall.wallType} Wall` };
               wallGroup.add(wallMesh);
             }
           } else {
@@ -5648,7 +5692,7 @@ export default function Scene({
                 segMesh.position.set(segCenterFt, heightFt / 2, 0);
                 segMesh.castShadow = true;
                 segMesh.receiveShadow = true;
-                segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(segMesh);
               }
 
@@ -5666,7 +5710,7 @@ export default function Scene({
                 );
                 lintelMesh.position.set(opCenterFt, heightFt - lintelHeightFt / 2, 0);
                 lintelMesh.castShadow = true;
-                lintelMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                lintelMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(lintelMesh);
               }
 
@@ -5679,7 +5723,7 @@ export default function Scene({
                 );
                 sillMesh.position.set(opCenterFt, sillHeightFt / 2, 0);
                 sillMesh.castShadow = true;
-                sillMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+                sillMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
                 wallGroup.add(sillMesh);
               }
 
@@ -5823,7 +5867,7 @@ export default function Scene({
               segMesh.position.set(segCenterFt, heightFt / 2, 0);
               segMesh.castShadow = true;
               segMesh.receiveShadow = true;
-              segMesh.userData = { isCustomWall: true, id: wall.id, isWall: true };
+              segMesh.userData = { isCustomWall: true, id: wall.id, chainId: wall.chainId, isWall: true };
               wallGroup.add(segMesh);
             }
           }
@@ -5896,6 +5940,7 @@ export default function Scene({
     setback,
     rooms,
     customWalls,
+    selectedWallIds,
     customRoomZones,
     furnished,
     customObjects,

@@ -21,6 +21,17 @@ export type CustomWallType =
   | "curved_glass"
   | "curved_slat";
 
+/** How one wall of a combined run meets the next. See lib/wallJoins.ts. */
+export type WallJoinStyle = "miter" | "round" | "chamfer";
+
+/**
+ * A picked wall, in the blueprint and in 3D. One colour in one place so a wall cannot read as
+ * selected in one view and not the other. Brighter than every wall colour below, which are all
+ * muted, so it stays legible on glass and on curved walls as well as on plain masonry.
+ */
+export const SELECTED_WALL_STROKE = "#38bdf8";
+export const SELECTED_WALL_COLOR_HEX = 0x38bdf8;
+
 export type CustomFloorMaterial =
   | "marble"
   | "wood"
@@ -57,6 +68,15 @@ export interface CustomDrawnWall {
   isCurved?: boolean;  // whether the wall follows a circular/quadratic arc
   curveBulgeIn?: number; // arc midpoint offset in inches (e.g. +24" or -24")
   openings: CustomWallOpening[];
+  /**
+   * Walls sharing a `chainId` are one combined run, drawn head to tail in `chainIndex` order,
+   * and `joinStyle` shapes every corner in it. The run lives on its walls rather than beside
+   * them so it saves, loads and undoes with them. Resolved in lib/wallJoins.ts.
+   */
+  chainId?: string;
+  chainIndex?: number;
+  joinStyle?: WallJoinStyle;
+  joinRadiusIn?: number;
 }
 
 export interface CustomFloorSlab {
