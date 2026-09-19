@@ -13,6 +13,32 @@
 // everything is shown, and any change to what the row holds throws that cache away. Keeping a
 // previous tab's measurements and applying them to a new tab's panels is what let panels run off
 // the right-hand edge of a shelf that cannot scroll.
+//
+// ## The expand-then-measure dance, and why it must not drive the observer
+//
+// Measuring needs every child laid out at full width, but the steady state has some of them
+// hidden. So a re-measure expands first (`setShown(count)`), lets that render land, and measures
+// on the pass after. That is a deliberate two-step and it is why `shown` briefly returns to
+// `count` during any re-fit.
+//
+// The ResizeObserver must therefore be set up ONCE and must not depend on `shown`. It used to be
+// created inside an effect keyed on `[fit, shown, count]`, so every change of `shown` tore the
+// observer down and built a new one — and `observe()` delivers its callback immediately, with
+// the size the element already has. That initial delivery re-entered the dance:
+//
+//   shown = n  ->  effect re-runs  ->  new observer  ->  immediate callback  ->  setShown(count)
+//   shown = count  ->  effect re-runs  ->  new observer  ->  immediate callback  ->  fit()
+//   fit() -> setShown(n)  ->  round again, forever
+//
+// It never showed while everything fit, because then `fit()` computes `n === count`, `setShown`
+// bails on an unchanged value and the effect does not re-run. The loop starts the first time a
+// row actually overflows — which, in the application bar, was the day it went past seven items.
+// Its visible symptom is not a spinning CPU but an overflow menu that will not stay open:
+// `shown` returns to `count` sixty times a second, so anything watching "is something hidden"
+// sees it go false and closes.
+//
+// Hence: observe once, keep the live values in refs, and ignore a delivery that reports a width
+// the row already had.
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
@@ -36,12 +62,23 @@ export function useFitCount<T extends HTMLElement>(
   const naturalRef = useRef<number[] | null>(null);
   const [shown, setShown] = useState(count);
 
+  // Read inside the observer callback, which outlives the render that created it.
   const costRef = useRef(costOfHidden);
   costRef.current = costOfHidden;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const countRef = useRef(count);
+  countRef.current = count;
+
+  // The width the last re-fit was made against. An observer delivery reporting this same width
+  // is the initial one, or a layout change that did not move the row — either way there is
+  // nothing to re-measure, and acting on it is what closed the loop above.
+  const widthRef = useRef(-1);
 
   // A new set of children invalidates every measurement taken for the old one.
   useLayoutEffect(() => {
     naturalRef.current = null;
+    widthRef.current = -1;
     setShown(count);
   }, [signature, count]);
 
@@ -49,41 +86,51 @@ export function useFitCount<T extends HTMLElement>(
     const row = ref.current;
     if (!row) return;
     const kids = Array.from(row.children) as HTMLElement[];
+    const total = countRef.current;
 
     if (!naturalRef.current) {
       // Not everything is on screen at full width yet, so there is nothing worth measuring.
       // Expanding first is what the caller's next render does; this runs again after it.
-      if (shown < count || kids.length < count) return;
-      naturalRef.current = kids.slice(0, count).map((k) => k.getBoundingClientRect().width);
+      if (shownRef.current < total || kids.length < total) return;
+      naturalRef.current = kids.slice(0, total).map((k) => k.getBoundingClientRect().width);
     }
 
     const natural = naturalRef.current;
     const avail = row.clientWidth;
-    let n = count;
+    widthRef.current = avail;
+    let n = total;
     while (n > 0) {
       const used =
-        natural.slice(0, n).reduce((a, b) => a + b, 0) + costRef.current(count - n);
+        natural.slice(0, n).reduce((a, b) => a + b, 0) + costRef.current(total - n);
       if (used <= avail) break;
       n--;
     }
     setShown(n);
-  }, [count, shown]);
+  }, []);
 
+  // Runs after every render, which is what completes the expand-then-measure dance: the render
+  // that expanded lands, then this measures it.
+  useLayoutEffect(() => {
+    fit();
+  });
+
+  // Set up once. Deliberately not keyed on `shown` — see the note at the top of this file.
   useLayoutEffect(() => {
     const row = ref.current;
     if (!row) return;
-    fit();
 
     const ro = new ResizeObserver(() => {
       // The row got wider or narrower, so re-measure from scratch: a child's natural width can
       // change with the row's (a label wrapping, a control shrinking to its own minimum).
+      if (row.clientWidth === widthRef.current) return;
+      widthRef.current = row.clientWidth;
       naturalRef.current = null;
-      if (shown === count) fit();
-      else setShown(count);
+      if (shownRef.current === countRef.current) fit();
+      else setShown(countRef.current);
     });
     ro.observe(row);
     return () => ro.disconnect();
-  }, [fit, shown, count]);
+  }, [fit]);
 
   return { ref, shown };
 }

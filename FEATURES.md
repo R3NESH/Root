@@ -153,6 +153,7 @@ FastAPI. `backend/api/main.py`.
 | Smart wall snapping | `frontend/lib/smartWallSnap.ts` — auto-aligns to room edges, dividers, open passages, custom walls and midlines, with a live guide line and a named snap type. |
 | Minimap | `frontend/components/Minimap.tsx` — top-down radar HUD with live player position, FOV cone, room boundaries and furniture. |
 | Real 3D models | `frontend/lib/modelLoader.ts` — GLTF/GLB loader with DRACO support and a shared module-level cache. 15 CC0 Poly Haven models under `frontend/public/models`. |
+| Drone tour | `frontend/lib/cameraTour.ts` — one button flies the camera: a high orbit of the plot, a descent onto the front door, then room by room and back out. The interior leg is a depth-first **walk** over the doorway graph, so consecutive rooms always share a wall and the camera never crosses masonry; a breadth-first *ordering* does not have that property, and was the first version's bug. Nothing is hand-animated — the path is derived from the solved plan, the doors stand open for it, and OrbitControls is disabled so it cannot drag the camera off the path. Progress bar with Stop, or Esc. One storey per tour: there is no stair routing yet. |
 
 ## 9. Graphics Quality Studio
 
@@ -199,8 +200,8 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Furniture catalog | `frontend/lib/furnitureCatalog.ts` | 70 pieces — 43 residential (living, bedroom, dining, kitchen, office, decor, sacred, walls) and 27 café (seating, service, decor, signage, back-of-house, outdoor). The left rail offers whichever set the active programme names. |
-| Real furniture models | `frontend/lib/furnitureModels.ts` | Maps catalog and built-in types onto 15 CC0 Poly Haven models, swapped in after the layout builds. Additive — an unmapped type or a failed load keeps its procedural geometry. Models are metric; only a unit conversion is applied, never a fit-to-declared-box that would distort them. |
+| Furniture catalog | `frontend/lib/furnitureCatalog.ts` | **133 pieces** — 106 residential and 27 café. Residential by category: living 23, decor 15, walls 11, bedroom 10, kitchen 9, lighting 8, dining 8, stairs 7, appliance 5, office 4, bath 4, soft 2. Counted from source 2026-09-19; this row said 70 and was stale. The left rail offers whichever set the active programme names. |
+| Real furniture models | `frontend/lib/furnitureModels.ts` | Maps catalog and built-in types onto **62 CC0 Poly Haven models** (49 MB), swapped in after the layout builds. 24 added 2026-09-19 into the thinnest categories, each one's catalog dimensions **measured out of its own glTF** rather than estimated — [[furniture-models]]. Additive: an unmapped type or a failed load keeps its procedural geometry, and that placeholder is now sized from the catalog instead of a fixed 2 ft cube. Models are metric; only a unit conversion is applied, never a fit-to-declared-box that would distort them. |
 | Auto fit-out | `frontend/lib/interiorDetails.ts` | Every room type furnished on solve — Scandinavian living room, king bedroom with study workstation, modular L-kitchen with chimney and appliances, 6-seater dining, deluxe bath with washing machine. |
 | Replace object | `frontend/components/ReplaceObjectModal.tsx` | Swap any placed piece for another catalog item in place. |
 
@@ -218,10 +219,12 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| CAD tool state | `frontend/lib/customArchitecture.ts` | One shared tool union — `select`, `draw_wall`, `place_door`, `place_window`, `tag_room`. |
+| CAD tool state | `frontend/lib/customArchitecture.ts` | One shared tool union — `select`, `draw_wall`, `place_door`, `place_window`, `tag_room`, `draw_stair`. |
 | Custom wall types | `frontend/lib/customArchitecture.ts` | Exterior, interior, glass, slat, arch, curved, curved glass, curved slat. |
 | Wall drawing | `frontend/components/Scene.tsx`, `frontend/components/Blueprint2DView.tsx` | Draw partitions and perimeter walls in 2D or 3D with magnetic vertex snapping. |
 | Room zone tagging | `frontend/lib/customArchitecture.ts` | Tag a drawn enclosure as a named room so it takes finishes and labels. |
+| Stair from a walk line | `frontend/lib/stairPath.ts`, `frontend/lib/stairCatalog.ts` | Click the line a person walks up — bottom, each turn, top — then Enter. 2 points give a straight flight, 3 at 90° an L, 3 at 180° a dog-leg, 4 a U; a cross leg too short to carry steps becomes the landing. Riser count comes from the actual floor-to-floor height, so a taller storey gets more steps rather than steeper ones. A path that cannot meet NBC 2016 (riser ≤ 190 mm, going ≥ 250 mm, flight ≥ 0.90 m, landing ≥ flight width) is **refused with the reason**, never built shallower. Works in the 2D blueprint and in 3D; flight width 3'0" to 4'6". |
+| Stair storage | `frontend/lib/customArchitecture.ts` | `DrawnStair` holds the walk line, not a footprint, and is solved on read. A stair is the one object that must never be scaled — the step size is fixed by code, so what a bigger opening changes is the number of steps. Saved, restored and undone with the rest of the document. |
 | Layout lock | `frontend/components/TopRibbonTaskbar.tsx` | Freezes room positions and walls against accidental dragging. Hotkey `L` in the 3D view. |
 
 ## 16. 2D Blueprint View
@@ -230,6 +233,7 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | Description |
 | :--- | :--- |
+| Live Plan | `H`, or the "Live Plan" button in the mode switcher, opens the blueprint beside the 3D orbit instead of in place of it. Both views read the same state, so a wall or stair drawn in 2D is already in the scene graph — nothing to sync. Orbit only: blueprint mode already is the window, and walkthrough is meant to be inside the house. The keyboard goes to whichever pane the pointer is over, because both views bind their own `keydown` and one Enter would otherwise build two stairs. Fixed pane width, no drag handle yet. |
 | Drafting canvas | 1200x850 SVG coordinate system with dimension strings, room area labels in sq ft and sq m, door swing arcs and window callouts. |
 | Catalog-driven openings | Door widths come from the same catalog the joiner stocks; 32 in matches the solver's `DOOR_WIDTH_IN`. |
 | Floor level pills | Ground / 1F / 2F / Roof switching inside the 2D view. |
@@ -254,13 +258,23 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
-| Site landscaping | `frontend/lib/siteLandscape.ts` | Planting bed, seeded shrubs and a 16 ft entrance driveway on the setback strip, all derived from the plot and the setback the solver honoured — so it can never encroach on the building envelope. Skipped below a 1.6 ft usable setback. |
+| Landscape tab | `frontend/components/TopRibbonTaskbar.tsx` | Ribbon tab beside Interior. Three panels: Planting (tree, palm, hedge, shrub, planter), Ground (paving bay, stepping path, gravel bed), Boundary & Site (compound wall, main gate, bollard light). |
+| Landscape pieces | `frontend/lib/furnitureCatalog.ts` | Eleven `landscape` catalog items with procedural meshes. Placed through the existing furniture path — the click raycasts the ground plane, not a room floor, so a piece drops anywhere on the plot. The category is in no programme's `furnitureCategories`, so it never reaches the interior rail. |
 
 ## 19. Export & Documentation
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
 | Blueprint export engine | `frontend/lib/blueprintExport.ts` | Vector architectural sheets with title block, room schedule, dimension annotations and CAD callouts. Three themes: blueprint, dark, drafting. Optional furniture layer. Feet-and-inches formatting. |
+| Reflected ceiling plan | `frontend/lib/ceilingPlan.ts` | The ceiling drawn reflected — same orientation as the floor plan — with every ceiling-mounted fixture off the model, a setting-out grid, and a legend. Symbols follow the common set: circle-in-circle for a recessed downlight, crossed square for a surface fixture, circle on a stem for a pendant, blades for a fan. |
+| Proposed downlight layout | `frontend/lib/ceilingPlan.ts` | A general-lighting grid at ceiling height ÷ 2 capped at 6 ft, laid on cell centres so the border is never tight to a cornice. Drawn dashed and labelled "proposed" everywhere it appears, including the schedule. Toggleable. |
+| Illuminance check | `frontend/lib/ceilingPlan.ts` | Average lux per room by the lumen method, `E = N × lumens × UF × MF ÷ area`, against the IS 3646 target for that room kind. Hall 100-200, kitchen 300-500, bedroom 100-150, bathroom 300-500; a room kind with no published figure is reported **not assessed** rather than given an invented target — [[lighting-says-the-number]]. UF, MF and lamp outputs are assumptions and are printed on the sheet. A fan is drawn and counts zero lumens. |
+| Ceiling fixture schedule | `frontend/components/CeilingPlanModal.tsx` | Every fixture with room, type, position, mount height and assumed output, plus the illuminance check with its source, to CSV. |
+| Finish board | `frontend/lib/moodboard.ts` | The scheme on one page: palette strip, floor / wall paint / wall finish / joinery swatches large enough to judge, and every piece of furniture drawn front-on **at one shared scale** off its measured box, labelled in feet-inches and mm. Collage tools arrange cutouts by eye and lose the comparison; this keeps it — [[board-is-drawn-to-one-scale]]. Whole-house or per-room, with a print pack of every board. |
+| Interior elevations | `frontend/lib/elevations.ts` | One elevation per wall per room, drawn flat and straight on: wall outline, floor and ceiling lines, every opening with its sill and head height, furniture in silhouette with heights called out, and dimension strings along and up the wall. Each wall is drawn looking at it from inside the room, so left-to-right flips per wall — [[elevations-look-from-inside]]. Pieces more than 4 ft off the wall are left out; solid outlines are against the wall, dashed ones stand in front of it. |
+| Elevation sheet set | `frontend/components/ElevationsModal.tsx` | Wall list grouped by room with a live sheet preview. SVG, high-resolution PNG or print for one wall, and a print set that puts every elevation on its own page. Reuses the blueprint sheet's own exporters. |
+| Clearance audit | `frontend/lib/clearances.ts` | Measures every gap — piece to piece, piece to wall, and the clear floor inside each door — and reports what falls below the minimum. Kitchen work aisle 42 in, walkway 36 in and seating pull-out 36 in are cited to the NKBA Kitchen Planning Guidelines; bedside passage 24 in and clear floor at a door 36 in say **Trade practice, no published source** rather than borrowing an authority — [[cite-the-clearance-or-admit-it]]. A room with nothing in it is listed as unchecked, never counted as a pass. |
+| Clearance report | `frontend/components/ClearanceAuditModal.tsx` | Findings worst-first with measured against required and the shortfall in inches, a rules tab with every source linked, and CSV export. |
 | FF&E schedule | `frontend/lib/designSchedule.ts` | Every piece of furniture, fixture and equipment, room by room, with quantity, measured size in feet-inches **and** millimetres, finish, and whether it came from the automatic fit-out, the catalog or the AI modeller. Identical pieces in a room group into one line with a count. Sizes are taken off the built scene, not the catalog, so a dining set the fit-out shrank to leave a walkway is scheduled at the size it was built — [[schedule-is-measured-not-declared]]. |
 | Finish schedule | `frontend/lib/designSchedule.ts` | Per room: floor, wall paint, wall texture, door finish, carpet area and gross paint area, with band, glazing and wet-area notes. Resolved room-then-building out of `HouseMaterialConfig`, the same order the renderer resolves. |
 | Schedule export | `frontend/lib/designSchedule.ts` | Both tables to one CSV, or to a printable spec sheet. |
@@ -290,6 +304,9 @@ FastAPI. `backend/api/main.py`.
 | `L` | orbit | Day / night lighting; layout lock in the 3D view |
 | `R` | any | Rotate placing ghost or selected object 45° |
 | `E` | walkthrough | Open / close the nearest door, or inspect the crosshair object |
+| `Esc` | any | Put down whatever tool is held — a catalog piece, an opening, or a drafting mode — and remember it. Also clears the selection, any open modal and the drone tour. |
+| `Ctrl+Z` | any | Undo — **except** immediately after `Esc` put a tool down with nothing edited since, when it picks that tool back up instead. The memory is consumed, so a second press undoes. A pill names the tool while the offer stands. |
+| `H` | orbit | Live Plan — blueprint beside the 3D view |
 | `F` | walkthrough | Toggle interior lights |
 | `W A S D` / arrows | walkthrough | Move |
 | Arrow keys | orbit | Nudge selected object 0.5 ft |
@@ -327,6 +344,9 @@ Recorded so this file is not a brochure. Full detail in [[project-status]].
 - **No hosted backend.** A deployed visitor gets the offline fallback, not CP-SAT.
 - **Setbacks hardcoded** to TG-bPASS defaults.
 - **No DWG and no IFC.** Export is SVG, PNG, CSV and JSON only.
+- **No sanitaryware and no soft furnishing worth the name.** Bath is 4 pieces, soft furnishing 2.
+  Poly Haven's full index has neither category, so this cannot be fixed from the current source —
+  [[object-library-licensing]].
 - **`Scene.tsx` and `Blueprint2DView.tsx` are ~4,000-line components.**
 - **A five-room programme** already returns FEASIBLE rather than OPTIMAL inside the 2 s cold budget on a 40x50 plot. This file said twelve; measured on 2026-09-19 it starts at five, and the plot outline's edge count is not what costs the time — the budget is.
 - **The offline fallback ignores the plot outline entirely.** It packs an axis-aligned grid, reports `OFFLINE_ESTIMATE` and claims nothing — [[client-side-fallback]].

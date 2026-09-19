@@ -52,9 +52,17 @@ def _size_range(pin, lo_in, hi_in, lo_base, hi_base) -> tuple[int, int]:
     from the start and were read by nothing until ai/plan_from_image.py needed to say "about 12 ft,
     from a drawing" rather than "exactly 12 ft". Neither source widens the catalog, because a range
     that escaped it would undo the NBC 2016 minimums in solver/rooms.py.
+
+    That last sentence was true of the range and false of the pin, which returned unclamped — so
+    the one path that said "exactly this size" was the one path out of the catalog. Every prebuilt
+    plan in frontend/lib/modelBlueprints.ts pins every room, and seventeen of those pins were under
+    a floor this package enforces as a hard constraint: a 7x6 bedroom at half the NBC habitable
+    area, three kitchens 6 ft wide against a 7 ft minimum. The pin is clamped now, so a size that
+    asks for less than the code allows gets the code's answer instead.
     """
     if pin is not None:
-        return pin, pin
+        clamped = min(max(pin, lo_base), hi_base)
+        return clamped, clamped
     lo = max(lo_base, lo_in) if lo_in is not None else lo_base
     hi = min(hi_base, hi_in) if hi_in is not None else hi_base
     # A band that misses the catalog range entirely (a 4 ft bedroom) falls back to the catalog

@@ -22,7 +22,9 @@
 import { useCallback, useRef, useState } from "react";
 
 import { CustomDim } from "@/components/RoomCustomizer";
-import { CustomDrawnWall, CustomRoomZone } from "@/lib/customArchitecture";
+import { CustomDrawnWall, CustomRoomZone,
+  DrawnStair,
+} from "@/lib/customArchitecture";
 import { PlacedCustomObject } from "@/lib/furnitureCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
 import { Facing, PlotDims } from "@/lib/plot";
@@ -52,6 +54,7 @@ export interface DesignSnapshot {
   roomEdgeCurves: RoomEdgeCurves;
   wallEdits: WallEdits;
   customWalls: CustomDrawnWall[];
+  drawnStairs: DrawnStair[];
   customRoomZones: CustomRoomZone[];
   customObjects: PlacedCustomObject[];
   deletedBuiltinIds: string[];
@@ -80,6 +83,7 @@ export function describeDesignChange(prev: DesignSnapshot, next: DesignSnapshot)
   if (prev.floorsCount !== next.floorsCount) return "Storeys";
   if (prev.autoSetback !== next.autoSetback) return "Setback rule";
   if (prev.customWalls !== next.customWalls) return "Drawn wall";
+  if (prev.drawnStairs !== next.drawnStairs) return "Drawn stair";
   if (prev.customRoomZones !== next.customRoomZones) return "Room zone";
   if (prev.customObjects !== next.customObjects) return "Furniture";
   if (prev.deletedBuiltinIds !== next.deletedBuiltinIds) return "Delete built-in";

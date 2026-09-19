@@ -939,3 +939,87 @@
 .shapeProblemBanner strong {
   color: #d98b52;
 }
+
+
+/* ==========================================================================
+   COMPACT — the blueprint as a narrow pane beside the 3D view
+   The toolbars are absolutely positioned over the drawing. At full width that
+   is two thin strips and the plan sits happily under them. In a 400px pane
+   they wrap, every wrap adds a row, and the rows cover the plan — which is
+   the whole complaint. So here they never wrap: one short row each, scrolled
+   sideways if they do not fit, with the buttons cut down to match.
+   ========================================================================== */
+.compact .toolbar {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.compact .toolbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.compact .toolbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+}
+
+.compact .toolbarGroup,
+.compact .addRoomGroup {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  gap: 4px;
+}
+
+.compact .toolButton,
+.compact .addRoomChip,
+.compact .quickImportBtn,
+.compact .modelBtn,
+.compact .exportBtn,
+.compact .cadToolBtn,
+.compact .cadStartScratchBtn {
+  padding: 3px 7px;
+  font-size: 10.5px;
+  gap: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* No lift on hover: a 3px nudge inside a scrolling row just makes the row jitter. */
+.compact .toolButton:hover {
+  transform: none;
+}
+
+.compact .cadDraftingToolbar {
+  top: 44px;
+  left: 8px;
+  right: 8px;
+  padding: 3px 6px;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.compact .cadDraftingToolbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.compact .cadDraftingToolbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+}
+
+/* The model name is a label, not a control, and it is the longest thing in the row. */
+.compact .activeBlueprintPill {
+  display: none;
+}

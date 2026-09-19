@@ -91,10 +91,9 @@ import {
   FURNITURE_CATALOG,
   PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
-import { BuiltinFurnitureRecord } from "@/lib/designSchedule";
+import { BuiltinFurnitureRecord } from "@/lib/furnitureInventory";
 import { loadGlbModel, loadGlbFromFile } from "@/lib/modelLoader";
 import { mountRealModels } from "@/lib/furnitureModels";
-import { addSiteLandscape } from "@/lib/siteLandscape";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
@@ -145,9 +144,15 @@ import {
   CustomWallOpening,
   CustomWallType,
   CadTool,
+  DrawnStair,
+  DEFAULT_STAIR_WIDTH_IN,
   getCurvedWallArcPoints,
   SELECTED_WALL_COLOR_HEX,
 } from "@/lib/customArchitecture";
+import { solveStairPath } from "@/lib/stairPath";
+import { buildCameraTour, sampleCameraTour, CameraTour } from "@/lib/cameraTour";
+
+import { buildStairFromPath } from "@/lib/stairCatalog";
 import { resolveChainWalls } from "@/lib/wallJoins";
 
 export interface SelectedObjectInfo {
@@ -181,6 +186,17 @@ export interface SelectedObjectInfo {
   colorHex?: number;
 }
 
+
+const SLAB_T = 0.55;
+/**
+ * Floor to floor: the wall, plus the slab that sits on it. Anything else leaves the storey above
+ * hanging in the air — which is exactly what a 0.8 ft step did.
+ *
+ * Module scope rather than inside the rebuild effect, because the stair tool needs the climb
+ * height from a keyboard handler that is nowhere near it.
+ */
+const FLOOR_STEP_FT = WALL_HEIGHT_FT + SLAB_T;
+
 interface SceneProps {
   plot: PlotDims;
   facing: Facing;
@@ -211,6 +227,21 @@ interface SceneProps {
   customObjects?: PlacedCustomObject[];
   customOpenings?: Record<string, RoomOpening[]>;
   customWalls?: CustomDrawnWall[];
+  /** Staircases drawn as a walk line. Solved into flights here — see lib/stairPath.ts. */
+  drawnStairs?: DrawnStair[];
+  onChangeDrawnStairs?: (stairs: DrawnStair[]) => void;
+  /** Width the next drawn stair is given, inches. */
+  stairWidthIn?: number;
+  /**
+   * False when the blueprint is open beside this view and the pointer is over it. Both views
+   * bind their own window keydown; this is what stops one keystroke acting twice.
+   */
+  keyboardActive?: boolean;
+  /** Fly the drone tour: exterior orbit, in through the door, room by room, out again. */
+  tourPlaying?: boolean;
+  onTourEnd?: () => void;
+  /** Seconds elapsed and total, reported up for the progress readout. */
+  onTourProgress?: (elapsedSec: number, totalSec: number) => void;
   /** Drawn walls picked for combining. They are drawn blue, and so is the rest of their run. */
   selectedWallIds?: string[];
   customRoomZones?: CustomRoomZone[];
@@ -519,6 +550,13 @@ export default function Scene({
   customObjects = [],
   customOpenings = {},
   customWalls = [],
+  drawnStairs = [],
+  onChangeDrawnStairs,
+  stairWidthIn = DEFAULT_STAIR_WIDTH_IN,
+  keyboardActive = true,
+  tourPlaying = false,
+  onTourEnd,
+  onTourProgress,
   selectedWallIds = [],
   customRoomZones = [],
   activeFloor = 0,
@@ -593,7 +631,6 @@ export default function Scene({
   const [currentFps, setCurrentFps] = useState<number>(144);
   const [currentFrameTime, setCurrentFrameTime] = useState<number>(6.9);
   const [renderRes, setRenderRes] = useState<string>("3840 × 2160");
-  const [isDollhouseCutaway, setIsDollhouseCutaway] = useState<boolean>(true);
 
   // Real-Time GPU Path Tracer States & Refs
   const [raytraceSamples, setRaytraceSamples] = useState<number>(0);
@@ -626,8 +663,13 @@ export default function Scene({
   // setter drives re-renders that the 3D draft overlay depends on.
   const [, setDraftWallStartFt] = useState<{ x: number; z: number } | null>(null);
   const draftWallStartFtRef = useRef<{ x: number; z: number } | null>(null);
+  // Walk-line points collected so far for the stair being drawn, bottom of the climb first. A
+  // ref as well as state, for the same reason the wall start is: the pointer handler is bound
+  // once and would otherwise read the first render's value forever.
+  const draftStairPtsRef = useRef<Array<{ x: number; z: number }>>([]);
   const draftGhost3DWallRef = useRef<THREE.Mesh | null>(null);
   const [drafting3DDescription, setDrafting3DDescription] = useState<string | null>(null);
+  const [draftStairPts, setDraftStairPts] = useState<Array<{ x: number; z: number }>>([]);
   const draggedRoomHandleInfoRef = useRef<{
     roomIdx: number;
     handleType: "E" | "S" | "SE" | "N" | "W";
@@ -751,6 +793,18 @@ export default function Scene({
   const customObjectsRef = useRef(customObjects);
   const customOpeningsRef = useRef(customOpenings || {});
   const customWallsRef = useRef(customWalls || []);
+  const drawnStairsRef = useRef(drawnStairs || []);
+  const onChangeDrawnStairsRef = useRef(onChangeDrawnStairs);
+  const stairWidthInRef = useRef(stairWidthIn);
+  const keyboardActiveRef = useRef(keyboardActive);
+  // The tour is built once, when play is pressed, and sampled every frame after that. Rebuilding
+  // it per frame would re-derive the whole path from the plan sixty times a second for a result
+  // that cannot change while it is running.
+  const tourRef = useRef<CameraTour | null>(null);
+  const tourStartMsRef = useRef<number>(0);
+  const tourPlayingRef = useRef(tourPlaying);
+  const onTourEndRef = useRef(onTourEnd);
+  const onTourProgressRef = useRef(onTourProgress);
   const customRoomZonesRef = useRef(customRoomZones || []);
   const deletedBuiltinIdsRef = useRef(deletedBuiltinIds);
   const placingItemTypeRef = useRef(placingItemType);
@@ -828,6 +882,12 @@ export default function Scene({
     customObjectsRef.current = customObjects;
     customOpeningsRef.current = customOpenings || {};
     customWallsRef.current = customWalls || [];
+    drawnStairsRef.current = drawnStairs || [];
+    onChangeDrawnStairsRef.current = onChangeDrawnStairs;
+    stairWidthInRef.current = stairWidthIn;
+    keyboardActiveRef.current = keyboardActive;
+    onTourEndRef.current = onTourEnd;
+    onTourProgressRef.current = onTourProgress;
     customRoomZonesRef.current = customRoomZones || [];
     deletedBuiltinIdsRef.current = deletedBuiltinIds;
     placingItemTypeRef.current = placingItemType;
@@ -1554,6 +1614,27 @@ export default function Scene({
       raycaster.setFromCamera(pointerNdc, camera);
 
       // 0a. CAD Tool 1: 3D Freehand Wall Drawing
+      // 0a2. Stair tool: collect the walk line. Each click is one point of the line a person
+      // walks up; Enter solves it into flights, Escape throws it away. Nothing is committed
+      // until Enter, because the shape of a stair is not known until the path is finished.
+      if (activeCadToolRef.current === "draw_stair" && ev.button === 0 && !ev.shiftKey) {
+        if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          const px = Math.round(hitPoint.x * 4) / 4;
+          const pz = Math.round(hitPoint.z * 4) / 4;
+          draftStairPtsRef.current = [...draftStairPtsRef.current, { x: px, z: pz }];
+          setDraftStairPts(draftStairPtsRef.current);
+          const n = draftStairPtsRef.current.length;
+          setDrafting3DDescription(
+            n < 2
+              ? `Stair point 1 at (${px.toFixed(1)}', ${pz.toFixed(1)}') • click where the climb ends`
+              : `${n} points • click to add a turn, Enter to build, Esc to cancel`
+          );
+          return;
+        }
+      }
+
       // Shift is not a drafting modifier — it never was, a shift-click here just placed a point
       // like any other. Letting it fall through makes shift mean "select" everywhere in 3D, so a
       // run can be picked up straight after drawing it without first hunting for the Select tool.
@@ -2655,6 +2736,9 @@ export default function Scene({
     toggleDoorRef.current = toggleDoor;
 
     function onKeyDown(ev: KeyboardEvent) {
+      // The blueprint is open beside this view and the pointer is over it: that pane has the
+      // keyboard, and nothing here should also act on the keystroke.
+      if (!keyboardActiveRef.current) return;
       keysPressed.current[ev.code] = true;
       if (ev.code === "KeyF" && onToggleLightsRef.current && modeRef.current === "walkthrough") {
         onToggleLightsRef.current();
@@ -2696,6 +2780,41 @@ export default function Scene({
       if (ev.code === "KeyP" && onToggleRaytraceRef.current) {
         onToggleRaytraceRef.current();
       }
+      // Enter: solve the drawn walk line into a staircase and keep it. A line the code minima
+      // cannot be met on is refused here, with the reason, rather than built shallower — the
+      // rule is a constraint, not a score.
+      if (ev.code === "Enter" && activeCadToolRef.current === "draw_stair") {
+        const pts = draftStairPtsRef.current;
+        if (pts.length >= 2) {
+          const solved = solveStairPath(
+            pts.map((pt) => ({ xFt: pt.x, zFt: pt.z })),
+            FLOOR_STEP_FT,
+            inchesToFeet(stairWidthInRef.current)
+          );
+          if (!solved.ok) {
+            setDrafting3DDescription(solved.problem);
+          } else {
+            const stair: DrawnStair = {
+              id: `stair_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              floor: activeFloorRef.current || 0,
+              pointsIn: pts.map((pt) => ({ xIn: Math.round(pt.x * 12), yIn: Math.round(pt.z * 12) })),
+              widthIn: stairWidthInRef.current,
+            };
+            const updated = [...(drawnStairsRef.current || []), stair];
+            drawnStairsRef.current = updated;
+            onChangeDrawnStairsRef.current?.(updated);
+            draftStairPtsRef.current = [];
+            setDraftStairPts([]);
+            const st = solved.stair;
+            setDrafting3DDescription(
+              `Stair built: ${st.riserCount} risers at ${st.riserIn.toFixed(2)}" , going ${st.treadIn.toFixed(2)}"` +
+                (st.leftoverRunFt > 0.25 ? ` • ${st.leftoverRunFt.toFixed(1)} ft of the line was not needed` : "")
+            );
+          }
+        }
+        return;
+      }
+
       // Escape: Deselect or cancel placement or draft wall
       if (ev.code === "Escape") {
         if (isRaytracingRef.current && onToggleRaytraceRef.current) {
@@ -2703,6 +2822,8 @@ export default function Scene({
         }
         draftWallStartFtRef.current = null;
         setDraftWallStartFt(null);
+        draftStairPtsRef.current = [];
+        setDraftStairPts([]);
         setDrafting3DDescription(null);
         if (draftGhost3DWallRef.current) {
           draftGhost3DWallRef.current.visible = false;
@@ -2894,7 +3015,8 @@ export default function Scene({
           p.x = resolved.x;
           p.z = resolved.z;
 
-          const bobFreq = isSprinting ? 12.0 : 8.5;
+          // Cadence follows speed: at WALK_SPEED_FPS one bob cycle is about one 4.8 ft stride.
+          const bobFreq = isSprinting ? 9.5 : 6.0;
           bobTimer.current += dt * bobFreq;
         } else {
           bobTimer.current *= 0.85;
@@ -2926,10 +3048,15 @@ export default function Scene({
         );
         camera.lookAt(lookTarget);
 
-        // Vertical FOV. 68 was ~100 deg horizontal at 16:9 — a wide angle that pushes far walls
-        // away and looms whatever is close, so rooms read larger than they are. 55 is ~85 deg
-        // horizontal, the normal first-person figure.
-        const targetFov = isSprinting ? 66 : 60;
+        // Three.js measures `fov` vertically, so the horizontal angle is whatever the viewport
+        // shape makes it. With the ribbon up the viewport is short and very wide — around 2.7:1 —
+        // and a 60 deg vertical is then ~116 deg across: a fisheye that pushes every wall away
+        // and shrinks the room, which is exactly the "walking over a model" feeling. Hold the
+        // horizontal angle at the normal first-person figure and let the vertical follow the
+        // aspect, clamped so neither an extreme wide nor an extreme tall window can distort it.
+        const targetHFovDeg = isSprinting ? 88 : 80;
+        const vHalfRad = Math.atan(Math.tan((targetHFovDeg * Math.PI) / 360) / camera.aspect);
+        const targetFov = Math.min(65, Math.max(38, (vHalfRad * 360) / Math.PI));
         camera.fov += (targetFov - camera.fov) * 0.1;
         camera.updateProjectionMatrix();
 
@@ -3005,6 +3132,41 @@ export default function Scene({
               lightsOn: lightsOnRef.current,
             });
           }
+        }
+      } else if (tourPlayingRef.current && tourRef.current) {
+        // Drone tour. OrbitControls is off, not merely ignored: it damps towards a target of its
+        // own every frame, so leaving it enabled would drag the camera off the path.
+        controls.enabled = false;
+        const tour = tourRef.current;
+        const elapsed = (currentTime - tourStartMsRef.current) / 1000;
+        const { pos, look } = sampleCameraTour(tour, elapsed);
+        camera.position.set(pos[0], pos[1], pos[2]);
+        camera.lookAt(look[0], look[1], look[2]);
+
+        // Everything visible: the tour goes through the whole house, and the walkthrough's
+        // per-room culling is keyed to the player's room, which the tour does not have.
+        roomGroupsRef.current.forEach((rg, roomIdx) => {
+          if (!rg.visible) rg.visible = true;
+          const lights = roomLightsByRoomRef.current.get(roomIdx) || [];
+          lights.forEach((l) => {
+            l.visible = lightsOnRef.current;
+          });
+        });
+
+        // Doors stand open for the tour. A camera that flies through a closed leaf is the first
+        // thing anyone notices, and the alternative — opening each one as the camera nears it —
+        // needs a route through the door graph the path already has but the doors do not.
+        for (const door of interactiveDoorsRef.current.values()) {
+          door.targetAngle = (door.swingSign * Math.PI) / 2.05;
+          if (Math.abs(door.currentAngle - door.targetAngle) > 0.001) {
+            door.currentAngle += (door.targetAngle - door.currentAngle) * Math.min(1.0, 6.0 * dt);
+            door.group.rotation.y = door.currentAngle;
+          }
+        }
+
+        onTourProgressRef.current?.(Math.min(elapsed, tour.durationSec), tour.durationSec);
+        if (elapsed >= tour.durationSec) {
+          onTourEndRef.current?.();
         }
       } else {
         controls.enabled = true;
@@ -3088,8 +3250,7 @@ export default function Scene({
   // What each storey shows.
   //
   // Roof on inside, off outside: a slab is what makes first person feel like a building, and
-  // exactly what stops orbit from showing the plan. "Full walls" is the other way to ask for it,
-  // and on a G+1 it is the only way to see the house as a house.
+  // exactly what stops orbit from showing the plan. So orbit is always the cut-open view.
   //
   // The cutaway then picks a storey. Looking into the ground floor of a G+1 means not drawing the
   // first floor on top of it, so the floor selector chooses what you are looking at and
@@ -3098,10 +3259,10 @@ export default function Scene({
   // Its own effect, and not the mode transition below, because that one moves the camera: doing
   // this there would fly the view somewhere every time the floor changed.
   useEffect(() => {
+    const cutaway = mode !== "walkthrough";
     if (roofGroupRef.current) {
-      roofGroupRef.current.visible = mode === "walkthrough" || !isDollhouseCutaway;
+      roofGroupRef.current.visible = !cutaway;
     }
-    const cutaway = mode !== "walkthrough" && isDollhouseCutaway;
     roomGroupsRef.current.forEach((roomGroup, index) => {
       const floor = roomsRef.current[index]?.floor ?? 0;
       roomGroup.visible = !cutaway || floor <= activeFloor;
@@ -3109,7 +3270,7 @@ export default function Scene({
     deckGroupsRef.current.forEach((deck, floor) => {
       deck.visible = !cutaway || floor < activeFloor;
     });
-  }, [mode, isDollhouseCutaway, activeFloor, rooms]);
+  }, [mode, activeFloor, rooms]);
 
   // Mode Transition Handler (Orbit <-> Walkthrough)
   useEffect(() => {
@@ -3367,20 +3528,6 @@ export default function Scene({
     group.add(plotMesh);
     plotMeshRef.current = plotMesh;
 
-    // Planting bed, shrubs and driveway on the strip between the boundary and the building.
-    // Derived from the same setback the solver honoured, so it can never eat into the envelope,
-    // and skipped outright when the setback is too tight to plant.
-    addSiteLandscape(group, {
-      widthFt: wFt,
-      depthFt: dFt,
-      outlineFt: plotIsRect ? undefined : plotOutlineFt,
-      envMinX,
-      envMaxX,
-      envMinZ,
-      envMaxZ,
-      entranceEdge: getPrimaryCardinalEdge(facing),
-    });
-
     const plotOutline = new THREE.LineLoop(
       new THREE.BufferGeometry().setFromPoints(
         plotOutlineFt.map(([x, z]) => new THREE.Vector3(x, 0.02, z))
@@ -3527,11 +3674,7 @@ export default function Scene({
       (rooms[i].openings ?? []).find((o) => o.kind === "window" && o.edge === edge);
 
     const slabMat = new THREE.MeshStandardMaterial({ color: 0xb8b3aa, roughness: 0.92 });
-    const SLAB_T = 0.55;
     const PARAPET_H = 3.2;
-    // Floor to floor: the wall, plus the slab that sits on it. Anything else leaves the storey
-    // above hanging in the air — which is exactly what a 0.8 ft step did.
-    const FLOOR_STEP_FT = WALL_HEIGHT_FT + SLAB_T;
 
     // 6. Build Architectural Rooms (Organized as Per-Room Sub-Graphs for $O(1)$ Culling)
     for (let i = 0; i < rooms.length; i++) {
@@ -4957,11 +5100,24 @@ export default function Scene({
       });
       const fixture = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.06, 24), fixtureMat);
       fixture.position.set(rx + rw / 2, 8.95, rz + rd / 2);
+      // Tagged so the reflected ceiling plan can find it. `isCeilingFixture` rather than
+      // `isFurniture`: that flag drives selection and collision, and neither applies to a disc
+      // of light 9 ft up.
+      fixture.userData = {
+        isCeilingFixture: true,
+        id: `ceil_${i}_flush`,
+        name: "Flush Ceiling Fixture",
+        type: "ceiling_lamp",
+      };
       roomGroup.add(fixture);
 
       // Ceiling Fan in Living Hall & Bedrooms
       if (furnished && (room.name === "hall" || room.name === "bedroom")) {
-        const fan = addCeilingFan(roomGroup, rx + rw / 2, rz + rd / 2, 8.1);
+        const fan = addCeilingFan(roomGroup, rx + rw / 2, rz + rd / 2, 8.1, {
+          id: `ceil_${i}_fan`,
+          name: "Ceiling Fan",
+          type: "ceiling_fan",
+        });
         fanBladesRef.current.push(fan);
       }
 
@@ -5154,6 +5310,29 @@ export default function Scene({
     const furnitureInventory: BuiltinFurnitureRecord[] = [];
     for (const [roomIdx, rg] of roomGroupsRef.current.entries()) {
       rg.traverse((child) => {
+        // Ceiling fixtures are not furniture and never become obstacles; they ride along here
+        // only because this walk already knows which room each object is in.
+        if (child.userData && child.userData.isCeilingFixture && child.userData.name) {
+          const full = new THREE.Box3().setFromObject(child);
+          if (!full.isEmpty()) {
+            furnitureInventory.push({
+              id: String(child.userData.id ?? child.id),
+              name: String(child.userData.name),
+              type: String(child.userData.type ?? ""),
+              roomIndex: roomIdx,
+              ceiling: true,
+              box: {
+                minX: full.min.x,
+                maxX: full.max.x,
+                minY: full.min.y,
+                maxY: full.max.y,
+                minZ: full.min.z,
+                maxZ: full.max.z,
+              },
+            });
+          }
+          return;
+        }
         if (child.userData && child.userData.isFurniture && !child.userData.isCustomObject) {
           // Skip windows, curtains, thresholds, fans, lights
           if (child.userData.isWindow || child.userData.type === "window" || child.userData.isThreshold) return;
@@ -5169,9 +5348,14 @@ export default function Scene({
                 name: String(child.userData.name),
                 type: String(child.userData.type ?? ""),
                 roomIndex: roomIdx,
-                widthFt: full.max.x - full.min.x,
-                depthFt: full.max.z - full.min.z,
-                heightFt: full.max.y - full.min.y,
+                box: {
+                  minX: full.min.x,
+                  maxX: full.max.x,
+                  minY: full.min.y,
+                  maxY: full.max.y,
+                  minZ: full.min.z,
+                  maxZ: full.max.z,
+                },
               });
             }
           }
@@ -5212,7 +5396,7 @@ export default function Scene({
     // One emission per rebuild, and only on a real change — see furnitureInventorySigRef.
     if (onFurnitureInventoryRef.current) {
       const sig = furnitureInventory
-        .map((f) => `${f.id}|${f.roomIndex}|${f.widthFt.toFixed(2)}|${f.depthFt.toFixed(2)}`)
+        .map((f) => `${f.id}|${f.roomIndex}|${f.box.minX.toFixed(2)}|${f.box.minZ.toFixed(2)}|${f.box.maxX.toFixed(2)}|${f.box.maxZ.toFixed(2)}`)
         .join(",");
       if (sig !== furnitureInventorySigRef.current) {
         furnitureInventorySigRef.current = sig;
@@ -5242,11 +5426,11 @@ export default function Scene({
 
     // 7. Slabs. The ceiling of one storey is the floor of the next, so every floor but the top
     // one gets a slab that is always drawn — without it a G+1 is two plans hanging in the air
-    // over each other. Only the top slab is the roof, and only that one obeys the dollhouse
-    // view, because hiding it is what lets you look into the house at all.
+    // over each other. Only the top slab is the roof, and only that one is dropped outside
+    // walkthrough, because hiding it is what lets you look into the house at all.
     if (rooms.length > 0) {
       const roof = new THREE.Group();
-      roof.visible = modeRef.current === "walkthrough" || !isDollhouseCutaway;
+      roof.visible = modeRef.current === "walkthrough";
       roofGroupRef.current = roof;
       group.add(roof);
 
@@ -5878,6 +6062,24 @@ export default function Scene({
       group.add(customArchGroup);
     }
 
+    // 9b. Drawn staircases. The stored object is the walk line, so the flights are solved here on
+    // every rebuild rather than baked in — change the storey height or the flight width and the
+    // same line gives a different, still-compliant stair. A line that cannot be walked inside the
+    // code minima builds nothing at all; `solveStairPath` says why, and the tool reports it at the
+    // moment of drawing.
+    for (const ds of drawnStairsRef.current || []) {
+      const solved = solveStairPath(
+        ds.pointsIn.map((pt) => ({ xFt: inchesToFeet(pt.xIn), zFt: inchesToFeet(pt.yIn) })),
+        FLOOR_STEP_FT,
+        inchesToFeet(ds.widthIn)
+      );
+      if (!solved.ok) continue;
+      const stairGroup = buildStairFromPath(solved.stair, ds.colorHex);
+      stairGroup.name = `drawnStair_${ds.id}`;
+      stairGroup.position.y = (ds.floor ?? 0) * FLOOR_STEP_FT;
+      group.add(stairGroup);
+    }
+
     // Render Custom Room Zones Floor Slabs in 3D
     if (customRoomZones && customRoomZones.length > 0) {
       for (const zone of customRoomZones) {
@@ -5950,9 +6152,106 @@ export default function Scene({
     windowConfig,
     isLayoutLocked,
     graphicsSettings,
-    isDollhouseCutaway,
     isUpgraded,
   ]);
+
+  // The walk line as it is being drawn. Without it the stair tool is clicking into the dark:
+  // nothing is committed until Enter, so until then this line is the only thing on screen that
+  // says where the stair will go.
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const prev = scene.getObjectByName("stairDraftLine");
+    if (prev) {
+      scene.remove(prev);
+      prev.traverse((o) => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.Line) {
+          o.geometry.dispose();
+        }
+      });
+    }
+    if (draftStairPts.length === 0) return;
+
+    const g = new THREE.Group();
+    g.name = "stairDraftLine";
+    g.position.y = (activeFloor || 0) * FLOOR_STEP_FT + 0.06;
+
+    if (draftStairPts.length > 1) {
+      g.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(
+            draftStairPts.map((pt) => new THREE.Vector3(pt.x, 0, pt.z))
+          ),
+          new THREE.LineBasicMaterial({ color: 0x6f9aa8 })
+        )
+      );
+    }
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0x6f9aa8 });
+    const dotGeo = new THREE.CircleGeometry(0.25, 12);
+    draftStairPts.forEach((pt) => {
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.rotation.x = -Math.PI / 2;
+      dot.position.set(pt.x, 0, pt.z);
+      g.add(dot);
+    });
+    scene.add(g);
+  }, [draftStairPts, activeFloor]);
+
+  // Build the tour when play is pressed, and put the camera back where it was on the way out.
+  //
+  // Built here rather than in the animation loop because the path is a function of the plan and
+  // the plan cannot change while the tour runs: deriving it sixty times a second would be sixty
+  // identical answers. The camera is saved and restored so that stopping a tour leaves the view
+  // where the user had it, not wherever the last keyframe happened to be.
+  useEffect(() => {
+    tourPlayingRef.current = tourPlaying;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+
+    if (!tourPlaying) {
+      tourRef.current = null;
+      controls.enabled = true;
+      return;
+    }
+
+    const rooms = roomsRef.current;
+    const tour = buildCameraTour({
+      plotWFt: inchesToFeet(plotRef.current.widthIn),
+      plotDFt: inchesToFeet(plotRef.current.depthIn),
+      rooms: rooms.map((r) => ({
+        name: r.name,
+        xFt: inchesToFeet(r.x_in),
+        zFt: inchesToFeet(r.y_in),
+        wFt: inchesToFeet(r.w_in),
+        dFt: inchesToFeet(r.d_in),
+        floor: r.floor ?? 0,
+      })),
+      doorways: roomDoorwaysRef.current.map((d) => ({ a: d.roomAIndex, b: d.roomBIndex })),
+      eyeLevelFt: EYE_LEVEL_FT,
+      storeyStepFt: FLOOR_STEP_FT,
+    });
+
+    if (!tour) {
+      // Nothing solved yet: there is no house to fly round, so say so by ending immediately
+      // rather than running a tour of empty ground.
+      onTourEndRef.current?.();
+      return;
+    }
+
+    const savedPos = camera.position.clone();
+    const savedTarget = controls.target.clone();
+    tourRef.current = tour;
+    tourStartMsRef.current = performance.now();
+
+    return () => {
+      tourRef.current = null;
+      camera.position.copy(savedPos);
+      controls.target.copy(savedTarget);
+      controls.enabled = true;
+      controls.update();
+    };
+  }, [tourPlaying]);
 
   // Ghost Furniture Placement Preview Handler
   useEffect(() => {
@@ -6389,7 +6688,12 @@ export default function Scene({
         </div>
       )}
 
-      {/* 3D CAD Drafting Studio Toolbar (Orbit Mode) */}
+
+      {/* 3D drafting tools.
+          Only the tools that have no ribbon equivalent: every button the Draw tab carries jumps
+          to the 2D blueprint first, so arming a tool without leaving the 3D view has to live
+          here. The view, lighting, lock, storey and scratch buttons that used to sit alongside
+          these were duplicates of the ribbon and are gone. */}
       {mode === "orbit" && (
         <div
           style={{
@@ -6409,110 +6713,17 @@ export default function Scene({
             alignItems: "center",
           }}
         >
-          {/* 3D Floor Level Switcher */}
-          <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "rgba(0,0,0,0.35)", borderRadius: "8px", padding: "2px 4px", marginRight: "4px" }}>
-            {[
-              { floor: 0, short: "G ", title: "Ground Floor" },
-              { floor: 1, short: "1F ", title: "1st Floor" },
-              { floor: 2, short: "2F ", title: "2nd Floor" },
-              { floor: 3, short: "Roof ", title: "Terrace / Roof" },
-            ].map((fl) => (
-              <button
-                key={fl.floor}
-                style={{
-                  background: activeFloor === fl.floor ? "#3d5c69" : "transparent",
-                  color: activeFloor === fl.floor ? "#ffffff" : "#8e8a82",
-                  border: "none",
-                  borderRadius: "5px",
-                  padding: "3px 7px",
-                  fontSize: "10.5px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  draftWallStartFtRef.current = null;
-                  setDraftWallStartFt(null);
-                  onChangeActiveFloor?.(fl.floor);
-                }}
-                title={`Switch 3D Drafting Elevation to ${fl.title}`}
-              >
-                {fl.short}
-              </button>
-            ))}
-          </div>
-
           <button
-            style={{
-              background: isDollhouseCutaway ? "linear-gradient(135deg, #3d5c69 0%, #4a6d7c 100%)" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: isDollhouseCutaway ? "1px solid #6f9aa8" : "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: isDollhouseCutaway ? "0 0 12px rgba(111, 154, 168, 0.4)" : "none",
-            }}
-            onClick={() => setIsDollhouseCutaway((prev) => !prev)}
-            title="Toggle 3D Architectural Cutaway / Dollhouse View (Matches Reference Studio Photo)"
-          >
-              {isDollhouseCutaway ? "Cutaway View" : "Full Walls"}
-          </button>
-
-          {onToggleUpgrade && (
-            <button
               style={{
-                background: isUpgraded
-                  ? "linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)"
-                  : "rgba(255, 255, 255, 0.08)",
+                background: activeCadTool === "select" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
                 color: "#ffffff",
-                border: isUpgraded ? "1px solid #a8657f" : "1px solid rgba(244, 114, 182, 0.4)",
-                padding: "5px 11px",
+                border: "1px solid rgba(111, 154, 168, 0.3)",
+                padding: "5px 10px",
                 borderRadius: "6px",
                 fontSize: "11px",
-                fontWeight: 800,
+                fontWeight: 700,
                 cursor: "pointer",
-                boxShadow: isUpgraded ? "0 0 14px rgba(168, 101, 127, 0.5)" : "none",
-                letterSpacing: "0.4px",
               }}
-              onClick={onToggleUpgrade}
-              title="Toggle Photorealistic Studio Upgrade (Curved Bouclé Cloud Sofas, Custom Library Shelving, Herringbone Oak Parquet & Wainscoting)"
-            >
-              {isUpgraded ? "UPGRADE ON" : "UPGRADE"}
-            </button>
-          )}
-
-          <button
-            style={{
-              background: lightsOn
-                ? "linear-gradient(135deg, rgba(234, 179, 8, 0.35) 0%, rgba(249, 115, 22, 0.35) 100%)"
-                : "linear-gradient(135deg, rgba(33, 32, 27, 0.85) 0%, rgba(26, 25, 22, 0.85) 100%)",
-              color: lightsOn ? "#d8c9a0" : "#8e8a82",
-              border: lightsOn ? "1px solid #b85c22" : "1px solid rgba(148, 163, 184, 0.4)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: lightsOn ? "0 0 12px rgba(184, 92, 34, 0.35)" : "none",
-            }}
-            onClick={onToggleLights}
-            title={lightsOn ? "Switch to Dark / Night Mode (Atmospheric Moon & Spotlights)" : "Switch to Light / Day Mode (Clear Blue Sky & Radiant Sun)"}
-          >
-            {lightsOn ? "Day (Light)" : "Night (Dark)"}
-          </button>
-
-          <button
-            style={{
-              background: activeCadTool === "select" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
             onClick={() => {
               draftWallStartFtRef.current = null;
               setDraftWallStartFt(null);
@@ -6522,20 +6733,20 @@ export default function Scene({
             }}
             title="3D Select Tool (V)"
           >
-              3D Select
+            Select
           </button>
 
           <button
-            style={{
-              background: activeCadTool === "draw_wall" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+              style={{
+                background: activeCadTool === "draw_wall" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
+                color: "#ffffff",
+                border: "1px solid rgba(111, 154, 168, 0.3)",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             onClick={() => {
               draftWallStartFtRef.current = null;
               setDraftWallStartFt(null);
@@ -6543,7 +6754,7 @@ export default function Scene({
             }}
             title="Point-and-click to erect 3D walls on ground plane (W)"
           >
-              3D Wall
+            Wall
           </button>
 
           {activeCadTool === "draw_wall" && (
@@ -6570,16 +6781,16 @@ export default function Scene({
           )}
 
           <button
-            style={{
-              background: activeCadTool === "place_door" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+              style={{
+                background: activeCadTool === "place_door" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
+                color: "#ffffff",
+                border: "1px solid rgba(111, 154, 168, 0.3)",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             onClick={() => {
               draftWallStartFtRef.current = null;
               setDraftWallStartFt(null);
@@ -6588,20 +6799,20 @@ export default function Scene({
             }}
             title="Click any 3D wall to cut and insert a 3D Door (D)"
           >
-              3D Door
+            Door
           </button>
 
           <button
-            style={{
-              background: activeCadTool === "place_window" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+              style={{
+                background: activeCadTool === "place_window" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
+                color: "#ffffff",
+                border: "1px solid rgba(111, 154, 168, 0.3)",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             onClick={() => {
               draftWallStartFtRef.current = null;
               setDraftWallStartFt(null);
@@ -6610,20 +6821,20 @@ export default function Scene({
             }}
             title="Click any 3D wall to cut and insert a 3D Window (Win)"
           >
-              3D Window
+            Window
           </button>
 
           <button
-            style={{
-              background: activeCadTool === "tag_room" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: "1px solid rgba(111, 154, 168, 0.3)",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+              style={{
+                background: activeCadTool === "tag_room" ? "#3d5c69" : "rgba(255, 255, 255, 0.08)",
+                color: "#ffffff",
+                border: "1px solid rgba(111, 154, 168, 0.3)",
+                padding: "5px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             onClick={() => {
               setDraftWallStartFt(null);
               if (draftGhost3DWallRef.current) draftGhost3DWallRef.current.visible = false;
@@ -6631,27 +6842,8 @@ export default function Scene({
             }}
             title="Click inside 3D walls to tag room zone"
           >
-              3D Room Tag
+            Room Tag
           </button>
-
-          {onStartFromScratch && (
-            <button
-              style={{
-                background: "linear-gradient(135deg, rgba(184, 92, 34, 0.25), rgba(138, 67, 24, 0.35))",
-                border: "1px solid rgba(184, 92, 34, 0.5)",
-                color: "#d4703a",
-                padding: "5px 10px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-              onClick={onStartFromScratch}
-              title="Start with blank plot in 3D"
-            >
-              Blank 3D
-            </button>
-          )}
 
           {customWalls && customWalls.length > 0 && (
             <button
@@ -6672,26 +6864,7 @@ export default function Scene({
               }}
               title="Clear custom walls"
             >
-                ({customWalls.length})
-            </button>
-          )}
-
-          {onToggleLayoutLock && (
-            <button
-              onClick={onToggleLayoutLock}
-              style={{
-                background: isLayoutLocked ? "rgba(61, 92, 105, 0.92)" : "rgba(255, 255, 255, 0.08)",
-                border: isLayoutLocked ? "1px solid #6f9aa8" : "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#ffffff",
-                padding: "5px 10px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-              title={isLayoutLocked ? "3D View is Locked (Press 'L')" : "3D View is Edit Mode (Press 'L')"}
-            >
-              {isLayoutLocked ? "Locked" : "Edit"}
+              Clear ({customWalls.length})
             </button>
           )}
         </div>

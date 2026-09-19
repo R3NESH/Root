@@ -61,6 +61,20 @@ National Building Code of India 2016:
 `WALL_HEIGHT_FT = 9.0` landing within an inch of the NBC 2.75 m clear height was luck, not
 design, but it holds — worth knowing before anyone "rounds it up".
 
+> [!info] Rounded up anyway, on 2026-09-19 — and the warning was about the wrong risk
+> The warning reads as "do not break the code floor". Ten feet does not break it; it clears it.
+> The risk that mattered was the opposite one: **9.0 ft is the floor, and the tool was drawing
+> every house at it.** Indian practice is 9–10 ft clear and 10–12 ft floor to floor
+> ([houseyog](https://www.houseyog.com/blog/standard-ceiling-height-india/)), so every interior
+> rendered as a legal-minimum room and read like one. `WALL_HEIGHT_FT` is now 10.0, floor to
+> floor 10.55 — which also closes most of the gap to `compliance.FLOOR_TO_FLOOR_FT = 10.8`, a
+> number the renderer had never matched.
+>
+> It cost the stairs. `STAIR_RISE_FT` 9.55 → 10.55 takes the riser count 16 → 17, and three of
+> the six presets then fell under the 9.8 in going minimum. Checking them turned up that **two
+> already had**: the L-shape at 9.75 in and the winder at 9.26 in, on the old rise. The
+> footprints are resized so all six clear it. See [[stair-styles]].
+
 ## Measured after
 
 | mix | plot | status | fill | ceiling | void |
@@ -112,3 +126,54 @@ against 100%.
 - [NBC 2016 room-size standards, Sobha](https://www.sobha.com/blog/national-building-code-of-india-residential-apartments/)
 - [Minimum room sizes for Indian homes, HouseYog](https://www.houseyog.com/blog/minimum-room-size-standards-india/)
 - [NBC 2016 thumb rules — ceiling 2.75 m, room sizes, Infralens](https://infralens.in/thumbrules)
+
+
+## The maximums were never tuned either — 2026-09-19
+
+The minimums above were the fix; the maximums were left as they were, with a note that they
+"matter for a different reason". They mattered more than that.
+
+`bench_realism.py` measured a 2BHK filling **46%** of a 40×60 envelope and a 4BHK **33%** of a
+50×80, both flagged `CAT` — every room had hit its cap, so more plot could not help. A 3BHK could
+never exceed 1194 sq ft of rooms whatever it was drawn on. On the common 30×40 the plot binds and
+rooms land near the NBC minimum, which is correct; above that the catalog bound and the tool drew
+the same small house in a bigger footprint. That is the whole of the long-running "why does the
+interior look cramped" complaint.
+
+| | old max | new max | source |
+|---|---|---|---|
+| bedroom | 14×14 | **16×18** | comfortable master 12×14, large 14×16, villa 16×18–18×20 — [houseyog](https://www.houseyog.com/blog/master-bedroom-size-layout-india/) |
+| hall | 15×16 | **18×20** | comfortable living 14×16, 20×20 large for a spacious independent house — [civilguide](https://civilguide.in/standard-room-size-for-house-in-india/) |
+| dining | 12×12 | 14×16 | |
+| kitchen | 11×10 | 12×14 | |
+| bathroom | 7×8 | 8×10 | |
+| store | 7×7 | 8×10 | |
+| utility | 6×10 | 8×12 | |
+
+Minimums untouched — they are the NBC floor and they are what makes a 3BHK fit a 30×40.
+
+### Measured after
+
+| mix | plot | fill before | fill after |
+|---|---|---|---|
+| 2BHK | 30×40 | 98% | **100%** |
+| 3BHK | 30×40 | 100% | 98% |
+| 2BHK | 40×60 | 46% `CAT` | **68%** |
+| 3BHK | 40×60 | 69% `CAT` | **92%** |
+| 4BHK | 50×80 | 33% | **46%** |
+
+`catalog is the binder` went **2/5 → 0/5**. Void in footprint 18% → 11%, so the houses also read
+more as one building. Worst aspect 2.02 → 1.79, inside the 1.8 cap for the first time.
+Connectivity held, zone rules relaxed 0/5, 178 tests green.
+
+### One test had to change, and it was measuring the wrong thing
+
+`test_the_house_fills_most_of_what_the_catalog_allows` compared fill against the catalog ceiling.
+That is only meaningful while the ceiling is below the envelope. With the new maximums the
+ceiling for its mix is **105% of a 30×40** — and no layout can reach a ceiling larger than the
+plot. The same solve that now fills **91% of the envelope, up from 65%**, scored 0.87 against it
+and failed. It now measures against `min(ceiling, 1.0)`: a house cannot fill more than its plot.
+
+The two INFEASIBLE rows in the benchmark are unchanged and are still the setback issue described
+above — and note the benchmark uses its own hardcoded 5/5/3/3 setbacks, not the compliance-derived
+ones the app ships, under which a 20×30 gets a 20×25.1 envelope and should solve.

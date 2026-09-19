@@ -30,9 +30,11 @@ from dataclasses import dataclass, field
 
 from .connectivity import EXTERIOR_WALL_IN, INTERIOR_WALL_IN
 
-# NBC 2016 requires 2.75 m clear for a habitable room; WALL_HEIGHT_FT in the renderer is 9.0 ft,
-# which is 108 in and within an inch of it. Stated here so quantities do not have to guess.
-WALL_HEIGHT_IN = 108
+# NBC 2016 requires 2.75 m clear for a habitable room, which is 108 in. That was the height
+# here, and it is the floor rather than the norm: Indian practice is 9-10 ft clear. The renderer
+# builds at 10 ft (WALL_HEIGHT_FT in frontend/lib/sceneConstants.ts) and this has to match it, or
+# the quantities are costed against a building of a different height from the one drawn.
+WALL_HEIGHT_IN = 120
 
 _OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 

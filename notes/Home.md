@@ -47,6 +47,16 @@ regressions, fixed 2026-08-25)
 - [[project-phases]]
 - [[rejected-approaches]] — and why, so they are not retried
 
+## The interior design package (2026-09-19)
+Six surfaces built off one model, each with the decision that shaped it.
+- [[schedule-is-measured-not-declared]] — FF&E and finish schedules, sized off the built scene
+- [[elevations-look-from-inside]] — one elevation per wall, and why left-to-right flips
+- [[cite-the-clearance-or-admit-it]] — NKBA where it exists, "no published source" where it does not
+- [[lighting-says-the-number]] — reflected ceiling plan, and the lux estimate against IS 3646
+- [[board-is-drawn-to-one-scale]] — the finish board, and why the single scale is the feature
+- [[object-library-licensing]] — CC0 only, because the app redistributes the model file
+- [[furniture-models]] — the 62 committed assets and their provenance
+
 ## Engineering
 - [[architecture]] · [[output-schema]] · [[environment-notes]]
 - [[cp-sat-api]] · [[cp-sat-gotchas]]

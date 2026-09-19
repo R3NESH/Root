@@ -40,6 +40,33 @@ const DINING_CHAIRS: ModelPart[] = [-2.2, 0, 2.2].flatMap((x) => [
 // their groups with — both go through the same swap, and the two vocabularies overlap but are
 // not identical (the rooms emit "dining_table", the catalog calls it "dining_6seater").
 export const FURNITURE_MODELS: Record<string, ModelPart[]> = {
+
+  // Scanned pieces added 2026-09-19 — Poly Haven CC0, one model each, no assembly.
+  chandelier_tiered: [{ url: p("Chandelier_01") }],
+  chandelier_globe: [{ url: p("Chandelier_03") }],
+  chandelier_lantern: [{ url: p("lantern_chandelier_01") }],
+  chair_highback_carved: [{ url: p("WoodenChair_01") }],
+  dining_chair_painted: [{ url: p("painted_wooden_chair_01") }],
+  dining_table_round: [{ url: p("round_wooden_table_01") }],
+  side_table_low: [{ url: p("gallinera_table") }],
+  stool_folding: [{ url: p("folding_wooden_stool") }],
+  bench_painted: [{ url: p("painted_wooden_bench") }],
+  lounge_chair_midcentury: [{ url: p("mid_century_lounge_chair") }],
+  sofa_daybed_carved: [{ url: p("chinese_sofa") }],
+  coffee_table_modern: [{ url: p("modern_coffee_table_01") }],
+  side_table_tall: [{ url: p("side_table_tall_01") }],
+  console_small: [{ url: p("small_wooden_table_01") }],
+  day_bed: [{ url: p("vintage_day_bed") }],
+  sideboard_long: [{ url: p("modern_wooden_cabinet") }],
+  cabinet_tall_painted: [{ url: p("painted_wooden_cabinet") }],
+  display_shelves: [{ url: p("wooden_display_shelves_01") }],
+  vase_ceramic_wide: [{ url: p("ceramic_vase_01") }],
+  vase_ceramic_slim: [{ url: p("ceramic_vase_03") }],
+  wall_frame_ornate: [{ url: p("fancy_picture_frame_01") }],
+  frame_standing: [{ url: p("standing_picture_frame_01") }],
+  wall_clock: [{ url: p("wall_clock") }],
+  bust_marble: [{ url: p("marble_bust_01") }],
+
   sofa_3seater: [{ url: p("Sofa_01") }],
   sofa_loveseat: [{ url: p("sofa_02") }],
   sofa_curved: [{ url: p("sofa_03") }],

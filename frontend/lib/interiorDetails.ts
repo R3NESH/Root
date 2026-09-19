@@ -269,9 +269,21 @@ export function getTileFloorTexture(isKitchen: boolean = false): THREE.CanvasTex
 // 2. Animated Ceiling Fan
 // --------------------------------------------------------------------------------------
 
-export function addCeilingFan(group: THREE.Group, x: number, z: number, y: number): THREE.Group {
+export function addCeilingFan(
+  group: THREE.Group,
+  x: number,
+  z: number,
+  y: number,
+  /**
+   * Marks the fan so the reflected ceiling plan can find it. Set on the fan group rather than on
+   * the blades this returns, because the blades spin and the fixture does not move. Deliberately
+   * NOT `isFurniture` — that flag drives selection and collision, and a fan is neither.
+   */
+  tag?: { id: string; name: string; type: string }
+): THREE.Group {
   const fanGroup = new THREE.Group();
   fanGroup.position.set(x, y, z);
+  if (tag) fanGroup.userData = { isCeilingFixture: true, ...tag };
 
   const rodMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, metalness: 0.8, roughness: 0.2 });
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.4 });

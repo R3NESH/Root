@@ -9,9 +9,14 @@
 //
 // Every flight here is generated from the same floor-to-floor rise and holds to NBC 2016 for a
 // one- or two-family dwelling: **riser at most 190 mm (7.5 in), tread at least 250 mm (9.8 in),
-// flight at least 0.90 m (3 ft) wide, handrail at 0.90 m**. A 9.55 ft rise therefore needs 16
-// risers, which is what every style below uses — the shapes differ in how those 16 are folded
+// flight at least 0.90 m (3 ft) wide, handrail at 0.90 m**. A 10.55 ft rise therefore needs 17
+// risers, which is what every style below uses — the shapes differ in how those 17 are folded
 // into the footprint, which is exactly what choosing a stair type means:
+//
+// The footprints in FURNITURE_CATALOG are sized so that the going stays over the 9.8 in floor at
+// that riser count. They did not all clear it before: at the old 16 risers the L-shape came out
+// at 9.75 in and the winder at 9.26 in, so two of the six presets had been quietly breaking the
+// rule this file opens by stating. Raising the storey height is what surfaced it.
 //
 //   - straight    one run. Cheapest to build, longest footprint: 14 ft of floor.
 //   - l_shaped    quarter turn on a landing. A 10.5 ft square, because 13.1 ft of run split over
@@ -35,8 +40,12 @@
 
 import * as THREE from "three";
 
+// Type only, so importing the solver here does not make a runtime cycle: stairPath.ts reads the
+// code minima out of this file.
+import type { SolvedStair } from "./stairPath";
+
 /** Floor to floor, in feet. Matches WALL_HEIGHT_FT + SLAB_T in the renderer. */
-export const STAIR_RISE_FT = 9.55;
+export const STAIR_RISE_FT = 10.55;
 
 /** NBC 2016, one- and two-family dwellings. */
 export const MAX_RISER_IN = 7.5;
@@ -349,5 +358,67 @@ export function buildStair(
   }
   railAlong(root, mats, { run, rise: rise / 2, x: wideW / 2, z: z0 + 0.2, baseY: 0 });
   railAlong(root, mats, { run, rise: rise / 2, x: -wideW / 2, z: z0 + 0.2, baseY: 0 });
+  return root;
+}
+
+/**
+ * Build a staircase from a solved walk line (lib/stairPath.ts).
+ *
+ * Meshes land at absolute plot feet, with y measured from the stair's own base, so the caller
+ * lifts the whole group to the storey's floor level and nothing else. That matches how a drawn
+ * wall is handled — rebuilt from its coordinates rather than carried around by a transform.
+ *
+ * Each flight is a sub-group parked at the flight's start and turned to its bearing, which lets
+ * `flight()`, `railAlong()` and `landingSlab()` above be reused exactly as the catalog shapes use
+ * them: `dir: -1` climbs along local -z, and heading 0 is -z in the renderer's convention, so the
+ * rotation maps one onto the other with no second code path.
+ */
+export function buildStairFromPath(stair: SolvedStair, colorHex?: number): THREE.Group {
+  const root = new THREE.Group();
+  const mats = materials(colorHex);
+  const riserFt = stair.totalRiseFt / stair.riserCount;
+  const treadFt = stair.treadIn / 12;
+
+  for (const f of stair.flights) {
+    const sub = new THREE.Group();
+    sub.position.set(f.fromXFt, f.baseYFt, f.fromZFt);
+    sub.rotation.y = f.headingRad;
+    root.add(sub);
+
+    // Solid steps: a drawn stair sits on the floor it climbs from, so there is no stairwell void
+    // under it to show. A return flight over its own well would want `solid: false`, which is a
+    // question about the slab opening this tool does not cut yet.
+    flight(sub, mats, {
+      steps: f.risers,
+      riser: riserFt,
+      tread: treadFt,
+      width: stair.widthFt,
+      x: 0,
+      z: 0,
+      baseY: 0,
+      solid: true,
+      dir: -1,
+    });
+
+    for (const side of [-1, 1]) {
+      railAlong(sub, mats, {
+        run: f.runFt,
+        rise: f.risers * riserFt,
+        x: (side * stair.widthFt) / 2,
+        z: 0,
+        baseY: 0,
+        dir: -1,
+      });
+    }
+  }
+
+  for (const l of stair.landings) {
+    const sub = new THREE.Group();
+    sub.position.set(l.xFt, 0, l.zFt);
+    sub.rotation.y = l.headingRad;
+    root.add(sub);
+    landingSlab(sub, mats, l.sideFt, l.sideFt, 0, 0, l.yFt);
+  }
+
   return root;
 }

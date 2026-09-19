@@ -10,7 +10,14 @@ import {
   BoqQualityTier,
 } from "@/lib/boqEngine";
 import { extraWallLengthFt, RoomEdgeCurves } from "@/lib/wallCurves";
-import styles from "./BOQCostModal.module.css";
+import styles from "./StudioModal.module.css";
+
+// Headline rate per tier, shown on the button so the choice is priced before it is made.
+const TIERS: { id: BoqQualityTier; label: string }[] = [
+  { id: "economy", label: "Economy · ₹1,650/sq.ft" },
+  { id: "standard", label: "Standard · ₹2,150/sq.ft" },
+  { id: "luxury", label: "Luxury · ₹2,950/sq.ft" },
+];
 
 interface BOQCostModalProps {
   isOpen: boolean;
@@ -72,27 +79,18 @@ export default function BOQCostModal({
         </div>
 
         {/* Quality Tier & Actions Bar */}
-        <div className={styles.tierBar}>
-          <div className={styles.tierGroup}>
-            <span className={styles.tierLabel}>Specification Tier:</span>
-            <button
-              className={tier === "economy" ? styles.tierBtnActive : styles.tierBtn}
-              onClick={() => setTier("economy")}
-            >
-              Economy (₹1,650/sq.ft)
-            </button>
-            <button
-              className={tier === "standard" ? styles.tierBtnActive : styles.tierBtn}
-              onClick={() => setTier("standard")}
-            >
-              Standard (₹2,150/sq.ft)
-            </button>
-            <button
-              className={tier === "luxury" ? styles.tierBtnActive : styles.tierBtn}
-              onClick={() => setTier("luxury")}
-            >
-              Luxury (₹2,950/sq.ft)
-            </button>
+        <div className={styles.toolbar}>
+          <div className={styles.tabGroup}>
+            <span className={styles.toolbarLabel}>Specification Tier</span>
+            {TIERS.map((t) => (
+              <button
+                key={t.id}
+                className={tier === t.id ? styles.tabBtnActive : styles.tabBtn}
+                onClick={() => setTier(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
           <div className={styles.actionsGroup}>
@@ -150,42 +148,20 @@ export default function BOQCostModal({
           </div>
 
           {/* Category Distribution Pills */}
-          <div className={styles.categoryPills}>
+          <div className={styles.roomFilter}>
             <button
+              className={selectedCategory === "all" ? styles.roomPillActive : styles.roomPill}
               onClick={() => setSelectedCategory("all")}
-              style={{
-                background: selectedCategory === "all" ? "rgba(111, 154, 168, 0.25)" : "rgba(26, 25, 22, 0.8)",
-                border: selectedCategory === "all" ? "1px solid #6f9aa8" : "1px solid rgba(58, 55, 47, 0.7)",
-                color: selectedCategory === "all" ? "#6f9aa8" : "#b5b0a6",
-                padding: "6px 12px",
-                borderRadius: "20px",
-                fontSize: "11.5px",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
             >
-              All Items ({boq.items.length})
+              All Items <span className={styles.pillCount}>{boq.items.length}</span>
             </button>
             {boq.categories.map((cat) => (
               <button
                 key={cat.category}
+                className={selectedCategory === cat.category ? styles.roomPillActive : styles.roomPill}
                 onClick={() => setSelectedCategory(cat.category)}
-                style={{
-                  background: selectedCategory === cat.category ? "rgba(111, 154, 168, 0.25)" : "rgba(26, 25, 22, 0.8)",
-                  border: selectedCategory === cat.category ? "1px solid #6f9aa8" : "1px solid rgba(58, 55, 47, 0.7)",
-                  color: selectedCategory === cat.category ? "#6f9aa8" : "#b5b0a6",
-                  padding: "6px 12px",
-                  borderRadius: "20px",
-                  fontSize: "11.5px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontWeight: 600,
-                }}
               >
-                <span>{cat.name}</span>
-                <span className={styles.catPercent}>{cat.percentage}%</span>
+                {cat.name} <span className={styles.pillCount}>{cat.percentage}%</span>
               </button>
             ))}
           </div>
@@ -210,20 +186,20 @@ export default function BOQCostModal({
                       <span className={styles.itemCode}>{it.code}</span>
                     </td>
                     <td className={styles.td}>
-                      <div className={styles.itemDesc}>{it.description}</div>
-                      {it.specNotes && <div className={styles.itemNotes}>{it.specNotes}</div>}
+                      <div className={styles.itemName}>{it.description}</div>
+                      {it.specNotes && <div className={styles.note}>{it.specNotes}</div>}
                     </td>
                     <td className={`${styles.td} ${styles.numCol}`}>{it.quantity.toLocaleString()}</td>
                     <td className={styles.td}>{it.unit}</td>
                     <td className={`${styles.td} ${styles.numCol}`}>{it.rate.toLocaleString()}</td>
-                    <td className={`${styles.td} ${styles.amountCol}`}>₹{it.amount.toLocaleString()}</td>
+                    <td className={`${styles.td} ${styles.numCol} ${styles.amountCol}`}>₹{it.amount.toLocaleString()}</td>
                   </tr>
                 ))}
                 <tr className={styles.totalRow}>
                   <td className={styles.td} colSpan={5} style={{ textAlign: "right", color: "#eceae5" }}>
                     TOTAL ESTIMATED BUDGET ({tier.toUpperCase()} SPECIFICATION):
                   </td>
-                  <td className={`${styles.td} ${styles.amountCol}`} style={{ fontSize: "14px" }}>
+                  <td className={`${styles.td} ${styles.numCol} ${styles.amountCol}`} style={{ fontSize: "14px" }}>
                     ₹{boq.totalCost.toLocaleString()}
                   </td>
                 </tr>

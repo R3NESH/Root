@@ -1,0 +1,356 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "standing_picture_frame_01"
+    }
+  ],
+  "materials": [
+    {
+      "alphaMode": "BLEND",
+      "doubleSided": true,
+      "name": "standing_picture_frame_01_glass",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "standing_picture_frame_01_artwork",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicFactor": 0,
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "standing_picture_frame_01",
+      "normalTexture": {
+        "index": 6
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 7
+        },
+        "metallicRoughnessTexture": {
+          "index": 8
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cube.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 3,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 7,
+            "NORMAL": 8,
+            "TEXCOORD_0": 9
+          },
+          "indices": 10,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 6
+    },
+    {
+      "sampler": 0,
+      "source": 7
+    },
+    {
+      "sampler": 0,
+      "source": 8
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_nor_gl",
+      "uri": "textures/standing_picture_frame_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_diff",
+      "uri": "textures/standing_picture_frame_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_metal-standing_picture_frame_01_rough",
+      "uri": "textures/standing_picture_frame_01_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_artwork_nor_gl",
+      "uri": "textures/standing_picture_frame_01_artwork_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_artwork_diff",
+      "uri": "textures/standing_picture_frame_01_artwork_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_artwork_rough",
+      "uri": "textures/standing_picture_frame_01_artwork_rough_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_nor_gl.png",
+      "uri": "textures/standing_picture_frame_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_diff.png",
+      "uri": "textures/standing_picture_frame_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "standing_picture_frame_01_metal.png-standing_picture_frame_01_rough.png",
+      "uri": "textures/standing_picture_frame_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        0.03083980642259121,
+        0.2374529242515564,
+        0.08932866156101227
+      ],
+      "min": [
+        -0.012908704578876495,
+        0.012386173009872437,
+        -0.08932866156101227
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        0.024749506264925003,
+        0.2176748812198639,
+        0.06587035208940506
+      ],
+      "min": [
+        -0.011271901428699493,
+        0.03236065059900284,
+        -0.06587035208940506
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 1418,
+      "max": [
+        0.03865445405244827,
+        0.2491837441921234,
+        0.1003999263048172
+      ],
+      "min": [
+        -0.06162241846323013,
+        -0.0004743710160255432,
+        -0.1003999263048172
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 1418,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 1418,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5123,
+      "count": 4890,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 48
+    },
+    {
+      "buffer": 0,
+      "byteLength": 32,
+      "byteOffset": 96
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12,
+      "byteOffset": 128
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 140
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 188
+    },
+    {
+      "buffer": 0,
+      "byteLength": 32,
+      "byteOffset": 236
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17016,
+      "byteOffset": 268
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17016,
+      "byteOffset": 17284
+    },
+    {
+      "buffer": 0,
+      "byteLength": 11344,
+      "byteOffset": 34300
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9780,
+      "byteOffset": 45644
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 55424,
+      "uri": "standing_picture_frame_01.bin"
+    }
+  ]
+}

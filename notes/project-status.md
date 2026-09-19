@@ -47,6 +47,120 @@ with every number below re-measured on 2026-09-07 rather than carried over from
 - **Hardware Path Tracer.** Interactive WebGL2 raytracing with real-time progressive sampling and bounces.
 - **Full Features & Subsystems Inventory.** Capabilities in [FEATURES.md](../FEATURES.md), the things you click in [TOOLS.md](../TOOLS.md). Both re-verified 2026-09-19; the stale third inventory was deleted the same day.
 
+## The catalog doubled — 2026-09-19
+
+24 Poly Haven CC0 models downloaded and integrated. 38 model folders → **62**, 19 MB → **49 MB**.
+`FURNITURE_CATALOG` 109 entries → **133**.
+
+- Aimed at the thin categories. After: living 23, decor 15, bedroom 10, lighting 8, dining 8.
+- **Dimensions measured, not estimated.** Each new catalog entry's `dimensions` came from the
+  POSITION accessor bounds in that model's own `.gltf`, times the node scale where one exists.
+  `Chandelier_01` carries a 0.01 node scale and reads as 245 ft without it — caught because the
+  numbers were read rather than typed.
+- `createFurnitureMesh`'s default branch now sizes its placeholder from the catalog instead of a
+  fixed 2 ft cube, so a failed model load leaves something the right size.
+- Licence rule written down: [[object-library-licensing]]. CC0 only, because the app *serves* the
+  file to every visitor — that is redistribution, not use.
+
+> [!warning] Two categories cannot be fixed from this source
+> Poly Haven's full index has **no sanitaryware** and **no soft furnishing**. Bath stays at 4
+> pieces, soft at 2. Sketchfab's Download API is the realistic route to both, at the cost of an
+> end-user login and an attribution surface.
+
+`tsc --noEmit` 0 errors, `next build` clean.
+
+> [!note] A latent ribbon bug surfaced, and it was not in this work
+> The five studio buttons added earlier today took the application bar from ~7 actions to 14 and
+> ran its overflow path for the first time. Items past the fit were only `aria-hidden`, so they
+> stayed in the layout and were clipped mid-button. Found by plot-to-plan-91 and fixed there
+> (`display: none` on the overflowed class); the `»` menu had been wired all along. Nothing of
+> this session's work was reverted. Whether fourteen flat actions should collapse into one
+> "Drawings" entry is with that session's user as a product question.
+
+## Finish board and reflected ceiling plan — 2026-09-19
+
+The two named gaps from the competitor read, both built. Each was given one thing the
+competition does not do, rather than being matched feature-for-feature.
+
+- **Finish board.** Palette strip, resolved floor / wall paint / wall finish / joinery swatches,
+  and every piece drawn front-on **at one shared scale** off its measured box, labelled in
+  feet-inches and mm. Whole-house or per-room, plus a print pack of every board.
+  [[board-is-drawn-to-one-scale]] — collage tools arrange cutouts by eye, so a side table and a
+  sectional come out the same size and the board cannot answer the question it is looked at for.
+  Verified numerically: drawn-width to real-width is identical across every piece, spread 0.0000.
+  No photography, and the sheet says so rather than shipping placeholders.
+- **Reflected ceiling plan.** Fixtures off the model, a legend, a setting-out grid, a proposed
+  downlight layout at ceiling height ÷ 2 capped at 6 ft drawn dashed, and a fixture schedule.
+- **It says the number.** Average lux per room by the lumen method against IS 3646 —
+  [[lighting-says-the-number]]. Every competitor places light symbols; none found says the
+  kitchen lands at 226 lux when the standard wants 300. UF 0.5, MF 0.8 and lamp outputs are
+  assumptions, printed on the sheet. A room kind with no published figure is **not assessed**,
+  same rule as the clearance audit.
+
+**A live bug fell out of it.** Tagging ceiling fixtures showed the clearance audit measured gaps
+to anything in its box list — so a **placed chandelier was already generating fake floor-clearance
+failures**. Fixed with `FLOOR_OBSTACLE_MAX_Y_FT = 4.0`; nothing you cannot walk into is a passage.
+Regression test added to the harness.
+
+`tsc --noEmit` 0 errors, `next build` clean. Pure halves run in Node against a 12×10 kitchen with
+`three` stubbed, asserting by hand: 4.5 ft spacing from a 9 ft ceiling, 6 downlights on cell
+centres at x 2/6/10 and z 2.5/7.5, total 6,300 lm, 226 lux against a 300-500 target → *under*,
+a fan drawn at zero lumens, a store left unassessed, ceiling fixtures kept off the finish board
+and out of the clearance audit, identical pieces grouped, and both SVGs' tags balanced. All held.
+
+> [!warning] Still nothing seen in a browser
+> Five sheets now — blueprint, elevation, board, ceiling plan, schedule — none ever rendered on
+> screen by the agent that wrote them. This is the oldest open gap in the project and every
+> session widens it.
+
+> [!note] What this does not fix
+> The catalog. 109 pieces and 38 models against Foyr's 60,000, and lopsided — bath 4, soft
+> furnishing 2. That is a sourcing and licensing problem, not a coding one, and it is the first
+> thing a designer sees. Also still open: DXF/DWG, 360 panorama, a hosted backend.
+
+## Interior elevations and a clearance audit — 2026-09-19
+
+Two more surfaces aimed at the same coming review, chosen after reading what the competition
+ships. Chief Architect's baseline is that plan, section and elevation all come off one model;
+Foyr Neo and Coohom compete on moodboards, 360 panoramas and render speed. Elevations were the
+gap this product could least afford, because they are the drawing an interior designer actually
+produces.
+
+- **Interior elevations** — one per wall per room. Wall outline, floor and ceiling lines, every
+  opening with sill and head height, furniture in silhouette with heights called out, and
+  dimension strings along and up the wall. Wall list grouped by room with a live preview; SVG,
+  PNG or print for one wall, and a print set that puts every elevation on its own page. Export
+  reuses `blueprintExport.ts` rather than growing a second exporter.
+- **Each wall is drawn looking at it from inside the room** — [[elevations-look-from-inside]].
+  Left-to-right therefore flips per wall. Drawing every wall in world order is one line less and
+  produces mirrored elevations, which is how a wardrobe gets built hinged on the wrong side.
+- **Clearance audit** — every gap measured: piece to piece, piece to wall, clear floor inside
+  each door. NKBA figures are cited and linked; the two rules with no published source say
+  **"Trade practice — no published source, low confidence"** rather than borrowing an authority
+  — [[cite-the-clearance-or-admit-it]]. A room with nothing in it is listed as unchecked, never
+  counted as a pass.
+- **`frontend/lib/furnitureInventory.ts`** now owns the scene-to-UI furniture record, which
+  carries a measured world box instead of three loose dimensions. It imports no `three`, which
+  fixes the coupling [[schedule-is-measured-not-declared]] complained about for the new modules.
+- `DesignScheduleModal.module.css` became `StudioModal.module.css`; all three studios share one
+  shell.
+
+`tsc --noEmit` 0 errors, `next build` clean. The pure halves were run in Node against a
+fabricated 12×10 kitchen with `three` stubbed, asserting exact numbers: wall lengths per edge,
+the door's position on the north elevation, the west window's sill and head, the mirroring of a
+piece between the north and south elevations, that a piece 8 ft off a wall is excluded from it
+while one at 4 ft is kept, draw order far-to-near, that the SVG's tags balance, that a 24 in
+aisle is reported against NKBA's 42 in with a live source URL, that the bedside rule carries no
+source, and that an empty room is skipped rather than passed. All held.
+
+> [!warning] Still nothing seen in a browser
+> Same gap as every session since 2026-09-04. The elevation SVG is verified as a string, not as
+> a picture. Nobody has looked at a rendered sheet.
+
+> [!note] Deliberately not built
+> A reflected ceiling plan and lighting layout, a moodboard or finish board, 360 panorama export,
+> and DXF/DWG. Export is still SVG, PNG, CSV, JSON and print.
+
 ## FF&E and finish schedule — 2026-09-19
 
 The product could draw an interior and could not *specify* one. It now emits the two tables an

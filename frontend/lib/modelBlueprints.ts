@@ -268,7 +268,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       dining_0: { wFt: 14, dFt: 18 },
       bedroom_0: { wFt: 16, dFt: 14 },
       kitchen_0: { wFt: 14, dFt: 14 },
-      bedroom_1: { wFt: 14, dFt: 8 },
+      bedroom_1: { wFt: 14, dFt: 10 },
       bathroom_0: { wFt: 6, dFt: 8 },
       bathroom_1: { wFt: 5, dFt: 8 },
       store_0: { wFt: 5, dFt: 8 },
@@ -316,7 +316,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customDims: {
       hall_0: { wFt: 10, dFt: 12 },
-      kitchen_0: { wFt: 6, dFt: 12 },
+      kitchen_0: { wFt: 7, dFt: 12 },
       bedroom_0: { wFt: 10, dFt: 11 },
       bathroom_0: { wFt: 6, dFt: 7 },
     },
@@ -358,10 +358,10 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       entrance: 0,
     },
     customDims: {
-      kitchen_0: { wFt: 6, dFt: 12 },
+      kitchen_0: { wFt: 7, dFt: 12 },
       hall_0: { wFt: 10, dFt: 12 },
-      bedroom_0: { wFt: 9, dFt: 11 },
-      bedroom_1: { wFt: 7, dFt: 6 },
+      bedroom_0: { wFt: 10, dFt: 11 },
+      bedroom_1: { wFt: 10, dFt: 10 },
       bathroom_0: { wFt: 7, dFt: 5 },
     },
     customPositions: {
@@ -404,10 +404,10 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customDims: {
       hall_0: { wFt: 10, dFt: 14 },
-      dining_0: { wFt: 6, dFt: 9 },
-      bedroom_1: { wFt: 9, dFt: 10 },
+      dining_0: { wFt: 8, dFt: 9 },
+      bedroom_1: { wFt: 10, dFt: 10 },
       kitchen_0: { wFt: 7, dFt: 10 },
-      bedroom_0: { wFt: 10, dFt: 8 },
+      bedroom_0: { wFt: 10, dFt: 10 },
       bathroom_0: { wFt: 6, dFt: 8 },
     },
     customPositions: {
@@ -451,10 +451,10 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customDims: {
       kitchen_0: { wFt: 8, dFt: 10 },
-      dining_0: { wFt: 8, dFt: 6 },
+      dining_0: { wFt: 8, dFt: 8 },
       hall_0: { wFt: 12, dFt: 16 },
       bedroom_0: { wFt: 11, dFt: 16 },
-      bedroom_1: { wFt: 9, dFt: 10 },
+      bedroom_1: { wFt: 10, dFt: 10 },
       bathroom_0: { wFt: 9, dFt: 6 },
     },
     customPositions: {
@@ -501,7 +501,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       bedroom_1: { wFt: 11, dFt: 12 },
       kitchen_0: { wFt: 9, dFt: 12 },
       bedroom_0: { wFt: 11, dFt: 14 },
-      bedroom_2: { wFt: 9, dFt: 9 },
+      bedroom_2: { wFt: 10, dFt: 10 },
       bathroom_0: { wFt: 9, dFt: 5 },
     },
     customPositions: {
@@ -593,12 +593,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customDims: {
       dining_0: { wFt: 11, dFt: 10 },
-      kitchen_0: { wFt: 11, dFt: 6 },
+      kitchen_0: { wFt: 11, dFt: 8 },
       hall_0: { wFt: 13, dFt: 16 },
       bedroom_0: { wFt: 13, dFt: 16 },
       bedroom_1: { wFt: 11, dFt: 11 },
       bathroom_0: { wFt: 6, dFt: 5 },
-      bathroom_1: { wFt: 5, dFt: 5 },
+      bathroom_1: { wFt: 5, dFt: 6 },
     },
     customPositions: {
       dining_0: { xFt: 0, yFt: 0 },
@@ -646,7 +646,7 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
       dining_0: { wFt: 12, dFt: 8 },
       bedroom_0: { wFt: 13, dFt: 18 },
       kitchen_0: { wFt: 11, dFt: 8 },
-      hall_0: { wFt: 11, dFt: 10 },
+      hall_0: { wFt: 11, dFt: 12 },
     },
     customPositions: {
       bedroom_1: { xFt: 0, yFt: 0 },
@@ -688,12 +688,12 @@ export const MODEL_BLUEPRINTS: ModelBlueprint[] = [
     },
     customDims: {
       hall_0: { wFt: 13, dFt: 16 },
-      kitchen_0: { wFt: 6, dFt: 6 },
+      kitchen_0: { wFt: 7, dFt: 8 },
       dining_0: { wFt: 11, dFt: 10 },
       bedroom_0: { wFt: 13, dFt: 16 },
       bedroom_1: { wFt: 11, dFt: 11 },
       bathroom_0: { wFt: 6, dFt: 5 },
-      bathroom_1: { wFt: 5, dFt: 5 },
+      bathroom_1: { wFt: 5, dFt: 6 },
     },
     customPositions: {
       hall_0: { xFt: 0, yFt: 0 },

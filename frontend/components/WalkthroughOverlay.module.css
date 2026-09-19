@@ -73,32 +73,8 @@
   gap: 10px;
 }
 
-.actionBtn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 
-.actionBtn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: var(--ink-disabled);
-  transform: translateY(-1px);
-}
 
-.actionBtnActive {
-  background: rgba(184, 92, 34, 0.3) !important;
-  border-color: #b85c22 !important;
-  color: #ffffff !important;
-}
 
 .exitBtn {
   background: rgba(201, 131, 116, 0.2);

@@ -52,6 +52,10 @@ those names had not matched `RIBBON_TABS` for some time.)
 | Blueprint browser | "Browse curated architectural model blueprints" | Opens the curated catalog. |
 | BOQ | "Engineering Bill of Quantities (BOQ) & Cost Estimation" | Opens the cost studio. |
 | FF&E Schedule | "FF&E and Finish Schedule — every piece and surface, room by room, in feet-inches and mm" | Opens the schedule studio. |
+| Elevations | "Interior Elevations — every wall drawn flat, with the heights a plan cannot carry" | Opens the elevations studio. |
+| Clearances | "Clearance Audit — every gap measured against NKBA and trade minimums" | Opens the clearance audit. |
+| Ceiling Plan | "Reflected Ceiling Plan — fixtures, a proposed downlight layout, and the lux each room lands at" | Opens the ceiling plan studio. |
+| Finish Board | "Finish Board — the scheme in one page, every piece at one true scale" | Opens the finish board studio. |
 | Export | "Export the blueprint sheet: JSON model, SVG, high-res PNG, or print to PDF. No DXF yet." | Opens the export modal. |
 | Graphics | "Graphics & Performance Control (Press 'G')" | Opens the graphics studio. |
 | Path tracer | "Toggle Real-Time GPU Path Tracer & Global Illumination (Press 'P')" | Progressive raytraced render. |
@@ -206,6 +210,10 @@ Ribbon-hosted panel that appears when something is selected.
 | Room Dimensions Studio | `RoomDimensionsModal.tsx` | Per-room width and depth table with live editing. |
 | BOQ & Cost Studio | `BOQCostModal.tsx` | Quantity and cost breakdown by category, three quality tiers, CSV export, printable report. |
 | FF&E & Finish Schedule Studio | `DesignScheduleModal.tsx` | The interior package: an FF&E table and a finish table, filterable by room, with whole-house totals, CSV export and a printable spec sheet. |
+| Interior Elevations Studio | `ElevationsModal.tsx` | Wall list by room, live sheet preview, per-wall SVG / PNG / print, and a print set of every wall shown. Walls with nothing on them are hidden behind a toggle. |
+| Clearance Audit | `ClearanceAuditModal.tsx` | Findings worst-first, the rules applied with their sources, and CSV export. |
+| Reflected Ceiling Plan Studio | `CeilingPlanModal.tsx` | Floor pills, a proposed-downlight toggle, the live sheet, and a per-room illuminance table with the target and its source. |
+| Finish Board Studio | `MoodboardModal.tsx` | Whole-house or per-room scope, the live board, and a print pack of every board. |
 | Blueprint Catalog | `ModelBlueprintsModal.tsx` | 20 residential models and 8 café plans, filtered by facing and plot size. |
 | Plot Shape Studio | `PlotShapeModal.tsx` | Walk the boundary: one row per side with its length, the turn at the corner after it, and its bow. Four shape presets, live preview, enclosed area, closure check with a "Close the loop" fix. Applies nothing until Apply. |
 | Blueprint Export Studio | `BlueprintExportModal.tsx` | 300 DPI SVG/PNG sheets, title block, north arrow, area summary, three themes. |
@@ -255,6 +263,10 @@ Ribbon-hosted panel that appears when something is selected.
 | Blueprint sheet export | `BlueprintExportModal.tsx` | SVG, high-res PNG, print to PDF, JSON model. **No DXF** — the button says so. |
 | BOQ export | `BOQCostModal.tsx` | CSV and printable cost report |
 | Schedule export | `DesignScheduleModal.tsx` | FF&E and finish tables to one CSV, or a printable spec sheet |
+| Elevation export | `ElevationsModal.tsx` | One wall as SVG or PNG, one wall to print, or the whole set one page per wall |
+| Clearance export | `ClearanceAuditModal.tsx` | Findings to CSV, authority and source per row |
+| Ceiling plan export | `CeilingPlanModal.tsx` | Sheet as SVG or PNG, print, or the fixture schedule and illuminance check to CSV |
+| Finish board export | `MoodboardModal.tsx` | One board as SVG or PNG, print, or the whole pack one board per page |
 | 3D screenshot | ribbon | PNG from the active camera |
 | Project save / load | `frontend/lib/projectStorage.ts`, `frontend/app/page.tsx` | Full-design JSON; `localStorage` autosave under `plot_to_plan_project_data_v1` |
 | CLI sheet export | `backend/prompt_to_plan.py` | `--svg`, `--json` |

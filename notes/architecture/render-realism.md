@@ -54,8 +54,10 @@ about the *picture* being unrealistic. They are unrelated failures.
    `transmission`, `ior: 1.52`, tint moved to `attenuationColor`. It stays out
    of the transparent queue, which is what the old `depthWrite: false` dodge was
    compensating for.
-6. **Real furniture and a landscaped setback** — [[furniture-models]] and
-   `lib/siteLandscape.ts`.
+6. **Real furniture** — [[furniture-models]]. The setback strip carried a
+   planting bed, seeded shrubs and an entrance driveway from
+   `lib/siteLandscape.ts`; that module was removed and the plot is now the bare
+   lawn, pending a landscaping feature of its own.
 
 ## The two traps worth remembering
 

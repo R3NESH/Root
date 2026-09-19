@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v1.6.16",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "small_wooden_table_01"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "small_wooden_table_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cylinder.002",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "small_wooden_table_01_nor_gl",
+      "uri": "textures/small_wooden_table_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "small_wooden_table_01_diff",
+      "uri": "textures/small_wooden_table_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "small_wooden_table_01_metal-small_wooden_table_01_rough",
+      "uri": "textures/small_wooden_table_01_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 2249,
+      "max": [
+        0.45809391140937805,
+        0.5330857634544373,
+        0.21990439295768738
+      ],
+      "min": [
+        -0.45809391140937805,
+        -3.725290298461914e-9,
+        -0.22005823254585266
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2249,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 2249,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 10230,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 26988,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 26988,
+      "byteOffset": 26988
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17992,
+      "byteOffset": 53976
+    },
+    {
+      "buffer": 0,
+      "byteLength": 20460,
+      "byteOffset": 71968
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 92428,
+      "uri": "small_wooden_table_01.bin"
+    }
+  ]
+}

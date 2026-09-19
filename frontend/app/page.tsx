@@ -26,7 +26,7 @@ import { WALL_HEIGHT_FT } from "@/lib/sceneConstants";
 import { edgeName, isEmptyWallEdit, WallEdit, WallEdits } from "@/lib/wallEdits";
 import { defaultCounts, getProgram, ProgramKey } from "@/lib/programs";
 import { NearPairIds, nearIndices, requestAIPlan } from "@/lib/aiPlan";
-import { PLAN_IMAGE_TYPES, readImageFile, requestAIPlanFromImage } from "@/lib/aiPlanImage";
+import { readImageFile, requestAIPlanFromImage } from "@/lib/aiPlanImage";
 import { applyFacade, requestAIFacade, summary as facadeSummary } from "@/lib/aiFacadeImage";
 import { seatingCapacity } from "@/lib/cafeInteriors";
 import {
@@ -46,12 +46,15 @@ import WindowShapeModal from "@/components/WindowShapeModal";
 import TopRibbonTaskbar from "@/components/TopRibbonTaskbar";
 import ReplaceObjectModal from "@/components/ReplaceObjectModal";
 import DoorsWindowsDrawer from "@/components/DoorsWindowsDrawer";
-import LeftToolRail from "@/components/LeftToolRail";
 import AIFurnitureStudioModal from "@/components/AIFurnitureStudioModal";
 import GraphicsControlModal from "@/components/GraphicsControlModal";
 import BOQCostModal from "@/components/BOQCostModal";
 import DesignScheduleModal from "@/components/DesignScheduleModal";
-import { BuiltinFurnitureRecord } from "@/lib/designSchedule";
+import ElevationsModal from "@/components/ElevationsModal";
+import ClearanceAuditModal from "@/components/ClearanceAuditModal";
+import MoodboardModal from "@/components/MoodboardModal";
+import CeilingPlanModal from "@/components/CeilingPlanModal";
+import { BuiltinFurnitureRecord } from "@/lib/furnitureInventory";
 import CustomWallBlendModal from "@/components/CustomWallBlendModal";
 
 import { GraphicsSettings, DEFAULT_GRAPHICS_SETTINGS } from "@/lib/graphicsConfig";
@@ -83,6 +86,8 @@ import {
   CadTool,
   WALL_TYPE_CONFIGS,
   WallJoinStyle,
+  DrawnStair,
+  DEFAULT_STAIR_WIDTH_IN,
 } from "@/lib/customArchitecture";
 import { DesignSnapshot, describeDesignChange, useDesignHistory } from "@/lib/designHistory";
 import { OFFLINE_ESTIMATE_STATUS } from "@/lib/solve";
@@ -110,6 +115,16 @@ const DEFAULT_COUNTS: Record<RoomName, number> = withCounts({
   bedroom: 2,
   bathroom: 1,
 });
+
+/** What each drafting tool is called on screen, for the "picked back up" hint. */
+const CAD_TOOL_LABELS: Record<CadTool, string> = {
+  select: "Select",
+  draw_wall: "Wall",
+  place_door: "Door",
+  place_window: "Window",
+  tag_room: "Room Tag",
+  draw_stair: "Stair",
+};
 
 export default function Home() {
   const [plot, setPlot] = useState<PlotDims>(DEFAULT_PLOT);
@@ -144,6 +159,8 @@ export default function Home() {
   // stair core is added to each — notes/decisions/single-storey-first.md, finally cashed in.
   const [floorsCount, setFloorsCount] = useState<number>(1);
   const [customWalls, setCustomWalls] = useState<CustomDrawnWall[]>([]);
+  // Walk lines, not footprints. Solved into flights on read — see lib/stairPath.ts.
+  const [drawnStairs, setDrawnStairs] = useState<DrawnStair[]>([]);
   const [customRoomZones, setCustomRoomZones] = useState<CustomRoomZone[]>([]);
   const [customObjects, setCustomObjects] = useState<PlacedCustomObject[]>([]);
   const [deletedBuiltinIds, setDeletedBuiltinIds] = useState<string[]>([]);
@@ -164,8 +181,25 @@ export default function Home() {
   const [isLoadedFromStorage, setIsLoadedFromStorage] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [activeCadTool, setActiveCadTool] = useState<CadTool>("select");
+
   const [activeWallType, setActiveWallType] = useState<CustomWallType>("exterior");
+  // Flight width the stair tool gives the next stair it draws.
+  const [stairWidthIn, setStairWidthIn] = useState<number>(DEFAULT_STAIR_WIDTH_IN);
+  // Blueprint alongside the 3D view rather than instead of it. `H` toggles it.
+  const [isSplitView, setIsSplitView] = useState<boolean>(false);
+  // Which pane owns the keyboard. Both Scene and Blueprint2DView bind their own window keydown,
+  // so with both mounted one Enter would build two stairs and one Escape would cancel twice.
+  // Whichever pane the pointer is over is the one that hears it — the rule a split CAD view has
+  // to have, and the cheapest one that is never ambiguous.
+  const [activePane, setActivePane] = useState<"3d" | "2d">("3d");
   const [mode, setMode] = useState<"orbit" | "walkthrough" | "blueprint">("orbit");
+
+  // Only orbit has something to put the blueprint beside: in blueprint mode the 2D view already
+  // is the window, and in walkthrough the point is to be inside the house, not looking at a plan.
+  const splitActive = isSplitView && mode === "orbit";
+  // The drone tour: exterior orbit, in through the door, room by room, out again.
+  const [tourPlaying, setTourPlaying] = useState<boolean>(false);
+  const [tourProgress, setTourProgress] = useState<{ atSec: number; totalSec: number } | null>(null);
   // Sessions open at night. A saved project still wins: the loader below reads `lightsOn` back,
   // so this is what a new build starts on, not an override of what someone chose last time.
   const [lightsOn, setLightsOn] = useState(false);
@@ -181,11 +215,28 @@ export default function Home() {
   const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(DEFAULT_GRAPHICS_SETTINGS);
   const [isGraphicsModalOpen, setIsGraphicsModalOpen] = useState(false);
   const [placingOpeningDef, setPlacingOpeningDef] = useState<OpeningItemDef | null>(null);
+  /**
+   * The tool that was put down, so it can be picked back up.
+   *
+   * "A tool" is three separate pieces of state here — a catalog piece being placed, a door or
+   * window being placed, and the CAD drafting mode — and only one of them is ever armed at once.
+   * Escape clears all three; this remembers which one had been holding.
+   */
+  const [lastTool, setLastTool] = useState<
+    | { kind: "item"; type: string; rotationY: number }
+    | { kind: "opening"; def: OpeningItemDef }
+    | { kind: "cad"; tool: CadTool }
+    | null
+  >(null);
   const [isLayoutLocked, setIsLayoutLocked] = useState(false);
   const [isUpgraded, setIsUpgraded] = useState(true);
   const [isRaytracing, setIsRaytracing] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isElevationsModalOpen, setIsElevationsModalOpen] = useState(false);
+  const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
+  const [isMoodboardModalOpen, setIsMoodboardModalOpen] = useState(false);
+  const [isCeilingPlanModalOpen, setIsCeilingPlanModalOpen] = useState(false);
   // The automatic fit-out only exists as meshes; Scene measures it and hands the list back so
   // the FF&E schedule can count it. See Scene's onFurnitureInventory.
   const [builtinInventory, setBuiltinInventory] = useState<BuiltinFurnitureRecord[]>([]);
@@ -242,6 +293,7 @@ export default function Home() {
       if (typeof data.autoSetback === "boolean") setAutoSetback(data.autoSetback);
       if (typeof data.floorsCount === "number") setFloorsCount(data.floorsCount);
       if (Array.isArray(data.customWalls)) setCustomWalls(data.customWalls);
+      if (Array.isArray(data.drawnStairs)) setDrawnStairs(data.drawnStairs);
       if (Array.isArray(data.customRoomZones)) setCustomRoomZones(data.customRoomZones);
       if (Array.isArray(data.customObjects)) setCustomObjects(data.customObjects);
       if (Array.isArray(data.deletedBuiltinIds)) setDeletedBuiltinIds(data.deletedBuiltinIds);
@@ -273,7 +325,6 @@ export default function Home() {
   // the mix is rebuilt from `counts` in ROOM_NAMES order and the model's indices would point at
   // the wrong rooms by the time the solver saw them.
   const [nearPairIds, setNearPairIds] = useState<NearPairIds[]>([]);
-  const [promptText, setPromptText] = useState("");
   const [promptBusy, setPromptBusy] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
   const [promptUnsupported, setPromptUnsupported] = useState<string[]>([]);
@@ -281,8 +332,6 @@ export default function Home() {
   // What an uploaded drawing did and did not become. Separate from promptAssumed: this is not a
   // default the person failed to give, it is what the solver did to their plan.
   const [planImageNotice, setPlanImageNotice] = useState<string | null>(null);
-  const planImageInputRef = useRef<HTMLInputElement | null>(null);
-  const facadeImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeMoveCmd, setActiveMoveCmd] = useState<string | null>(null);
   const [doorPrompt, setDoorPrompt] = useState<{ doorId: string; label: string; isOpen: boolean } | null>(null);
@@ -504,6 +553,7 @@ export default function Home() {
       autoSetback,
       floorsCount,
       customWalls,
+      drawnStairs,
       customRoomZones,
       customObjects,
       deletedBuiltinIds,
@@ -533,6 +583,7 @@ export default function Home() {
       autoSetback,
       floorsCount,
       customWalls,
+      drawnStairs,
       customRoomZones,
       customObjects,
       deletedBuiltinIds,
@@ -559,6 +610,7 @@ export default function Home() {
       setAutoSetback(snapshot.autoSetback);
       setFloorsCount(snapshot.floorsCount);
       setCustomWalls(snapshot.customWalls);
+      setDrawnStairs(snapshot.drawnStairs ?? []);
       setCustomRoomZones(snapshot.customRoomZones);
       setCustomObjects(snapshot.customObjects);
       setDeletedBuiltinIds(snapshot.deletedBuiltinIds);
@@ -579,6 +631,17 @@ export default function Home() {
   );
 
   const history = useDesignHistory(captureDesign, restoreDesign);
+
+  // The memory of the last tool lasts only until the document changes.
+  //
+  // That is the whole of the rule that lets Ctrl+Z mean two things without being unpredictable:
+  // right after Escape put a tool down, nothing has been edited, so Ctrl+Z can only sensibly
+  // mean "put that back". The moment anything is drawn, placed or resized, there is a real edit
+  // to undo and Ctrl+Z goes back to undoing it. `captureDesign` is rebuilt whenever any part of
+  // the document does, so its identity is exactly that signal.
+  useEffect(() => {
+    setLastTool(null);
+  }, [captureDesign]);
   const { record: recordHistory, commitBefore: commitHistory, reset: resetHistory } = history;
 
   // The document is watched rather than instrumented at each mutation: an author adding a new
@@ -611,6 +674,7 @@ export default function Home() {
     autoSetback,
     floorsCount,
     customWalls,
+    drawnStairs,
     customRoomZones,
     customObjects,
     deletedBuiltinIds,
@@ -1941,11 +2005,72 @@ export default function Home() {
     setPlacingRotationY(0);
   }, []);
 
+  /**
+   * Put down whatever tool is held, and remember it.
+   *
+   * Returns whether anything was actually holding, so Escape can fall through to its other jobs
+   * — closing a modal, dropping a selection — when no tool was armed. Without that, one Escape
+   * would have to be pressed twice in a row to get out of a dialog opened while a tool was up.
+   */
+  const unequipTool = useCallback((): boolean => {
+    if (placingItemType) {
+      setLastTool({ kind: "item", type: placingItemType, rotationY: placingRotationY });
+      setPlacingItemType(null);
+      setPlacingRotationY(0);
+      return true;
+    }
+    if (placingOpeningDef) {
+      setLastTool({ kind: "opening", def: placingOpeningDef });
+      setPlacingOpeningDef(null);
+      return true;
+    }
+    if (activeCadTool !== "select") {
+      setLastTool({ kind: "cad", tool: activeCadTool });
+      setActiveCadTool("select");
+      return true;
+    }
+    return false;
+  }, [placingItemType, placingRotationY, placingOpeningDef, activeCadTool]);
+
+  /** Pick the last tool back up. Arming one clears the other two, as arming always does. */
+  const reequipLastTool = useCallback((): boolean => {
+    if (!lastTool) return false;
+    setPlacingItemType(null);
+    setPlacingOpeningDef(null);
+    setActiveCadTool("select");
+    if (lastTool.kind === "item") {
+      setPlacingItemType(lastTool.type);
+      setPlacingRotationY(lastTool.rotationY);
+    } else if (lastTool.kind === "opening") {
+      setPlacingOpeningDef(lastTool.def);
+    } else {
+      setActiveCadTool(lastTool.tool);
+    }
+    return true;
+  }, [lastTool]);
+
   // Global Keyboard shortcuts (Escape, Delete, Backspace, KeyR)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      // H: blueprint alongside the 3D view. Only from 3D — in blueprint mode the 2D view is
+      // already the whole window, and there is nothing to put beside it.
+      if (e.code === "KeyH" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (mode === "orbit") setIsSplitView((v) => !v);
+        return;
+      }
+
+      // Escape has just put a tool down and nothing has been edited since, so Ctrl+Z means
+      // "pick that back up". One press only: the memory is consumed here, so pressing it again
+      // undoes, which is what it would have done anyway.
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && !e.shiftKey && lastTool) {
+        e.preventDefault();
+        reequipLastTool();
+        setLastTool(null);
+        return;
+      }
 
       if ((e.ctrlKey || e.metaKey) && (e.code === "KeyZ" || e.code === "KeyY")) {
         e.preventDefault();
@@ -1964,8 +2089,10 @@ export default function Home() {
       }
 
       if (e.code === "Escape") {
-        setPlacingItemType(null);
-        setPlacingRotationY(0);
+        setTourPlaying(false);
+        // Remembers what was held, so it can be picked back up. Everything below still runs:
+        // one Escape should clear the whole transient state, not just the first thing it finds.
+        unequipTool();
         setSelectedObjectId(null);
         setSelectedObjectInfo(null);
         setIsGraphicsModalOpen(false);
@@ -1978,6 +2105,10 @@ export default function Home() {
         setIsRoomDimensionsOpen(false);
         setIsBOQModalOpen(false);
         setIsScheduleModalOpen(false);
+        setIsElevationsModalOpen(false);
+        setIsClearanceModalOpen(false);
+        setIsMoodboardModalOpen(false);
+        setIsCeilingPlanModalOpen(false);
         setIsCustomWallBlendModalOpen(false);
       } else if (e.code === "Delete" || e.code === "Backspace") {
         if (selectedObjectId || selectedObjectInfo) {
@@ -2021,7 +2152,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLights, handleMoveSelected, setIsUpgraded, setIsRaytracing]);
+  }, [mode, lastTool, unequipTool, reequipLastTool, placingItemType, selectedObjectId, selectedObjectInfo, handleDeleteSelected, handleRotateSelected, handleRotatePlacing, handleToggleLights, handleMoveSelected, setIsUpgraded, setIsRaytracing]);
 
   return (
     <div className={styles.appContainer}>
@@ -2066,6 +2197,10 @@ export default function Home() {
         onOpenGraphicsModal={() => setIsGraphicsModalOpen(true)}
         onOpenBOQModal={() => setIsBOQModalOpen(true)}
         onOpenScheduleModal={() => setIsScheduleModalOpen(true)}
+        onOpenElevationsModal={() => setIsElevationsModalOpen(true)}
+        onOpenClearanceModal={() => setIsClearanceModalOpen(true)}
+        onOpenMoodboardModal={() => setIsMoodboardModalOpen(true)}
+        onOpenCeilingPlanModal={() => setIsCeilingPlanModalOpen(true)}
         onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
         onOpenPlotShapeModal={() => setIsPlotShapeModalOpen(true)}
 
@@ -2125,99 +2260,29 @@ export default function Home() {
         aiError={promptError}
         aiAssumed={promptAssumed}
         aiUnsupported={promptUnsupported}
+        onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
+        isSplitView={isSplitView}
+        onToggleSplitView={() => setIsSplitView((v) => !v)}
+        tourPlaying={tourPlaying}
+        onToggleTour={() => {
+          // A tour needs the whole window and its own camera, so it turns the split off and
+          // leaves walkthrough for orbit rather than fighting either for the view.
+          if (!tourPlaying) {
+            setIsSplitView(false);
+            setMode("orbit");
+          }
+          setTourPlaying((v) => !v);
+          setTourProgress(null);
+        }}
+        onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
+        totalPlacedCount={customObjects.length}
+        deletedBuiltinCount={deletedBuiltinIds.length}
+        onRestoreDefaults={handleRestoreDefaults}
+        onClearAllFurniture={handleClearAllFurniture}
       />
 
       <main className={styles.mainLayout}>
-        {/* Interior design tool rail (furniture, finishes, object management) */}
-        <LeftToolRail
-          program={program}
-          placingItemType={placingItemType}
-          onSelectPlaceItem={(type) => {
-            setPlacingItemType(type);
-            if (!type) setPlacingRotationY(0);
-          }}
-          materialConfig={materialConfig}
-          onChangeMaterialConfig={setMaterialConfig}
-          onOpenMaterialModal={() => setIsMaterialModalOpen(true)}
-          onOpenAIFurnitureModal={() => setIsAIFurnitureModalOpen(true)}
-          onOpenCustomWallBlendModal={() => setIsCustomWallBlendModalOpen(true)}
-          totalPlacedCount={customObjects.length}
-
-          deletedBuiltinCount={deletedBuiltinIds.length}
-          onRestoreDefaults={handleRestoreDefaults}
-          onClearAllFurniture={handleClearAllFurniture}
-        />
-
         <section className={styles.viewport}>
-          {/* Free text in. The room tray below is unchanged and still reaches a plan with no
-              keyboard at all — notes/decisions/zero-keyboard-events.md was reversed for this
-              input, not replaced by it. */}
-          <div className={styles.promptBar}>
-            <input
-              className={styles.promptInput}
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") applyPromptText(promptText);
-              }}
-              placeholder="30x40 north facing 2BHK with a store and car parking"
-              disabled={promptBusy}
-              aria-label="Describe the house you want"
-            />
-            <button
-              className={styles.promptGo}
-              onClick={() => applyPromptText(promptText)}
-              disabled={promptBusy || promptText.trim().length === 0}
-            >
-              {promptBusy ? "Reading" : "Build"}
-            </button>
-            {/* A photo of an existing plan, read into the same mix. Whatever is typed above rides
-                along as a note — "this is the ground floor" — so it can correct a misread. */}
-            <input
-              ref={planImageInputRef}
-              type="file"
-              accept={PLAN_IMAGE_TYPES.join(",")}
-              className={styles.promptFileInput}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                // Cleared before the await so picking the same file twice fires onChange again.
-                e.target.value = "";
-                if (file) applyPlanImage(file, promptText);
-              }}
-              aria-label="Upload a photo of a floor plan"
-            />
-            <button
-              className={styles.promptUpload}
-              onClick={() => planImageInputRef.current?.click()}
-              disabled={promptBusy}
-              title="Read a photo, scan or screenshot of an existing floor plan"
-            >
-              Plan photo
-            </button>
-            {/* A photo of the house from outside. Separate input rather than one with a mode flag:
-                the two readings are different enough to be different buttons, and the person
-                already knows which kind of picture they have. */}
-            <input
-              ref={facadeImageInputRef}
-              type="file"
-              accept={PLAN_IMAGE_TYPES.join(",")}
-              className={styles.promptFileInput}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) applyFacadePhoto(file, promptText);
-              }}
-              aria-label="Upload a photo of a house from outside"
-            />
-            <button
-              className={styles.promptUpload}
-              onClick={() => facadeImageInputRef.current?.click()}
-              disabled={promptBusy}
-              title="Read the facade of a house from a photo, and generate a plan and interior to go behind it"
-            >
-              House photo
-            </button>
-          </div>
 
           {(promptError ||
             planImageNotice ||
@@ -2249,50 +2314,14 @@ export default function Home() {
             </div>
           )}
 
-          {mode === "blueprint" ? (
-            /* 2D Architectural Blueprint View */
-            <Blueprint2DView
-              spaces={program.spaces}
-              plot={plot}
-              onChangePlot={setPlot}
-              facing={facing}
-              setback={activeSetback}
-              rooms={rooms}
-              meta={meta}
-              counts={counts}
-              customDims={customDims}
-              roomEdgeCurves={roomEdgeCurves}
-              customOpenings={customOpenings}
-              customWallThickness={customWallThickness}
-              customWalls={customWalls}
-              onChangeCustomWalls={setCustomWalls}
-              customRoomZones={customRoomZones}
-              onChangeCustomRoomZones={setCustomRoomZones}
-              activeFloor={activeFloor}
-              onChangeActiveFloor={setActiveFloor}
-              activeCadTool={activeCadTool}
-              onChangeCadTool={setActiveCadTool}
-              activeWallType={activeWallType}
-              onChangeWallType={setActiveWallType}
-              activeBlueprintName={activeBlueprintName}
-              windowConfig={windowConfig}
-              onChangeWindowConfig={setWindowConfig}
-              placingOpeningDef={placingOpeningDef}
-              onSelectPlaceOpening={handleSelectPlaceOpening}
-              onChangeCounts={setCounts}
-              onChangeCustomDims={setCustomDims}
-              onChangeCustomOpenings={setCustomOpenings}
-              onChangeCustomWallThickness={setCustomWallThickness}
-              onRoomMove={handleRoomMove}
-              onRoomResize={handleRoomResize}
-              onOpenExportModal={() => setIsExportModalOpen(true)}
-              onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
-              onApplyBlueprint={handleApplyModelBlueprint}
-              onStartFromScratch={handleStartFromScratch}
-            />
-          ) : (
-            /* 3D Three.js Scene Viewport */
-            <>
+          {/* 3D on the left, 2D on the right, both live off the same state — so a wall drawn
+              in the blueprint is already in the scene graph, with nothing to sync. `H` puts the
+              blueprint alongside instead of instead of. */}
+          {mode !== "blueprint" && (
+            <div
+              className={styles.viewportPane}
+              onMouseEnter={() => setActivePane("3d")}
+            >
               <Scene
                 plot={plot}
                 facing={facing}
@@ -2301,6 +2330,16 @@ export default function Home() {
                 rooms={rooms}
                 customOpenings={customOpenings}
                 customWalls={customWalls}
+                drawnStairs={drawnStairs}
+                onChangeDrawnStairs={setDrawnStairs}
+                stairWidthIn={stairWidthIn}
+                keyboardActive={!splitActive || activePane === "3d"}
+                tourPlaying={tourPlaying}
+                onTourEnd={() => {
+                  setTourPlaying(false);
+                  setTourProgress(null);
+                }}
+                onTourProgress={(atSec, totalSec) => setTourProgress({ atSec, totalSec })}
                 selectedWallIds={selectedRunWallIds}
                 customRoomZones={customRoomZones}
                 activeFloor={activeFloor}
@@ -2661,7 +2700,46 @@ export default function Home() {
                   );
                 })()}
 
-              {mode === "orbit" && (
+              {/* A feature nobody can see is a feature nobody uses, and this one is two
+                  keystrokes with nothing on screen to suggest it. The pill lives exactly as long
+                  as the offer does: it goes when the tool is picked back up, and when an edit
+                  makes Ctrl+Z mean undo again. */}
+              {lastTool && !tourPlaying && (
+                <div className={styles.toolMemoryPill} role="status">
+                  <span>
+                    Put down{" "}
+                    <strong>
+                      {lastTool.kind === "item"
+                        ? FURNITURE_CATALOG.find((i) => i.type === lastTool.type)?.name ?? "tool"
+                        : lastTool.kind === "opening"
+                        ? lastTool.def.name
+                        : CAD_TOOL_LABELS[lastTool.tool]}
+                    </strong>
+                  </span>
+                  <button className={styles.toolMemoryBtn} onClick={() => { reequipLastTool(); setLastTool(null); }}>
+                    Ctrl+Z to pick back up
+                  </button>
+                </div>
+              )}
+
+              {tourPlaying && tourProgress && (
+                <div className={styles.tourBar} role="status">
+                  <div className={styles.tourTrack}>
+                    <div
+                      className={styles.tourFill}
+                      style={{ width: `${Math.round((tourProgress.atSec / Math.max(0.001, tourProgress.totalSec)) * 100)}%` }}
+                    />
+                  </div>
+                  <span className={styles.tourTime}>
+                    {Math.round(tourProgress.atSec)}s / {Math.round(tourProgress.totalSec)}s
+                  </span>
+                  <button className={styles.tourStop} onClick={() => setTourPlaying(false)}>
+                    Stop (Esc)
+                  </button>
+                </div>
+              )}
+
+              {mode === "orbit" && !tourPlaying && (
                 <>
                   <div className={styles.plotMetaOverlay}>
                     <span className={styles.metaLabel}>Plot:</span>
@@ -2673,15 +2751,20 @@ export default function Home() {
                     <span className={styles.metaValue}>
                       {inchesToFeet(buildableW)}′ × {inchesToFeet(buildableD)}′ ft
                     </span>
-                  </div> {/* 3D Minimap Radar */}
-                  <Minimap
-                    plot={plot}
-                    facing={facing}
-                    rooms={rooms}
-                    player={player}
-                    currentRoomIndex={currentRoomIndex}
-                    onTeleport={handleTeleport}
-                  />
+                  </div>
+                  {/* 3D Minimap Radar. Hidden with the blueprint open beside the scene: the
+                      radar is a plan reference for when there is no plan on screen, and in split
+                      view it sits on the divider in front of the full one. */}
+                  {!splitActive && (
+                    <Minimap
+                      plot={plot}
+                      facing={facing}
+                      rooms={rooms}
+                      player={player}
+                      currentRoomIndex={currentRoomIndex}
+                      onTeleport={handleTeleport}
+                    />
+                  )}
                 </>
               )}
 
@@ -2702,7 +2785,61 @@ export default function Home() {
                   onInteractDoor={() => doorTriggerRef.current?.()}
                 />
               )}
-            </>
+            </div>
+          )}
+
+          {(mode === "blueprint" || splitActive) && (
+            <div
+              className={splitActive ? styles.viewportPaneSplit2d : styles.viewportPane}
+              onMouseEnter={() => setActivePane("2d")}
+            >
+              {/* 2D Architectural Blueprint View */}
+              <Blueprint2DView
+              spaces={program.spaces}
+              plot={plot}
+              onChangePlot={setPlot}
+              facing={facing}
+              setback={activeSetback}
+              rooms={rooms}
+              meta={meta}
+              counts={counts}
+              customDims={customDims}
+              roomEdgeCurves={roomEdgeCurves}
+              customOpenings={customOpenings}
+              customWallThickness={customWallThickness}
+              customWalls={customWalls}
+              onChangeCustomWalls={setCustomWalls}
+              drawnStairs={drawnStairs}
+              onChangeDrawnStairs={setDrawnStairs}
+              stairWidthIn={stairWidthIn}
+              onChangeStairWidthIn={setStairWidthIn}
+              keyboardActive={!splitActive || activePane === "2d"}
+              compact={splitActive}
+              customRoomZones={customRoomZones}
+              onChangeCustomRoomZones={setCustomRoomZones}
+              activeFloor={activeFloor}
+              onChangeActiveFloor={setActiveFloor}
+              activeCadTool={activeCadTool}
+              onChangeCadTool={setActiveCadTool}
+              activeWallType={activeWallType}
+              onChangeWallType={setActiveWallType}
+              activeBlueprintName={activeBlueprintName}
+              windowConfig={windowConfig}
+              onChangeWindowConfig={setWindowConfig}
+              placingOpeningDef={placingOpeningDef}
+              onSelectPlaceOpening={handleSelectPlaceOpening}
+              onChangeCounts={setCounts}
+              onChangeCustomDims={setCustomDims}
+              onChangeCustomOpenings={setCustomOpenings}
+              onChangeCustomWallThickness={setCustomWallThickness}
+              onRoomMove={handleRoomMove}
+              onRoomResize={handleRoomResize}
+              onOpenExportModal={() => setIsExportModalOpen(true)}
+              onOpenModelBlueprintsModal={() => setIsModelBlueprintsOpen(true)}
+              onApplyBlueprint={handleApplyModelBlueprint}
+              onStartFromScratch={handleStartFromScratch}
+            />
+            </div>
           )}
         </section>
       </main> {/* Room Dimensions & Sizing Studio Modal */}
@@ -2788,6 +2925,36 @@ export default function Home() {
         builtins={builtinInventory}
         customObjects={customObjects}
         materialConfig={materialConfig}
+      /> {/* Interior elevations — the drawing a plan cannot carry */}
+      <ElevationsModal
+        isOpen={isElevationsModalOpen}
+        onClose={() => setIsElevationsModalOpen(false)}
+        rooms={rooms}
+        builtins={builtinInventory}
+        customObjects={customObjects}
+        materialConfig={materialConfig}
+      /> {/* Clearance audit — NKBA and trade minimums, measured */}
+      <ClearanceAuditModal
+        isOpen={isClearanceModalOpen}
+        onClose={() => setIsClearanceModalOpen(false)}
+        rooms={rooms}
+        builtins={builtinInventory}
+        customObjects={customObjects}
+      /> {/* Finish board — the scheme in one page, every piece at one scale */}
+      <MoodboardModal
+        isOpen={isMoodboardModalOpen}
+        onClose={() => setIsMoodboardModalOpen(false)}
+        rooms={rooms}
+        builtins={builtinInventory}
+        customObjects={customObjects}
+        materialConfig={materialConfig}
+      /> {/* Reflected ceiling plan — fixtures, downlight layout, illuminance check */}
+      <CeilingPlanModal
+        isOpen={isCeilingPlanModalOpen}
+        onClose={() => setIsCeilingPlanModalOpen(false)}
+        rooms={rooms}
+        builtins={builtinInventory}
+        customObjects={customObjects}
       /> {/* Custom Wall Partitions & Permutations Studio Modal */}
       <PlotShapeModal
         isOpen={isPlotShapeModalOpen}

@@ -86,8 +86,9 @@
   gap: 2px;
   flex: 1;
   min-width: 0;
-  /* Children keep their natural width (flex: none below) and the row clips: an item past the
-     fit is hidden, never squashed into an unreadable stub. */
+  /* Children keep their natural width (flex: none below) rather than squashing into unreadable
+     stubs. An item past the fit is taken out of the layout by .appBarBtnOverflowed and reached
+     through the overflow menu; the clip is only a backstop for the frame before that lands. */
   overflow: hidden;
 }
 
@@ -142,7 +143,17 @@
   opacity: 0.9;
 }
 
+/* Out of the layout, not merely clipped — see classFor() in the component. */
+.appBarBtnOverflowed {
+  display: none;
+}
+
 .appBarOverflowBtn {
+  /* Deliberately out of the flex flow, with OVERFLOW_BTN_W reserved in the fit instead: a
+     button that took real width would shrink the row the moment it appeared, which can push
+     another item out and set the measurement oscillating. It does not overlap anything,
+     because the fit leaves that width unused and .appBarBtnOverflowed takes the items past
+     the fit out of the layout rather than letting them run under it. */
   position: absolute;
   right: 0;
   top: 50%;
@@ -313,6 +324,9 @@
   display: flex;
   align-items: flex-end;
   gap: 2px;
+  /* Fills the strip so the far-right tab's auto margin has room to push into. Without it the
+     list is only as wide as its tabs and that margin collapses to nothing. */
+  flex: 1;
   /* A flex item defaults to min-width: auto, which is its content width — so this could never
      shrink, `overflow-x: auto` never engaged, and the tabs past the edge were unreachable
      rather than scrollable. */
@@ -364,6 +378,11 @@
   background: #24231e;
   border-bottom-color: #6f9aa8;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Pushed away from the run of drafting tabs, to the right-hand end of the strip. */
+.tabBtnFarRight {
+  margin-left: auto;
 }
 
 .collapseBtn {
@@ -1023,28 +1042,8 @@
   color: #ffffff;
 }
 
-.cadViewBtn {
-  background: rgba(111, 154, 168, 0.15);
-  border: 1px solid rgba(111, 154, 168, 0.35);
-  color: #6f9aa8;
-  padding: 8px 14px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
-}
 
-.cadViewBtn:hover {
-  background: rgba(111, 154, 168, 0.25);
-  color: #ffffff;
-}
 
-.cadViewBtnActive {
-  background: #3d5c69;
-  color: #ffffff;
-}
 
 .exportSuiteBtn {
   background: rgba(95, 125, 79, 0.2);

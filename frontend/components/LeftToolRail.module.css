@@ -1,13 +1,14 @@
 /* ==========================================================================
-   LEFT INTERIOR TOOL RAIL
-   Docked vertical icon rail + flyout panel (CAD side toolbar pattern)
+   INTERIOR TOOL RAIL
+   Lives in the ribbon's Interior tab: a horizontal band of grouped icon
+   buttons, each opening the same flyout panel underneath the shelf.
    ========================================================================== */
 
 .railRoot {
   position: relative;
   display: flex;
-  flex-shrink: 0;
-  height: 100%;
+  flex: 1;
+  min-width: 0;
   z-index: 40;
 }
 
@@ -15,36 +16,50 @@
    Docked icon rail
    -------------------------------------------------------------------------- */
 .rail {
-  width: 84px;
-  height: 100%;
-  background: #21201b;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 0;
-  overflow-y: auto;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow-x: auto;
   user-select: none;
 }
 
-.railCaption {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #6d685e;
-  margin-bottom: 4px;
+/* The tab already says "Interior", and the one-line hint is a tooltip's worth of text that the
+   shelf has no vertical room for. Both are dropped rather than deleted from the markup, so the
+   rail reads the same if it is ever docked down a side again. */
+.railCaption,
+.railHint {
+  display: none;
 }
 
-/* Heading over each cluster of the rail. Drawn as a rule with the name sitting on it, so a
-   group costs one line of height rather than a label plus a divider. */
-.railGroupLabel {
-  width: 72px;
+/* One cluster of the rail: its buttons in a row, its name underneath, a divider to the right —
+   the arrangement every other panel on the shelf uses. */
+.railGroup {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   flex-shrink: 0;
-  margin: 7px 0 3px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 0 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.railGroup:last-of-type {
+  border-right: none;
+}
+
+.railGroupBtns {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.railGroupLabel {
+  margin: 3px 0 0;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   font-size: 8.5px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -53,14 +68,8 @@
   text-align: center;
 }
 
-.railGroupLabel:first-of-type {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
-
 .railBtn {
-  width: 74px;
+  width: 62px;
   min-height: 50px;
   padding: 5px 3px;
   background: transparent;
@@ -125,10 +134,11 @@
    -------------------------------------------------------------------------- */
 .flyout {
   position: absolute;
-  top: 10px;
-  left: 90px;
+  top: calc(100% + 5px);
+  left: 0;
   width: 292px;
-  max-height: calc(100% - 20px);
+  max-height: min(560px, 70vh);
+  z-index: 41;
   background: #21201b;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 3px;
@@ -142,11 +152,11 @@
 @keyframes flyoutIn {
   from {
     opacity: 0;
-    transform: translateX(-6px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
@@ -522,8 +532,8 @@
    -------------------------------------------------------------------------- */
 .placementBanner {
   position: absolute;
-  bottom: 18px;
-  left: 96px;
+  top: calc(100% + 5px);
+  right: 0;
   display: flex;
   align-items: center;
   gap: 10px;

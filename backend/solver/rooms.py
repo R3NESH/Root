@@ -65,32 +65,51 @@ def ft(feet: float) -> int:
 # have a 1.5 m2 (~16 sq ft) floor. Market-typical sizes, which set the maximums, come from what
 # Indian builders actually draw. Both are cited in notes/solver/room-sizes-from-code.md.
 #
-# Maximums are unchanged where they were already sane. They matter for a different reason:
-# fill measured against catalog_fill_ceiling() shows when the CATALOG, not the plot, is what
-# stops a house growing.
+# Maximums were never tuned at all - they were the test-fixture ceilings, and
+# catalog_fill_ceiling() existed to show when the CATALOG, not the plot, is what stops a house
+# growing. It was: bench_realism measured a 2BHK filling 46% of a 40x60 envelope and a 4BHK 33%
+# of a 50x80, both flagged CAT, because every room had hit its cap. Give the tool a bigger plot
+# and it drew the same small house in a bigger footprint, which is the whole of the "why does it
+# look cramped" complaint on plots above 30x40.
+#
+# So the maximums are now what India actually builds at the top of this band, not what a test
+# fixture needed. A comfortable master is 12x14 and a large one 14x16; luxury villas run 16x18 to
+# 18x20 - https://www.houseyog.com/blog/master-bedroom-size-layout-india/. A comfortable living
+# room is 14x16, with 20x20 read as large for a spacious independent house -
+# https://civilguide.in/standard-room-size-for-house-in-india/.
+#
+# Minimums are untouched. They are the NBC floor and they are what makes a 3BHK fit a 30x40.
 ROOM_CATALOG: dict[str, Room] = {
     # --- habitable, dry ---------------------------------------------------------------
     # 10x10 is the NBC-compliant bedroom floor (100 sq ft, 10 ft wide); 12x14 is a master.
-    "bedroom": Room("bedroom", ft(10), ft(14), ft(10), ft(14)),
+    "bedroom": Room("bedroom", ft(10), ft(16), ft(10), ft(18)),
     # A 10x12 living room is the practical Indian minimum; 15x16 is a large hall.
-    "hall": Room("hall", ft(10), ft(15), ft(12), ft(16)),
-    "dining": Room("dining", ft(8), ft(12), ft(8), ft(12)),
+    "hall": Room("hall", ft(10), ft(18), ft(12), ft(20)),
+    # 8x8 is 64 sq ft, under NBC's 7.5 m2 (~81 sq ft) habitable floor, and it stays that way on
+    # purpose. Raising it to 8x11 was tried on 2026-09-19 and put the 3BHK on a 30x40 back to
+    # INFEASIBLE - the headline failure this catalog was retuned to fix. The defensible reading is
+    # that an 8x8 dining in an Indian plan is an open dining *area* off the hall rather than an
+    # enclosed room, and NBC's room minimum does not bind an area that is part of the living space.
+    # That reading is not modelled: `habitable` here means "needs light and air", which a dining
+    # area does, and nothing in this catalog distinguishes a room from an alcove. Open question,
+    # recorded in notes/solver/room-sizes-from-code.md rather than argued away in a constant.
+    "dining": Room("dining", ft(8), ft(14), ft(8), ft(16)),
     "entrance": Room("entrance", ft(4), ft(8), ft(4), ft(7)),
     # --- habitable, wet ---------------------------------------------------------------
     # 7x8 is the smallest kitchen that still works as one; below 7 ft wide the counter run and
     # the walkway stop coexisting.
-    "kitchen": Room("kitchen", ft(7), ft(11), ft(8), ft(10), wet=True),
+    "kitchen": Room("kitchen", ft(7), ft(12), ft(8), ft(14), wet=True),
     # --- service: no daylight requirement ---------------------------------------------
     # 4x6 clears the NBC 1.5 m2 floor and is a real Indian bathroom. A 5 ft minimum was carried
     # briefly because test_every_room_gets_a_window_or_a_vent_where_it_can failed at 4 ft - but
     # the cause was connectivity gating VENTS on a WINDOW-sized wall, not the room being too
     # small. See VENT_MIN_WALL_IN.
-    "bathroom": Room("bathroom", ft(4), ft(7), ft(6), ft(8), habitable=False, wet=True),
-    "store": Room("store", ft(4), ft(7), ft(4), ft(7), habitable=False),
+    "bathroom": Room("bathroom", ft(4), ft(8), ft(6), ft(10), habitable=False, wet=True),
+    "store": Room("store", ft(4), ft(8), ft(4), ft(10), habitable=False),
     # A washing area off the kitchen: machine, sink, drain, and a door to hang things outside.
     # Wet, so it is ventilated; not habitable, so it needs no window quota. Indian practice is
     # 4-6 ft wide by 6-10 ft long — https://www.bricknbolt.com/blogs-and-articles/home-design-guide/utility-room-design-ideas-uses
-    "utility": Room("utility", ft(4), ft(6), ft(6), ft(10), habitable=False, wet=True,
+    "utility": Room("utility", ft(4), ft(8), ft(6), ft(12), habitable=False, wet=True,
                     max_aspect_x10=25),
 
     # --- roofed, not walled -----------------------------------------------------------

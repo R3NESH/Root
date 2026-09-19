@@ -6,9 +6,40 @@ Real scanned furniture that replaces the procedural boxes in
 
 ## Source and licence
 
-All 38 assets are from [Poly Haven](https://polyhaven.com/models), released under
+All 62 assets are from [Poly Haven](https://polyhaven.com/models), released under
 **CC0 1.0** — public domain, no attribution required, commercial use permitted.
 Recorded here for provenance, not obligation.
+
+### 24 added 2026-09-19
+
+Aimed at the categories the catalog was thinnest in. After: living 23, decor 15, bedroom 10,
+lighting 8, dining 8.
+
+- **Lighting** — Chandelier_01, Chandelier_03, lantern_chandelier_01
+- **Dining** — painted_wooden_chair_01, round_wooden_table_01, folding_wooden_stool,
+  painted_wooden_bench
+- **Living** — WoodenChair_01, mid_century_lounge_chair, chinese_sofa, modern_coffee_table_01,
+  side_table_tall_01, small_wooden_table_01, gallinera_table, modern_wooden_cabinet,
+  wooden_display_shelves_01
+- **Bedroom** — vintage_day_bed, painted_wooden_cabinet
+- **Decor** — ceramic_vase_01, ceramic_vase_03, fancy_picture_frame_01,
+  standing_picture_frame_01, wall_clock, marble_bust_01
+
+**Dimensions are measured, not estimated.** Each catalog entry's `dimensions` came from the
+POSITION accessor bounds in that model's own `.gltf`, times the node scale where one exists —
+`Chandelier_01` carries a 0.01 node scale and reads as 245 ft without it. Same principle as
+[[schedule-is-measured-not-declared]].
+
+> [!warning] Poly Haven cannot fix two categories
+> Checked against the full 1,100-asset index: there is **no sanitaryware** (no WC, basin, tub or
+> shower) and **no soft furnishing** (no rug, curtain or cushion). Bath stays at 4 pieces and
+> soft at 2. Those need a different source — see [[object-library-licensing]].
+
+### Footprint
+
+19 MB → **49 MB** across 62 model folders. Textures on the new 24 are 1k, where the original 38
+were halved to 512, which is most of the jump. Still comfortably inside git; the ceiling is
+around 200 MB before the repo gets unpleasant and object storage is the answer instead.
 
 ## Why committed rather than fetched
 

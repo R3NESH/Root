@@ -33,12 +33,16 @@ import {
   DEFAULT_WINDOW_CONFIG,
 } from "@/lib/windowCatalog";
 import { OPENINGS_CATALOG, OpeningItemDef } from "@/lib/openingsCatalog";
+import { solveStairPath } from "@/lib/stairPath";
+import { STAIR_RISE_FT } from "@/lib/stairCatalog";
 import {
   CustomDrawnWall,
   CustomRoomZone,
   CustomWallOpening,
   CustomWallType,
   CadTool,
+  DrawnStair,
+  DEFAULT_STAIR_WIDTH_IN,
   WALL_TYPE_CONFIGS,
   WallJoinStyle,
   SELECTED_WALL_STROKE,
@@ -94,6 +98,23 @@ interface Blueprint2DViewProps {
   customWallThickness?: Record<string, number>;
   customWalls?: CustomDrawnWall[];
   onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
+  /** Staircases stored as the walk line, solved into flights for drawing. lib/stairPath.ts. */
+  drawnStairs?: DrawnStair[];
+  onChangeDrawnStairs?: (stairs: DrawnStair[]) => void;
+  stairWidthIn?: number;
+  onChangeStairWidthIn?: (widthIn: number) => void;
+  /**
+   * False when this view is on screen beside the 3D one but the pointer is over the other pane.
+   * Both views bind their own window keydown, so without this an Enter builds two stairs and an
+   * Escape cancels twice.
+   */
+  keyboardActive?: boolean;
+  /**
+   * True when this view is a narrow pane beside the 3D one. The toolbars float over the drawing,
+   * which is fine as two thin strips at full width and is a wall once they start wrapping, so in
+   * a narrow pane they go small, single-row and scrollable instead.
+   */
+  compact?: boolean;
   customRoomZones?: CustomRoomZone[];
   onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
   activeCadTool?: CadTool;
@@ -135,6 +156,12 @@ export default function Blueprint2DView({
   customWallThickness,
   customWalls = [],
   onChangeCustomWalls,
+  drawnStairs = [],
+  onChangeDrawnStairs,
+  stairWidthIn = DEFAULT_STAIR_WIDTH_IN,
+  onChangeStairWidthIn,
+  keyboardActive = true,
+  compact = false,
   customRoomZones = [],
   onChangeCustomRoomZones,
   activeFloor = 0,
@@ -253,6 +280,11 @@ export default function Blueprint2DView({
   // CAD Drafting State (for Build From Scratch Mode)
   const svgRef = useRef<SVGSVGElement>(null);
   const [draftWallStart, setDraftWallStart] = useState<{ xIn: number; yIn: number } | null>(null);
+  // Walk-line points for the stair being drawn, bottom of the climb first.
+  const [draftStairPts, setDraftStairPts] = useState<Array<{ xIn: number; yIn: number }>>([]);
+  // Why the last Enter did not produce a stair. `solveStairPath` refuses a path the code minima
+  // cannot be met on, and the refusal has to be visible or the tool just looks broken.
+  const [stairProblem, setStairProblem] = useState<string | null>(null);
   const [draftWallCurrent, setDraftWallCurrent] = useState<{
     xIn: number;
     yIn: number;
@@ -499,18 +531,48 @@ export default function Blueprint2DView({
     [customWalls]
   );
 
-  // Escape key cancels drafting
+  // Escape cancels drafting; Enter finishes a drawn stair.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!keyboardActive) return;
+      if (e.key === "Enter" && activeCadTool === "draw_stair") {
+        if (draftStairPts.length < 2) return;
+        const solved = solveStairPath(
+          draftStairPts.map((pt) => ({ xFt: pt.xIn / 12, zFt: pt.yIn / 12 })),
+          STAIR_RISE_FT,
+          stairWidthIn / 12
+        );
+        if (!solved.ok) {
+          // Refused, not built shallower: the code minimum is a constraint, not a score.
+          setStairProblem(solved.problem);
+          return;
+        }
+        onChangeDrawnStairs?.([
+          ...drawnStairs,
+          {
+            id: `stair_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            floor: activeFloor,
+            pointsIn: draftStairPts.map((pt) => ({ xIn: pt.xIn, yIn: pt.yIn })),
+            widthIn: stairWidthIn,
+          },
+        ]);
+        setDraftStairPts([]);
+        setStairProblem(null);
+        return;
+      }
       if (e.key === "Escape") {
+        // Only this view's own half-finished drafting. Disarming the tool is the page's job —
+        // it is what remembers which tool was held so Ctrl+Z can pick it back up, and it cannot
+        // remember a tool this handler has already reset to "select".
         setDraftWallStart(null);
         setDraftWallCurrent(null);
-        onChangeCadTool?.("select");
+        setDraftStairPts([]);
+        setStairProblem(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onChangeCadTool]);
+  }, [activeCadTool, draftStairPts, drawnStairs, onChangeDrawnStairs, activeFloor, stairWidthIn, keyboardActive]);
 
   // Mouse pan & drag handlers
   // --- plot outline editing --------------------------------------------------------------
@@ -619,6 +681,14 @@ export default function Blueprint2DView({
       draftWallStart?.xIn,
       draftWallStart?.yIn
     );
+
+    // CAD Tool 5: Draw a staircase as the line a person walks up. Points accumulate; Enter
+    // solves them into flights, Escape discards. Nothing is stored until Enter, because the
+    // shape of the stair is not known until the path is finished.
+    if (activeCadTool === "draw_stair" && !e.shiftKey) {
+      setDraftStairPts((prev) => [...prev, { xIn: snapX, yIn: snapY }]);
+      return;
+    }
 
     // CAD Tool 1: Draw Custom Wall
     // Shift means "select" here as it does in 3D. The canvas sees mousedown before a wall sees
@@ -1691,7 +1761,7 @@ export default function Blueprint2DView({
 
   return (
     <div
-      className={styles.blueprintContainer}
+      className={`${styles.blueprintContainer} ${compact ? styles.compact : ""}`}
       ref={containerRef}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -1707,7 +1777,7 @@ export default function Blueprint2DView({
             onClick={() => setAutoCropOnDrag((p) => !p)}
             title="Auto-Crop room dimensions when dragging across map boundaries (Press 'C' to toggle)"
           >
-            Auto-Crop: {autoCropOnDrag ? "ON" : "OFF"}
+            {compact ? "Crop" : "Auto-Crop:"} {autoCropOnDrag ? "ON" : "OFF"}
           </button>
           <button
             className={`${styles.toolButton} ${showDimensions ? styles.toolButtonActive : ""}`}
@@ -1799,7 +1869,7 @@ export default function Blueprint2DView({
           onClick={() => quickImportFileRef.current?.click()}
           title="Import a blueprint JSON file directly into 2D Layout"
         >
-          Import JSON
+          {compact ? "Import" : "Import JSON"}
         </button>
 
         {/* Model Blueprints Catalog Button */}
@@ -1809,13 +1879,13 @@ export default function Blueprint2DView({
             onClick={onOpenModelBlueprintsModal}
             title="Browse pre-designed architectural model blueprints or import custom plans"
           >
-            Model Blueprints
+            {compact ? "Models" : "Model Blueprints"}
           </button>
         )}
 
         {/* Export Blueprint Button */}
         <button className={styles.exportBtn} onClick={onOpenExportModal}>
-          Export Blueprint
+          {compact ? "Export" : "Export Blueprint"}
         </button>
       </div>
 
@@ -1888,7 +1958,7 @@ export default function Blueprint2DView({
           }}
           title="Select & Inspect Objects (V)"
         >
-          Select
+          {compact ? "Sel" : "Select"}
         </button>
 
         <button
@@ -1898,7 +1968,7 @@ export default function Blueprint2DView({
           }}
           title="Point-to-Point Wall Drawer (W)"
         >
-          Draw Wall
+          {compact ? "Wall" : "Draw Wall"}
         </button>
 
         {activeCadTool === "draw_wall" && (
@@ -1935,7 +2005,7 @@ export default function Blueprint2DView({
           }}
           title="Place Doors onto Walls (D)"
         >
-          Place Door
+          {compact ? "Door" : "Place Door"}
         </button>
 
         <button
@@ -1946,7 +2016,7 @@ export default function Blueprint2DView({
           }}
           title="Place Windows onto Walls"
         >
-          Place Window
+          {compact ? "Win" : "Place Window"}
         </button>
 
         <button
@@ -1957,8 +2027,61 @@ export default function Blueprint2DView({
           }}
           title="Tag and Label Room Zone with Area sq ft"
         >
-          Tag Room
+          {compact ? "Tag" : "Tag Room"}
         </button>
+
+        <button
+          className={`${styles.cadToolBtn} ${activeCadTool === "draw_stair" ? styles.cadToolBtnActive : ""}`}
+          onClick={() => {
+            setDraftWallStart(null);
+            setDraftStairPts([]);
+            setStairProblem(null);
+            onChangeCadTool?.(activeCadTool === "draw_stair" ? "select" : "draw_stair");
+          }}
+          title="Draw a staircase as the line you walk up: click the bottom, click each turn, click the top, then Enter"
+        >
+          {compact ? "Stair" : "Draw Stair"}
+        </button>
+
+        {activeCadTool === "draw_stair" && (
+          <select
+            value={stairWidthIn}
+            onChange={(e) => onChangeStairWidthIn?.(Number(e.target.value))}
+            style={{
+              background: "rgba(26, 25, 22, 0.9)",
+              color: "#6f9aa8",
+              border: "1px solid #6f9aa8",
+              borderRadius: "6px",
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            title="Flight width. NBC 2016 puts the floor at 3 ft for a dwelling."
+          >
+            <option value={36}>3&apos;0&quot; flight</option>
+            <option value={42}>3&apos;6&quot; flight</option>
+            <option value={48}>4&apos;0&quot; flight</option>
+            <option value={54}>4&apos;6&quot; flight</option>
+          </select>
+        )}
+
+        {stairProblem && (
+          <span
+            style={{
+              background: "rgba(168, 68, 47, 0.18)",
+              border: "1px solid rgba(168, 68, 47, 0.5)",
+              color: "#d98b74",
+              borderRadius: "6px",
+              padding: "4px 10px",
+              fontSize: "11px",
+              maxWidth: "460px",
+            }}
+            title={stairProblem}
+          >
+            {stairProblem}
+          </span>
+        )}
 
         {onStartFromScratch && (
           <button
@@ -1966,7 +2089,7 @@ export default function Blueprint2DView({
             onClick={onStartFromScratch}
             title="Start with a blank plot (clears automated solver rooms)"
           >
-            Start Blank
+            {compact ? "Blank" : "Start Blank"}
           </button>
         )}
 
@@ -2394,10 +2517,12 @@ export default function Blueprint2DView({
         </div>
       )}
 
-      {/* Interactive Edit Tip Pill */}
+      {/* Interactive Edit Tip Pill. A full sentence, so it is dropped in a narrow pane. */}
+      {!compact && (
       <div className={styles.editTipOverlay}>
         <span> Drag rooms across map to crop/move • Click/drag walls &amp; doors to resize • Press &apos;C&apos; to toggle Auto-Crop</span>
       </div>
+      )}
 
       {/* SVG Blueprint Canvas Viewport */}
       <svg
@@ -2412,6 +2537,10 @@ export default function Blueprint2DView({
         onDrop={handle2DDrop}
       >
         <defs>
+          {/* Arrowhead for the UP annotation on a drawn stair. */}
+          <marker id="stairUpArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#b85c22" />
+          </marker>
           <pattern id="gridPattern" width="24" height="24" patternUnits="userSpaceOnUse">
             <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#0e2d4f" strokeWidth="0.8" />
           </pattern>
@@ -3563,6 +3692,124 @@ export default function Blueprint2DView({
               </g>
             );
           })}
+
+          {/* ── Drawn staircases, in plan ──
+              Solved on every render rather than stored as geometry: the walk line is the
+              document, so a change of storey height or flight width redraws the same line as a
+              different, still-compliant stair. A line that cannot be walked draws nothing. */}
+          {drawnStairs
+            .filter((ds) => (ds.floor ?? 0) === activeFloor)
+            .map((ds) => {
+              const solved = solveStairPath(
+                ds.pointsIn.map((pt) => ({ xFt: pt.xIn / 12, zFt: pt.yIn / 12 })),
+                STAIR_RISE_FT,
+                ds.widthIn / 12
+              );
+              if (!solved.ok) return null;
+              const st = solved.stair;
+              const halfW = ds.widthIn / 2;
+              return (
+                <g key={ds.id} pointerEvents="none">
+                  {st.flights.map((f, fi) => {
+                    // Tread lines run across the flight, which is what a stair looks like in plan.
+                    const nx = Math.cos(f.headingRad);
+                    const nz = Math.sin(f.headingRad);
+                    const dx = Math.sin(f.headingRad);
+                    const dz = -Math.cos(f.headingRad);
+                    const treads = f.risers - 1;
+                    return (
+                      <g key={fi}>
+                        {Array.from({ length: treads + 1 }, (_, i) => {
+                          const tIn = f.fromXFt * 12 + dx * i * st.treadIn;
+                          const uIn = f.fromZFt * 12 + dz * i * st.treadIn;
+                          return (
+                            <line
+                              key={i}
+                              x1={toPxX(tIn - nx * halfW)}
+                              y1={toPxY(uIn - nz * halfW)}
+                              x2={toPxX(tIn + nx * halfW)}
+                              y2={toPxY(uIn + nz * halfW)}
+                              stroke="#8d6e52"
+                              strokeWidth="1.5"
+                            />
+                          );
+                        })}
+                        {[-1, 1].map((side) => (
+                          <line
+                            key={side}
+                            x1={toPxX(f.fromXFt * 12 + nx * side * halfW)}
+                            y1={toPxY(f.fromZFt * 12 + nz * side * halfW)}
+                            x2={toPxX(f.toXFt * 12 + nx * side * halfW)}
+                            y2={toPxY(f.toZFt * 12 + nz * side * halfW)}
+                            stroke="#5d4037"
+                            strokeWidth="2"
+                          />
+                        ))}
+                      </g>
+                    );
+                  })}
+                  {st.landings.map((l, li) => (
+                    <rect
+                      key={li}
+                      x={toPxX((l.xFt - l.sideFt / 2) * 12)}
+                      y={toPxY((l.zFt - l.sideFt / 2) * 12)}
+                      width={l.sideFt * 12 * baseScale}
+                      height={l.sideFt * 12 * baseScale}
+                      fill="rgba(141, 110, 82, 0.12)"
+                      stroke="#5d4037"
+                      strokeWidth="1.5"
+                    />
+                  ))}
+                  {/* The UP arrow along the walk line, which is the one annotation a stair in
+                      plan is required to carry. */}
+                  <line
+                    x1={toPxX(st.flights[0].fromXFt * 12)}
+                    y1={toPxY(st.flights[0].fromZFt * 12)}
+                    x2={toPxX(st.flights[0].toXFt * 12)}
+                    y2={toPxY(st.flights[0].toZFt * 12)}
+                    stroke="#b85c22"
+                    strokeWidth="1.5"
+                    markerEnd="url(#stairUpArrow)"
+                  />
+                  <text
+                    x={toPxX(st.flights[0].fromXFt * 12)}
+                    y={toPxY(st.flights[0].fromZFt * 12) - 5}
+                    fill="#b85c22"
+                    fontSize="10"
+                    fontWeight="700"
+                  >
+                    UP {st.riserCount}R
+                  </text>
+                </g>
+              );
+            })}
+
+          {/* ── The stair walk line being drawn ── */}
+          {activeCadTool === "draw_stair" && draftStairPts.length > 0 && (
+            <g pointerEvents="none">
+              <polyline
+                points={draftStairPts.map((pt) => `${toPxX(pt.xIn)},${toPxY(pt.yIn)}`).join(" ")}
+                fill="none"
+                stroke="#6f9aa8"
+                strokeWidth="2"
+                strokeDasharray="6,4"
+              />
+              {draftStairPts.map((pt, i) => (
+                <circle key={i} cx={toPxX(pt.xIn)} cy={toPxY(pt.yIn)} r="5" fill="#6f9aa8" />
+              ))}
+              <text
+                x={toPxX(draftStairPts[0].xIn) + 8}
+                y={toPxY(draftStairPts[0].yIn) - 8}
+                fill="#6f9aa8"
+                fontSize="11"
+                fontWeight="700"
+              >
+                {draftStairPts.length < 2
+                  ? "click where the climb ends"
+                  : `${draftStairPts.length} points • Enter to build, Esc to cancel`}
+              </text>
+            </g>
+          )}
 
           {/* ── Active Wall Drafting Rubberband Preview ── */}
           {activeCadTool === "draw_wall" && draftWallStart && draftWallCurrent && (

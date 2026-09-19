@@ -55,7 +55,10 @@ export type FurnitureCategory =
   | "stairs"// shared
   | "walls"// cafe. Split by where the piece lives in the service flow rather than lumped under one
   // "cafe" heading, so the left rail can offer a fit-out toolset instead of a bin.
-  | "cafe_seating"| "cafe_service"| "cafe_decor"| "cafe_signage"| "cafe_boh"| "cafe_outdoor";
+  | "cafe_seating"| "cafe_service"| "cafe_decor"| "cafe_signage"| "cafe_boh"| "cafe_outdoor"
+  // The plot outside the building line. Not offered by any programme's `furnitureCategories`,
+  // so it never appears in the interior rail — the ribbon's Landscape tab is its only door.
+  | "landscape";
 
 export interface FurnitureItemDef {
   type: string;
@@ -775,7 +778,7 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     category: "stairs",
     icon: "STR",
     ribbonTag: "Straight",
-    dimensions: { widthFt: 3.6, depthFt: 14, heightFt: 10 },
+    dimensions: { widthFt: 3.6, depthFt: 15, heightFt: 11 },
     description:
       "One run, no turn. Cheapest to build and the easiest to carry furniture up, at the cost of 14 ft of floor. 16 risers at 7.2 in on a 10.1 in tread.",
     defaultColor: 0x8d6e52,
@@ -786,9 +789,11 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     category: "stairs",
     icon: "LST",
     ribbonTag: "L-Shape",
-    // 16 risers need 13.1 ft of run whatever shape they are folded into. Split evenly across two
-    // legs with a 3.6 ft landing in the corner, that is a 10.5 ft square.
-    dimensions: { widthFt: 10.5, depthFt: 10.5, heightFt: 10 },
+    // 17 risers need 13.9 ft of run whatever shape they are folded into. Split across two legs
+    // with a 3.6 ft landing in the corner, that is an 11.5 ft square. At 10.5 ft the going came
+    // out at 9.75 in even with the old 16 risers — under the 9.8 in floor, and it had been for
+    // as long as this preset existed.
+    dimensions: { widthFt: 11.5, depthFt: 11.5, heightFt: 11 },
     description:
       "Two flights meeting at a quarter-turn landing. Fits a corner, and the landing is a rest and a fall break the straight flight does not have.",
     defaultColor: 0x8d6e52,
@@ -799,7 +804,7 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     category: "stairs",
     icon: "DOG",
     ribbonTag: "Dog-Leg",
-    dimensions: { widthFt: 7.5, depthFt: 11, heightFt: 10 },
+    dimensions: { widthFt: 7.5, depthFt: 11.5, heightFt: 11 },
     description:
       "Two parallel flights and a half landing, turning back on itself. The Indian default, and the shape the solver's own stair core uses.",
     defaultColor: 0x8d6e52,
@@ -811,8 +816,9 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     icon: "WND",
     ribbonTag: "Winder",
     // Three kite treads climb through the corner instead of a flat landing, which is about a
-    // foot off each leg against the L-shape.
-    dimensions: { widthFt: 9.4, depthFt: 9.8, heightFt: 10 },
+    // foot off each leg against the L-shape. 9.4 x 9.8 gave a 9.26 in going — the worst of the
+    // six, and under the floor this catalog claims to hold to.
+    dimensions: { widthFt: 10.5, depthFt: 10.5, heightFt: 11 },
     description:
       "Turns on three kite treads instead of a landing, which buys back about 3 ft of run. Tighter to walk: the inside of a winder tread is narrow.",
     defaultColor: 0x8d6e52,
@@ -823,7 +829,7 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     category: "stairs",
     icon: "FLT",
     ribbonTag: "Floating",
-    dimensions: { widthFt: 3.6, depthFt: 14, heightFt: 10 },
+    dimensions: { widthFt: 3.6, depthFt: 15, heightFt: 11 },
     wallMounted: true,
     description:
       "Treads cantilevered off the wall with a glass balustrade and no stringer. Needs a structural wall behind it - the loads go somewhere.",
@@ -835,7 +841,7 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     category: "stairs",
     icon: "BIF",
     ribbonTag: "Bifurcated",
-    dimensions: { widthFt: 11, depthFt: 12, heightFt: 10 },
+    dimensions: { widthFt: 11, depthFt: 12.5, heightFt: 11 },
     description:
       "One wide flight to a landing, splitting into two returns. A hall-scale gesture: it wants 11 x 12 ft and a double-height space over it.",
     defaultColor: 0x8d6e52,
@@ -1148,6 +1154,348 @@ export const FURNITURE_CATALOG: FurnitureItemDef[] = [
     icon: "CRT",
     dimensions: { widthFt: 5.0, depthFt: 0.6, heightFt: 8.0 },
     description: "Floor-length pair on a rod. Set against a window wall, not a blank one.",
+  },
+
+  // --------------------------------------------------------------------------------------
+  // Real scanned pieces, added 2026-09-19. Every one is a Poly Haven CC0 model under
+  // public/models, and every dimension below is MEASURED out of that model's own glTF rather
+  // than estimated — see notes/assets/furniture-models.md. Aimed at the categories the catalog
+  // was thinnest in: lighting, dining and decor.
+  // --------------------------------------------------------------------------------------
+  {
+    type: "chandelier_tiered",
+    name: "Tiered Crystal Chandelier",
+    category: "lighting",
+    icon: "CH1",
+    dimensions: { widthFt: 2.45, depthFt: 2.62, heightFt: 2.68 },
+    description: "Multi-arm tiered chandelier. Hangs over a dining table or a stairwell.",
+    defaultColor: 0xd4af37,
+    mountHeightFt: 6.4,
+  },
+  {
+    type: "chandelier_globe",
+    name: "Globe Cluster Chandelier",
+    category: "lighting",
+    icon: "CH3",
+    dimensions: { widthFt: 2.56, depthFt: 2.58, heightFt: 3.41 },
+    description: "Clustered globe chandelier on a slim drop.",
+    defaultColor: 0xd4af37,
+    mountHeightFt: 6.6,
+  },
+  {
+    type: "chandelier_lantern",
+    name: "Lantern Chandelier",
+    category: "lighting",
+    icon: "LCH",
+    dimensions: { widthFt: 1.9, depthFt: 1.89, heightFt: 2.88 },
+    description: "Glazed lantern on a chain. Hallways and double-height voids.",
+    defaultColor: 0x3a372f,
+    mountHeightFt: 6.2,
+  },
+  {
+    type: "chair_highback_carved",
+    name: "High-Back Carved Chair",
+    category: "living",
+    icon: "HBC",
+    dimensions: { widthFt: 2.26, depthFt: 2.16, heightFt: 7.46 },
+    description: "Tall carved hardwood chair. An accent piece, not a dining seat.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "dining_chair_painted",
+    name: "Painted Dining Chair",
+    category: "dining",
+    icon: "PDC",
+    dimensions: { widthFt: 1.42, depthFt: 1.77, heightFt: 3.14 },
+    description: "Simple painted hardwood side chair.",
+    defaultColor: 0xeceae5,
+  },
+  {
+    type: "dining_table_round",
+    name: "Round Dining Table",
+    category: "dining",
+    icon: "RDT",
+    dimensions: { widthFt: 4.59, depthFt: 4.59, heightFt: 3.3 },
+    description: "4-6 seater round hardwood table.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "side_table_low",
+    name: "Gallinera Low Table",
+    category: "living",
+    icon: "GLT",
+    dimensions: { widthFt: 2.72, depthFt: 1.7, heightFt: 1.6 },
+    description: "Low slatted hardwood table. Works as a bench or a plant stand.",
+    defaultColor: 0x8c531b,
+  },
+  {
+    type: "stool_folding",
+    name: "Folding Wooden Stool",
+    category: "dining",
+    icon: "FST",
+    dimensions: { widthFt: 1.73, depthFt: 1.79, heightFt: 1.45 },
+    description: "Folding stool. Extra seating that stores flat.",
+    defaultColor: 0x8c531b,
+  },
+  {
+    type: "bench_painted",
+    name: "Painted Bench",
+    category: "dining",
+    icon: "BNC",
+    dimensions: { widthFt: 3.82, depthFt: 1.63, heightFt: 2.92 },
+    description: "Painted hardwood bench. Dining side or entry.",
+    defaultColor: 0xeceae5,
+  },
+  {
+    type: "lounge_chair_midcentury",
+    name: "Mid-Century Lounge Chair",
+    category: "living",
+    icon: "MCL",
+    dimensions: { widthFt: 3.31, depthFt: 3.91, heightFt: 3.84 },
+    description: "Low lounge chair on splayed legs.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "sofa_daybed_carved",
+    name: "Carved Hardwood Sofa",
+    category: "living",
+    icon: "CHS",
+    dimensions: { widthFt: 7.5, depthFt: 3.18, heightFt: 2.82 },
+    description: "Low carved hardwood sofa with a flat seat.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "coffee_table_modern",
+    name: "Modern Coffee Table",
+    category: "living",
+    icon: "MCT",
+    dimensions: { widthFt: 1.97, depthFt: 3.94, heightFt: 1.28 },
+    description: "Rectangular low table, slim profile.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "side_table_tall",
+    name: "Tall Side Table",
+    category: "living",
+    icon: "TST",
+    dimensions: { widthFt: 1.26, depthFt: 1.26, heightFt: 2.5 },
+    description: "Narrow tall side table. Beside a chair, not a sofa.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "console_small",
+    name: "Small Console Table",
+    category: "living",
+    icon: "SCT",
+    dimensions: { widthFt: 3.01, depthFt: 1.44, heightFt: 1.75 },
+    description: "Small console. Entry, hallway or behind a sofa.",
+    defaultColor: 0x8c531b,
+  },
+  {
+    type: "day_bed",
+    name: "Day Bed",
+    category: "bedroom",
+    icon: "DYB",
+    dimensions: { widthFt: 6.47, depthFt: 2.8, heightFt: 3.7 },
+    description: "Single day bed with a back rail. Guest room or reading corner.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "sideboard_long",
+    name: "Long Sideboard",
+    category: "living",
+    icon: "SBD",
+    dimensions: { widthFt: 8.01, depthFt: 2.25, heightFt: 2.23 },
+    description: "Eight-foot low sideboard. Dining storage or a media unit.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "cabinet_tall_painted",
+    name: "Tall Painted Cabinet",
+    category: "bedroom",
+    icon: "TPC",
+    dimensions: { widthFt: 3.92, depthFt: 2.11, heightFt: 5.12 },
+    description: "Tall two-door painted cabinet.",
+    defaultColor: 0xeceae5,
+  },
+  {
+    type: "display_shelves",
+    name: "Open Display Shelves",
+    category: "living",
+    icon: "DSP",
+    dimensions: { widthFt: 1.22, depthFt: 3.54, heightFt: 5.11 },
+    description: "Narrow open shelving, full height.",
+    defaultColor: 0x78350f,
+  },
+  {
+    type: "vase_ceramic_wide",
+    name: "Wide Ceramic Vase",
+    category: "decor",
+    icon: "VS1",
+    dimensions: { widthFt: 0.67, depthFt: 0.67, heightFt: 1.31 },
+    description: "Wide-bellied glazed vase.",
+    defaultColor: 0xd8d4cb,
+  },
+  {
+    type: "vase_ceramic_slim",
+    name: "Slim Ceramic Vase",
+    category: "decor",
+    icon: "VS3",
+    dimensions: { widthFt: 0.37, depthFt: 0.37, heightFt: 1.36 },
+    description: "Tall narrow glazed vase.",
+    defaultColor: 0xd8d4cb,
+  },
+  {
+    type: "wall_frame_ornate",
+    name: "Ornate Wall Frame",
+    category: "decor",
+    icon: "OWF",
+    dimensions: { widthFt: 1.98, depthFt: 0.07, heightFt: 1.52 },
+    description: "Gilded wall frame. Hangs on a wall, not a window.",
+    defaultColor: 0xd4af37,
+    mountHeightFt: 4.6,
+    wallMounted: true,
+  },
+  {
+    type: "frame_standing",
+    name: "Standing Photo Frame",
+    category: "decor",
+    icon: "SPF",
+    dimensions: { widthFt: 0.33, depthFt: 0.66, heightFt: 0.82 },
+    description: "Small frame for a shelf or a console.",
+    defaultColor: 0x3e2723,
+  },
+  {
+    type: "wall_clock",
+    name: "Wall Clock",
+    category: "decor",
+    icon: "WCL",
+    dimensions: { widthFt: 1.05, depthFt: 0.15, heightFt: 1.05 },
+    description: "Round wall clock.",
+    defaultColor: 0x3a372f,
+    mountHeightFt: 6.0,
+    wallMounted: true,
+  },
+  {
+    type: "bust_marble",
+    name: "Marble Bust",
+    category: "decor",
+    icon: "BST",
+    dimensions: { widthFt: 0.89, depthFt: 0.98, heightFt: 1.69 },
+    description: "Carved bust on a plinth. Console or niche.",
+    defaultColor: 0xeceae5,
+  },
+
+  // --- Landscape. Everything outside the building line.
+  {
+    type: "land_tree",
+    name: "Tree",
+    category: "landscape",
+    icon: "TRE",
+    ribbonTag: "Tree",
+    dimensions: { widthFt: 12, depthFt: 12, heightFt: 16 },
+    description: "Broad canopy shade tree.",
+    defaultColor: 0x3f6b32,
+  },
+  {
+    type: "land_palm",
+    name: "Palm",
+    category: "landscape",
+    icon: "PLM",
+    ribbonTag: "Palm",
+    dimensions: { widthFt: 8, depthFt: 8, heightFt: 14 },
+    description: "Single-stem palm.",
+    defaultColor: 0x4e7d3a,
+  },
+  {
+    type: "land_hedge",
+    name: "Hedge Run",
+    category: "landscape",
+    icon: "HDG",
+    ribbonTag: "Hedge",
+    dimensions: { widthFt: 8, depthFt: 2, heightFt: 3.5 },
+    description: "Clipped hedge. Place end to end along a boundary.",
+    defaultColor: 0x35592b,
+  },
+  {
+    type: "land_shrub",
+    name: "Shrub",
+    category: "landscape",
+    icon: "SHR",
+    ribbonTag: "Shrub",
+    dimensions: { widthFt: 2.5, depthFt: 2.5, heightFt: 2.5 },
+    description: "Rounded shrub for a planting bed.",
+    defaultColor: 0x4a7339,
+  },
+  {
+    type: "land_planter",
+    name: "Planter Box",
+    category: "landscape",
+    icon: "PLB",
+    ribbonTag: "Planter",
+    dimensions: { widthFt: 3.2, depthFt: 1.2, heightFt: 1.6 },
+    description: "Rectangular planter against a wall or a step.",
+    defaultColor: 0x6b5a45,
+  },
+  {
+    type: "land_paving",
+    name: "Paving Bay",
+    category: "landscape",
+    icon: "PAV",
+    ribbonTag: "Paving",
+    dimensions: { widthFt: 16, depthFt: 8, heightFt: 0.25 },
+    description: "Paved bay. A car standing is about 16 x 8 ft.",
+    defaultColor: 0x8a8578,
+  },
+  {
+    type: "land_path",
+    name: "Stepping Path",
+    category: "landscape",
+    icon: "PTH",
+    ribbonTag: "Path",
+    dimensions: { widthFt: 2, depthFt: 10, heightFt: 0.2 },
+    description: "Run of stepping stones across planting.",
+    defaultColor: 0x9c968a,
+  },
+  {
+    type: "land_gravel",
+    name: "Gravel Bed",
+    category: "landscape",
+    icon: "GRV",
+    ribbonTag: "Gravel",
+    dimensions: { widthFt: 8, depthFt: 6, heightFt: 0.2 },
+    description: "Loose gravel bed.",
+    defaultColor: 0xa8a294,
+  },
+  {
+    type: "land_compound_wall",
+    name: "Compound Wall",
+    category: "landscape",
+    icon: "CWL",
+    ribbonTag: "Compound",
+    dimensions: { widthFt: 10, depthFt: 0.75, heightFt: 5 },
+    description: "Boundary wall run with a coping. Place end to end.",
+    defaultColor: 0xb0a99a,
+  },
+  {
+    type: "land_gate",
+    name: "Main Gate",
+    category: "landscape",
+    icon: "GAT",
+    ribbonTag: "Gate",
+    dimensions: { widthFt: 10, depthFt: 0.4, heightFt: 6 },
+    description: "Barred main gate between two compound piers.",
+    defaultColor: 0x3a3a3a,
+  },
+  {
+    type: "land_bollard",
+    name: "Bollard Light",
+    category: "landscape",
+    icon: "BOL",
+    ribbonTag: "Bollard",
+    dimensions: { widthFt: 0.6, depthFt: 0.6, heightFt: 3 },
+    description: "Path bollard light.",
+    defaultColor: 0x2f2f2f,
   },
 ];
 
@@ -3899,9 +4247,222 @@ export function createFurnitureMesh(
       break;
     }
 
+    // --- Landscape. Rough massing on purpose: these read at plot scale from an orbit camera,
+    // and a leaf-accurate tree costs more triangles than the house it stands next to.
+    case "land_tree": {
+      const barkMat = new THREE.MeshStandardMaterial({ color: 0x5b4636, roughness: 0.92 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0x3f6b32, roughness: 0.88 });
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, 7, 8), barkMat);
+      trunk.position.y = 3.5;
+      trunk.castShadow = true;
+      root.add(trunk);
+      // Three overlapping spheres, not one — a single ball reads as a lollipop.
+      for (const [x, y, z, r] of [
+        [0, 10.5, 0, 5.2],
+        [-2.6, 8.6, 1.4, 3.6],
+        [2.4, 9.0, -1.6, 3.4],
+      ]) {
+        const canopy = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), leafMat);
+        canopy.position.set(x, y, z);
+        canopy.castShadow = true;
+        root.add(canopy);
+      }
+      break;
+    }
+
+    case "land_palm": {
+      const barkMat = new THREE.MeshStandardMaterial({ color: 0x6b5a45, roughness: 0.9 });
+      const leafMat = new THREE.MeshStandardMaterial({
+        color: customColor ?? 0x4e7d3a,
+        roughness: 0.85,
+        side: THREE.DoubleSide,
+      });
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 11, 8), barkMat);
+      trunk.position.y = 5.5;
+      trunk.castShadow = true;
+      root.add(trunk);
+      for (let i = 0; i < 7; i++) {
+        const frond = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 1.5), leafMat);
+        frond.position.set(0, 11, 0);
+        frond.rotation.y = (i / 7) * Math.PI * 2;
+        frond.rotation.z = -0.55;
+        frond.translateX(3.1);
+        frond.castShadow = true;
+        root.add(frond);
+      }
+      break;
+    }
+
+    case "land_hedge": {
+      const leafMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0x35592b, roughness: 0.95 });
+      const body = new THREE.Mesh(createRoundedBox(8, 3.5, 2, 0.4, 3), leafMat);
+      body.position.y = 1.75;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      root.add(body);
+      break;
+    }
+
+    case "land_shrub": {
+      const leafMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0x4a7339, roughness: 0.93 });
+      for (const [x, y, z, r] of [
+        [0, 1.15, 0, 1.15],
+        [-0.6, 0.85, 0.4, 0.75],
+        [0.65, 0.8, -0.35, 0.7],
+      ]) {
+        const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), leafMat);
+        blob.position.set(x, y, z);
+        blob.castShadow = true;
+        root.add(blob);
+      }
+      break;
+    }
+
+    case "land_planter": {
+      const potMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0x6b5a45, roughness: 0.8 });
+      const soilMat = new THREE.MeshStandardMaterial({ color: 0x3f3327, roughness: 1 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x4a7339, roughness: 0.93 });
+      const box = new THREE.Mesh(createRoundedBox(3.2, 1.4, 1.2, 0.08, 2), potMat);
+      box.position.y = 0.7;
+      box.castShadow = true;
+      root.add(box);
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.1, 0.95), soilMat);
+      soil.position.y = 1.42;
+      root.add(soil);
+      for (const x of [-0.95, 0, 0.95]) {
+        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), leafMat);
+        tuft.position.set(x, 1.72, 0);
+        tuft.castShadow = true;
+        root.add(tuft);
+      }
+      break;
+    }
+
+    case "land_paving":
+    case "land_gravel": {
+      const isGravel = type === "land_gravel";
+      const landDef = FURNITURE_CATALOG.find((f) => f.type === type);
+      const lw = landDef?.dimensions.widthFt ?? 8;
+      const ld = landDef?.dimensions.depthFt ?? 6;
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: customColor ?? (isGravel ? 0xa8a294 : 0x8a8578),
+        roughness: isGravel ? 1 : 0.78,
+      });
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(lw, 0.2, ld), groundMat);
+      slab.position.y = 0.1;
+      slab.receiveShadow = true;
+      root.add(slab);
+      if (!isGravel) {
+        // Joint lines, so a bay reads as paving rather than as a grey rectangle.
+        const jointMat = new THREE.LineBasicMaterial({ color: 0x5f5b52 });
+        for (let i = 1; i < 4; i++) {
+          const jx = -lw / 2 + (lw * i) / 4;
+          root.add(
+            new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(jx, 0.21, -ld / 2),
+                new THREE.Vector3(jx, 0.21, ld / 2),
+              ]),
+              jointMat
+            )
+          );
+        }
+      }
+      break;
+    }
+
+    case "land_path": {
+      const stoneMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0x9c968a, roughness: 0.85 });
+      for (let i = 0; i < 5; i++) {
+        const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.18, 10), stoneMat);
+        stone.position.set(i % 2 === 0 ? -0.25 : 0.25, 0.09, -4 + i * 2);
+        stone.receiveShadow = true;
+        root.add(stone);
+      }
+      break;
+    }
+
+    case "land_compound_wall": {
+      const wallMat = new THREE.MeshStandardMaterial({ color: customColor ?? 0xb0a99a, roughness: 0.94 });
+      const copeMat = new THREE.MeshStandardMaterial({ color: 0x8d867a, roughness: 0.8 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4.7, 0.75), wallMat);
+      body.position.y = 2.35;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      root.add(body);
+      const cope = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.3, 0.95), copeMat);
+      cope.position.y = 4.85;
+      cope.castShadow = true;
+      root.add(cope);
+      break;
+    }
+
+    case "land_gate": {
+      const ironMat = new THREE.MeshStandardMaterial({
+        color: customColor ?? 0x3a3a3a,
+        metalness: 0.65,
+        roughness: 0.45,
+      });
+      const pierMat = new THREE.MeshStandardMaterial({ color: 0xb0a99a, roughness: 0.94 });
+      for (const px of [-5.3, 5.3]) {
+        const pier = new THREE.Mesh(new THREE.BoxGeometry(1.1, 6.4, 1.1), pierMat);
+        pier.position.set(px, 3.2, 0);
+        pier.castShadow = true;
+        root.add(pier);
+      }
+      for (const ry of [0.4, 5.6]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.28, 0.28), ironMat);
+        rail.position.set(0, ry, 0);
+        rail.castShadow = true;
+        root.add(rail);
+      }
+      for (let i = 0; i < 17; i++) {
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 5.4, 6), ironMat);
+        bar.position.set(-4.6 + i * 0.575, 3.0, 0);
+        bar.castShadow = true;
+        root.add(bar);
+      }
+      break;
+    }
+
+    case "land_bollard": {
+      const postMat = new THREE.MeshStandardMaterial({
+        color: customColor ?? 0x2f2f2f,
+        metalness: 0.5,
+        roughness: 0.5,
+      });
+      const lensMat = new THREE.MeshStandardMaterial({
+        color: 0xffe9b8,
+        emissive: 0xffd27a,
+        emissiveIntensity: 0.9,
+        roughness: 0.3,
+      });
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 2.6, 10), postMat);
+      post.position.y = 1.3;
+      post.castShadow = true;
+      root.add(post);
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.28, 10), lensMat);
+      lens.position.y = 2.72;
+      root.add(lens);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10), postMat);
+      cap.position.y = 2.92;
+      root.add(cap);
+      break;
+    }
+
     default: {
-      const cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), fabricMat);
-      cube.position.y = 1;
+      // Stand-in for a piece whose finished geometry is a scanned model (lib/furnitureModels.ts).
+      // Sized from the catalog rather than a fixed 2 ft cube, so a failed load leaves something
+      // the right size in the right place instead of a block of the wrong one.
+      const def = FURNITURE_CATALOG.find((f) => f.type === type);
+      const { widthFt: bw, depthFt: bd, heightFt: bh } = def?.dimensions ?? {
+        widthFt: 2,
+        depthFt: 2,
+        heightFt: 2,
+      };
+      const cube = new THREE.Mesh(createRoundedBox(bw, bh, bd, 0.05, 3), fabricMat);
+      cube.position.y = bh / 2;
+      cube.castShadow = true;
       root.add(cube);
       break;
     }

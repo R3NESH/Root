@@ -130,15 +130,6 @@ export default function WalkthroughOverlay({
         )}
 
         <div className={styles.topActions}>
-          {onToggleLights && (
-            <button
-              className={`${styles.actionBtn} ${lightsOn ? styles.actionBtnActive : ""}`}
-              onClick={onToggleLights}
-              title="Toggle Interior Room Lights (F)"
-            >
-                {lightsOn ? "Lights ON" : "Lights OFF"}
-            </button>
-          )}
           <button className={styles.exitBtn} onClick={onExit} title="Exit Walkthrough (ESC)">
             ✕ Exit Walkthrough [ESC]
           </button>

@@ -9,7 +9,8 @@ export type CadTool =
   | "draw_wall"
   | "place_door"
   | "place_window"
-  | "tag_room";
+  | "tag_room"
+  | "draw_stair";
 
 export type CustomWallType =
   | "exterior"
@@ -52,6 +53,30 @@ export interface CustomWallOpening {
   /** Outline of the opening. Only read for `kind: "opening"` — a door leaf has its own shape. */
   shape?: CutoutShape;
 }
+
+/**
+ * A staircase drawn as the line a person walks up, bottom to top.
+ *
+ * Points, not a footprint. A stair is the one object whose size is not the designer's to choose:
+ * NBC fixes the riser and the going, so what a bigger or smaller opening changes is the number of
+ * steps and how they fold, never their size. Storing the walk line and solving it on read is what
+ * makes that true — see lib/stairPath.ts, and the note in lib/stairCatalog.ts on why the six
+ * fixed-footprint shapes could not.
+ *
+ * Inches, and `yIn` is the plan's second axis, matching CustomDrawnWall.
+ */
+export interface DrawnStair {
+  id: string;
+  /** Storey the climb starts from. It arrives at `floor + 1`. */
+  floor: number;
+  /** Walk line, bottom of the climb first. At least two points. */
+  pointsIn: Array<{ xIn: number; yIn: number }>;
+  widthIn: number;
+  colorHex?: number;
+}
+
+/** 3'6" — over the 3 ft code minimum, and what a comfortable Indian house stair is built at. */
+export const DEFAULT_STAIR_WIDTH_IN = 42;
 
 export interface CustomDrawnWall {
   id: string;

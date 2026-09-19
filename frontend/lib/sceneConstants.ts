@@ -24,7 +24,21 @@ export const NIGHT_PLOT_COLOR = 0x1e293b; // unchanged: the previous default dar
 export const ACCENT = 0xe8912d;
 export const HANDLE_RADIUS_FT = 0.55;
 
-export const WALL_HEIGHT_FT = 9.0;
+/**
+ * Clear floor-to-ceiling height, feet.
+ *
+ * This was 9.0, which is the NBC 2016 minimum for a habitable room (2.75 m) to within an inch —
+ * and notes/solver/room-sizes-from-code.md recorded that landing there was luck rather than
+ * design, with a warning against "rounding it up". The warning was about not breaking the code
+ * floor, and 10 ft does not: it is over it.
+ *
+ * The reason to move is that a minimum is not a norm. Indian residential practice is 9-10 ft
+ * clear and 10-12 ft floor to floor —
+ * https://www.houseyog.com/blog/standard-ceiling-height-india/ — so every interior the renderer
+ * drew was at the legal floor, and read like it. `compliance.FLOOR_TO_FLOOR_FT` has said 10.8
+ * all along, which the renderer's 9.55 never matched; 10.55 closes most of that gap too.
+ */
+export const WALL_HEIGHT_FT = 10.0;
 export const WALL_THICK_INT_FT = 4.5 / 12; // 0.375 ft — interior partition, Indian brick
 export const DOOR_WIDTH_FT = 32 / 12; // 2.67 ft — matches connectivity.DOOR_WIDTH_IN
 export const DOOR_HEIGHT_FT = 84 / 12; // 7.0 ft — matches connectivity.DOOR_HEIGHT_IN

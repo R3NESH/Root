@@ -236,21 +236,48 @@
   overflow: hidden;
 }
 
-/* 3D Viewport Full Bleed */
+/* 3D Viewport Full Bleed.
+   A flex row, always — with one pane it is a full-bleed viewport as before, and with two it is
+   the split view: 3D on the left, blueprint on the right. Each pane is its own positioning
+   context, so the HUD overlays inside it sit in that pane's corner rather than spanning both. */
 .viewport {
   flex: 1;
   width: 100%;
   height: 100%;
   position: relative;
+  display: flex;
   background: #0a0908;
   overflow: hidden;
 }
 
-/* Orbit View Dimension HUD Overlay */
+.viewportPane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The blueprint beside the scene. A fixed share rather than a draggable divider: a drag handle
+   is a second thing to build and this is the first version of the split. */
+.viewportPaneSplit2d {
+  position: relative;
+  flex: 0 0 clamp(340px, 38%, 620px);
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Orbit View Dimension HUD Overlay.
+   Top right, not top left: the 3D drafting toolbar owns the top left corner of the viewport and
+   was drawn straight over this readout. The minimap has the bottom right, so this corner is the
+   only free one. */
 .plotMetaOverlay {
   position: absolute;
-  top: 18px;
-  left: 24px;
+  top: 14px;
+  right: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -406,92 +433,9 @@
   word-break: break-word;
 }
 
-/* Free-text input. Sits over the viewport rather than in the ribbon: it is an alternative to
-   the room tray, not another control on it. */
-.promptBar {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 28;
-  display: flex;
-  gap: 6px;
-  width: min(620px, calc(100% - 32px));
-  background: #21201b;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-  padding: 6px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-}
-
-.promptInput {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #e6e2d8;
-  font-size: 13px;
-  padding: 6px 8px;
-}
-
-.promptInput::placeholder {
-  color: #6f6a60;
-}
-
-.promptGo {
-  flex: none;
-  background: #3f6d52;
-  color: #f2efe7;
-  border: none;
-  border-radius: 2px;
-  padding: 6px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.promptGo:disabled {
-  background: #34322c;
-  color: #6f6a60;
-  cursor: default;
-}
-
-/* The real file input. Kept in the DOM and out of sight so the button beside it can be styled
-   like .promptGo; display:none would take it out of the accessibility tree with it. */
-.promptFileInput {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.promptUpload {
-  flex: none;
-  background: transparent;
-  color: #b5b0a6;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 2px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.promptUpload:hover:not(:disabled) {
-  color: #e6e2d8;
-  border-color: rgba(255, 255, 255, 0.32);
-}
-
-.promptUpload:disabled {
-  color: #6f6a60;
-  cursor: default;
-}
-
-/* What was assumed and what could not be built. Never collapsed into the plan itself: an ask
-   that quietly vanishes is the defect in notes/architecture/client-side-fallback.md. */
+/* What was assumed and what could not be built, from the ribbon's AI Prompt tab. Never collapsed
+   into the plan itself: an ask that quietly vanishes is the defect in
+   notes/architecture/client-side-fallback.md. */
 .promptNotice {
   position: absolute;
   top: 62px;
@@ -519,4 +463,110 @@
 .promptUnsupported {
   color: #d0a24a;
   margin-top: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Drone tour
+   The tour takes the camera, so it needs a way out that is not the ribbon —
+   and a progress bar, because a flight with no end in sight reads as a hang.
+   -------------------------------------------------------------------------- */
+.tourBar {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  background: rgba(19, 18, 16, 0.92);
+  border: 1px solid rgba(111, 154, 168, 0.4);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  z-index: 40;
+}
+
+.tourTrack {
+  width: 220px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.tourFill {
+  height: 100%;
+  background: #6f9aa8;
+  transition: width 0.1s linear;
+}
+
+.tourTime {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: #b5b0a6;
+  white-space: nowrap;
+}
+
+.tourStop {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #d8d4cb;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.tourStop:hover {
+  background: rgba(168, 68, 47, 0.22);
+  border-color: rgba(168, 68, 47, 0.55);
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   Put-down tool memory
+   Offered only while the offer stands: Escape has disarmed a tool and nothing
+   has been edited since, so Ctrl+Z can only mean "put that back".
+   -------------------------------------------------------------------------- */
+.toolMemoryPill {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  border-radius: 20px;
+  background: rgba(19, 18, 16, 0.92);
+  border: 1px solid rgba(111, 154, 168, 0.35);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  font-size: 11.5px;
+  color: #b5b0a6;
+  white-space: nowrap;
+  z-index: 38;
+}
+
+.toolMemoryPill strong {
+  color: #eceae5;
+}
+
+.toolMemoryBtn {
+  background: rgba(111, 154, 168, 0.18);
+  border: 1px solid rgba(111, 154, 168, 0.45);
+  color: #9fc0cb;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.toolMemoryBtn:hover {
+  background: rgba(111, 154, 168, 0.3);
+  color: #ffffff;
 }

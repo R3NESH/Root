@@ -24,27 +24,21 @@ import {
   WALL_TEXTURES,
 } from "./materialsCatalog";
 import { WALL_HEIGHT_FT } from "./sceneConstants";
+import {
+  BuiltinFurnitureRecord,
+  boxDepth,
+  boxHeight,
+  boxWidth,
+  roomRect,
+} from "./furnitureInventory";
 import { inchesToFeet } from "./units";
 
 const MM_PER_FOOT = 304.8;
 
-/**
- * One piece of the automatic fit-out, as measured off the built scene rather than declared.
- *
- * `addRoomInteriorDetails()` places pieces the furniture catalog has no entry for — the
- * 6-seater dining set is one — so a size read from the catalog would be blank for them. Scene
- * measures the group's bounding box instead, which is also the size that is actually on screen
- * after every fit-and-clearance adjustment the fit-out makes.
- */
-export interface BuiltinFurnitureRecord {
-  id: string;
-  name: string;
-  type: string;
-  roomIndex: number;
-  widthFt: number;
-  depthFt: number;
-  heightFt: number;
-}
+// One piece of the automatic fit-out, as measured off the built scene rather than declared.
+// The type lives in `furnitureInventory.ts` because the elevations and the clearance audit read
+// it too; re-exported here so the schedule reads as one module.
+export type { BuiltinFurnitureRecord };
 
 export type FfeSource = "Built-in" | "Specified" | "AI model";
 
@@ -135,7 +129,7 @@ function finishName<T extends { id: string; name: string }>(
  * "Bedroom 2" rather than "bedroom". A schedule row has to name a room a person can walk to, and
  * a house with three bedrooms needs them numbered. Rooms that occur once keep the bare label.
  */
-function roomDisplayNames(rooms: SolvedRoom[]): string[] {
+export function roomDisplayNames(rooms: SolvedRoom[]): string[] {
   const total = new Map<string, number>();
   for (const r of rooms) total.set(r.name, (total.get(r.name) ?? 0) + 1);
 
@@ -158,17 +152,8 @@ function roomDisplayNames(rooms: SolvedRoom[]): string[] {
  */
 function roomIndexAt(rooms: SolvedRoom[], xFt: number, zFt: number): number {
   for (let i = 0; i < rooms.length; i++) {
-    const r = rooms[i];
-    const rx = inchesToFeet(r.x_in);
-    const rz = inchesToFeet(r.y_in);
-    if (
-      xFt >= rx &&
-      xFt <= rx + inchesToFeet(r.w_in) &&
-      zFt >= rz &&
-      zFt <= rz + inchesToFeet(r.d_in)
-    ) {
-      return i;
-    }
+    const r = roomRect(rooms[i]);
+    if (xFt >= r.x && xFt <= r.x + r.w && zFt >= r.z && zFt <= r.z + r.d) return i;
   }
   return -1;
 }
@@ -200,13 +185,16 @@ export function buildDesignSchedule(
 
   for (const b of builtins) {
     const def = FURNITURE_CATALOG.find((f) => f.type === b.type);
+    const w = boxWidth(b.box);
+    const d = boxDepth(b.box);
+    const h = boxHeight(b.box);
     drafts.push({
       room: names[b.roomIndex] ?? "Unassigned",
       roomOrder: b.roomIndex,
       item: b.name,
       category: CATEGORY_LABELS[def?.category ?? ""] ?? "Fit-out",
-      sizeFt: sizeFt(b.widthFt, b.depthFt, b.heightFt),
-      sizeMm: sizeMm(b.widthFt, b.depthFt, b.heightFt),
+      sizeFt: sizeFt(w, d, h),
+      sizeMm: sizeMm(w, d, h),
       finish: "Scheme default",
       source: "Built-in",
     });

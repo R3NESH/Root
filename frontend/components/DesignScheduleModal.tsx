@@ -10,7 +10,8 @@ import {
   exportDesignScheduleToCsv,
   printDesignSchedule,
 } from "@/lib/designSchedule";
-import styles from "./DesignScheduleModal.module.css";
+// Shared studio shell — the same chrome the elevations and clearance studios use.
+import styles from "./StudioModal.module.css";
 
 interface DesignScheduleModalProps {
   isOpen: boolean;

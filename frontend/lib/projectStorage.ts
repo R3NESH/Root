@@ -9,6 +9,7 @@ import { CustomDim } from "@/components/RoomCustomizer";
 import {
   CustomDrawnWall,
   CustomRoomZone,
+  DrawnStair,
 } from "@/lib/customArchitecture";
 import { PlacedCustomObject } from "@/lib/furnitureCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
@@ -50,6 +51,7 @@ export interface SavedProject {
   /** Per-wall thickness, height and cutouts. Absent in a save made before walls could be cut. */
   wallEdits?: WallEdits;
   customWalls: CustomDrawnWall[];
+  drawnStairs?: DrawnStair[];
   customRoomZones: CustomRoomZone[];
   customObjects: PlacedCustomObject[];
   deletedBuiltinIds: string[];

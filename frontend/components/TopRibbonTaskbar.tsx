@@ -7,6 +7,7 @@ import { OPENINGS_CATALOG, OpeningItemDef } from "@/lib/openingsCatalog";
 import { HouseMaterialConfig } from "@/lib/materialsCatalog";
 import { ComplianceReport } from "@/lib/compliance";
 import { PLAN_IMAGE_TYPES } from "@/lib/aiPlanImage";
+import LeftToolRail from "@/components/LeftToolRail";
 import {
   Facing,
   MAX_DIM_IN,
@@ -195,12 +196,38 @@ interface TopRibbonTaskbarProps {
   onToggleRaytrace?: () => void;
   onOpenBOQModal?: () => void;
   onOpenScheduleModal?: () => void;
+  onOpenElevationsModal?: () => void;
+  onOpenClearanceModal?: () => void;
+  onOpenMoodboardModal?: () => void;
+  onOpenCeilingPlanModal?: () => void;
   onOpenCustomWallBlendModal?: () => void;
   /** Opens the Plot Shape studio. */
   onOpenPlotShapeModal?: () => void;
+  onOpenMaterialModal: () => void;
+  /** Blueprint alongside the 3D view rather than instead of it. */
+  isSplitView?: boolean;
+  onToggleSplitView?: () => void;
+  /** The drone tour: exterior orbit, in through the door, room by room, out again. */
+  tourPlaying?: boolean;
+  onToggleTour?: () => void;
+  onOpenAIFurnitureModal?: () => void;
+  totalPlacedCount: number;
+  deletedBuiltinCount: number;
+  onRestoreDefaults: () => void;
+  onClearAllFurniture: () => void;
 }
 
 const WALL_ITEMS = FURNITURE_CATALOG.filter((i) => i.category === "walls");
+
+// Split by what a piece does on the plot rather than by what it is made of, which is how the
+// setback strip is actually thought about: what grows, what you walk or park on, what encloses.
+const LAND_PLANTING = ["land_tree", "land_palm", "land_hedge", "land_shrub", "land_planter"];
+const LAND_GROUND = ["land_paving", "land_path", "land_gravel"];
+const LAND_SITE = ["land_compound_wall", "land_gate", "land_bollard"];
+const landItems = (types: string[]) =>
+  types
+    .map((t) => FURNITURE_CATALOG.find((i) => i.type === t))
+    .filter((i): i is FurnitureItemDef => Boolean(i));
 // Straight partitions in one group, curved and arched pieces in the other, split on the type
 // name because the catalog carries no shape field. The split is cosmetic: an item that lands in
 // the wrong group is still reachable, which is the property the hardcoded lists never had.
@@ -211,7 +238,16 @@ const CURVED_WALLS = WALL_ITEMS.filter((i) => !STRAIGHT_WALLS.includes(i));
 const DOOR_OPENINGS = OPENINGS_CATALOG.filter((o) => o.category === "door");
 const STAIR_ITEMS = FURNITURE_CATALOG.filter((i) => i.category === "stairs");
 
-type RibbonTab = "architecture" | "site" | "draw" | "openings" | "view" | "ai_prompt";
+type RibbonTab =
+  | "architecture"
+  | "site"
+  | "draw"
+  | "openings"
+  | "view"
+  | "interior"
+  | "landscape"
+  | "documents"
+  | "ai_prompt";
 
 // Width a panel takes once it is collapsed to its drop-down button. Must match
 // .ribbonGroupCollapsed in the stylesheet, since the fit calculation is done in JS.
@@ -229,11 +265,6 @@ const ICONS: Record<string, string[]> = {
   undo: ["M3.5 8.5h6.5a3 3 0 0 1 0 6H7", "M6.5 5.5 3.5 8.5l3 3"],
   redo: ["M12.5 8.5H6a3 3 0 0 0 0 6h3", "M9.5 5.5l3 3-3 3"],
   reset: ["M13 8a5 5 0 1 1-1.6-3.7", "M13 3v3h-3"],
-  boq: ["M4 2.5h5l3 3v8H4z", "M9 2.5v3h3", "M6 9h4M6 11h4"],
-  schedule: ["M2.5 3h11v10h-11z", "M2.5 6h11", "M6 6v7", "M9.5 6v7"],
-  graphics: ["M2.5 11.5a5.5 5.5 0 0 1 11 0", "M8 11.5 11 7.5"],
-  raytrace: ["M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4", "M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14", "M3.8 3.8l1 1M11.2 11.2l1 1M12.2 3.8l-1 1M4.8 11.2l-1 1"],
-  upgrade: ["M8 2.5 9.4 6.6 13.5 8l-4.1 1.4L8 13.5 6.6 9.4 2.5 8l4.1-1.4z"],
   day: ["M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5", "M8 2v1.6M8 12.4V14M2 8h1.6M12.4 8H14", "M3.9 3.9l1.1 1.1M11 11l1.1 1.1M12.1 3.9 11 5M5 11l-1.1 1.1"],
   night: ["M12.5 9.6A5 5 0 0 1 6.4 3.5a5 5 0 1 0 6.1 6.1z"],
   locked: ["M4.5 7.5h7v6h-7z", "M6 7.5V5.5a2 2 0 0 1 4 0v2"],
@@ -281,6 +312,12 @@ function AppBarTools({
   savedLabel: string;
 }) {
   const signature = actions.map((a) => `${a.id}:${a.active ? 1 : 0}:${a.disabled ? 1 : 0}`).join("|");
+  // FLAT cost: one menu button however many items are behind it. This is the difference between
+  // the two overflow mechanisms in this file, and it is worth stating because they were confused
+  // for each other once. RibbonRow below pays `hidden * COLLAPSED_PANEL_W`, because each hidden
+  // panel still shows as its own caret — so that row has a floor past which it overflows even
+  // fully collapsed. This row has no such floor: adding actions can never make it overflow, only
+  // move more of them behind the menu.
   const { ref, shown } = useFitCount<HTMLDivElement>(actions.length, signature, (hidden) =>
     hidden > 0 ? OVERFLOW_BTN_W : 0
   );
@@ -313,6 +350,11 @@ function AppBarTools({
     [
       a.active ? styles.appBarBtnActive : styles.appBarBtn,
       i > 0 && actions[i - 1].group !== a.group ? styles.appBarBtnGroupStart : "",
+      // Past the fit: taken out of the layout rather than left to be clipped by the row. A
+      // clipped button shows as a sliced stub at the right-hand edge, which reads as a broken
+      // control rather than as "there is more behind the menu". It stays mounted because
+      // useFitCount measures these children at their natural width on its next pass.
+      i >= shown ? styles.appBarBtnOverflowed : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -464,6 +506,10 @@ function RibbonRow({ children }: { children: React.ReactNode }) {
         : "?"
     )
     .join("|");
+  // PER-ITEM cost, unlike the application bar's flat one: a collapsed panel is still a 76px
+  // caret of its own. So this row has a floor — past roughly `avail / COLLAPSED_PANEL_W` panels
+  // it cannot fit even with every one collapsed, and `shown` bottoms out at 0. Adding panels to
+  // a tab is therefore a width budget in a way that adding application-bar actions is not.
   const { ref: rowRef, shown } = useFitCount<HTMLDivElement>(
     items.length,
     signature,
@@ -500,8 +546,15 @@ const RIBBON_TABS: { id: RibbonTab; label: string }[] = [
   { id: "draw", label: "Draw" },
   { id: "openings", label: "Openings" },
   { id: "view", label: "View" },
+  { id: "interior", label: "Interior" },
+  { id: "landscape", label: "Landscape" },
+  { id: "documents", label: "Documents" },
   { id: "ai_prompt", label: "AI Prompt" },
 ];
+
+// AI Prompt is the one tab that is not a phase of drawing the building — it is the way in before
+// there is a building at all. It sits hard right, away from the run of drafting tabs.
+const FAR_RIGHT_TAB: RibbonTab = "ai_prompt";
 
 export default function TopRibbonTaskbar({
   mode,
@@ -591,11 +644,33 @@ export default function TopRibbonTaskbar({
   onToggleRaytrace,
   onOpenBOQModal,
   onOpenScheduleModal,
+  onOpenElevationsModal,
+  onOpenClearanceModal,
+  onOpenMoodboardModal,
+  onOpenCeilingPlanModal,
   onOpenCustomWallBlendModal,
   onOpenPlotShapeModal,
+  onOpenMaterialModal,
+  isSplitView = false,
+  onToggleSplitView,
+  tourPlaying = false,
+  onToggleTour,
+  onOpenAIFurnitureModal,
+  totalPlacedCount,
+  deletedBuiltinCount,
+  onRestoreDefaults,
+  onClearAllFurniture,
 }: TopRibbonTaskbarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("architecture");
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
+
+  // Walkthrough is the one mode with nothing on the shelf worth reaching, and the shelf costs it
+  // about a hundred pixels of height. On a wide window that turns the viewport into a letterbox,
+  // and a letterbox is what widens the first-person view into a fisheye. Collapsed, not hidden:
+  // the caret is still there if the ribbon is wanted.
+  useEffect(() => {
+    if (mode === "walkthrough") setIsRibbonCollapsed(true);
+  }, [mode]);
   const [aiPromptInput, setAiPromptInput] = useState("");
 
   // Plot Dims Helpers
@@ -691,7 +766,7 @@ export default function TopRibbonTaskbar({
     }
   };
 
-  const wallButton = (item: FurnitureItemDef) => (
+  const placeItemButton = (item: FurnitureItemDef) => (
     <button
       key={item.type}
       className={`${styles.windowShapeBtn} ${placingItemType === item.type ? styles.windowShapeBtnActive : ""}`}
@@ -774,68 +849,6 @@ export default function TopRibbonTaskbar({
                   },
                 ]
               : []),
-            ...(onOpenBOQModal
-              ? [
-                  {
-                    id: "boq",
-                    label: "BOQ & Cost",
-                    title: "Engineering Bill of Quantities (BOQ) & Cost Estimation",
-                    icon: ICONS.boq,
-                    onClick: onOpenBOQModal,
-                    group: 1,
-                  },
-                ]
-              : []),
-            ...(onOpenScheduleModal
-              ? [
-                  {
-                    id: "schedule",
-                    label: "FF&E Schedule",
-                    title: "FF&E and Finish Schedule — every piece and surface, room by room, in feet-inches and mm",
-                    icon: ICONS.schedule,
-                    onClick: onOpenScheduleModal,
-                    group: 1,
-                  },
-                ]
-              : []),
-            ...(onOpenGraphicsModal
-              ? [
-                  {
-                    id: "graphics",
-                    label: "Graphics",
-                    title: "Graphics & Performance Control (Press 'G')",
-                    icon: ICONS.graphics,
-                    onClick: onOpenGraphicsModal,
-                    group: 2,
-                  },
-                ]
-              : []),
-            ...(onToggleRaytrace
-              ? [
-                  {
-                    id: "raytrace",
-                    label: "Raytrace",
-                    title: "Toggle Real-Time GPU Path Tracer & Global Illumination (Press 'P')",
-                    icon: ICONS.raytrace,
-                    onClick: onToggleRaytrace,
-                    active: isRaytracing,
-                    group: 2,
-                  },
-                ]
-              : []),
-            ...(onToggleUpgrade
-              ? [
-                  {
-                    id: "upgrade",
-                    label: "Upgrade",
-                    title: "Toggle Photorealistic Studio Upgrade (Press 'U')",
-                    icon: ICONS.upgrade,
-                    onClick: onToggleUpgrade,
-                    active: isUpgraded,
-                    group: 2,
-                  },
-                ]
-              : []),
             {
               id: "daynight",
               label: lightsOn ? "Day" : "Night",
@@ -881,6 +894,17 @@ export default function TopRibbonTaskbar({
             title="2D CAD Architectural Blueprint">
               2D Blueprint
           </button>
+          {/* Not a fourth mode: the blueprint opens beside the 3D view, which stays in orbit.
+              Meaningless in blueprint mode, where the 2D view already is the window. */}
+          {onToggleSplitView && (
+            <button
+              className={`${styles.modeTab} ${isSplitView ? styles.modeTabActive : ""}`}
+              onClick={onToggleSplitView}
+              disabled={mode !== "orbit"}
+              title="Live Plan — the blueprint beside the 3D view. Draw in plan, watch it build (H)">
+                Live Plan
+            </button>
+          )}
         </div>
       </div> {/* 2. Ribbon tab strip */}
       <div className={styles.tabStrip}>
@@ -888,7 +912,9 @@ export default function TopRibbonTaskbar({
           {RIBBON_TABS.map((tab) => (
             <button
               key={tab.id}
-              className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtnActive : ""}`}
+              className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtnActive : ""} ${
+                tab.id === FAR_RIGHT_TAB ? styles.tabBtnFarRight : ""
+              }`}
               onClick={() => {
                 setActiveTab(tab.id);
                 setIsRibbonCollapsed(false);
@@ -1355,17 +1381,28 @@ export default function TopRibbonTaskbar({
                   Sliding Glass Door sat in OPENINGS_CATALOG while "Structure", the tab you would
                   naturally look in for a door, could not show it. */}
               <RibbonPanel label={<>Partition Walls</>}>
-                <div className={styles.presetsGrid}>{STRAIGHT_WALLS.map(wallButton)}</div>
+                <div className={styles.presetsGrid}>{STRAIGHT_WALLS.map(placeItemButton)}</div>
               </RibbonPanel>
 
               <RibbonPanel label={<>Curved Walls &amp; Doors</>}>
-                <div className={styles.presetsGrid}>{CURVED_WALLS.map(wallButton)}</div>
+                <div className={styles.presetsGrid}>{CURVED_WALLS.map(placeItemButton)}</div>
               </RibbonPanel>
 
               <RibbonPanel label={<>Stairs</>}>
-                <div className={styles.presetsGrid}>{STAIR_ITEMS.map(wallButton)}</div>
-                <div className={styles.facingInfoBadge} title="NBC 2016, one- and two-family dwellings: riser at most 190 mm, tread at least 250 mm, flight at least 0.90 m wide. Every style here is generated to those numbers from the floor-to-floor rise.">
-                  16 risers · 7.2 in · NBC
+                {/* Drawn first, presets second. A preset is a fixed footprint you then cannot
+                    resize without taking the riser and the going out of code with it; the drawn
+                    stair fits the space by changing the number of steps, which is the only thing
+                    about a stair that is allowed to change. See lib/stairPath.ts. */}
+                <button
+                  className={`${styles.cadToolBtn} ${activeCadTool === "draw_stair" ? styles.cadToolBtnActive : ""}`}
+                  onClick={() => onChangeCadTool?.(activeCadTool === "draw_stair" ? "select" : "draw_stair")}
+                  title="Draw a stair as the line you walk up: click the bottom, click each turn, click the top, then Enter. Works in the 2D blueprint and in 3D."
+                >
+                  Draw Stair
+                </button>
+                <div className={styles.presetsGrid}>{STAIR_ITEMS.map(placeItemButton)}</div>
+                <div className={styles.facingInfoBadge} title="NBC 2016, one- and two-family dwellings: riser at most 190 mm, tread at least 250 mm, flight at least 0.90 m wide. A drawn stair is solved to those numbers or refused; the presets are generated to them from the floor-to-floor rise.">
+                  7.2 in riser · NBC
                 </div>
               </RibbonPanel>
             </RibbonRow>
@@ -1488,8 +1525,24 @@ export default function TopRibbonTaskbar({
                   Custom Sizes...
                 </button>
               </RibbonPanel>
-              {/* Group 7: Render Fidelity */}
-              <RibbonPanel label={<>Render Fidelity</>}>
+
+              {/* Everything about how the scene is drawn, in one panel.
+                  Three of these controls were 16px icons in the application bar, fighting for a
+                  36px strip. Moving them onto the shelf left two panels on one subject, and the
+                  name the second carried — "Lighting & Render" — promised a Day/Night control
+                  that had stayed behind in the bar. */}
+              {onToggleTour && (
+                <RibbonPanel label={<>Presentation</>}>
+                  <button
+                    className={`${styles.actionPillBtn} ${tourPlaying ? styles.actionPillActive : ""}`}
+                    onClick={onToggleTour}
+                    title="Drone Tour — a flight round the outside, in through the front door, room by room, and back out. Built from the plan and the doors, so the camera goes where a person could.">
+                    {tourPlaying ? "Stop Tour" : "Drone Tour"}
+                  </button>
+                </RibbonPanel>
+              )}
+
+              <RibbonPanel label={<>Render Quality</>}>
                 <div className={styles.stackedGroup}>
                   <button
                     className={`${styles.actionPillBtn} ${
@@ -1512,18 +1565,139 @@ export default function TopRibbonTaskbar({
                     Smooth {Math.round((materialConfig.textureSmoothness ?? 0.88) * 100)}% · Gloss{" "}
                     {Math.round((materialConfig.floorGlossLevel ?? 0.92) * 100)}%
                   </div>
+                  {onToggleRaytrace && (
+                    <button
+                      className={`${styles.actionPillBtn} ${isRaytracing ? styles.actionPillActive : ""}`}
+                      onClick={onToggleRaytrace}
+                      title="Toggle Real-Time GPU Path Tracer & Global Illumination (Press 'P')">
+                      Path Tracer: <b>{isRaytracing ? "ON" : "OFF"}</b>
+                    </button>
+                  )}
+                  {onToggleUpgrade && (
+                    <button
+                      className={`${styles.actionPillBtn} ${isUpgraded ? styles.actionPillActive : ""}`}
+                      onClick={onToggleUpgrade}
+                      title="Toggle Photorealistic Studio Upgrade (Press 'U')">
+                      Studio Upgrade: <b>{isUpgraded ? "ON" : "OFF"}</b>
+                    </button>
+                  )}
+                  {onOpenGraphicsModal && (
+                    <button
+                      className={styles.actionPillBtn}
+                      onClick={onOpenGraphicsModal}
+                      title="Graphics & Performance Control (Press 'G')">
+                      Graphics Settings...
+                    </button>
+                  )}
                 </div>
               </RibbonPanel>
-              {/* 2D CAD Blueprint View */}
-              <RibbonPanel label={<>Blueprint Mode</>}>
+            </RibbonRow>
+          )}
+
+
+          {/* TAB: INTERIOR - FURNITURE, FINISHES, PLACED OBJECTS */}
+          {activeTab === "interior" && (
+            <LeftToolRail
+              program={program}
+              placingItemType={placingItemType}
+              onSelectPlaceItem={onSelectPlaceItem}
+              materialConfig={materialConfig}
+              onChangeMaterialConfig={onChangeMaterialConfig}
+              onOpenMaterialModal={onOpenMaterialModal}
+              onOpenAIFurnitureModal={onOpenAIFurnitureModal}
+              onOpenCustomWallBlendModal={onOpenCustomWallBlendModal}
+              totalPlacedCount={totalPlacedCount}
+              deletedBuiltinCount={deletedBuiltinCount}
+              onRestoreDefaults={onRestoreDefaults}
+              onClearAllFurniture={onClearAllFurniture}
+            />
+          )}
+
+          {/* TAB: LANDSCAPE - THE PLOT OUTSIDE THE BUILDING LINE
+              These place through the same path the furniture does: the click raycasts the ground
+              plane, not a room floor, so placing outdoors needed no new machinery. */}
+          {activeTab === "landscape" && (
+            <RibbonRow>
+              <RibbonPanel label={<>Planting</>}>
+                <div className={styles.presetsGrid}>{landItems(LAND_PLANTING).map(placeItemButton)}</div>
+              </RibbonPanel>
+
+              <RibbonPanel label={<>Ground</>}>
+                <div className={styles.presetsGrid}>{landItems(LAND_GROUND).map(placeItemButton)}</div>
+              </RibbonPanel>
+
+              <RibbonPanel label={<>Boundary &amp; Site</>}>
+                <div className={styles.presetsGrid}>{landItems(LAND_SITE).map(placeItemButton)}</div>
+              </RibbonPanel>
+
+              <RibbonPanel label={<>Placing</>}>
+                <div className={styles.facingInfoBadge} title="Landscape pieces drop wherever the ground is clicked, inside the plot or outside the house. Esc cancels.">
+                  Pick a piece, then click the ground. Esc cancels.
+                </div>
+              </RibbonPanel>
+            </RibbonRow>
+          )}
+
+          {/* TAB: DOCUMENTS - WHAT THE MODEL IS HANDED OVER AS
+              Every one of these was a 16px icon in the application bar, which overflows: the
+              product's own output was reachable only through a chevron menu. */}
+          {activeTab === "documents" && (
+            <RibbonRow>
+              <RibbonPanel label={<>Cost &amp; Quantities</>}>
                 <button
-                  className={`${styles.cadViewBtn} ${mode === "blueprint" ? styles.cadViewBtnActive : ""}`}
-                  onClick={() => onChangeMode("blueprint")}
-                  title="Switch to 2D CAD Blueprint Plan">
-                    2D CAD Blueprint View
+                  className={styles.actionPillBtn}
+                  onClick={onOpenBOQModal}
+                  disabled={!onOpenBOQModal}
+                  title="Engineering Bill of Quantities (BOQ) & Cost Estimation">
+                  BOQ &amp; Cost Estimate...
                 </button>
               </RibbonPanel>
-              {/* Export Suite */}
+
+              <RibbonPanel label={<>Schedules</>}>
+                <div className={styles.stackedGroup}>
+                  <button
+                    className={styles.actionPillBtn}
+                    onClick={onOpenScheduleModal}
+                    disabled={!onOpenScheduleModal}
+                    title="FF&E and Finish Schedule — every piece and surface, room by room, in feet-inches and mm">
+                    FF&amp;E &amp; Finish Schedule...
+                  </button>
+                  <button
+                    className={styles.actionPillBtn}
+                    onClick={onOpenClearanceModal}
+                    disabled={!onOpenClearanceModal}
+                    title="Clearance Audit — every gap measured against NKBA and trade minimums">
+                    Clearance Audit...
+                  </button>
+                </div>
+              </RibbonPanel>
+
+              <RibbonPanel label={<>Drawings &amp; Boards</>}>
+                <div className={styles.stackedGroup}>
+                  <button
+                    className={styles.actionPillBtn}
+                    onClick={onOpenElevationsModal}
+                    disabled={!onOpenElevationsModal}
+                    title="Interior Elevations — every wall drawn flat, with the heights a plan cannot carry">
+                    Interior Elevations...
+                  </button>
+                  <button
+                    className={styles.actionPillBtn}
+                    onClick={onOpenCeilingPlanModal}
+                    disabled={!onOpenCeilingPlanModal}
+                    title="Reflected Ceiling Plan — fixtures, a proposed downlight layout, and the lux each room lands at">
+                    Reflected Ceiling Plan...
+                  </button>
+                  <button
+                    className={styles.actionPillBtn}
+                    onClick={onOpenMoodboardModal}
+                    disabled={!onOpenMoodboardModal}
+                    title="Finish Board — the scheme in one page, every piece at one true scale">
+                    Finish Board...
+                  </button>
+                </div>
+              </RibbonPanel>
+
               <RibbonPanel label={<>CAD Export Suite</>}>
                 <button
                   className={styles.exportSuiteBtn}
@@ -1534,7 +1708,6 @@ export default function TopRibbonTaskbar({
               </RibbonPanel>
             </RibbonRow>
           )}
-
 
           {/* TAB 4: AI PROMPT TO 3D SIMULATION */}
           {activeTab === "ai_prompt" && (

@@ -2,7 +2,7 @@
 tags: [codebase, tooling]
 status: built
 date: 2026-08-30
-updated: 2026-09-07
+updated: 2026-09-19
 ---
 # Knowledge graph (graphify)
 
@@ -12,15 +12,24 @@ A queryable graph over the whole corpus — 135 files in `manifest.json`, code a
 
 ## What was built
 
-| | 2026-08-25 | 2026-08-30 | 2026-09-07 |
-|---|---|---|---|
-| Nodes | 548 | 651 | **1,538** |
-| Edges | 1,319 | 1,536 | **3,355** |
-| Communities | 28 | 38 | **84** |
+| | 2026-08-25 | 2026-08-30 | 2026-09-07 | 2026-09-19 |
+|---|---|---|---|---|
+| Nodes | 548 | 651 | 1,538 | **1,873** |
+| Edges | 1,319 | 1,536 | 3,355 | **4,341** |
+| Communities | 28 | 38 | 84 | **89** |
 
-The 2026-09-07 column is counted the same way as the one before it, off `graph.json` and not off
-the build log. `notes/build/` came through with **26 nodes**, so the skip-dir trap below did not
-bite this time — it is still worth checking every run, because nothing warns you.
+Every column is counted the same way, off `graph.json` and not off the build log. On 2026-09-19
+`notes/build/` came through with **24 nodes**, so the skip-dir trap below did not bite — it is
+still worth checking every run, because nothing warns you.
+
+The 2026-09-19 rebuild covered the interior-design package: `moodboard.ts` (14 nodes),
+`elevations.ts` (23), `clearances.ts` (22), `ceilingPlan.ts` (20), `designSchedule.ts` (18),
+`furnitureInventory.ts` (11), and the five decision notes behind them.
+
+> [!note] Community labels are still `Community N`
+> `graphify label` re-clustered to 89 communities and then reported *no LLM backend configured*,
+> so the placeholder names stand. It wants `GOOGLE_API_KEY` or an explicit `--backend`; neither
+> is set on this machine, which is the same missing-key situation as [[free-text-input]].
 
 > [!warning] The command in `CLAUDE.md` was wrong and has been corrected
 > `graphify --update` is not a command any more: the CLI is now `graphify update <path>`, and it
@@ -109,6 +118,24 @@ The god nodes are an honest read of where the weight sits:
 | `Scene()` | 36 |
 | `inchesToFeet()` | 33 |
 | `Facing` | 26 |
+
+By 2026-09-19 the weight has moved decisively to the frontend, and the top of the table is now
+files rather than functions:
+
+| Node | Edges (2026-09-19) |
+|---|---|
+| `frontend/app/page.tsx` | **171** |
+| `frontend/components/Scene.tsx` | **166** |
+| `frontend/components/TopRibbonTaskbar.tsx` | 89 |
+| `frontend/components/Blueprint2DView.tsx` | 83 |
+| `frontend/lib/materialsCatalog.ts` | 66 |
+| `frontend/lib/solve.ts` | 64 |
+| `backend/api/main.py` | 59 |
+
+That is the god-component problem in [[codebase-map]] measured rather than asserted: `page.tsx`
+and `Scene.tsx` between them carry 337 edges, and every studio added this month hangs off both.
+`TopRibbonTaskbar.tsx` at 89 is the third, and it is the file whose overflow path only ran for
+the first time once five buttons were added to it — see [[project-status]].
 
 `solve_layout()` at 47 edges with a betweenness of 0.24 confirms what
 [[realism-gaps]] already implied: it is the single point every constraint family passes

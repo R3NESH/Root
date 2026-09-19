@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { FURNITURE_CATALOG, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { BuildingProgram } from "@/lib/programs";
 import { WALL_BAND_PRESETS } from "@/lib/wallBands";
@@ -125,6 +125,9 @@ const CATEGORY_META: Record<FurnitureCategory, Omit<RailSection, "id">> = {
   cafe_outdoor: { icon: "umbrella", label: "Terrace", title: "Outdoor covers, rope line and bike rack", group: "build" },
   cafe_signage: { icon: "sign", label: "Signage", title: "Menu boards and pavement signs", group: "fit" },
   cafe_decor: { icon: "plant", label: "Decor", title: "Lighting, planting, neon and wall art", group: "dress" },
+  // Outside the building line, so no programme lists it and this rail never draws it. Present
+  // because CATEGORY_META must cover every category.
+  landscape: { icon: "plant", label: "Landscape", title: "Trees, hedges, paving and boundary — see the ribbon's Landscape tab", group: "project" },
 };
 
 const FIXED_SECTIONS: RailSection[] = [
@@ -200,20 +203,22 @@ export default function LeftToolRail({
         <p className={styles.railHint}>Pick a category, then drag a piece onto the plan.</p>
 
         {railGroups.map(({ group, sections }) => (
-          <React.Fragment key={group}>
+          <div className={styles.railGroup} key={group}>
+            <div className={styles.railGroupBtns}>
+              {sections.map((section) => (
+                <button
+                  key={section.id}
+                  className={`${styles.railBtn} ${openSection === section.id ? styles.railBtnActive : ""}`}
+                  onClick={() => setOpenSection((prev) => (prev === section.id ? null : section.id))}
+                  title={section.title}
+                >
+                  <RailGlyph paths={RAIL_GLYPHS[section.icon]} />
+                  <span className={styles.railLabel}>{section.label}</span>
+                </button>
+              ))}
+            </div>
             <div className={styles.railGroupLabel}>{GROUP_LABELS[group]}</div>
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                className={`${styles.railBtn} ${openSection === section.id ? styles.railBtnActive : ""}`}
-                onClick={() => setOpenSection((prev) => (prev === section.id ? null : section.id))}
-                title={section.title}
-              >
-                <RailGlyph paths={RAIL_GLYPHS[section.icon]} />
-                <span className={styles.railLabel}>{section.label}</span>
-              </button>
-            ))}
-          </React.Fragment>
+          </div>
         ))}
       </nav>
 
@@ -383,26 +388,7 @@ export default function LeftToolRail({
                 </div>
 
                 <div className={styles.panelGroup}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                    <div className={styles.panelGroupLabel}>Wall Blends &amp; Partitions</div>
-                    {onOpenCustomWallBlendModal && (
-                      <button
-                        className={styles.themeBtn}
-                        onClick={onOpenCustomWallBlendModal}
-                        style={{
-                          background: "linear-gradient(135deg, rgba(61, 92, 105, 0.25), rgba(79, 70, 229, 0.25))",
-                          border: "1px solid #6f9aa8",
-                          color: "#6f9aa8",
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          fontSize: "11px",
-                        }}
-                        title="Custom wall partition permutations & combinations"
-                      >
-                        Custom
-                      </button>
-                    )}
-                  </div>
+                  <div className={styles.panelGroupLabel}>Wall Blends &amp; Partitions</div>
                   <div className={styles.hint}>
                     Splits wall surfaces horizontally or vertically to test different permutations and color/material combinations.
                   </div>

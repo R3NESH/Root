@@ -7,8 +7,12 @@ import { PlotDims, Facing } from "./plot";
 // walking through it. A 10x10 bedroom should look like a 10x10 bedroom.
 export const EYE_LEVEL_FT = 5.4; // 5.4 ft
 export const CROUCH_HEIGHT_FT = 3.4; // 3.4 ft crouched
-export const WALK_SPEED_FPS = 7.5; // ft per second (realistic walk)
-export const SPRINT_SPEED_FPS = 13.5; // ft per second (sprint)
+// A healthy adult walks at 1.2-1.4 m/s, which is 3.9-4.6 ft/s
+// (https://www.medicalnewstoday.com/articles/average-walking-speed). This was 7.5 ft/s — 2.3 m/s,
+// nearer a run than a walk — so a 13 ft hall was crossed in under two seconds and the house read
+// as a model being strode over rather than a building being walked through.
+export const WALK_SPEED_FPS = 4.6; // ft per second — 1.4 m/s, a brisk but real walk
+export const SPRINT_SPEED_FPS = 8.5; // ft per second — 2.6 m/s, a jog
 export const ROTATE_SPEED_RAD = 1.9; // rad per second
 
 export interface PlayerTransform {

@@ -325,3 +325,221 @@
   color: #8e8a82;
   line-height: 1.6;
 }
+
+/* ---- Elevations studio ------------------------------------------------------------------ */
+
+.split {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+
+.wallList {
+  border: 1px solid rgba(58, 55, 47, 0.8);
+  border-radius: 3px;
+  overflow-y: auto;
+  max-height: 60vh;
+  background: rgba(26, 25, 22, 0.6);
+}
+
+.roomHeading {
+  position: sticky;
+  top: 0;
+  background: rgba(33, 32, 27, 0.97);
+  padding: 7px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8e8a82;
+  border-bottom: 1px solid rgba(58, 55, 47, 0.8);
+}
+
+.wallItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(58, 55, 47, 0.35);
+  color: #b5b0a6;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.wallItem:hover {
+  background: rgba(58, 55, 47, 0.35);
+  color: #eceae5;
+}
+
+.wallItemActive {
+  composes: wallItem;
+  background: rgba(111, 154, 168, 0.18);
+  color: #6f9aa8;
+  font-weight: 700;
+  box-shadow: inset 2px 0 0 #6f9aa8;
+}
+
+.wallMeta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #8e8a82;
+  white-space: nowrap;
+}
+
+.preview {
+  border: 1px solid rgba(58, 55, 47, 0.8);
+  border-radius: 3px;
+  background: #f6f5f2;
+  overflow: auto;
+  max-height: 60vh;
+  padding: 8px;
+}
+
+.preview svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ---- Clearance audit -------------------------------------------------------------------- */
+
+.sevFail {
+  color: #a8442f;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sevTight {
+  color: #b58a2f;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.shortfall {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #a8442f;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.srcLink {
+  color: #6f9aa8;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.srcLink:hover {
+  text-decoration: underline;
+}
+
+.noSource {
+  font-size: 11px;
+  color: #8e8a82;
+  font-style: italic;
+}
+
+.ruleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.ruleCard {
+  background: rgba(33, 32, 27, 0.6);
+  border: 1px solid rgba(58, 55, 47, 0.8);
+  border-radius: 3px;
+  padding: 10px 12px;
+}
+
+.ruleTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ruleName {
+  font-size: 12px;
+  font-weight: 700;
+  color: #eceae5;
+}
+
+.ruleMin {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 800;
+  color: #6f9aa8;
+  white-space: nowrap;
+}
+
+.ruleNote {
+  font-size: 11px;
+  color: #8e8a82;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.pass {
+  padding: 30px 24px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #b5b0a6;
+}
+
+/* --------------------------------------------------------------------------
+   Cost takeoff
+   The BOQ sheet is the sixth document and was the only one with its own
+   stylesheet, so the six looked like six products. These are the four things
+   it needs that a schedule or a board does not.
+   -------------------------------------------------------------------------- */
+.toolbarLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8e8a82;
+}
+
+.kpiSub {
+  font-size: 10px;
+  color: #8e8a82;
+  margin-top: 3px;
+}
+
+.pillCount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.amountCol {
+  font-weight: 700;
+  color: #eceae5;
+}
+
+.totalRow {
+  background: rgba(111, 154, 168, 0.1);
+  font-weight: 800;
+}
+
+.totalRow .td {
+  border-top: 1px solid rgba(111, 154, 168, 0.45);
+}
