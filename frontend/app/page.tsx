@@ -2365,6 +2365,7 @@ export default function Home() {
                 materialConfig={materialConfig}
 
                 graphicsSettings={graphicsSettings}
+                onChangeGraphicsSettings={setGraphicsSettings}
                 windowConfig={windowConfig}
                 onChangeWindowConfig={setWindowConfig}
                 placingOpeningDef={placingOpeningDef}
@@ -2908,7 +2909,7 @@ export default function Home() {
         isOpen={isGraphicsModalOpen}
         onClose={() => setIsGraphicsModalOpen(false)}
         settings={graphicsSettings}
-        onChangeSettings={setGraphicsSettings}
+        onChangeSettings={(next) => setGraphicsSettings({ ...next, autoQuality: false })}
       /> {/* Engineering Bill of Quantities (BOQ) & Cost Takeoff Modal */}
       <BOQCostModal
         isOpen={isBOQModalOpen}

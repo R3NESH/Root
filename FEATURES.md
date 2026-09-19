@@ -159,6 +159,8 @@ FastAPI. `backend/api/main.py`.
 
 | Feature | File | Description |
 | :--- | :--- | :--- |
+| GPU tier detection | `frontend/lib/gpuTier.ts` | Asks the GPU via `WEBGL_debug_renderer_info` instead of counting CPU threads. The old check was `navigator.hardwareConcurrency <= 4`, which a laptop with an 8-core CPU and Intel integrated graphics passes — so it got MSAA, a 1.5 pixel ratio, soft shadows, highp precision and the full post chain. Sets the three things a WebGL context cannot change later: anti-alias, precision, DPR cap. A masked or unknown GPU starts mid rather than high. |
+| Adaptive quality | `frontend/lib/adaptiveQuality.ts` | A six-rung ladder over render scale and shadow quality, driven by measured frame time. Steps down under 24 fps, back up over 58 after six good windows, with a climb cap so a demoted machine stays demoted. Ignores the giant delta a backgrounded tab returns. Only moves settings that are cheap to change mid-frame — texture quality would rebuild every material. Switches itself off the moment anyone picks a setting by hand. |
 | Graphics modal | `frontend/components/GraphicsControlModal.tsx` | Hotkey `G`. Presets: Low, Medium, High, Ultra, High-Performance GPU Extreme. |
 | Resolution scaling | `frontend/lib/graphicsConfig.ts` | 50% (Performance) to 200% (4K Ultra DSR). |
 | Procedural texture resolution | `frontend/lib/graphicsConfig.ts` | 512px to 4096px canvas-generated PBR textures with up to 16x anisotropic filtering. |

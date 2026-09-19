@@ -151,6 +151,8 @@ import {
 } from "@/lib/customArchitecture";
 import { solveStairPath } from "@/lib/stairPath";
 import { buildCameraTour, sampleCameraTour, CameraTour } from "@/lib/cameraTour";
+import { detectGpu, dprCapFor, contextOptionsFor } from "@/lib/gpuTier";
+import { QualityGovernor, startingRung, rungOf, applyRung } from "@/lib/adaptiveQuality";
 
 import { buildStairFromPath } from "@/lib/stairCatalog";
 import { resolveChainWalls } from "@/lib/wallJoins";
@@ -296,6 +298,8 @@ interface SceneProps {
   onNearestDoorChange?: (prompt: { doorId: string; label: string; isOpen: boolean } | null) => void;
   onRegisterDoorTrigger?: (trigger: () => void) => void;
   graphicsSettings?: GraphicsSettings;
+  /** The renderer lowers its own quality when frames are slow; this is how it says so. */
+  onChangeGraphicsSettings?: (settings: GraphicsSettings) => void;
   isUpgraded?: boolean;
   onToggleUpgrade?: () => void;
   isRaytracing?: boolean;
@@ -597,6 +601,7 @@ export default function Scene({
   onRotateSelected,
   onRotatePlacing,
   graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
+  onChangeGraphicsSettings,
   isUpgraded = false,
   onToggleUpgrade,
   isRaytracing = false,
@@ -800,6 +805,11 @@ export default function Scene({
   // The tour is built once, when play is pressed, and sampled every frame after that. Rebuilding
   // it per frame would re-derive the whole path from the plan sixty times a second for a result
   // that cannot change while it is running.
+  // What the GPU turned out to be, and the loop that second-guesses it.
+  const gpuInfoRef = useRef<ReturnType<typeof detectGpu> | null>(null);
+  const governorRef = useRef<QualityGovernor | null>(null);
+  const onChangeGraphicsSettingsRef = useRef(onChangeGraphicsSettings);
+  const [measuredFps, setMeasuredFps] = useState<number | null>(null);
   const tourRef = useRef<CameraTour | null>(null);
   const tourStartMsRef = useRef<number>(0);
   const tourPlayingRef = useRef(tourPlaying);
@@ -886,6 +896,7 @@ export default function Scene({
     onChangeDrawnStairsRef.current = onChangeDrawnStairs;
     stairWidthInRef.current = stairWidthIn;
     keyboardActiveRef.current = keyboardActive;
+    onChangeGraphicsSettingsRef.current = onChangeGraphicsSettings;
     onTourEndRef.current = onTourEnd;
     onTourProgressRef.current = onTourProgress;
     customRoomZonesRef.current = customRoomZones || [];
@@ -1130,32 +1141,49 @@ export default function Scene({
     camera.position.set(32, 42, 58);
     cameraRef.current = camera;
 
-    // Read once, at mount, and it gates anti-aliasing, shadow filtering, shadow map size, pixel
-    // ratio and whether the post-processing composer is built at all. A narrow window used to
-    // count as a weak GPU here, which meant docking the app beside an editor silently dropped
-    // every one of those — the result reads as a drop in resolution, and resizing never got it
-    // back. How much canvas is on screen says nothing about what the GPU can fill it with.
-    const isMobileOrLowGPU =
-      typeof window !== "undefined" &&
-      (/Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test(navigator.userAgent) ||
-        (navigator.hardwareConcurrency !== undefined && navigator.hardwareConcurrency <= 4));
-
-    const targetDPR = isMobileOrLowGPU
-      ? Math.min(window.devicePixelRatio, 1.0)
-      : Math.min(window.devicePixelRatio, 1.5);
+    // Asked of the GPU, not of the CPU. This was `navigator.hardwareConcurrency <= 4`, which
+    // counts CPU threads and says nothing about graphics: a laptop with an eight-core CPU and
+    // Intel integrated graphics passed it and was handed MSAA, a 1.5 pixel ratio, soft shadows,
+    // highp precision and the whole post chain. That is the machine that runs at single-digit FPS
+    // while the developer's desktop is fine. See lib/gpuTier.ts.
+    //
+    // Still only a guess — the browser may withhold the GPU name, and a name is not a benchmark —
+    // so the frame-time governor below corrects it. These three cannot be corrected: anti-aliasing
+    // and precision are context attributes, fixed for the life of the context.
+    const gpu = detectGpu();
+    gpuInfoRef.current = gpu;
+    // Starts where the tier guesses and moves from there. If the settings have already been
+    // moved off the ladder by hand, start from wherever they sit rather than overruling them.
+    governorRef.current = new QualityGovernor(
+      graphicsSettingsRef.current.autoQuality
+        ? startingRung(gpu.tier)
+        : rungOf(graphicsSettingsRef.current)
+    );
+    if (graphicsSettingsRef.current.autoQuality) {
+      const start = applyRung(graphicsSettingsRef.current, startingRung(gpu.tier));
+      if (
+        start.renderScale !== graphicsSettingsRef.current.renderScale ||
+        start.shadowQuality !== graphicsSettingsRef.current.shadowQuality
+      ) {
+        onChangeGraphicsSettingsRef.current?.(start);
+      }
+    }
+    const ctxOpts = contextOptionsFor(gpu.tier);
+    const dprCap = dprCapFor(gpu.tier);
+    const targetDPR = Math.min(window.devicePixelRatio, dprCap);
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: !isMobileOrLowGPU,
+      antialias: ctxOpts.antialias,
       alpha: true,
       powerPreference: "high-performance",
-      precision: isMobileOrLowGPU ? "mediump" : "highp",
+      precision: ctxOpts.precision,
     });
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setPixelRatio(targetDPR);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = isMobileOrLowGPU ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = ctxOpts.softShadows ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
     rendererRef.current = renderer;
     mount.appendChild(renderer.domElement);
 
@@ -1182,8 +1210,9 @@ export default function Scene({
     const sunLight = new THREE.DirectionalLight(0xfff8ee, 2.2);
     sunLight.position.set(60, 95, 45);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = isMobileOrLowGPU ? 1024 : 2048;
-    sunLight.shadow.mapSize.height = isMobileOrLowGPU ? 1024 : 2048;
+    const shadowMapPx = gpu.tier === "high" ? 2048 : 1024;
+    sunLight.shadow.mapSize.width = shadowMapPx;
+    sunLight.shadow.mapSize.height = shadowMapPx;
     sunLight.shadow.camera.near = 10;
     sunLight.shadow.camera.far = 220;
     const shadowSize = 65;
@@ -1272,8 +1301,10 @@ export default function Scene({
     // Ambient occlusion. Nothing in the scene carried contact darkening before this: corners,
     // the gap under a sofa and the join where a wall meets the floor all lit as if open sky
     // reached them. Skipped on mobile and weak GPUs, where the extra depth-normal pass and the
-    // denoise cost more than the look is worth.
-    if (!isMobileOrLowGPU) {
+    // denoise cost more than the look is worth. Only a discrete GPU gets it up front; a machine
+    // that turns out to be fast enough never gets it, which is the cost of a decision the context
+    // has to make before a single frame has been timed.
+    if (gpu.tier === "high") {
       // EffectComposer's own default target is single-sampled, and `antialias: true` on the
       // renderer only ever applied to the default framebuffer — which stops being the render
       // destination the moment a composer exists. Without this the AO pass costs every edge in
@@ -2905,8 +2936,24 @@ export default function Scene({
 
     function animate(currentTime: number) {
       frameId = requestAnimationFrame(animate);
-      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+      const rawDt = (currentTime - lastTime) / 1000;
+      const dt = Math.min(rawDt, 0.1);
       lastTime = currentTime;
+
+      // Quality that measures itself. `rawDt` rather than the clamped `dt`: the clamp exists so
+      // physics does not explode after a stall, and a governor fed clamped deltas can never see
+      // a machine running below 10 fps — which is the case it is here for.
+      if (graphicsSettingsRef.current.autoQuality && governorRef.current) {
+        const decision = governorRef.current.sample(rawDt);
+        if (decision) {
+          setMeasuredFps(Math.round(decision.fps));
+          if (decision.rung !== null) {
+            onChangeGraphicsSettingsRef.current?.(
+              applyRung(graphicsSettingsRef.current, decision.rung)
+            );
+          }
+        }
+      }
 
       fanBladesRef.current.forEach((fan) => {
         if (modeRef.current === "walkthrough" && fan.parent && !fan.parent.visible) {
@@ -3337,7 +3384,14 @@ export default function Scene({
     if (!renderer || !graphicsSettings) return;
 
     // 1. Dynamic Resolution Scale / Super-Sampling
-    const targetDPR = Math.min(window.devicePixelRatio * (graphicsSettings.renderScale || 1.0), 3.5);
+    //
+    // Capped by the GPU tier before the render scale is applied, not after. This read
+    // `devicePixelRatio * renderScale` clamped at 3.5, which overrode the cap set when the
+    // context was created and meant a retina laptop drew four times the pixels of an ordinary
+    // screen at identical settings - a 2x device ratio against a 1x one, squared. Render scale
+    // now means the same fraction of the same ceiling on every machine.
+    const dprCap = dprCapFor(gpuInfoRef.current?.tier ?? "medium");
+    const targetDPR = Math.min(window.devicePixelRatio, dprCap) * (graphicsSettings.renderScale || 1.0);
     renderer.setPixelRatio(targetDPR);
     composerRef.current?.setPixelRatio(targetDPR);
 
@@ -6681,9 +6735,30 @@ export default function Scene({
             <span style={{ color: "#8e8a82" }}>{currentFrameTime} ms</span>
             <span style={{ color: "#6f9aa8", fontWeight: "bold" }}>{renderRes}</span>
           </div>
+          {/* What the GPU actually is. This line read "GPU: Dedicated (High VRAM)" on every
+              machine, hardcoded — so the readout told a laptop with integrated graphics running
+              at 8 fps that it had a dedicated card, which is most of the reason the real problem
+              went unseen. The VRAM figure is still arithmetic over the settings and says so. */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "10px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "2px" }}>
-            <span style={{ color: "#b5b0a6" }}>GPU: Dedicated (High VRAM)</span>
-            <span style={{ color: "#b85c22" }}>~{estimateVRAMUsageGB(graphicsSettings)} GB VRAM</span>
+            <span
+              style={{ color: "#b5b0a6", maxWidth: "230px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              title={gpuInfoRef.current?.renderer ?? "The browser did not report a GPU name."}
+            >
+              {gpuInfoRef.current
+                ? `${gpuInfoRef.current.tier.toUpperCase()} · ${gpuInfoRef.current.renderer ?? gpuInfoRef.current.reason}`
+                : "GPU: detecting"}
+            </span>
+            <span style={{ color: "#b85c22" }} title="Estimated from the quality settings, not measured on the device.">
+              ~{estimateVRAMUsageGB(graphicsSettings)} GB est.
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "10px", color: "#6d685e" }}>
+            <span title="Auto quality steps the render scale and shadows down when frames are slow, and back up when they are not.">
+              {graphicsSettings.autoQuality
+                ? `auto q${governorRef.current?.currentRung ?? 0}`
+                : "auto off"}
+            </span>
+            <span>{measuredFps !== null ? `${measuredFps} fps avg` : "measuring"}</span>
           </div>
         </div>
       )}

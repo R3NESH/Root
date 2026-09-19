@@ -30,6 +30,13 @@ export interface GraphicsSettings {
   toneMapping: ToneMappingType;
   exposure: number; // 0.6 to 1.8
   showPerformanceHUD: boolean;
+  /**
+   * Let the renderer lower its own quality when frames get slow, and raise it when they do not.
+   *
+   * On by default and switched off the moment anyone opens the graphics modal and chooses
+   * something: a setting a person picked should not be quietly overruled. See lib/adaptiveQuality.ts.
+   */
+  autoQuality: boolean;
 }
 
 /**
@@ -51,6 +58,7 @@ export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
   toneMapping: "aces_filmic",
   exposure: 1.05,
   showPerformanceHUD: true,
+  autoQuality: true,
 };
 
 export interface PresetDef {
