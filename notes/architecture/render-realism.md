@@ -26,7 +26,7 @@ about the *picture* being unrealistic. They are unrelated failures.
 | Surface maps | colour only, plus one `bumpMap` on walls; no normal or roughness maps |
 | Colour management | every procedural texture handed over as `NoColorSpace`, so sRGB canvas values were read as linear |
 | Glass | alpha-blended `MeshStandardMaterial` with `depthWrite: false`, no Fresnel, no refraction |
-| Furniture | 230 `BoxGeometry`/`CylinderGeometry` calls; [[modelLoader]] existed and only user uploads reached it |
+| Furniture | 230 `BoxGeometry`/`CylinderGeometry` calls; `lib/modelLoader.ts` existed and only user uploads reached it |
 | Site | one flat-coloured ground plane; the lawn canvas that had been written for it was orphaned |
 
 ## What now holds

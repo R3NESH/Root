@@ -100,3 +100,15 @@ draughtsmen open daily — but promising it in a tooltip is not the way.
 - [IS 1077 / bricks per cubic metre](https://grokipedia.com/page/Bricks_per_cubic_metre_in_India)
 - [Standard brick size in India](https://civilplanets.com/brick-size-in-india/)
 - [IfcOpenShell](https://ifcopenshell.org/), for the IFC step if it is ever wanted
+
+## The price did not follow the geometry — found 2026-09-20
+
+This note records the double count as fixed. It was fixed **in the geometry and not in the
+price.** `frontend/lib/boqEngine.ts` ignored the take-off this module feeds and re-derived every
+quantity from room rectangles, counting each shared partition twice again. Measured on a real
+7-room 30×40 solve: wall run 274.3 ft against the solver's 203.2 ft, **35% over**.
+
+Fixed 2026-09-20 — [[boq-was-not-reading-the-takeoff]].
+
+The lesson is not about walls. It is that shipping a correct number is only half the job; the
+other half is checking that something reads it.

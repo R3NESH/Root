@@ -7,7 +7,7 @@ date: 2026-09-02
 
 Where the numbers in [[registry.py|backend/programs/registry.py]] and the café space sizes in
 `backend/solver/rooms.py` come from. Collected 2026-09-02 for the first non-residential
-programme — see [[program-packs]].
+programme — see `backend/programs/registry.py` and its row in [[codebase-map]].
 
 These are trade and code figures, not house rules. Anything the solver posts as a *constraint*
 should be traceable to a line below; anything that is only taste belongs in the renderer.

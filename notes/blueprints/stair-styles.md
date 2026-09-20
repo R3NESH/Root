@@ -55,3 +55,42 @@ It does not connect storeys the way the solver's core does. It cuts no opening i
 it is not part of the reachability flood-fill, and the walkthrough cannot climb it — it is drawn,
 walked around and costed by its footprint like any other placed object. Raising **Storeys** in the
 Bye-Law panel is still what produces a structural stair.
+
+## Drawn instead of chosen — 2026-09-19
+
+`frontend/lib/stairPath.ts` solves a staircase from a **walk line** rather than picking one of the
+six above. Click the points a person would walk, bottom to top, and the shape falls out:
+
+| points | shape |
+|---|---|
+| 2 | one straight flight |
+| 3 at 90° | a quarter turn — an L |
+| 3 at 180° | a half turn — the Indian dog-leg |
+| 4 | two landings — a U, or a switchback round a core |
+
+That is the same set as the catalog, pre-drawn. Nothing here replaces `stair_floating` or
+`stair_bifurcated`, which are construction styles rather than paths.
+
+**Why this exists at all.** A catalog stair is a `PlacedCustomObject`, and a placed object is
+scaled uniformly by `scale` — which multiplies the riser and the going **together**. Scale a
+compliant stair up and its riser passes 190 mm; scale it down and its going drops under 250 mm.
+A stair is the one object in the catalog that must never be scaled: the step size is fixed by
+code and by the human leg, and what changes with the space available is the **number** of steps
+and how they are folded. The catalog footprint is also a constant, so it cannot be fitted to the
+opening the house actually has.
+
+**The minima are constraints, not preferences.** NBC 2016 for a one- or two-family dwelling:
+riser ≤ 190 mm (7.5 in), going ≥ 250 mm (9.8 in), flight ≥ 0.90 m (3 ft) wide, landing at least
+as long as the flight is wide. A path that cannot be walked inside those numbers is **rejected
+with the reason**, never built shallower — [[zone-rule-is-a-constraint]].
+
+Riser count comes from the **real storey height**, so a taller floor gets more steps rather than
+steeper ones. `MAX_TREAD_IN = 14`: past about 355 mm the tread stops reading as a step, so a path
+longer than the stair needs ends the stair early and says so rather than stretching every tread to
+fill it.
+
+No `three` import, deliberately — the arithmetic is checkable without a renderer. The mesh is
+built from the result elsewhere.
+
+**Links.** [[zone-rule-is-a-constraint]] · [[bye-law-and-storeys]] · [[room-sizes-from-code]] ·
+[[codebase-map]]

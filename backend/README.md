@@ -19,11 +19,16 @@ for the module ↔ note convention this README follows, and [[project-status]] f
 | `solver/model.py` | [[cp-sat-api]], [[cp-sat-gotchas]], [[layout-stability]] | **done** — [[step-2-solver-core]], [[step-4-drift-objective]], plus the relaxation ladder |
 | `solver/realism.py` | [[realism-gaps]] | **done** — proportion, daylight/ventilation, area objective |
 | `solver/connectivity.py` | [[rooms-do-not-form-a-house]], [[realism-gaps]] | **done** — parent tree, openings, windows, entrance, footprint, reachability |
-| `zoning.py` | directional zone rules as constraints | **done** — used by the café pack; the residence posts none |
+| `zoning.py` | directional zone rules as constraints — [[zone-rule-is-a-constraint]] | **done** — used by the café pack; the residence posts none |
 | `envelope/` | setbacks — hardcoded gap, see [[environment-notes]] | **done** — duplicates `frontend/lib/plot.ts`, see [[duplicated-geometry]] |
-| `api/` | `POST /solve`, [[output-schema]] | **done** — [[step-3-wire-together]] |
-| `solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — 8 room kinds, each carrying `habitable` / `wet` / `max_aspect_x10` |
-| `tests/` | [[test-baseline]] | **173/173 passing** |
+| `api/` | `POST /solve` + the three `POST /ai/*` routes, [[output-schema]] | **done** — [[step-3-wire-together]]. `_size_range()` clamps a pinned size to the catalog; it documented that and did not do it until 2026-09-19 |
+| `ai/` | free text, a photographed plan, a photographed facade → solver constraints | **done** — see `ai/README.md`. Needs `ANTHROPIC_API_KEY`; returns 503 rather than guessing |
+| `programs/` | building programme packs | **done** — residence and café as data: hub, parent tree, forbidden pairs, directional rules |
+| `solver/walls.py`, `solver/quantities.py` | [[walls-as-objects]], bill of quantities | **done** — one wall per shared partition, with the openings it hosts; quantities only, no rates |
+| `solver/bench_realism.py`, `solver/bench_stability.py` | the two instruments | **done** — the first measured [[room-sizes-from-code]] at both ends, the second settled [[claim-most-likely-wrong]] |
+| `prompt_to_plan.py` | CLI: sentence → plan, ASCII, JSON, SVG | **done** — `python prompt_to_plan.py "30x40 north facing 2bhk with a store"`. No API key needed |
+| `solver/rooms.py` | `Room` dataclass, `ROOM_CATALOG` | **done** — **20 room kinds** (10 residential, 10 café), each carrying `habitable` / `wet` / `max_aspect_x10`. NBC 2016 minimums; maximums raised 2026-09-19 — [[room-sizes-from-code]] |
+| `tests/` | [[test-baseline]] | **183/183 passing** in 256 s, measured 2026-09-20 |
 
 ## Dev
 
@@ -32,6 +37,7 @@ for the module ↔ note convention this README follows, and [[project-status]] f
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m solver.demo
 .venv\Scripts\python.exe -m solver.bench_stability
+.venv\Scripts\python.exe -m solver.bench_realism
 ```
 
 Run the suite on an otherwise-idle machine: the 0.4 s interactive solve cap is wall-clock, so

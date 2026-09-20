@@ -2,34 +2,42 @@
 tags: [codebase, tooling]
 status: built
 date: 2026-08-30
-updated: 2026-09-19
+updated: 2026-09-20
 ---
 # Knowledge graph (graphify)
 
-A queryable graph over the whole corpus — 135 files in `manifest.json`, code and notes — built with
+A queryable graph over the whole corpus — **441 files** in `manifest.json`, code and notes — built with
 [graphify](https://github.com/sponsors/safishamsi). It does in one artefact what
 [[codebase-map]] does by hand: connect the design notes to the code that implements them.
 
 ## What was built
 
-| | 2026-08-25 | 2026-08-30 | 2026-09-07 | 2026-09-19 |
-|---|---|---|---|---|
-| Nodes | 548 | 651 | 1,538 | **1,873** |
-| Edges | 1,319 | 1,536 | 3,355 | **4,341** |
-| Communities | 28 | 38 | 84 | **89** |
+| | 2026-08-25 | 2026-08-30 | 2026-09-07 | 2026-09-19 | 2026-09-20 |
+|---|---|---|---|---|---|
+| Nodes | 548 | 651 | 1,538 | 1,873 | **1,962** |
+| Edges | 1,319 | 1,536 | 3,355 | 4,341 | **4,514** |
+| Communities | 28 | 38 | 84 | 89 | **105** |
+| Files in manifest | — | — | — | 437 | **445** |
 
-Every column is counted the same way, off `graph.json` and not off the build log. On 2026-09-19
-`notes/build/` came through with **24 nodes**, so the skip-dir trap below did not bite — it is
-still worth checking every run, because nothing warns you.
+Built twice on 2026-09-20: once over the code as found (1,936 / 4,473 / 104 over 441 files), then
+again after the vault audit added four notes. The second figures are the ones above.
 
-The 2026-09-19 rebuild covered the interior-design package: `moodboard.ts` (14 nodes),
-`elevations.ts` (23), `clearances.ts` (22), `ceilingPlan.ts` (20), `designSchedule.ts` (18),
-`furnitureInventory.ts` (11), and the five decision notes behind them.
+Every column is counted the same way, off `graph.json` and not off the build log. On 2026-09-20
+`notes/build/` again came through with **24 nodes**, so the skip-dir trap below did not bite — it
+is still worth checking every run, because nothing warns you.
 
-> [!note] Community labels are still `Community N`
-> `graphify label` re-clustered to 89 communities and then reported *no LLM backend configured*,
-> so the placeholder names stand. It wants `GOOGLE_API_KEY` or an explicit `--backend`; neither
-> is set on this machine, which is the same missing-key situation as [[free-text-input]].
+The 2026-09-20 rebuild covered the two commits the 2026-09-19 graph predates —
+`25c1174` (interior tooling, drawn stairs, live plan, honest room sizes) and `72be93d`
+(GPU detection and self-measuring quality). The modules that entered the graph with them:
+`wallJoins.ts` (22 nodes), `cameraTour.ts` (15), `adaptiveQuality.ts` (13), `plotTraverse.ts` (13),
+`stairPath.ts` (11) and `gpuTier.ts` (7).
+
+> [!note] Community labels are hub-derived, not written
+> `graphify cluster-only` re-clustered to **105** communities and named each one after its hub
+> file (`Scene.tsx`, `main.py`, `RoomName`), because no LLM backend is configured. **0 of 105
+> carry the `Community N` placeholder**, which is an improvement on the 2026-09-19 run, but a
+> hub name is not a description. `graphify label .` with `GOOGLE_API_KEY` or an explicit
+> `--backend` writes real ones — the same missing-key situation as [[free-text-input]].
 
 > [!warning] The command in `CLAUDE.md` was wrong and has been corrected
 > `graphify --update` is not a command any more: the CLI is now `graphify update <path>`, and it
@@ -66,12 +74,17 @@ note listed:
 ## Rebuilding
 
 ```
-graphify                       # full rebuild from the repo root
-graphify --update              # re-extract only changed files
+graphify update .              # re-extract changed files and re-cluster (no LLM needed)
 graphify query "<question>"    # answer from the graph instead of rebuilding
 graphify explain "solve_layout"
 graphify path "rooms do not form a house" "assign_parents"
+graphify god-nodes --top 10    # the hub table below, recomputed
+graphify affected "solve_layout"   # what a change to it reaches
 ```
+
+`graphify --update` is **not** a command and never was on this CLI version; it exits with
+`error: unknown command`. Neither is a bare `graphify` — the subcommand is required. And a
+plain `graphify update .` drops `notes/build/`, so use the in-process recipe below instead.
 
 > [!warning] `notes/build/` is excluded by default — and it is the most load-bearing folder here
 > graphify's `_SKIP_DIRS` skips any directory named `build/` as a build artifact. In this repo
@@ -119,23 +132,30 @@ The god nodes are an honest read of where the weight sits:
 | `inchesToFeet()` | 33 |
 | `Facing` | 26 |
 
-By 2026-09-19 the weight has moved decisively to the frontend, and the top of the table is now
+By 2026-09-20 the weight has moved decisively to the frontend, and the top of the table is now
 files rather than functions:
 
-| Node | Edges (2026-09-19) |
-|---|---|
-| `frontend/app/page.tsx` | **171** |
-| `frontend/components/Scene.tsx` | **166** |
-| `frontend/components/TopRibbonTaskbar.tsx` | 89 |
-| `frontend/components/Blueprint2DView.tsx` | 83 |
-| `frontend/lib/materialsCatalog.ts` | 66 |
-| `frontend/lib/solve.ts` | 64 |
-| `backend/api/main.py` | 59 |
+| Node | Edges (2026-09-19) | Edges (2026-09-20) |
+|---|---|---|
+| `frontend/components/Scene.tsx` | 166 | **183** |
+| `frontend/app/page.tsx` | 171 | **171** |
+| `frontend/components/TopRibbonTaskbar.tsx` | 89 | **95** |
+| `frontend/components/Blueprint2DView.tsx` | 83 | **89** |
+| `frontend/lib/materialsCatalog.ts` | 66 | 66 |
+| `frontend/lib/solve.ts` | 64 | 64 |
+| `backend/api/main.py` | 59 | 59 |
+| `frontend/lib/rooms.ts:RoomName` | — | 58 |
+| `backend/solver/model.py:solve_layout()` | 47 | 56 |
+| `frontend/lib/plot.ts` | — | 56 |
 
-That is the god-component problem in [[codebase-map]] measured rather than asserted: `page.tsx`
-and `Scene.tsx` between them carry 337 edges, and every studio added this month hangs off both.
-`TopRibbonTaskbar.tsx` at 89 is the third, and it is the file whose overflow path only ran for
+That is the god-component problem in [[codebase-map]] measured rather than asserted: `Scene.tsx`
+and `page.tsx` between them carry **354 edges**, and every studio added this month hangs off both.
+`TopRibbonTaskbar.tsx` at 95 is the third, and it is the file whose overflow path only ran for
 the first time once five buttons were added to it — see [[project-status]].
+
+**The two commits since the last graph made all four god components bigger, none smaller.**
+`Scene.tsx` took the top of the table off `page.tsx` for the first time, and it did so while
+also growing from 4,834 lines to **7,321**. No rebuild has ever shown this trend reversing.
 
 `solve_layout()` at 47 edges with a betweenness of 0.24 confirms what
 [[realism-gaps]] already implied: it is the single point every constraint family passes
