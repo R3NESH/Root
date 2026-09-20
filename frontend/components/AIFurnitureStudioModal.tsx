@@ -9,6 +9,7 @@ import {
 } from "@/lib/aiFurnitureEngine";
 import { PlacedCustomObject } from "@/lib/furnitureCatalog";
 import styles from "./AIFurnitureStudioModal.module.css";
+import { newId } from "@/lib/customArchitecture";
 
 interface PresetShowcaseItem {
   id: string;
@@ -421,7 +422,7 @@ export default function AIFurnitureStudioModal({
   const handleSpawn = () => {
     if (!activeDef) return;
 
-    const newObjId = `ai_furn_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newObjId = newId("ai_furn");
     const finalDef: AIFurnitureParametricDef = {
       ...activeDef,
       primary_material: selectedTextureType,

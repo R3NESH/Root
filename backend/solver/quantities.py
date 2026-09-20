@@ -1,9 +1,11 @@
 """Bill of quantities, counted off the wall objects.
 
-This is the half of BIM worth having at this price point. notes/market/price-ceiling.md puts the
-whole ticket at Rs 3,000-5,000, which does not amortise a BIM; but a mason quoting a job needs
-brick, mortar, plaster and a door schedule, and all four fall straight out of solver/walls.py
-once walls have identity.
+This is the half of BIM worth having at this price point. The Rs 3,000-5,000 ticket this was
+sized against came from notes/market/price-ceiling.md, which was deleted with the rest of
+notes/market/ on the user's instruction (commit 07b01f2) -- so treat the figure as unsourced and
+low confidence. The design argument does not depend on it: a mason quoting a job needs brick,
+mortar, plaster and a door schedule, and all four fall straight out of solver/walls.py once walls
+have identity.
 
 **Quantities only. No rates, no totals in rupees.** Material and labour rates move by district
 and by month, and a number invented here would be believed. The caller supplies rates.

@@ -14,7 +14,7 @@
 // corner piece inserted between them. The user's own walls keep their endpoints, so turning a
 // corner back to square puts the wall back exactly where it was.
 
-import { CustomDrawnWall, CustomWallOpening, WallJoinStyle } from "./customArchitecture";
+import { CustomDrawnWall, CustomWallOpening, newId, WallJoinStyle } from "./customArchitecture";
 
 export const JOIN_STYLES: { id: WallJoinStyle; name: string; description: string }[] = [
   {
@@ -184,7 +184,7 @@ export function combineWalls(
   const result = orderChain(walls.filter((w) => ids.includes(w.id)));
   if ("error" in result) return result;
 
-  const chainId = `chain-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const chainId = newId("chain");
   const stamped = new Map(
     result.ordered.map((w, i) => [
       w.id,

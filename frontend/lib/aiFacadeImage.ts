@@ -18,7 +18,6 @@
 // no copy of a frontend catalog to drift out of date, and the model can only pick ids this build
 // can actually draw.
 
-import { CustomDim } from "@/components/RoomCustomizer";
 import {
   DOOR_COLORS,
   FLOOR_MATERIALS,
@@ -216,6 +215,3 @@ export function applyFacade(
       : current.globalGlazing,
   };
 }
-
-/** A generated plan sets no per-room dimensions: the catalog and the solver size every room. */
-export const NO_CUSTOM_DIMS: Record<string, CustomDim> = {};

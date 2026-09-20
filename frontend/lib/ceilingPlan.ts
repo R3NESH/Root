@@ -24,6 +24,7 @@ import { FURNITURE_CATALOG, PlacedCustomObject } from "./furnitureCatalog";
 import { BuiltinFurnitureRecord, RoomRect, roomRect } from "./furnitureInventory";
 import { WALL_HEIGHT_FT } from "./sceneConstants";
 import { formatFtIn, roomDisplayNames } from "./designSchedule";
+import { downloadCsv, escapeMarkup } from "./blueprintExport";
 
 const SQ_M_PER_SQ_FT = 0.092903;
 
@@ -305,8 +306,6 @@ const PROPOSED = "#6f9aa8";
 const WARN = "#a8442f";
 const PAPER = "#f6f5f2";
 
-const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
  * One fixture symbol, centred on (cx, cy).
@@ -382,7 +381,7 @@ export function ceilingPlanSvg(plan: CeilingPlan, projectName = "plot-to-plan"):
 
     if (w > 78 && h > 44) {
       parts.push(
-        `<text x="${x + 8}" y="${y + 18}" font-family="sans-serif" font-size="13" font-weight="700" fill="${INK}">${esc(rc.label)}</text>`
+        `<text x="${x + 8}" y="${y + 18}" font-family="sans-serif" font-size="13" font-weight="700" fill="${INK}">${escapeMarkup(rc.label)}</text>`
       );
       parts.push(
         `<text x="${x + 8}" y="${y + 33}" font-family="monospace" font-size="10" fill="${RULE}">${rc.areaSqFt} sq ft &#183; CH ${formatFtIn(plan.ceilingHeightFt)}</text>`
@@ -431,7 +430,7 @@ export function ceilingPlanSvg(plan: CeilingPlan, projectName = "plot-to-plan"):
     const mark = rc.verdict === "under" ? "UNDER" : rc.verdict === "within" ? "OK" : rc.verdict === "over" ? "OVER" : "—";
     const color = rc.verdict === "under" ? WARN : rc.verdict === "within" ? ACCENT : RULE;
     parts.push(
-      `<text x="${lx}" y="${ly}" font-family="sans-serif" font-size="11" fill="${INK}">${esc(rc.label)}</text>`
+      `<text x="${lx}" y="${ly}" font-family="sans-serif" font-size="11" fill="${INK}">${escapeMarkup(rc.label)}</text>`
     );
     parts.push(
       `<text x="${SHEET_W - 46}" y="${ly}" text-anchor="end" font-family="monospace" font-size="11" font-weight="700" fill="${color}">${rc.estimatedLux} lx ${mark}</text>`
@@ -452,7 +451,7 @@ export function ceilingPlanSvg(plan: CeilingPlan, projectName = "plot-to-plan"):
     `<text x="40" y="${tbY + 46}" font-family="monospace" font-size="11" fill="${RULE}">Dashed = proposed. Downlights at ${formatFtIn(plan.rooms[0]?.spacingFt ?? 4.5)} centres (ceiling height / 2). Lux by the lumen method, UF ${UTILISATION_FACTOR}, MF ${MAINTENANCE_FACTOR}, assumed lamp output — an estimate, not a photometric calculation.</text>`
   );
   parts.push(
-    `<text x="${SHEET_W - 40}" y="${tbY + 26}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${esc(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
+    `<text x="${SHEET_W - 40}" y="${tbY + 26}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${escapeMarkup(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
   );
   parts.push(
     `<text x="${SHEET_W - 40}" y="${tbY + 46}" text-anchor="end" font-family="monospace" font-size="11" fill="${RULE}">Drawn reflected — same orientation as the floor plan</text>`
@@ -517,11 +516,5 @@ export function ceilingScheduleCsv(plan: CeilingPlan, projectName = "Ceiling_Pla
     );
   }
 
-  const csv = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n"));
-  const a = document.createElement("a");
-  a.setAttribute("href", csv);
-  a.setAttribute("download", `${projectName}_Fixture_Schedule.csv`);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  downloadCsv(lines, `${projectName}_Fixture_Schedule.csv`);
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { PlotDims, Facing } from "@/lib/plot";
-import { SolvedRoom } from "@/lib/solve";
+import { Quantities, SolvedRoom } from "@/lib/solve";
 import {
   calculateBoq,
   exportBoqToCsv,
@@ -27,6 +27,12 @@ interface BOQCostModalProps {
   rooms: SolvedRoom[];
   /** Bowed wall faces. A curve is longer than the run it replaces and has to be costed as such. */
   roomEdgeCurves?: RoomEdgeCurves;
+  /**
+   * The solver's own take-off. Null from an older backend or the offline fallback, and the sheet
+   * says so — without it the quantities are re-derived from room rectangles, which counts every
+   * shared partition twice.
+   */
+  quantities?: Quantities | null;
 }
 
 export default function BOQCostModal({
@@ -36,6 +42,7 @@ export default function BOQCostModal({
   facing,
   rooms,
   roomEdgeCurves,
+  quantities = null,
 }: BOQCostModalProps) {
   const [tier, setTier] = useState<BoqQualityTier>("standard");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -49,8 +56,8 @@ export default function BOQCostModal({
         depthFt: r.d_in / 12,
       }))
     );
-    return calculateBoq(plot, facing, rooms, tier, curveExtraFt);
-  }, [plot, facing, rooms, tier, roomEdgeCurves]);
+    return calculateBoq(plot, facing, rooms, tier, curveExtraFt, quantities);
+  }, [plot, facing, rooms, tier, roomEdgeCurves, quantities]);
 
   const filteredItems = useMemo(() => {
     if (selectedCategory === "all") return boq.items;
@@ -69,7 +76,9 @@ export default function BOQCostModal({
             <div>
               <h2 className={styles.title}>Bill of Quantities (BOQ) &amp; Cost Takeoff</h2>
               <div className={styles.subtitle}>
-                Engineering material estimation derived directly from the solved architectural floor plan
+                {boq.source === "measured"
+                  ? "Quantities measured off the solver's wall objects — one wall per shared partition, openings as cut. Rates are applied here."
+                  : "⚠ Quantities estimated from room rectangles — no solver take-off available, so shared partitions are counted twice and openings are guessed from the room count."}
               </div>
             </div>
           </div>

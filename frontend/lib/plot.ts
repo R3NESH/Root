@@ -374,10 +374,6 @@ export const DEFAULT_SETBACK: Setback = {
   rightIn: feetToInches(3),
 };
 
-// Preview massing height only — not an architectural floor height. Real per-room extrusion
-// lands at notes/build/step-3-wire-together.md once CP-SAT returns room rectangles.
-export const ENVELOPE_HEIGHT_IN = feetToInches(10);
-
 // Per-edge setback in fixed world orientation, index 0=N, 1=E, 2=S, 3=W (matches
 // frontCardinalIndex). "Right" is clockwise from front, "left" is counter-clockwise —
 // the convention of standing at the front edge facing outward.

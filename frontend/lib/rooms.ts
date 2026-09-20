@@ -113,21 +113,6 @@ export const ROOM_COLORS: Record<RoomName, number> = {
   stairs: 0x8b8177,
 };
 
-// Rooms people spend time in. Drives the interior detailing.
-export const HABITABLE: ReadonlySet<RoomName> = new Set<RoomName>([
-  "hall",
-  "dining",
-  "kitchen",
-  "bedroom",
-  "entrance",
-  "seating",
-  "lounge",
-  "entry",
-  "prep",
-]);
-
-export const DEFAULT_MIX: RoomName[] = ["hall", "kitchen", "bedroom", "bedroom", "bathroom"];
-
 /** Every space at zero. The base for a counts map, so callers only name what they want. */
 export const ZERO_COUNTS: Record<RoomName, number> = ROOM_NAMES.reduce((acc, name) => {
   acc[name] = 0;

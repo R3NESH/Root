@@ -136,13 +136,6 @@ export interface FloorLevelDef {
   heightOffsetFt: number;
 }
 
-export const FLOOR_LEVEL_CONFIGS: FloorLevelDef[] = [
-  { floor: 0, label: "Ground Floor", short: "G", icon: "L0", heightOffsetFt: 0 },
-  { floor: 1, label: "First Floor", short: "1F", icon: "L1", heightOffsetFt: 10 },
-  { floor: 2, label: "Second Floor", short: "2F", icon: "L2", heightOffsetFt: 20 },
-  { floor: 3, label: "Terrace / Roof", short: "Roof", icon: "SUN", heightOffsetFt: 30 },
-];
-
 export const WALL_TYPE_CONFIGS: Record<
   CustomWallType,
   { name: string; icon: string; thicknessIn: number; colorHex: number; defaultHeightFt: number }
@@ -205,18 +198,6 @@ export const WALL_TYPE_CONFIGS: Record<
   },
 };
 
-export const FLOOR_MATERIAL_CONFIGS: Record<
-  CustomFloorMaterial,
-  { name: string; icon: string; colorHex: number; roughness: number }
-> = {
-  marble: { name: "Italian Marble", icon: "CLS", colorHex: 0xf8fafc, roughness: 0.15 },
-  wood: { name: "Hardwood Timber", icon: "WD", colorHex: 0xb45309, roughness: 0.45 },
-  tile: { name: "Vitrified Tiles", icon: "PNL", colorHex: 0xe2e8f0, roughness: 0.3 },
-  granite: { name: "Polished Granite", icon: "BLK", colorHex: 0x334155, roughness: 0.2 },
-  paver: { name: "Outdoor Stone Paver", icon: "WAL", colorHex: 0x94a3b8, roughness: 0.8 },
-  concrete: { name: "Polished Concrete", icon: "BLD", colorHex: 0x64748b, roughness: 0.5 },
-};
-
 /**
  * Calculates wall chord length in inches
  */
@@ -228,13 +209,6 @@ export function getWallLengthIn(wall: CustomDrawnWall): number {
     return chord + (8 / 3) * (h * h / Math.max(1, chord));
   }
   return chord;
-}
-
-/**
- * Calculates wall angle in radians
- */
-export function getWallAngleRad(wall: CustomDrawnWall): number {
-  return Math.atan2(wall.endYIn - wall.startYIn, wall.endXIn - wall.startXIn);
 }
 
 /**
@@ -280,4 +254,20 @@ export function getCurvedWallArcPoints(
   }
 
   return points;
+}
+
+/**
+ * A unique id for a thing the user just placed — a wall, an opening, a stair, an object.
+ *
+ * This expression was written out at fifteen call sites across `Scene.tsx`,
+ * `Blueprint2DView.tsx`, `page.tsx`, `wallJoins.ts` and the AI furniture studio, in three
+ * different spellings (`substring(2, 6)`, `substring(2, 7)`, `slice(2, 7)`). One copy.
+ *
+ * Not `crypto.randomUUID()`: these ids are read in saved-project JSON and in the wall inspector,
+ * and `wall_m2x9f1_k3p` says what it is where `f47ac10b-58cc-…` does not. Collision risk is a
+ * millisecond timestamp plus 5 random base-36 characters, for ids that live in one local
+ * document — see `projectStorage.ts`.
+ */
+export function newId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }

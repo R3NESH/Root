@@ -11,14 +11,12 @@ import LeftToolRail from "@/components/LeftToolRail";
 import {
   Facing,
   MAX_DIM_IN,
-  MAX_PLOT_VERTICES,
   MIN_DIM_IN,
   PLOT_PRESETS,
   PlotDims,
   PlotPoint,
   isRectangularPlot,
   maxCornerCutIn,
-  outlineBoundsIn,
   plotPolygonIn,
   plotShapeProblem,
 } from "@/lib/plot";
@@ -40,7 +38,7 @@ import {
   withBandColor,
   withBandCount,
 } from "@/lib/wallBands";
-import { OFFLINE_ESTIMATE_STATUS, SolveMeta, SolvedRoom } from "@/lib/solve";
+import { OFFLINE_ESTIMATE_STATUS, SolveMeta } from "@/lib/solve";
 import { clampInches, feetToInches, inchesToFeet } from "@/lib/units";
 import {
   WINDOW_SHAPES,

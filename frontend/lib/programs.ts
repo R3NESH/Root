@@ -118,16 +118,6 @@ export function defaultCounts(program: BuildingProgram): Record<RoomName, number
   return counts;
 }
 
-/** Drop any space the programme does not offer, so a mix never crosses building types. */
-export function countsForProgram(
-  program: BuildingProgram,
-  counts: Record<RoomName, number>
-): Record<RoomName, number> {
-  const next = {} as Record<RoomName, number>;
-  for (const space of program.spaces) next[space] = counts[space] ?? 0;
-  return next;
-}
-
 export function maxCountFor(program: BuildingProgram, space: RoomName): number {
   return program.maxPerSpace[space] ?? 4;
 }

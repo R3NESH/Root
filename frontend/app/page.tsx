@@ -87,8 +87,7 @@ import {
   WALL_TYPE_CONFIGS,
   WallJoinStyle,
   DrawnStair,
-  DEFAULT_STAIR_WIDTH_IN,
-} from "@/lib/customArchitecture";
+  DEFAULT_STAIR_WIDTH_IN, newId } from "@/lib/customArchitecture";
 import { DesignSnapshot, describeDesignChange, useDesignHistory } from "@/lib/designHistory";
 import { OFFLINE_ESTIMATE_STATUS } from "@/lib/solve";
 import { assessCompliance, DEFAULT_ROAD_WIDTH_M } from "@/lib/compliance";
@@ -1484,7 +1483,7 @@ export default function Home() {
         // wall a cutout id is an opening id, which the renderer keys its joinery by.
         cutouts: (clipboard.edit.cutouts ?? []).map((c) => ({
           ...c,
-          id: `cut_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: newId("cut"),
         })),
       });
       return;
@@ -1494,7 +1493,7 @@ export default function Home() {
     // draggable straight away instead of z-fighting with what it was copied from.
     const copy: PlacedCustomObject = {
       ...clipboard.obj,
-      id: `obj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: newId("obj"),
       x: clipboard.obj.x + 1.5,
       z: clipboard.obj.z + 1.5,
     };
@@ -1968,7 +1967,7 @@ export default function Home() {
 
     // Spawn the new replacement object at the same spot
     const newObj: PlacedCustomObject = {
-      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: newId("custom"),
       type: newType,
       name: itemDef?.name || "Furniture",
       x: posX,
@@ -2351,7 +2350,6 @@ export default function Home() {
                 onChangeCustomWalls={setCustomWalls}
                 onChangeCustomRoomZones={setCustomRoomZones}
                 onChangeCustomOpenings={setCustomOpenings}
-                onStartFromScratch={handleStartFromScratch}
                 setback={activeSetback}
                 mode={mode}
                 activeMoveCmd={activeMoveCmd}
@@ -2359,7 +2357,6 @@ export default function Home() {
                 lightsOn={lightsOn}
                 furnished={furnished}
                 isUpgraded={isUpgraded}
-                onToggleUpgrade={() => setIsUpgraded((prev) => !prev)}
                 isRaytracing={isRaytracing}
                 onToggleRaytrace={() => setIsRaytracing((prev) => !prev)}
                 materialConfig={materialConfig}
@@ -2828,7 +2825,6 @@ export default function Home() {
               windowConfig={windowConfig}
               onChangeWindowConfig={setWindowConfig}
               placingOpeningDef={placingOpeningDef}
-              onSelectPlaceOpening={handleSelectPlaceOpening}
               onChangeCounts={setCounts}
               onChangeCustomDims={setCustomDims}
               onChangeCustomOpenings={setCustomOpenings}
@@ -2918,6 +2914,7 @@ export default function Home() {
         facing={facing}
         rooms={rooms}
         roomEdgeCurves={roomEdgeCurves}
+        quantities={quantities}
       /> {/* FF&E and Finish Schedule — the interior designer's deliverable */}
       <DesignScheduleModal
         isOpen={isScheduleModalOpen}

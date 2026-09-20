@@ -32,6 +32,7 @@ import {
   roomRect,
 } from "./furnitureInventory";
 import { inchesToFeet } from "./units";
+import { downloadCsv } from "./blueprintExport";
 
 const MM_PER_FOOT = 304.8;
 
@@ -349,13 +350,7 @@ export function exportDesignScheduleToCsv(
     );
   }
 
-  const csv = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n"));
-  const a = document.createElement("a");
-  a.setAttribute("href", csv);
-  a.setAttribute("download", `${projectName}_FFE_Finish_Schedule.csv`);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  downloadCsv(lines, `${projectName}_FFE_Finish_Schedule.csv`);
 }
 
 export function printDesignSchedule(

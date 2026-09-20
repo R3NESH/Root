@@ -35,9 +35,6 @@ export interface PlotEdge {
   bulgeIn: number;
 }
 
-/** A closed traverse's turns sum to this. Anything else does not come back to where it started. */
-export const FULL_TURN_DEG = 360;
-
 /** Closure slack. Under an inch is rounding, not a gap the user needs to see. */
 export const CLOSURE_TOLERANCE_IN = 1;
 

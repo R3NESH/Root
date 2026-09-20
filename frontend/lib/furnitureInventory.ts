@@ -44,8 +44,6 @@ export const FLOOR_OBSTACLE_MAX_Y_FT = 4.0;
 export const boxWidth = (b: FurnitureBox): number => b.maxX - b.minX;
 export const boxDepth = (b: FurnitureBox): number => b.maxZ - b.minZ;
 export const boxHeight = (b: FurnitureBox): number => b.maxY - b.minY;
-export const boxCentreX = (b: FurnitureBox): number => (b.minX + b.maxX) / 2;
-export const boxCentreZ = (b: FurnitureBox): number => (b.minZ + b.maxZ) / 2;
 
 /** A room's footprint in world feet. Rooms are stored in plot inches; the scene draws in feet. */
 export interface RoomRect {

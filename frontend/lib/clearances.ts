@@ -1,6 +1,6 @@
 // Clearance audit — the numbers an interior designer was trained on, measured off the model.
 //
-// The fit-out already respects clearances quietly (see notes/findings/furniture-clearances.md).
+// The fit-out already respects clearances quietly (see notes/architecture/furniture-clearances.md).
 // Quiet is worth nothing in a review: a designer cannot tell a plan that was checked from one
 // that got lucky. This states every gap it measured, what the gap has to be, and who says so.
 //
@@ -19,9 +19,9 @@ import {
   roomRect,
 } from "./furnitureInventory";
 import { placedObjectBox } from "./elevations";
-import { RoomName } from "./rooms";
 import { roomDisplayNames } from "./designSchedule";
 import { inchesToFeet } from "./units";
+import { downloadCsv } from "./blueprintExport";
 
 export type Authority = "NKBA" | "Trade practice";
 
@@ -312,11 +312,5 @@ export function exportClearanceAuditToCsv(
         .join(",")
     );
   }
-  const csv = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n"));
-  const a = document.createElement("a");
-  a.setAttribute("href", csv);
-  a.setAttribute("download", `${projectName}.csv`);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  downloadCsv(lines, `${projectName}.csv`);
 }

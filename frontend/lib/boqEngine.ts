@@ -1,6 +1,7 @@
 import { PlotDims, Facing } from "./plot";
-import { SolvedRoom } from "./solve";
+import { Quantities, SolvedRoom } from "./solve";
 import { inchesToFeet } from "./units";
+import { downloadCsv } from "./blueprintExport";
 
 export type BoqQualityTier = "economy" | "standard" | "luxury";
 
@@ -24,6 +25,19 @@ export interface BoqCategorySummary {
 
 export interface BoqEstimate {
   tier: BoqQualityTier;
+  /**
+   * Where the geometry under these numbers came from.
+   *
+   * `measured` — off `solver/walls.py` via the API's `quantities`. A shared partition is one
+   * wall, openings are the ones actually cut, and the brick count comes from the brick plus its
+   * joint.
+   *
+   * `estimated` — no `quantities` in the response (an older backend, or the offline fallback).
+   * Wall length is then the sum of room perimeters, which counts every shared partition twice,
+   * and the opening deduction is a guess off the room count. It is an order-of-magnitude figure
+   * and the UI has to say so rather than let it read as a takeoff.
+   */
+  source: "measured" | "estimated";
   carpetAreaSqFt: number;
   builtUpAreaSqFt: number;
   plotAreaSqFt: number;
@@ -44,15 +58,17 @@ export interface BoqEstimate {
   };
 }
 
-const TIER_MULTIPLIERS: Record<BoqQualityTier, { ratePerSqFt: number; label: string }> = {
-  economy: { ratePerSqFt: 1650, label: "Economy Standard" },
-  standard: { ratePerSqFt: 2150, label: "Premium Residential" },
-  luxury: { ratePerSqFt: 2950, label: "Ultra-Luxury Studio" },
-};
-
 /**
- * Computes exact engineering Bill of Quantities (BOQ) takeoff
- * based on the solved architectural rooms, wall lengths, and plot dimensions.
+ * Prices the plan. Rates live here; the quantities do not.
+ *
+ * `backend/solver/quantities.py` already measures this building off `walls.py` — one wall per
+ * shared partition, the openings actually cut, bricks from the brick plus its joint. Pass that
+ * through as `quantities` and this function costs the measured figures.
+ *
+ * Without it every number below is re-derived from room rectangles, which counts each shared
+ * partition twice and guesses the openings off the room count. That path is kept only because
+ * an older backend and the offline fallback ship no `quantities` at all — and it reports
+ * `source: "estimated"` so nothing downstream can pass it off as a takeoff.
  */
 export function calculateBoq(
   plot: PlotDims,
@@ -60,38 +76,46 @@ export function calculateBoq(
   rooms: SolvedRoom[],
   tier: BoqQualityTier = "standard",
   // How much longer the bowed wall faces are than the straight runs they replace, in feet.
-  // Perimeters below are computed from room rectangles, which a curve is not — without this the
-  // masonry, plaster and paint on every curved wall would be built and never costed.
-  extraWallLengthFt: number = 0
+  // Both paths measure straight perimeters, which a curve is not — without this the masonry,
+  // plaster and paint on every curved wall would be built and never costed.
+  extraWallLengthFt: number = 0,
+  // The solver's own take-off. Null from an older backend or the offline fallback.
+  quantities: Quantities | null = null
 ): BoqEstimate {
   const plotWFt = inchesToFeet(plot.widthIn);
   const plotDFt = inchesToFeet(plot.depthIn);
   const plotAreaSqFt = Math.round(plotWFt * plotDFt);
 
   // 1. Area Analysis
-  let carpetAreaSqFt = 0;
-  let totalWallLengthFt = 0;
+  const source: "measured" | "estimated" = quantities ? "measured" : "estimated";
+
+  let roomPerimeterFt = 0;
+  let carpetFromRoomsSqFt = 0;
   let bathroomAreaSqFt = 0;
-  let kitchenAreaSqFt = 0;
 
   for (const r of rooms) {
     const rw = inchesToFeet(r.w_in);
     const rd = inchesToFeet(r.d_in);
     const area = rw * rd;
-    carpetAreaSqFt += area;
-    totalWallLengthFt += 2 * (rw + rd);
+    carpetFromRoomsSqFt += area;
+    // Every shared partition is counted twice here — see the note on `source`.
+    roomPerimeterFt += 2 * (rw + rd);
 
     if (r.name.includes("bath") || r.name.includes("toilet")) {
       bathroomAreaSqFt += area;
-    } else if (r.name.includes("kitchen")) {
-      kitchenAreaSqFt += area;
     }
   }
 
-  totalWallLengthFt += Math.max(0, extraWallLengthFt);
+  const curveExtraFt = Math.max(0, extraWallLengthFt);
+  const carpetAreaSqFt = Math.round(quantities ? quantities.carpet_area_sqft : carpetFromRoomsSqFt);
+  const totalWallLengthFt = (quantities ? quantities.wall_run_ft : roomPerimeterFt) + curveExtraFt;
 
-  // Built-up area includes outer walls and plinth projection (~15% above carpet area)
-  const builtUpAreaSqFt = Math.max(100, Math.round(carpetAreaSqFt * 1.15));
+  // Built-up is carpet plus the footprint the walls themselves stand on. Measured when the
+  // solver sent it; otherwise the old ~15% convention.
+  const builtUpAreaSqFt = Math.max(
+    100,
+    Math.round(quantities ? quantities.built_up_area_sqft : carpetAreaSqFt * 1.15)
+  );
 
   // 2. Structural RCC Concrete & Excavation
   const slabVolumeCuFt = builtUpAreaSqFt * (5 / 12); // 5 inch RCC slab
@@ -113,22 +137,55 @@ export function calculateBoq(
 
   // 3. Masonry Brickwork
   // 9" exterior + 4.5" interior partition walls. Avg 10ft height.
-  // Deduction for doors (approx 21 sq.ft each) and windows (approx 16 sq.ft each)
-  const doorCount = Math.max(3, rooms.length + 1);
-  const windowCount = Math.max(2, Math.round(rooms.length * 1.4));
-  const openingDeductionSqFt = doorCount * 21 + windowCount * 16;
-  const grossWallAreaSqFt = totalWallLengthFt * 10;
+  //
+  // Measured path: the solver already knows every wall's real area and the area of the openings
+  // cut through it, so gross and net come straight off the take-off. The curve allowance is
+  // added at the same 10 ft wall height the solver builds at.
+  //
+  // Estimated path: openings are guessed from the room count at ~21 sq.ft a door and ~16 a
+  // window, because nothing else is available.
+  //
+  // The door and window counts are the ones the solver actually cut when it sent a take-off, and
+  // a guess off the room count when it did not. They price the OPN-* line items below as well as
+  // the deduction.
+  const tallyCount = (...kinds: string[]): number =>
+    (quantities?.openings ?? [])
+      .filter((o) => kinds.includes(o.kind))
+      .reduce((n, o) => n + o.count, 0);
+
+  // The solver reports the front door as its own kind, `entrance`. It is still a door leaf to be
+  // bought, and OPN-02 below prices `doorCount - 1` as the internal doors, so it belongs in here.
+  const doorCount = quantities ? tallyCount("door", "entrance") : Math.max(3, rooms.length + 1);
+  const windowCount = quantities ? tallyCount("window") : Math.max(2, Math.round(rooms.length * 1.4));
+
+  const curveWallAreaSqFt = curveExtraFt * 10;
+  const grossWallAreaSqFt = quantities
+    ? quantities.wall_gross_area_sqft + curveWallAreaSqFt
+    : totalWallLengthFt * 10;
+  const openingDeductionSqFt = quantities
+    ? quantities.opening_area_sqft
+    : doorCount * 21 + windowCount * 16;
   const netWallAreaSqFt = Math.max(100, Math.round(grossWallAreaSqFt - openingDeductionSqFt));
 
-  // Standard modular bricks: ~480 bricks per 100 sq.ft of 9" wall (or 240 for 4.5" partition)
-  // Assuming 40% exterior 9", 60% interior 4.5" -> avg 336 bricks / 100 sq.ft
-  const brickCount = Math.round(netWallAreaSqFt * 3.4);
+  // Bricks. Measured, the solver counts them off the masonry volume and the brick's own size
+  // plus its mortar joint (IS 1077 method) — not a per-sq.ft rule of thumb. The estimate below
+  // assumes 40% exterior 9" and 60% interior 4.5", averaging ~336 bricks per 100 sq.ft.
+  //
+  // The curve allowance is costed at the estimate's rate in both paths: the solver never saw
+  // the bowed face, so it cannot have counted its bricks.
+  const curveBricks = Math.round(curveWallAreaSqFt * 3.4);
+  const brickCount = quantities
+    ? quantities.brick_count + curveBricks
+    : Math.round(netWallAreaSqFt * 3.4);
   const masonryCementBags = Math.round(netWallAreaSqFt * 0.09);
   const masonrySandTons = Math.round(netWallAreaSqFt * 0.018);
 
   // 4. Plastering & Painting
-  // Plastering: internal (2 sides of walls) + ceiling
-  const internalPlasterSqFt = Math.round(netWallAreaSqFt * 1.8 + builtUpAreaSqFt);
+  // Plastering: internal (2 sides of walls) + ceiling. `plaster_area_sqft` is the measured
+  // plastered face area; the ceiling is not a wall, so it is added either way.
+  const internalPlasterSqFt = Math.round(
+    (quantities ? quantities.plaster_area_sqft : netWallAreaSqFt * 1.8) + builtUpAreaSqFt
+  );
   const externalPlasterSqFt = Math.round(totalWallLengthFt * 0.4 * 11);
   const plasterCementBags = Math.round((internalPlasterSqFt + externalPlasterSqFt) * 0.038);
   const plasterSandTons = Math.round((internalPlasterSqFt + externalPlasterSqFt) * 0.007);
@@ -144,7 +201,6 @@ export function calculateBoq(
   const flooringSqFt = Math.round(carpetAreaSqFt * 1.1);
 
   // Pricing Unit Rates based on selected quality tier
-  const tierConfig = TIER_MULTIPLIERS[tier];
   const rateMult = tier === "economy" ? 0.8 : tier === "luxury" ? 1.4 : 1.0;
 
   const items: BoqItem[] = [
@@ -344,6 +400,7 @@ export function calculateBoq(
 
   return {
     tier,
+    source,
     carpetAreaSqFt,
     builtUpAreaSqFt,
     plotAreaSqFt,
@@ -373,6 +430,9 @@ export function exportBoqToCsv(boq: BoqEstimate, projectName: string = "Architec
   lines.push(`"PROJECT BILL OF QUANTITIES (BOQ) & ESTIMATE"`);
   lines.push(`"Quality Tier:","${boq.tier.toUpperCase()}"`);
   lines.push(`"Plot Area:","${boq.plotAreaSqFt} sq.ft"`);
+  lines.push(
+    `"Quantities:","${boq.source === "measured" ? "Measured off the solver's wall objects" : "ESTIMATED - no solver take-off; shared walls counted twice"}"`
+  );
   lines.push(`"Carpet Area:","${boq.carpetAreaSqFt} sq.ft"`);
   lines.push(`"Built-Up Area:","${boq.builtUpAreaSqFt} sq.ft"`);
   lines.push(`"Total Estimated Budget:","₹${boq.totalCost.toLocaleString()}"`);
@@ -402,13 +462,7 @@ export function exportBoqToCsv(boq: BoqEstimate, projectName: string = "Architec
     );
   }
 
-  const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n"));
-  const a = document.createElement("a");
-  a.setAttribute("href", csvContent);
-  a.setAttribute("download", `${projectName}_BOQ_Estimate.csv`);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  downloadCsv(lines, `${projectName}_BOQ_Estimate.csv`);
 }
 
 /**
@@ -450,6 +504,11 @@ export function printBoqReport(boq: BoqEstimate, projectName: string = "Architec
           <div>
             <h1> Bill of Quantities (BOQ) &amp; Material Takeoff</h1>
             <div style="font-size: 13px; color: #6d685e; margin-top: 4px;">Project: ${projectName} • Date: ${new Date().toLocaleDateString()}</div>
+            <div style="font-size: 12px; color: ${boq.source === "measured" ? "#6d685e" : "#9a4b2f"}; margin-top: 4px;">${
+              boq.source === "measured"
+                ? "Quantities measured off the solver&#39;s wall objects — one wall per shared partition, openings as cut."
+                : "&#9888; Quantities ESTIMATED from room rectangles. No solver take-off was available, so shared partitions are counted twice and openings are guessed from the room count."
+            }</div>
           </div>
           <span class="badge">${boq.tier.toUpperCase()} TIER</span>
         </div>

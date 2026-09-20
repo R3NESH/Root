@@ -1205,12 +1205,6 @@ const DERIVED_SIZE = 512;
 
 /** How much rougher a seam is allowed to be than the polished face around it. */
 export const ROUGHNESS_MAP_HEADROOM = 1.6;
-
-export function clearDerivedMapCache(): void {
-  derivedCache.forEach((tex) => tex.dispose());
-  derivedCache.clear();
-}
-
 function sampleSource(source: THREE.CanvasTexture): ImageData | null {
   const image = source.image as HTMLCanvasElement | undefined;
   if (typeof document === "undefined" || !image || !image.width) return null;
@@ -1467,16 +1461,6 @@ export function getDoorColorHexStr(colorId?: string): string {
   }
   const def = DOOR_COLORS.find((c) => c.id === colorId);
   return def ? def.hex : "#2b1e16";
-}
-
-/**
- * Returns the effective door color hex for a specific room.
- */
-export function getRoomDoorColorHex(roomName: RoomName, config: HouseMaterialConfig): number {
-  const colorId = config.roomDoorColors?.[roomName] || config.globalDoorColor;
-  const hexStr = getDoorColorHexStr(colorId);
-  const parsed = parseInt(hexStr.replace("#", "0x"), 16);
-  return isNaN(parsed) ? 0x2b1e16 : parsed;
 }
 
 /**

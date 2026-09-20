@@ -23,6 +23,7 @@ import { RoomName } from "./rooms";
 import { WALL_HEIGHT_FT } from "./sceneConstants";
 import { formatFtIn, roomDisplayNames } from "./designSchedule";
 import { inchesToFeet } from "./units";
+import { escapeMarkup } from "./blueprintExport";
 
 export type Edge = "N" | "S" | "E" | "W";
 
@@ -266,8 +267,6 @@ const FAINT = "#c9c4b8";
 const ACCENT = "#2f4954";
 const PAPER = "#f6f5f2";
 
-const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** A horizontal dimension string: witness lines, arrow ticks and the measurement over it. */
 function hDim(x1: number, x2: number, y: number, label: string, tick = 6): string {
@@ -344,7 +343,7 @@ export function elevationSvg(el: WallElevation, projectName = "plot-to-plan"): s
     );
     if (w > 54 && h > 20) {
       parts.push(
-        `<text x="${px(p.from) + w / 2}" y="${py(p.top) + h / 2 + 4}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="${INK}">${esc(p.name)}</text>`
+        `<text x="${px(p.from) + w / 2}" y="${py(p.top) + h / 2 + 4}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="${INK}">${escapeMarkup(p.name)}</text>`
       );
     }
     // Every piece gets its height called out; that is the whole reason for the drawing.
@@ -407,13 +406,13 @@ export function elevationSvg(el: WallElevation, projectName = "plot-to-plan"): s
   const tbY = SHEET_H - 78;
   parts.push(`<line x1="40" y1="${tbY}" x2="${SHEET_W - 40}" y2="${tbY}" stroke="${INK}" stroke-width="1.5"/>`);
   parts.push(
-    `<text x="40" y="${tbY + 30}" font-family="sans-serif" font-size="21" font-weight="700" fill="${INK}">${esc(el.title)}</text>`
+    `<text x="40" y="${tbY + 30}" font-family="sans-serif" font-size="21" font-weight="700" fill="${INK}">${escapeMarkup(el.title)}</text>`
   );
   parts.push(
-    `<text x="40" y="${tbY + 52}" font-family="monospace" font-size="12" fill="${RULE}">Wall ${formatFtIn(el.lengthFt)} long, ${formatFtIn(el.heightFt)} floor to ceiling &#183; floor ${esc(el.floorFinish)} &#183; walls ${esc(el.wallFinish)}</text>`
+    `<text x="40" y="${tbY + 52}" font-family="monospace" font-size="12" fill="${RULE}">Wall ${formatFtIn(el.lengthFt)} long, ${formatFtIn(el.heightFt)} floor to ceiling &#183; floor ${escapeMarkup(el.floorFinish)} &#183; walls ${escapeMarkup(el.wallFinish)}</text>`
   );
   parts.push(
-    `<text x="${SHEET_W - 40}" y="${tbY + 30}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${esc(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
+    `<text x="${SHEET_W - 40}" y="${tbY + 30}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${escapeMarkup(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
   );
   parts.push(
     `<text x="${SHEET_W - 40}" y="${tbY + 52}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">1 ft = ${scale.toFixed(1)} px &#183; drawn looking ${EDGE_NAMES[el.edge].toLowerCase()}</text>`
@@ -444,14 +443,14 @@ export function printElevationSet(
   const pages = elevations
     .map(
       (el, i) =>
-        `<section><div class="cap">Sheet ${i + 1} of ${elevations.length} &#183; ${esc(el.title)}</div>${elevationSvg(el, projectName)}</section>`
+        `<section><div class="cap">Sheet ${i + 1} of ${elevations.length} &#183; ${escapeMarkup(el.title)}</div>${elevationSvg(el, projectName)}</section>`
     )
     .join("");
 
   win.document.write(`<!DOCTYPE html>
 <html>
   <head>
-    <title>Interior elevations — ${esc(projectName)}</title>
+    <title>Interior elevations — ${escapeMarkup(projectName)}</title>
     <style>
       @page { size: A3 landscape; margin: 10mm; }
       body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; }

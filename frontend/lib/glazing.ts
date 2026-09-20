@@ -181,11 +181,6 @@ export const GLAZING_PRESETS: GlazingPreset[] = [
     glazing: { styleId: "reeded", wall: true, door: true, mullions: 6 },
   },
 ];
-
-export function findGlazingPreset(id: string): GlazingPreset | undefined {
-  return GLAZING_PRESETS.find((p) => p.id === id);
-}
-
 export interface GlazingConfig {
   wallGlazing?: Record<string, WallGlazing>;
   roomGlazing?: Partial<Record<RoomName, WallGlazing>>;
@@ -212,8 +207,4 @@ export function withGlazingStyle(g: WallGlazing, styleId: string): WallGlazing {
 
 export function withGlazingTarget(g: WallGlazing, target: "wall" | "door", on: boolean): WallGlazing {
   return { ...g, [target]: on };
-}
-
-export function withMullions(g: WallGlazing, mullions: number): WallGlazing {
-  return { ...g, mullions: Math.max(0, Math.min(8, mullions)) };
 }

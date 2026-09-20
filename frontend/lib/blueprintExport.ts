@@ -6,6 +6,31 @@ import { SolvedRoom, SolveMeta } from "./solve";
 import { inchesToFeet } from "./units";
 import { ROOM_LABELS, RoomName } from "./rooms";
 
+/**
+ * Escape text before it goes into an SVG or an HTML sheet.
+ *
+ * Every sheet builder in `lib/` had its own byte-identical copy of this. One copy, because the
+ * day someone fixes it for `&amp;` they should not have to find the other three.
+ */
+export function escapeMarkup(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Hand the browser a CSV file. `lines` are already-quoted CSV rows.
+ *
+ * Four modules had this same anchor-click block written out, differing only in the filename.
+ */
+export function downloadCsv(lines: string[], filename: string): void {
+  const href = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n"));
+  const a = document.createElement("a");
+  a.setAttribute("href", href);
+  a.setAttribute("download", filename);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 export interface BlueprintExportOptions {
   plot: PlotDims;
   facing: Facing;

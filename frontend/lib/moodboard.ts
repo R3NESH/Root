@@ -29,6 +29,7 @@ import {
 } from "./materialsCatalog";
 import { RoomName } from "./rooms";
 import { formatFtIn, roomDisplayNames } from "./designSchedule";
+import { escapeMarkup } from "./blueprintExport";
 
 const MM_PER_FOOT = 304.8;
 const NEUTRAL = "#b5b0a6";
@@ -192,8 +193,6 @@ const RULE = "#8e8a82";
 const FAINT = "#d8d4cb";
 const PAPER = "#f6f5f2";
 
-const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Readable ink over an arbitrary swatch — the usual luminance test, not a guess per colour. */
 function inkOn(hex: string): string {
@@ -263,10 +262,10 @@ export function moodboardSvg(board: Moodboard, projectName = "plot-to-plan"): st
   const parts: string[] = [`<rect width="${SHEET_W}" height="${SHEET_H}" fill="${PAPER}"/>`];
 
   parts.push(
-    `<text x="56" y="56" font-family="sans-serif" font-size="12" letter-spacing="2.5" fill="${RULE}">${esc(board.subtitle.toUpperCase())}</text>`
+    `<text x="56" y="56" font-family="sans-serif" font-size="12" letter-spacing="2.5" fill="${RULE}">${escapeMarkup(board.subtitle.toUpperCase())}</text>`
   );
   parts.push(
-    `<text x="56" y="96" font-family="sans-serif" font-size="34" font-weight="700" fill="${INK}">${esc(board.title)}</text>`
+    `<text x="56" y="96" font-family="sans-serif" font-size="34" font-weight="700" fill="${INK}">${escapeMarkup(board.title)}</text>`
   );
   parts.push(
     `<text x="56" y="120" font-family="monospace" font-size="12" fill="${RULE}">${board.areaSqFt} sq ft &#183; ${board.pieceCount} pieces &#183; ${board.swatches.length} finishes</text>`
@@ -289,13 +288,13 @@ export function moodboardSvg(board: Moodboard, projectName = "plot-to-plan"): st
     parts.push(`<rect x="56" y="${fy}" width="440" height="104" fill="${s.hex}" stroke="${FAINT}" stroke-width="1"/>`);
     const ink = inkOn(s.hex);
     parts.push(
-      `<text x="74" y="${fy + 28}" font-family="monospace" font-size="10" letter-spacing="1.5" fill="${ink}" opacity="0.75">${esc(s.label.toUpperCase())}</text>`
+      `<text x="74" y="${fy + 28}" font-family="monospace" font-size="10" letter-spacing="1.5" fill="${ink}" opacity="0.75">${escapeMarkup(s.label.toUpperCase())}</text>`
     );
     parts.push(
-      `<text x="74" y="${fy + 54}" font-family="sans-serif" font-size="17" font-weight="700" fill="${ink}">${esc(s.name)}</text>`
+      `<text x="74" y="${fy + 54}" font-family="sans-serif" font-size="17" font-weight="700" fill="${ink}">${escapeMarkup(s.name)}</text>`
     );
     parts.push(
-      `<text x="74" y="${fy + 76}" font-family="monospace" font-size="10" fill="${ink}" opacity="0.7">${esc(s.hex.toUpperCase())}</text>`
+      `<text x="74" y="${fy + 76}" font-family="monospace" font-size="10" fill="${ink}" opacity="0.7">${escapeMarkup(s.hex.toUpperCase())}</text>`
     );
     fy += 118;
   }
@@ -325,7 +324,7 @@ export function moodboardSvg(board: Moodboard, projectName = "plot-to-plan"): st
     );
     const label = p.piece.count > 1 ? `${p.piece.name} ×${p.piece.count}` : p.piece.name;
     parts.push(
-      `<text x="${x}" y="${y + p.h + 16}" font-family="sans-serif" font-size="11.5" font-weight="600" fill="${INK}">${esc(label)}</text>`
+      `<text x="${x}" y="${y + p.h + 16}" font-family="sans-serif" font-size="11.5" font-weight="600" fill="${INK}">${escapeMarkup(label)}</text>`
     );
     parts.push(
       `<text x="${x}" y="${y + p.h + 29}" font-family="monospace" font-size="9.5" fill="${RULE}">${formatFtIn(p.piece.widthFt)} × ${formatFtIn(p.piece.depthFt)} × ${formatFtIn(p.piece.heightFt)} &#183; ${mm(p.piece.widthFt)}mm W</text>`
@@ -341,7 +340,7 @@ export function moodboardSvg(board: Moodboard, projectName = "plot-to-plan"): st
     `<text x="56" y="${tbY + 44}" font-family="monospace" font-size="11" fill="${RULE}">Colours are the specified finish and the piece's own colour. No product photography — these are the real dimensions, not a catalogue shot.</text>`
   );
   parts.push(
-    `<text x="${SHEET_W - 56}" y="${tbY + 26}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${esc(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
+    `<text x="${SHEET_W - 56}" y="${tbY + 26}" text-anchor="end" font-family="monospace" font-size="12" fill="${RULE}">${escapeMarkup(projectName)} &#183; ${new Date().toLocaleDateString()}</text>`
   );
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SHEET_W}" height="${SHEET_H}" viewBox="0 0 ${SHEET_W} ${SHEET_H}">${parts.join("")}</svg>`;
@@ -360,7 +359,7 @@ export function printMoodboardSet(boards: Moodboard[], projectName = "plot-to-pl
   win.document.write(`<!DOCTYPE html>
 <html>
   <head>
-    <title>Finish boards — ${esc(projectName)}</title>
+    <title>Finish boards — ${escapeMarkup(projectName)}</title>
     <style>
       @page { size: A3 landscape; margin: 8mm; }
       body { margin: 0; background: #fff; }

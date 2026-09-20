@@ -46,8 +46,7 @@ import {
   WALL_TYPE_CONFIGS,
   WallJoinStyle,
   SELECTED_WALL_STROKE,
-  getWallLengthIn,
-} from "@/lib/customArchitecture";
+  getWallLengthIn, newId } from "@/lib/customArchitecture";
 import {
   JOIN_STYLES,
   MAX_JOIN_RADIUS_IN,
@@ -140,7 +139,6 @@ interface Blueprint2DViewProps {
   windowConfig?: WindowConfig;
   onChangeWindowConfig?: (config: WindowConfig) => void;
   placingOpeningDef?: OpeningItemDef | null;
-  onSelectPlaceOpening?: (def: OpeningItemDef | null) => void;
 }
 
 export default function Blueprint2DView({
@@ -169,7 +167,6 @@ export default function Blueprint2DView({
   windowConfig,
   onChangeWindowConfig,
   placingOpeningDef = null,
-  onSelectPlaceOpening,
   activeCadTool = "select",
   onChangeCadTool,
   activeWallType = "exterior",
@@ -414,7 +411,6 @@ export default function Blueprint2DView({
   const plotPxX = toPxX(0);
   const plotPxY = toPxY(0);
   const plotPxW = plot.widthIn * baseScale;
-  const plotPxH = plot.depthIn * baseScale;
 
   const envPxX = toPxX(setbackW);
   const envPxY = toPxY(setbackN);
@@ -550,7 +546,7 @@ export default function Blueprint2DView({
         onChangeDrawnStairs?.([
           ...drawnStairs,
           {
-            id: `stair_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            id: newId("stair"),
             floor: activeFloor,
             pointsIn: draftStairPts.map((pt) => ({ xIn: pt.xIn, yIn: pt.yIn })),
             widthIn: stairWidthIn,
@@ -701,7 +697,7 @@ export default function Blueprint2DView({
         const lenIn = Math.hypot(snapX - draftWallStart.xIn, snapY - draftWallStart.yIn);
         if (lenIn >= 12) {
           const newWall: CustomDrawnWall = {
-            id: `wall_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            id: newId("wall"),
             floor: activeFloor,
             startXIn: draftWallStart.xIn,
             startYIn: draftWallStart.yIn,
@@ -737,7 +733,7 @@ export default function Blueprint2DView({
           const wall = customWalls.find((w) => w.id === hoveredWallInfo.wallId);
           if (wall) {
             const newOpening: CustomWallOpening = {
-              id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              id: newId("op"),
               kind: customKind,
               offsetIn: Math.max(0, hoveredWallInfo.offsetIn - widthIn / 2),
               widthIn,
@@ -1397,7 +1393,7 @@ export default function Blueprint2DView({
         const wall = customWalls.find((w) => w.id === closestHit!.wallId);
         if (wall) {
           const newOpening: CustomWallOpening = {
-            id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            id: newId("op"),
             kind: dropCustomKind,
             offsetIn: Math.max(0, closestHit.offsetIn - widthIn / 2),
             widthIn,

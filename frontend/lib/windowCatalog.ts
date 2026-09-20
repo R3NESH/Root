@@ -285,17 +285,6 @@ export const DEFAULT_WINDOW_CONFIG: WindowConfig = {
   hasCurtains: true,
   hasWindowGrille: false,
 };
-
-export function getRoomWindowShape(
-  roomName: RoomName | undefined,
-  config: WindowConfig = DEFAULT_WINDOW_CONFIG
-): WindowShapeId {
-  if (roomName && config.roomWindowShapes[roomName]) {
-    return config.roomWindowShapes[roomName]!;
-  }
-  return config.globalShape;
-}
-
 export function getIndividualWindowProps(
   windowId: string,
   roomName: RoomName | undefined,

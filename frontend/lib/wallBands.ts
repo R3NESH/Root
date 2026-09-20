@@ -125,11 +125,6 @@ export const WALL_BAND_PRESETS: WallBandPreset[] = [
     },
   },
 ];
-
-export function findPreset(id: string): WallBandPreset | undefined {
-  return WALL_BAND_PRESETS.find((p) => p.id === id);
-}
-
 /**
  * The room instance id the rest of the app keys custom dimensions and openings by.
  *
@@ -333,18 +328,3 @@ export function generateRandomPermutation(
 
   return { axis, bands };
 }
-
-/**
- * Updates a scheme with custom proportional slice splits (e.g. [35, 65] or [30, 40, 30])
- */
-export function withCustomPartitionSplit(
-  scheme: WallBandScheme,
-  splits: number[]
-): WallBandScheme {
-  const bands: WallBand[] = scheme.bands.map((b, i) => ({
-    ...b,
-    sizeFrac: splits[i] ?? b.sizeFrac,
-  }));
-  return { axis: scheme.axis, bands };
-}
-

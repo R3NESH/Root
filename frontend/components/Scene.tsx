@@ -92,7 +92,7 @@ import {
   PlacedCustomObject,
 } from "@/lib/furnitureCatalog";
 import { BuiltinFurnitureRecord } from "@/lib/furnitureInventory";
-import { loadGlbModel, loadGlbFromFile } from "@/lib/modelLoader";
+import { loadGlbModel } from "@/lib/modelLoader";
 import { mountRealModels } from "@/lib/furnitureModels";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -147,8 +147,7 @@ import {
   DrawnStair,
   DEFAULT_STAIR_WIDTH_IN,
   getCurvedWallArcPoints,
-  SELECTED_WALL_COLOR_HEX,
-} from "@/lib/customArchitecture";
+  SELECTED_WALL_COLOR_HEX, newId } from "@/lib/customArchitecture";
 import { solveStairPath } from "@/lib/stairPath";
 import { buildCameraTour, sampleCameraTour, CameraTour } from "@/lib/cameraTour";
 import { detectGpu, dprCapFor, contextOptionsFor } from "@/lib/gpuTier";
@@ -256,7 +255,6 @@ interface SceneProps {
   onChangeCustomWalls?: (walls: CustomDrawnWall[]) => void;
   onChangeCustomRoomZones?: (zones: CustomRoomZone[]) => void;
   onChangeCustomOpenings?: (openings: Record<string, RoomOpening[]>) => void;
-  onStartFromScratch?: () => void;
   deletedBuiltinIds?: string[];
   /**
    * Every piece the automatic fit-out placed, measured off the built scene. The FF&E schedule
@@ -301,7 +299,6 @@ interface SceneProps {
   /** The renderer lowers its own quality when frames are slow; this is how it says so. */
   onChangeGraphicsSettings?: (settings: GraphicsSettings) => void;
   isUpgraded?: boolean;
-  onToggleUpgrade?: () => void;
   isRaytracing?: boolean;
   onToggleRaytrace?: () => void;
 }
@@ -332,34 +329,6 @@ function createDaySkyTexture(): THREE.CanvasTexture {
     ctx.beginPath();
     ctx.arc(720, 240, 180, 0, Math.PI * 2);
     ctx.fill();
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  return tex;
-}
-
-function createNightSkyTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    const nightGrad = ctx.createLinearGradient(0, 0, 0, 1024);
-    nightGrad.addColorStop(0, "#020617");   // Deep space obsidian
-    nightGrad.addColorStop(0.5, "#0b132b"); // Midnight navy
-    nightGrad.addColorStop(1.0, "#1e293b"); // Horizon slate
-    ctx.fillStyle = nightGrad;
-    ctx.fillRect(0, 0, 1024, 1024);
-
-    // Sparkling stars
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    for (let i = 0; i < 180; i++) {
-      const sx = (Math.sin(i * 99.7) * 0.5 + 0.5) * 1024;
-      const sy = (Math.cos(i * 37.3) * 0.5 + 0.5) * 750;
-      const sr = (i % 3 === 0) ? 2.2 : 1.2;
-      ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      ctx.fill();
-    }
   }
   const tex = new THREE.CanvasTexture(canvas);
   return tex;
@@ -572,7 +541,6 @@ export default function Scene({
   onChangeCustomWalls,
   onChangeCustomRoomZones,
   onChangeCustomOpenings,
-  onStartFromScratch,
   onFurnitureInventory,
   deletedBuiltinIds = [],
   placingItemType = null,
@@ -603,7 +571,6 @@ export default function Scene({
   graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
   onChangeGraphicsSettings,
   isUpgraded = false,
-  onToggleUpgrade,
   isRaytracing = false,
   onToggleRaytrace,
   onNearestDoorChange,
@@ -1707,7 +1674,7 @@ export default function Scene({
 
             if (lenFt >= 1.0) {
               const newWall: CustomDrawnWall = {
-                id: `wall_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                id: newId("wall"),
                 floor: activeFloorRef.current || 0,
                 startXIn: Math.round(startPt.x * 12),
                 startYIn: Math.round(startPt.z * 12),
@@ -1832,7 +1799,7 @@ export default function Scene({
             ev.stopPropagation();
             ev.stopImmediatePropagation();
             const newOpening: CustomWallOpening = {
-              id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              id: newId("op"),
               kind: customKind,
               offsetIn: Math.max(0, closestCustomHit.offsetIn - widthIn / 2),
               widthIn,
@@ -2014,7 +1981,7 @@ export default function Scene({
           }
 
           const newObj: PlacedCustomObject = {
-            id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            id: newId("custom"),
             type: placingItemTypeRef.current,
             name: itemDef?.name || (isWall ? "Partition Wall" : "Furniture"),
             x: posX,
@@ -2583,7 +2550,7 @@ export default function Scene({
             const placePos = getWalkthroughPlacementPoint(pointerNdc);
             const itemDef = FURNITURE_CATALOG.find((i) => i.type === placingItemTypeRef.current);
             const newObj: PlacedCustomObject = {
-              id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              id: newId("custom"),
               type: placingItemTypeRef.current,
               name: itemDef?.name || "Furniture",
               x: Math.round(placePos.x * 2) / 2,
@@ -2826,7 +2793,7 @@ export default function Scene({
             setDrafting3DDescription(solved.problem);
           } else {
             const stair: DrawnStair = {
-              id: `stair_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              id: newId("stair"),
               floor: activeFloorRef.current || 0,
               pointsIn: pts.map((pt) => ({ xIn: Math.round(pt.x * 12), yIn: Math.round(pt.z * 12) })),
               widthIn: stairWidthInRef.current,
@@ -3618,14 +3585,6 @@ export default function Scene({
     const baseboardMaterial = new THREE.MeshStandardMaterial({
       color: 0x1e1b18,
       roughness: 0.5,
-    });
-    const doorFrameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2b1e16,
-      roughness: 0.45,
-    });
-    const mainEntranceFrameMat = new THREE.MeshStandardMaterial({
-      color: 0x18120d,
-      roughness: 0.35,
     });
     const goldHardwareMat = new THREE.MeshStandardMaterial({
       color: 0xd4af37,
@@ -6501,7 +6460,7 @@ export default function Scene({
 
       if (closestCustomHit) {
         const newOpening: CustomWallOpening = {
-          id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: newId("op"),
           kind,
           offsetIn: Math.max(0, closestCustomHit.offsetIn - widthIn / 2),
           widthIn,
