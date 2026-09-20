@@ -1,0 +1,9 @@
+# Git's line-ending conversion is on for this repo, and it warned on the guide PDF before its
+# own binary detection caught it. Say so explicitly, so a checkout on a machine configured
+# differently cannot rewrite bytes inside a binary file.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.bin binary
+*.gltf -text
+*.glb binary
