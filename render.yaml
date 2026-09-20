@@ -1,0 +1,31 @@
+# Render blueprint for the plan solver.
+#
+# The frontend is a static export on Netlify and is not described here. What it needs from this
+# file is the service URL, which goes into NEXT_PUBLIC_SOLVER_URL on the Netlify build — see
+# notes/architecture/environment-notes.md.
+
+services:
+  - type: web
+    name: plot-to-plan-solver
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore          # closest to the plots this is designed for
+    plan: free                 # see the note on cold starts below
+    healthCheckPath: /docs     # FastAPI serves this; there is no dedicated health route
+    autoDeploy: true
+    envVars:
+      # Set this in the Render dashboard, not here, and never commit the value. Without it the
+      # three /ai/* routes return 503 and every other route works normally.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+# Cold starts. On the free plan Render stops the instance after about 15 minutes idle and the
+# next request waits for it to come back — roughly 30 to 60 seconds, during which the browser
+# falls back to the offline estimator and the UI says so. That is correct behaviour, not a bug,
+# but it reads as a broken site to a first-time visitor. The paid starter plan is what removes
+# it.
+#
+# Memory. OR-Tools is the whole footprint here. solver/model.py sizes its worker count to the
+# machine rather than asking for eight, so the free instance is workable; a bigger plan will
+# solve the same plans faster and reach OPTIMAL more often.

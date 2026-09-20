@@ -1,3 +1,15 @@
+# The frontend is a static export, so NEXT_PUBLIC_SOLVER_URL is baked in at BUILD time, not read
+# in the browser. Setting it after a deploy changes nothing until the site is rebuilt.
+#
+# Set it in Netlify: Site configuration -> Environment variables -> Add a variable
+#     NEXT_PUBLIC_SOLVER_URL = https://<your-render-service>.onrender.com
+# then trigger a redeploy. It is not set here because the value is per-deploy, and a wrong URL
+# fails the same way as no URL at all: the browser falls back to the offline estimator, which
+# packs the ground floor only and says so.
+#
+# It must be https. The site is served over https, and a browser blocks a plain-http request
+# from it.
+
 [build]
   base = "frontend"
   publish = "out"

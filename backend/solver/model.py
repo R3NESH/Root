@@ -14,6 +14,8 @@ rather than scored afterwards.
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
+import os
+
 from ortools.sat.python import cp_model
 
 from programs import RESIDENTIAL, Program, primary_cardinal, resolve_rules
@@ -52,6 +54,12 @@ from .walls import Wall, derive_walls
 # from 2 s to 5 s moved envelope fill by about one point on the common case and never changed
 # reachability or zoning. Three extra seconds of blank screen bought nothing anyone can see.
 SOLVE_TIME_LIMIT_SECONDS = 2.0
+
+# How many CP-SAT workers to run. Sized to the machine rather than fixed at 8, because the same
+# code runs on a developer desktop and on a small hosted instance. `os.cpu_count()` reports the
+# container's view of the host, which can overstate a fractional-CPU plan, so the floor of 1 and
+# the ceiling of 8 both matter.
+SOLVER_WORKERS = max(1, min(8, os.cpu_count() or 1))
 
 # Interactive budget, for a solve that already has previous positions to drift from. 0.4 s is
 # right for the five- and six-room house this was tuned on, and measurably wrong past that: an
@@ -339,7 +347,12 @@ def _build_and_solve(
     solver.parameters.relative_gap_limit = 0.02
     # CP-SAT's portfolio search parallelises well and this model is a packing problem, which is
     # exactly what its parallel workers are good at. Left at the default it runs single-threaded.
-    solver.parameters.num_workers = 8
+    #
+    # Eight is right for a developer machine and wrong for a small hosted instance: a free tier
+    # gives a fraction of a core and a few hundred MB, and eight workers there thrash rather than
+    # search. So take the machine's own core count, capped at 8. Each worker also carries its own
+    # copy of the model, so this is a memory decision as much as a speed one.
+    solver.parameters.num_workers = SOLVER_WORKERS
     status = solver.solve(model)
     return status, solver, placements, applied
 

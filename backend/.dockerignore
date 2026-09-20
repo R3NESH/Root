@@ -1,0 +1,12 @@
+# The local virtualenv holds Windows binaries and is larger than the rest of the repo put
+# together. Copying it in would both bloat the image and shadow the Linux packages pip installs.
+.venv/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Not needed to serve a request.
+tests/
+requirements-dev.txt
+README.md
